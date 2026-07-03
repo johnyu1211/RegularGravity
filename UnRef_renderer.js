@@ -1410,12 +1410,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     await migrateToVault(); 
     setupUI(); 
     addSubTerminal(true); 
+    
+    // 1. 먼저 Browser 탭에서 시작 (초기화 및 컨텍스트 로딩을 시각적으로 보여줌)
+    document.getElementById('tab-browser-hub')?.click();
+    
     await setupBoot();
     
-    // [🛠️ 수정: 시작 시 로컬 탭 고정]
-    document.getElementById('tab-local-agent')?.click();
-    
-    // 초기화만 유지, 기록 복원 없음
+    // 2. 1초 뒤 로컬 탭으로 자동 이동 + 입력창 포커스
+    setTimeout(() => {
+        const localTab = document.getElementById('tab-local-agent');
+        if (localTab) {
+            localTab.click();
+            const chatIn = document.getElementById('local-agent-input');
+            if (chatIn) chatIn.focus();
+        }
+    }, 1000);
+
     GravityVault.init();
 });
 ipcRenderer.on('refresh-explorer', () => { window.loadDirectory(window.currentPath); });

@@ -1,0 +1,1426 @@
+// --- Poor man's Gravity ULTIMATE RENDERER ENGINE (STABLE v31 - COLLABORATION EDITION) ---
+const fs = require('fs');
+if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
+
+// --- [전역 히스토리 스택 & Undo/Redo 엔진] ---
+window.editorHistory = window.editorHistory || [];
+window.historyIndex = window.editorHistory.length > 0 ? window.editorHistory.length - 1 : -1;
+
+window.performUndo = function() {
+    if (window.historyIndex > 0) {
+        window.historyIndex--;
+        const content = window.editorHistory[window.historyIndex];
+        fs.writeFileSync(window.currentEditingPath, content);
+        window.openFileInEditor(window.currentEditingPath);
+        console.log("[System] Undo performed.");
+    }
+};
+
+window.performRedo = function() {
+    if (window.historyIndex < window.editorHistory.length - 1) {
+        window.historyIndex++;
+        const content = window.editorHistory[window.historyIndex];
+        fs.writeFileSync(window.currentEditingPath, content);
+        window.openFileInEditor(window.currentEditingPath);
+        console.log("[System] Redo performed.");
+    }
+};
+
+window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) window.performRedo();
+        else window.performUndo();
+    }
+});
+
+// --- [박스 단위 패치 엔진 (Box-Level Patch)] ---
+window.pasteToBlock = async (syncId, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    try {
+        const text = await navigator.clipboard.readText();
+        if (!text) { alert("클립보드가 비어있습니다."); return; }
+        
+        const filePath = window.currentEditingPath;
+        const detailEl = document.getElementById('editor-' + syncId);
+        if (!detailEl) { alert("박스를 찾을 수 없습니다."); return; }
+
+        const footerEl = detailEl.parentElement.querySelector('.pormsg-footer');
+        const startLine = parseInt(detailEl.dataset.start);
+        const endLine = footerEl ? parseInt(footerEl.dataset.end) : startLine;
+        
+        const fileContent = fs.readFileSync(filePath, 'utf-8').replace(/\r/g, '');
+        let lines = fileContent.split('\n');
+        
+        window.editorHistory.push(fileContent);
+        window.historyIndex = window.editorHistory.length - 1;
+        
+        const newLines = text.split('\n');
+        lines.splice(startLine, (endLine - startLine + 1), ...newLines);
+        
+        fs.writeFileSync(filePath, lines.join('\n'));
+        window.openFileInEditor(filePath);
+        
+    } catch (err) {
+        console.error("Paste failed:", err);
+        alert("박스 패치 중 오류 발생: " + err.message);
+    }
+};
+
+ipcRenderer.on('soft-reload-workspace', () => {
+    if (window.currentPath && typeof window.loadDirectory === 'function') window.loadDirectory(window.currentPath);
+    const header = document.querySelector('#editor-container .section-header h3');
+    if (header) header.innerText = 'PORMSG VIEW';
+    const editorContent = document.getElementById('editor-content');
+    if (editorContent) {
+        editorContent.innerHTML = `<div style="display:flex; justify-content:center; align-items:center; height:100%; color:#444; font-family:'JetBrains Mono', monospace; flex-direction:column; gap:10px;"><div style="font-size: 24px;">🔄</div><div>Workspace Soft Reloaded</div><div style="font-size: 11px; color: #333;">AI session preserved</div></div>`;
+    }
+});
+
+let terminalCount = 0; let activeSubTabId = null; const terminalSessions = {};
+let webRequestId = 0; window.currentPath = process.cwd();
+
+const syncBrowserView = (() => {
+    let syncPending = false;
+    return () => {
+        if (syncPending) return; syncPending = true;
+        requestAnimationFrame(() => {
+            try {
+                const dock = document.getElementById('agent-view-dock'), hub = document.getElementById('inspector-browser-hub');
+                if (dock && hub && hub.style.display === 'flex' && document.getElementById('agent-hub-webview')?.style.display === 'flex') {
+                    const rect = dock.getBoundingClientRect();
+                    ipcRenderer.send('sync-agent-view-bounds', { x: Math.round(rect.left), y: Math.round(rect.top), width: Math.round(rect.width), height: Math.round(rect.height) });
+                }
+            } catch (e) { }
+            syncPending = false;
+        });
+    };
+})();
+
+window.fetchDirContent = async (p) => await ipcRenderer.invoke('get-directory-content', p);
+window.loadDirectory = async (p) => {
+    try {
+        window.currentPath = p; document.getElementById('path-display').innerHTML = `<span class="path-segment">${p === 'DRIVES' ? 'THIS PC' : p}</span>`;
+        const badge = document.getElementById('active-project-badge'); if (badge) badge.innerText = p === 'DRIVES' ? 'PC' : p.split(/[\\/]/).pop().toUpperCase() || 'PORMSG';
+        const f = await window.fetchDirContent(p === 'DRIVES' ? '' : p);
+        if (window.renderTree) window.renderTree(p, f);
+    } catch (e) { }
+};
+
+if (!window.hasEditorSearchBind) {
+    window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+            const searchInput = document.getElementById('editor-search-input');
+            if (searchInput && searchInput.offsetParent !== null) { e.preventDefault(); searchInput.focus(); searchInput.select(); }
+        }
+    });
+    window.hasEditorSearchBind = true;
+}
+
+window.openFileInEditor = (filePath) => {
+    window.currentEditingPath = filePath;
+    const path = require('path');
+    const editorContent = document.getElementById('editor-content');
+    if (!editorContent) return;
+
+    try {
+        const ext = path.extname(filePath).toLowerCase().substring(1);
+        const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+        
+        const header = document.querySelector('#editor-container .section-header');
+        if (header) {
+            header.style.display = 'flex'; header.style.alignItems = 'center';
+            header.innerHTML = `
+                <h3 style="margin:0;">PORMSG VIEW - ${path.basename(filePath)}</h3>
+                <div style="margin-left: auto; display: flex; gap: 8px; padding-right: 15px; align-items:center;">
+                    <div id="editor-search-box" style="display:flex; align-items:center; background:#0a0a0a; border:1px solid #333; border-radius:4px; padding:2px 8px; margin-right: 10px; transition: 0.2s;">
+                        <span style="font-size:10px; color:#555; margin-right:6px;">🔍</span>
+                        <input type="text" id="editor-search-input" placeholder="Search (Ctrl+F)" style="background:transparent; border:none; color:#ccc; font-size:11px; width:120px; outline:none; font-family:'JetBrains Mono', monospace;">
+                        <span id="editor-search-result" style="font-size:10px; color:#888; margin-left:8px; min-width:15px; text-align:right;"></span>
+                    </div>
+                    <div style="display:flex; gap:4px; margin-right:10px;">
+                        <button id="btn-undo" title="Undo (Ctrl+Z)" style="background:#111; border:1px solid #333; color:#aaa; padding:2px 8px; border-radius:4px; cursor:pointer;">↶</button>
+                        <button id="btn-redo" title="Redo (Ctrl+Shift+Z)" style="background:#111; border:1px solid #333; color:#aaa; padding:2px 8px; border-radius:4px; cursor:pointer;">↷</button>
+                    </div>
+                    <button id="btn-collapse-all" style="background:#111; color:#aaa; border:1px solid #333; padding:5px 12px; border-radius:4px; font-size:11px; cursor:pointer; transition:0.2s;">Collapse All</button>
+                    <button id="btn-expand-all" style="background:#0078d4; color:#fff; border:1px solid #005a9e; padding:5px 12px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold; transition:0.2s;">Expand All</button>
+                </div>
+            `;
+            
+            document.getElementById('btn-undo').onclick = window.performUndo;
+            document.getElementById('btn-redo').onclick = window.performRedo;
+            document.getElementById('btn-collapse-all').onclick = () => { editorContent.querySelectorAll('.editor-detail').forEach(d => { d.open = false; const mini = document.getElementById(d.getAttribute('data-mini-id')); if (mini) mini.open = false; }); };
+            document.getElementById('btn-expand-all').onclick = () => { editorContent.querySelectorAll('.editor-detail').forEach(d => { d.open = true; const mini = document.getElementById(d.getAttribute('data-mini-id')); if (mini) mini.open = true; }); };
+        }
+
+        if (imageExts.includes(ext)) {
+            const base64 = fs.readFileSync(filePath).toString('base64');
+            const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
+            editorContent.innerHTML = `<div id="editor-scroll-container" style="position: absolute; inset: 0; display:flex; justify-content:center; align-items:flex-start; overflow:auto; padding:20px; box-sizing:border-box; background:#050505;"><img src="data:${mime};base64,${base64}" style="max-width:100%; object-fit:contain; box-shadow: 0 4px 20px rgba(0,0,0,0.5);"></div>`;
+        } else {
+            const content = fs.readFileSync(filePath, 'utf-8').replace(/\r/g, '');
+            if (typeof hljs !== 'undefined') {
+                const linesRaw = content.split('\n');
+                const lines = hljs.highlight(content, { language: ext, ignoreIllegals: true }).value.split('\n');
+                
+                let finalHTML = ''; let minimapHTML = ''; let blockStack = []; let blockCounter = 0; 
+
+                for (let i = 0; i < linesRaw.length; i++) {
+                    let line = linesRaw[i]; let htmlLine = lines[i]; let lineNum = i + 1;
+                    let lineNumHTML = `<span class="line-num">${lineNum}</span>`;
+                    
+                    let pureText = line.trim(); let spaces = (line.match(/^\s*/) || [''])[0].length; 
+                    let mmColor = (pureText.includes('function') || pureText.includes('class') || pureText.includes('=>')) ? '#0078d4' : '#333';
+                    if (pureText.startsWith('//')) mmColor = '#1e4620'; 
+                    let mmLine = pureText.length > 0 ? `<div style="height:2px; margin-bottom:1px; margin-left:${Math.min(spaces, 25)}px; width:${Math.min(pureText.length, 35)}px; background:${mmColor}; border-radius:1px;"></div>` : `<div style="height:2px; margin-bottom:1px;"></div>`;
+                    
+                    let net = 0; for (let j = 0; j < line.length; j++) { if (line[j] === '{') net++; if (line[j] === '}') net--; }
+                    if (net === 0 && blockStack.length === 0 && line.trim() === '') continue;
+
+                    if (net > 0) {
+                        let titleName = line.replace(/[{}]/g, '').trim() || "Block";
+                        let syncId = `mini-block-${blockCounter++}`;
+                        blockStack.push({ title: titleName, id: syncId, start: i });
+
+                        finalHTML += `<div class="pormsg-block"><details open class="editor-detail" data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<span class="caret">▶</span><div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine}</div><div class="box-paste-btn" onclick="window.pasteToBlock('${syncId}', event)">📋 Paste</div></summary><div class="pormsg-body" id="body-${syncId}">`;
+                        minimapHTML += `<details open id="${syncId}" class="mini-detail"><summary class="mini-summary">${mmLine}</summary><div class="mini-body">`;
+                    } else if (net < 0 && blockStack.length > 0) {
+                        let popped = blockStack.pop();
+                        let lineCount = i - popped.start + 1;
+                        
+                        finalHTML += `</div></details><div class="pormsg-footer" data-end="${i}">${lineNumHTML}<div style="display:flex; align-items:center; flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine} <span class="footer-tag" style="margin-left: 8px;">// ${popped.title}</span> <span style="color:#0078d4; font-size:10px; font-weight:bold; margin-left:8px; background:rgba(0,120,212,0.1); border: 1px solid rgba(0,120,212,0.3); padding:1px 6px; border-radius:10px;">${lineCount} lines</span></div><div class="go-top-btn" onclick="const el = document.getElementById('editor-${popped.id}'); if(el){ document.getElementById('editor-scroll-container').scrollTo({top: el.offsetTop - 20, behavior: 'smooth'}); } event.stopPropagation();" title="Go to block start">↑ Top</div></div></div>`;
+                        minimapHTML += `</div></details><div class="mini-footer">${mmLine}</div>`;
+                    } else {
+                        finalHTML += `<div class="pormsg-line">${lineNumHTML} <span style="white-space:pre;">${htmlLine || ' '}</span></div>`;
+                        minimapHTML += mmLine;
+                    }
+                }
+
+                editorContent.innerHTML = `
+                    <style>
+                        .line-num { position: sticky; left: 0; z-index: 2; display: inline-block; width: 30px; min-width: 30px; text-align: right; color: #555; user-select: none; margin-right: 12px; font-size: 11px; font-family: 'JetBrains Mono', monospace; border-right: 1px solid #333; padding-right: 8px; flex-shrink: 0; transition: color 0.1s; background: transparent; }
+                        .pormsg-line .line-num { background: #000; } .pormsg-line:hover .line-num { background: #141414; }
+                        .pormsg-body .pormsg-line .line-num { background: #070707; } .pormsg-body .pormsg-line:hover .line-num { background: #1b1b1b; }
+                        
+                        .pormsg-block { margin: 6px 0; border: 1px solid #2a2a2a; border-radius: 7px; background: #070707; transition: border-color 0.15s; display: block; max-width: 100%; overflow: hidden; }
+                        .pormsg-body .pormsg-block { margin: 2px 0 2px 12px; }
+                        .pormsg-block:hover { border-color: #fff; } .pormsg-block:has(.pormsg-block:hover) { border-color: #2a2a2a; }
+                        
+                        .pormsg-header { cursor: pointer; padding: 4px 10px 4px 0; background: #111; display: flex; align-items: center; list-style: none; border-radius: 6px 6px 0 0; transition: background 0.1s; max-width: 100%; box-sizing: border-box; }
+                        .pormsg-header::-webkit-details-marker { display: none; } .pormsg-header:hover { background: #1a1a1a; } .pormsg-header:hover .line-num { color: #888; }
+                        
+                        .box-paste-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; flex-shrink: 0; }
+                        .pormsg-header:hover .box-paste-btn { opacity: 1; } .box-paste-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+                        
+                        .caret { color: #0078d4; font-size: 10px; margin-right: 8px; transition: 0.2s; flex-shrink: 0; } details[open] > .pormsg-header .caret { transform: rotate(90deg); }
+                        
+                        .pormsg-body { padding: 0; border-top: 1px solid #222; overflow-x: auto; overflow-y: hidden; width: 100%; box-sizing: border-box; }
+                        .pormsg-body::-webkit-scrollbar { height: 6px; } .pormsg-body::-webkit-scrollbar-track { background: transparent; }
+                        .pormsg-body::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; } .pormsg-body::-webkit-scrollbar-thumb:hover { background: #555; }
+                        
+                        .pormsg-footer { padding: 4px 10px 4px 0; background: #111; border-top: 1px solid #2a2a2a; border-radius: 0 0 6px 6px; display: flex; align-items: center; transition: background 0.1s; max-width: 100%; box-sizing: border-box; }
+                        .pormsg-footer:hover { background: #1a1a1a; } .pormsg-footer:hover .line-num { color: #888; } .footer-tag { color: #666; font-size: 10px; font-style: italic; white-space: nowrap; }
+                        
+                        .go-top-btn { font-size: 10px; font-weight: bold; color: #555; background: #0a0a0a; border: 1px solid #222; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; flex-shrink: 0; }
+                        .pormsg-footer:hover .go-top-btn { opacity: 1; } .go-top-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+                        
+                        .pormsg-line { padding: 0 10px 0 0; line-height: 1.5; position: relative; z-index: 1; display: flex; align-items: center; transition: background 0.1s; border-radius: 2px; width: max-content; min-width: 100%; box-sizing: border-box; }
+                        .pormsg-line:hover { background: rgba(255, 255, 255, 0.08); } .pormsg-line:hover .line-num { color: #888; }
+                        
+                        .search-highlight { background: rgba(212, 160, 23, 0.2) !important; border-radius: 2px; } .search-highlight .line-num { color: #d4a017 !important; font-weight: bold; }
+                        
+                        #minimap-thumb:hover { background: rgba(255, 255, 255, 0.15) !important; border-color: rgba(255, 255, 255, 0.4) !important; }
+                        .mini-detail, .mini-body, .mini-footer { margin: 0; padding: 0; outline: none; } .mini-summary { list-style: none; margin: 0; padding: 0; display: block; } .mini-summary::-webkit-details-marker { display: none; }
+                    </style>
+                    <div style="display: flex; position: absolute; inset: 0; background: #000; overflow: hidden;">
+                        <div id="editor-scroll-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px; position: relative;">
+                            <pre style="margin:0; padding:0; width:100%; max-width:100%; overflow-x:auto;">
+                                <code class="hljs" style="font-family:'JetBrains Mono', monospace; font-size:13px; background:transparent; display:block; width:100%; padding:0; margin:0;">
+                                    ${finalHTML}
+                                </code>
+                            </pre>
+                        </div>
+                        <div id="minimap-container" style="width: 70px; min-width: 70px; background: #050505; border-left: 1px solid #1a1a1a; position: relative; user-select: none;">
+                            <div id="minimap-track" style="position: absolute; left: 0; right: 0; top: 10px; pointer-events: none; transition: transform 0.1s ease-out;">${minimapHTML}</div>
+                            <div id="minimap-thumb" style="position: absolute; top: 0; right: 0; width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-right: none; cursor: grab; border-radius: 4px 0 0 4px; transition: background 0.2s, border-color 0.2s;"></div>
+                        </div>
+                    </div>`;
+
+                const scrollCont = document.getElementById('editor-scroll-container'), miniThumb = document.getElementById('minimap-thumb');
+                const miniCont = document.getElementById('minimap-container'), miniTrack = document.getElementById('minimap-track');
+                const searchInput = document.getElementById('editor-search-input'), searchResult = document.getElementById('editor-search-result');
+                let searchTimer;
+
+                if (searchInput && scrollCont) {
+                    searchInput.addEventListener('focus', () => { document.getElementById('editor-search-box').style.borderColor = '#0078d4'; });
+                    searchInput.addEventListener('blur', () => { document.getElementById('editor-search-box').style.borderColor = '#333'; });
+                    searchInput.addEventListener('input', () => {
+                        clearTimeout(searchTimer);
+                        searchTimer = setTimeout(() => {
+                            const query = searchInput.value.toLowerCase();
+                            const elements = editorContent.querySelectorAll('.pormsg-line, .pormsg-header, .pormsg-footer');
+                            elements.forEach(el => el.classList.remove('search-highlight'));
+                            if (!query.trim()) { searchResult.innerText = ''; return; }
+                            let matchCount = 0, firstMatch = null;
+                            elements.forEach(el => {
+                                if (el.textContent.toLowerCase().includes(query)) {
+                                    el.classList.add('search-highlight'); matchCount++;
+                                    if (!firstMatch) firstMatch = el;
+                                    let parent = el.closest('details');
+                                    while (parent) {
+                                        if (!parent.open) {
+                                            parent.open = true;
+                                            const miniId = parent.getAttribute('data-mini-id');
+                                            if (miniId) { const mini = document.getElementById(miniId); if (mini) mini.open = true; }
+                                        }
+                                        parent = parent.parentElement.closest('details');
+                                    }
+                                }
+                            });
+                            searchResult.innerText = matchCount > 0 ? matchCount : '0';
+                            if (firstMatch) { scrollCont.scrollTo({ top: firstMatch.offsetTop - 40, behavior: 'smooth' }); setTimeout(updateThumb, 50); }
+                        }, 250);
+                    });
+                }
+
+                if (scrollCont && miniThumb && miniCont) {
+                    editorContent.querySelectorAll('.editor-detail').forEach(d => {
+                        d.addEventListener('toggle', () => {
+                            const mini = document.getElementById(d.getAttribute('data-mini-id'));
+                            if (mini) mini.open = d.open; setTimeout(updateThumb, 30);
+                        });
+                    });
+                    const updateThumb = () => {
+                        const sh = scrollCont.scrollHeight, ch = scrollCont.clientHeight;
+                        if (sh <= ch) { miniThumb.style.display = 'none'; miniTrack.style.transform = `translateY(0px)`; return; }
+                        miniThumb.style.display = 'block';
+                        const thumbHeight = Math.max((ch / sh) * miniCont.clientHeight, 20); 
+                        miniThumb.style.height = thumbHeight + 'px';
+                        const scrollRatio = scrollCont.scrollTop / (sh - ch);
+                        miniThumb.style.top = (scrollRatio * (miniCont.clientHeight - thumbHeight)) + 'px';
+                        if (miniTrack.scrollHeight > miniCont.clientHeight) {
+                            miniTrack.style.transform = `translateY(-${scrollRatio * (miniTrack.scrollHeight - miniCont.clientHeight + 20)}px)`;
+                        } else { miniTrack.style.transform = `translateY(0px)`; }
+                    };
+                    scrollCont.addEventListener('scroll', updateThumb); window.addEventListener('resize', updateThumb); setTimeout(updateThumb, 50);
+
+                    let isDragging = false;
+                    miniThumb.onmousedown = (e) => { isDragging = true; miniThumb.style.cursor = 'grabbing'; e.preventDefault(); };
+                    document.onmouseup = () => { isDragging = false; miniThumb.style.cursor = 'grab'; };
+                    document.onmousemove = (e) => {
+                        if (!isDragging) return;
+                        const rect = miniCont.getBoundingClientRect();
+                        const thumbHeight = miniThumb.offsetHeight, thumbMax = rect.height - thumbHeight;
+                        const targetTop = Math.max(0, Math.min(e.clientY - rect.top - (thumbHeight / 2), thumbMax));
+                        scrollCont.scrollTop = (targetTop / thumbMax) * (scrollCont.scrollHeight - scrollCont.clientHeight);
+                    };
+                    miniCont.onmousedown = (e) => {
+                        if (e.target === miniThumb) return;
+                        const rect = miniCont.getBoundingClientRect();
+                        scrollCont.scrollTop = (e.clientY - rect.top) / rect.height * scrollCont.scrollHeight - scrollCont.clientHeight / 2;
+                        updateThumb();
+                    };
+                }
+            }
+        }
+    } catch (err) {
+        editorContent.innerHTML = `<div style="position: absolute; inset: 0; overflow:auto; background:#000; color:#f44; padding:20px; font-family:'JetBrains Mono', monospace;">Failed to open file:<br>${err.message}</div>`;
+    }
+};
+
+function setupHorizontalScroll(el) {
+    if (!el) return;
+    el.addEventListener('wheel', (e) => { if (e.deltaY !== 0) { e.preventDefault(); el.scrollLeft += e.deltaY; } });
+}
+function ensureTabVisible(id) {
+    const c = document.getElementById('terminal-sub-tabs'), t = document.getElementById(`tab-${id}`);
+    if (!c || !t) return;
+    setTimeout(() => {
+        const cr = c.getBoundingClientRect(), tr = t.getBoundingClientRect();
+        if (tr.right > cr.right) c.scrollLeft += (tr.right - cr.right) + 15;
+        else if (tr.left < cr.left) c.scrollLeft -= (cr.left - tr.left) + 15;
+    }, 20);
+}
+function addSubTerminal(isInitial = false) {
+    terminalCount++; const id = `sub-${terminalCount}`; terminalSessions[id] = { logs: [] };
+    const tab = document.createElement('div'); tab.className = `sub-tab ${isInitial ? 'active' : ''}`; tab.id = `tab-${id}`;
+    tab.style = "padding: 0 15px; flex-shrink: 0; min-width: max-content; height: 100%; display: flex; align-items: center; font-size: 10px; color: #555; background: #070707; border-right: 1px solid #111; cursor: pointer; transition: 0.2s;";
+    tab.innerHTML = `powershell ${terminalCount} <span class=\"sub-close\" style=\"margin-left:8px; opacity:0; transition:0.2s;\">&times;</span>`;
+    tab.onmouseenter = () => tab.querySelector('.sub-close').style.opacity = '1';
+    tab.onmouseleave = () => tab.querySelector('.sub-close').style.opacity = '0';
+    tab.onclick = (e) => { if (e.target.classList.contains('sub-close')) closeSubTerminal(id); else switchSubTerminal(id); };
+    document.getElementById('terminal-sub-tabs')?.appendChild(tab); switchSubTerminal(id);
+}
+function switchSubTerminal(id) {
+    document.querySelectorAll('.sub-tab').forEach(t => { t.classList.remove('active'); t.style.background = '#070707'; t.style.color = '#555'; });
+    const at = document.getElementById(`tab-${id}`); if (at) { at.classList.add('active'); at.style.background = '#0a0a0a'; at.style.color = '#ccc'; ensureTabVisible(id); }
+    activeSubTabId = id; const lw = document.getElementById('terminal-logs-wrapper'), ti = document.getElementById('terminal-main-input');
+    if (!lw) return; lw.innerHTML = '';
+    (terminalSessions[id].logs || []).forEach(log => {
+        const line = document.createElement('div'); line.innerText = log.text; line.style.color = log.type === 'cmd' ? '#ccc' : '#888';
+        line.style.marginBottom = '8px'; line.style.whiteSpace = 'pre-wrap'; lw.appendChild(line);
+    });
+    if (ti) ti.focus(); const surface = document.getElementById('terminal-content'); if (surface) surface.scrollTop = surface.scrollHeight;
+}
+
+function showConfirm(msg, onOk) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('custom-confirm-modal');
+        const msgEl = document.getElementById('confirm-message');
+        const okBtn = document.getElementById('confirm-ok');
+        const cancelBtn = document.getElementById('confirm-cancel');
+        const closeBtn = document.getElementById('close-confirm');
+
+        if (!modal || !msgEl) return resolve(false);
+        msgEl.innerText = msg; modal.style.display = 'flex'; if (cancelBtn) cancelBtn.style.display = 'inline-block';
+        const hide = () => { modal.style.display = 'none'; };
+        okBtn.onclick = () => { hide(); if (onOk) onOk(); resolve(true); };
+        cancelBtn.onclick = () => { hide(); resolve(false); };
+        closeBtn.onclick = () => { hide(); resolve(false); };
+        modal.onclick = (e) => { if (e.target === modal) { hide(); resolve(false); } };
+    });
+}
+
+function showAlert(msg, onOk) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('custom-confirm-modal');
+        const msgEl = document.getElementById('confirm-message');
+        const okBtn = document.getElementById('confirm-ok');
+        const cancelBtn = document.getElementById('confirm-cancel');
+        const closeBtn = document.getElementById('close-confirm');
+
+        if (!modal || !msgEl) return resolve(true);
+        msgEl.innerText = msg; modal.style.display = 'flex'; if (cancelBtn) cancelBtn.style.display = 'inline-block';
+        const hide = () => { modal.style.display = 'none'; };
+        okBtn.onclick = () => { hide(); if (onOk) onOk(); resolve(true); };
+        cancelBtn.onclick = () => { hide(); resolve(false); };
+        closeBtn.onclick = () => { hide(); resolve(false); }; 
+        modal.onclick = (e) => { if (e.target === modal) { hide(); resolve(false); } };
+    });
+}
+
+function setupUI() {
+    const tL = document.getElementById('terminal-lower'), tI = document.getElementById('terminal-main-input'), tS = document.getElementById('terminal-content');
+    setupHorizontalScroll(document.querySelector('.terminal-tabs')); setupHorizontalScroll(document.getElementById('terminal-sub-tabs'));
+    if (tS && tI) tS.onmouseup = () => { if (!window.getSelection().toString()) tI.focus(); };
+    if (tI) {
+        tI.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                const cmd = tI.value.trim(); if (!cmd) return;
+                terminalSessions[activeSubTabId].logs.push({ type: 'cmd', text: `> ${cmd}` }); switchSubTerminal(activeSubTabId);
+                ipcRenderer.send('execute-cmd', cmd); tI.value = '';
+            }
+        };
+    }
+    ipcRenderer.removeAllListeners('cmd-output');
+    ipcRenderer.on('cmd-output', (e, data) => {
+        if (activeSubTabId && terminalSessions[activeSubTabId]) {
+            terminalSessions[activeSubTabId].logs.push({ type: 'out', text: data }); switchSubTerminal(activeSubTabId);
+        }
+    });
+
+    document.getElementById('minimize-terminal').onclick = () => {
+        const im = tL.offsetHeight <= 40; tL.style.height = im ? '350px' : '35px';
+        document.getElementById('minimize-terminal').innerText = im ? '▼' : '▲'; syncBrowserView();
+    };
+
+    const vd = (r, t, s) => {
+        if (!r || !t) return;
+        r.onmousedown = (e) => {
+            const sx = e.clientX, sw = t.offsetWidth;
+            const mv = (m) => { const df = (s === 'l') ? (m.clientX - sx) : (sx - m.clientX); t.style.width = Math.max(150, Math.min(window.innerWidth * 0.8, sw + df)) + 'px'; syncBrowserView(); };
+            const up = () => { window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up); };
+            window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up);
+        };
+    };
+    vd(document.getElementById('resizer-left'), document.getElementById('sidebar-left'), 'l'); vd(document.getElementById('resizer-inspector'), document.getElementById('inspector-right'), 'r');
+    const rT = document.getElementById('resizer-terminal');
+    if (rT && tL) {
+        rT.onmousedown = (e) => {
+            const sy = e.clientY, sh = tL.offsetHeight;
+            const mv = (m) => { tL.style.height = Math.max(40, Math.min(window.innerHeight * 0.8, sh + (sy - m.clientY))) + 'px'; syncBrowserView(); };
+            const up = () => { window.removeEventListener('mouseup', up); window.removeEventListener('mousemove', mv); };
+            window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up);
+        };
+    }
+
+    const addA = document.getElementById('add-agent-app-card'), mo = document.getElementById('app-reg-modal');
+    if (addA && mo) addA.onclick = () => { mo.style.display = 'flex'; document.getElementById('reg-app-url')?.focus(); };
+    document.getElementById('cancel-reg').onclick = () => { mo.style.display = 'none'; };
+    document.getElementById('confirm-reg').onclick = async () => {
+        let u = document.getElementById('reg-app-url').value.trim(); if (!u) return;
+        if (!u.startsWith('http')) u = 'https://' + u;
+        let inSel = document.getElementById('reg-input-selector')?.value.trim() || '';
+        let btnSel = document.getElementById('reg-send-selector')?.value.trim() || '';
+        let resSel = document.getElementById('reg-response-selector')?.value.trim() || '';
+        
+        const s = await ipcRenderer.invoke('vault-read-global', 'registry.json');
+        const apps = s ? JSON.parse(s) : [];
+        const editingUrl = mo.dataset.editingUrl;
+
+        if (editingUrl) {
+            const idx = apps.findIndex(a => (typeof a === 'string' ? a : a.url) === editingUrl);
+            if (idx > -1) apps[idx] = { url: u, input: inSel, send: btnSel, response: resSel };
+            delete mo.dataset.editingUrl;
+        } else {
+            apps.push({ url: u, input: inSel, send: btnSel, response: resSel });
+        }
+        ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: JSON.stringify(apps) });
+        location.reload();
+    };
+
+    const urlIn = document.getElementById('agent-url-input'); if (urlIn) {
+        urlIn.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                let u = urlIn.value.trim(); if (!u) return;
+                if (!u.startsWith('http')) u = 'https://' + u;
+                const wv = document.getElementById('active-agent-webview');
+                if (wv) wv.src = u;
+            }
+        };
+    }
+    document.getElementById('refresh-agent').onclick = () => { const u = urlIn.value.trim(); if (u) { const wv = document.getElementById('active-agent-webview'); if (wv) wv.reload(); } };
+
+    const settingsBtn = document.getElementById('agent-settings-btn');
+    const settingsMenu = document.getElementById('agent-settings-menu');
+    if (settingsBtn && settingsMenu) {
+        settingsBtn.onmouseover = () => settingsBtn.style.background = '#222';
+        settingsBtn.onmouseout = () => settingsBtn.style.background = 'transparent';
+        
+        settingsBtn.onclick = (e) => { e.stopPropagation(); settingsMenu.style.display = settingsMenu.style.display === 'none' ? 'flex' : 'none'; };
+        document.addEventListener('click', () => { settingsMenu.style.display = 'none'; });
+
+        document.querySelectorAll('.settings-menu-item').forEach(item => {
+            item.onmouseenter = () => item.style.background = item.id === 'menu-factory-reset' ? 'rgba(255,0,0,0.15)' : '#1a1a1a';
+            item.onmouseleave = () => item.style.background = item.id === 'menu-factory-reset' ? 'rgba(255,0,0,0.05)' : 'transparent';
+        });
+
+        const switchAgentBtn = document.getElementById('menu-switch-agent');
+        if (switchAgentBtn) { switchAgentBtn.onclick = () => { document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex'; }; }
+
+        const devAgentBtn = document.getElementById('menu-debug-agent');
+        if (devAgentBtn) { devAgentBtn.onclick = () => { const wv = document.getElementById('active-agent-webview'); if (wv) wv.openDevTools(); }; }
+
+        const resetBtn = document.getElementById('menu-factory-reset');
+        if (resetBtn) {
+            resetBtn.onclick = async () => {
+                const confirmed = await showConfirm("정말 완전 초기화를 진행하시겠습니까?\n등록된 모든 에이전트와 설정이 삭제되며 제미나이 기본 상태로 돌아갑니다.");
+                if (confirmed) { ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: '[]' }); location.reload(); }
+            };
+        }
+    }
+
+    const dsModal = document.getElementById('discovery-settings-modal');
+    const dsInput = document.getElementById('discovery-keywords-input');
+    const defaultKeywords = 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
+
+    document.getElementById('open-discovery-settings').onclick = async () => {
+        const saved = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || defaultKeywords;
+        dsInput.value = saved; dsModal.style.display = 'flex';
+    };
+    document.getElementById('close-discovery-settings').onclick = () => { dsModal.style.display = 'none'; };
+    document.getElementById('save-discovery-settings').onclick = () => {
+        ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: dsInput.value.trim() });
+        dsModal.style.display = 'none';
+    };
+
+    const tLA = document.getElementById('tab-local-agent'), tBH = document.getElementById('tab-browser-hub');
+    const vLC = document.getElementById('inspector-local-chat'), vBH = document.getElementById('inspector-browser-hub');
+    const swi = (m) => {
+        vLC.style.display = (m === 'local') ? 'flex' : 'none'; vBH.style.display = (m !== 'local') ? 'flex' : 'none';
+        tLA.classList.toggle('active-tab', (m === 'local')); tBH.classList.toggle('active-tab', (m !== 'local'));
+        if (m === 'local' && document.hasFocus()) { const ci = document.getElementById('local-agent-input'); if (ci) setTimeout(() => ci.focus(), 100); }
+    };
+    if (tLA) tLA.onclick = () => swi('local'); if (tBH) tBH.onclick = () => swi('browser');
+
+    document.getElementById('save-local-chat').onclick = () => { ChatUI.appendBubble('system', '[SYSTEM] Chat snapshot save requested.'); };
+    document.getElementById('clear-local-chat').onclick = () => { 
+        showConfirm("Initialize both chat history file and screen? (Irrecoverable)", () => {
+            ipcRenderer.send('stop-ollama'); ipcRenderer.removeAllListeners('ollama-response'); generating = false; 
+            const sendBtn = document.getElementById('send-to-local'); if (sendBtn) sendBtn.innerText = "➤";
+            ipcRenderer.send('vault-reset-session', { logPath: GravityVault.activeLogPath }); 
+            document.getElementById('local-chat-messages').innerHTML = ''; if (window.chatLog) window.chatLog = []; 
+            const overlay = document.getElementById('web-process-overlay'); if (overlay) { overlay.style.display = 'none'; overlay.style.pointerEvents = 'none'; }
+            const chatIn = document.getElementById('local-agent-input'); if (chatIn) { setTimeout(() => { chatIn.focus(); chatIn.click(); }, 50); }
+        });
+    };
+
+    // [🛠️ 신규 추가: Web 토글 기본 활성화 보장]
+    const webAiToggle = document.getElementById('web-ai-mode-toggle');
+    if (webAiToggle && !webAiToggle.checked) {
+        webAiToggle.checked = true;
+    }
+
+    const chatIn = document.getElementById('local-agent-input');
+    const localControls = chatIn ? chatIn.parentElement : null;
+    
+// [🛠️ 수정: 프로젝트 정보 전송 버튼 (초기 상태 채팅 입력창 덮기)]
+    if (localControls && !document.getElementById('btn-send-project-info')) {
+        const projBtn = document.createElement('button');
+        projBtn.id = 'btn-send-project-info';
+        projBtn.innerHTML = '📁 Send Project Info to Browser';
+
+        // 부모인 localControls를 기준점으로 설정
+        localControls.style.position = 'relative';
+
+        // 버튼이 입력창(chatIn)을 덮도록 설정
+        projBtn.style = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        projBtn.onclick = async () => {
+            projBtn.innerText = "Sending Project Tree...";
+            document.getElementById('tab-browser-hub')?.click();
+            
+            const tree = await ipcRenderer.invoke('vault-get-tree');
+            console.log("전송되는 트리 데이터:", tree);
+            
+            const webPayload = `[PROJECT CONTEXT]\nHere is the current project file structure:\n${tree}\n\nPlease acknowledge you have received this context. If you need to read a file, ask the local AI to send it by returning exactly: [CMD: read-lines "filename" startLine endLine].`;
+            
+            // 1. 전송 먼저
+            await new Promise(r => setTimeout(r, 300));
+            await injectWebPayload(webPayload);
+            
+            // 2. 버튼 숨김 (탭은 아직 브라우저 유지)
+            projBtn.style.display = 'none';
+            chatIn.focus();
+            
+            // 3. 응답 완료까지 await (탭 전환 없이 대기)
+            const response = await runExperimentalEngine('/marktag', webPayload, null);
+            
+            // 4. 응답 완료 후 로컬 탭으로 전환 및 버블 표시
+            document.getElementById('tab-local-agent')?.click();
+            if (response) {
+                ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
+                detectAndAskCommand(response);
+            }
+        };
+
+        // insertBefore가 아닌 appendChild로 마지막에 추가하여 레이어 우선순위 확보
+        localControls.appendChild(projBtn);
+    }
+
+    
+
+    const updateAgentBadge = () => {
+        const wv = document.getElementById('active-agent-webview'), badge = document.getElementById('active-project-badge');
+        const headerIcon = document.getElementById('active-agent-icon');
+
+        if (wv && wv.src && !wv.src.startsWith('about:blank')) {
+            try {
+                const d = new URL(wv.src).hostname; const name = d.split('.')[0].toUpperCase();
+                const icon = `https://www.google.com/s2/favicons?domain=${d}&sz=64`;
+                if (badge) badge.innerText = `PORMSG · ${name}`; if (headerIcon) headerIcon.src = icon;
+                if (chatIn) { chatIn.placeholder = (webAiToggle && webAiToggle.checked) ? `Ask ${name} (Web AI mode active)...` : `Ask local AI... (Web AI standby: ${name})`; }
+            } catch(e) {}
+        } else {
+            if (badge) badge.innerText = `PORMSG`; if (headerIcon) headerIcon.src = 'png.png'; if (chatIn) chatIn.placeholder = `Ask local AI...`;
+        }
+    };
+
+    if (webAiToggle) {
+        webAiToggle.onchange = () => {
+            if (webAiToggle.checked) {
+                const wv = document.getElementById('active-agent-webview');
+                if (!wv) {
+                    ChatUI.appendBubble('system', '[SYSTEM] No Web AI Service selected. Please launch an AI Service from Browser Hub first.');
+                    webAiToggle.checked = true; document.getElementById('tab-browser-hub').click();
+                    document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex';
+                } else { ChatUI.appendBubble('system', '[SYSTEM] WebAI Mode ON. Messages will be routed to the external AI Service.'); }
+            } else { ChatUI.appendBubble('system', '[SYSTEM] WebAI Mode OFF. Reverting to local Ollama model.'); }
+            updateAgentBadge();
+        };
+    }
+
+    window.updateAgentBadge = updateAgentBadge;
+    const sendBtn = document.getElementById('send-to-local');
+    
+    const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false, sourceIcon = null, targetBubble = null) => {
+        if (generating) { ipcRenderer.send('stop-ollama'); generating = false; sendBtn.innerText = "➤"; return; }
+
+        const promptText = (typeof overridePrompt === 'string') ? overridePrompt : chatIn.value.trim();
+        if (!promptText) return;
+
+        if (promptText === '/help') {
+            chatIn.value = '';
+            ChatUI.appendBubble('ai', `
+**PormsG Command List**
+- \`/marktag [msg]\`: Precision Markdown tag extraction (Recommended)
+- \`/spatialMutation [msg]\`: Extract changes by monitoring specific area
+- \`/mutation [msg]\`: Extract changes by monitoring full DOM
+- \`/spatial [msg]\`: Extract using spatial analysis
+- \`/test [msg]\`: Inject basic input (manual verification)
+- \`/help\`: Show this help message
+            `);
+            return;
+        }
+
+        const experimentalCmds = ['/marktag', '/mutation', '/spatial', '/spatialMutation', '/test'];
+        let matchedCmd = null, msg = "";
+
+        for (const c of experimentalCmds) {
+            if (promptText === c || promptText.startsWith(c + ' ')) { matchedCmd = c; msg = promptText.substring(c.length).trim(); break; }
+        }
+
+        if (matchedCmd) {
+            const isTest = (matchedCmd === '/test'); const cmd = matchedCmd; const displayCmd = msg ? `${cmd} ${msg}` : cmd;
+            ChatUI.appendBubble('user', displayCmd); /* GravityVault.log('user', displayCmd); */ chatIn.value = '';
+            document.getElementById('tab-browser-hub').click();
+
+            try {
+                if (isTest) { await injectWebPayload(msg); } 
+                else {
+                    const statusBub = ChatUI.appendBubble('ai', `[SYSTEM] ${cmd} entering wait mode...`);
+                    const enginePromise = runExperimentalEngine(cmd, msg, statusBub);
+                    await new Promise(r => setTimeout(r, 300));
+                    await injectWebPayload(msg);
+                    const response = await enginePromise;
+                    if (statusBub) statusBub.remove();
+                    document.getElementById('tab-local-agent').click();
+
+                    if (response) { ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview'))); /* GravityVault.log('ai', response); */ detectAndAskCommand(response); } 
+                    else {
+                        const failBub = ChatUI.appendBubble('ai', `[SYSTEM] ${cmd} automatic extraction failed.`);
+                        const content = failBub.querySelector('.bubble-content');
+                        if (content) {
+                            content.innerHTML = `
+                                <div style="margin-bottom:12px; color:#aaa;">⚠️ ${cmd} automatic extraction failed.</div>
+                                <div style="display:flex; justify-content:center; padding:5px 0;">
+                                    <button class="manual-fetch-trigger-btn" style="background:#222; border:1px solid #333; color:#aaa; padding:8px 20px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s;">Manual Fetch</button>
+                                </div>
+                            `;
+                            const btn = content.querySelector('.manual-fetch-trigger-btn');
+                            btn.onmouseenter = () => { btn.style.background = '#333'; btn.style.color = '#fff'; btn.style.borderColor = '#444'; };
+                            btn.onmouseleave = () => { btn.style.background = '#222'; btn.style.color = '#aaa'; btn.style.borderColor = '#333'; };
+                            btn.onclick = async () => { const result = await showManualInputUI(failBub); if (result) { failBub.remove(); ChatUI.appendBubble('ai', result, false, getWebIcon(document.getElementById('active-agent-webview'))); } };
+                        }
+                    }
+                }
+            } catch (e) { ChatUI.appendBubble('ai', `[ERROR] Injection failed: ${e.message}`); }
+            return;
+        }
+
+        if (webAiToggle.checked) {
+            if (typeof overridePrompt !== 'string') { ChatUI.appendBubble('user', promptText); /* GravityVault.log('user', promptText); */ chatIn.value = ''; }
+            const overlay = document.getElementById('web-process-overlay'), progBar = document.getElementById('web-process-bar');
+            const steps = { scan: document.getElementById('step-scan'), analyze: document.getElementById('step-analyze'), brief: document.getElementById('step-brief'), extract: document.getElementById('step-extract') };
+            const updateProcess = (stepId, percent) => {
+                overlay.style.display = 'block'; overlay.style.pointerEvents = 'auto'; progBar.style.width = percent + '%';
+                Object.values(steps).forEach(s => s?.classList.remove('active')); if (steps[stepId]) steps[stepId].classList.add('active');
+            };
+
+            try {
+                let projectTree = "";
+                if (!window.sessionBriefed) { updateProcess('scan', 10); projectTree = await ipcRenderer.invoke('vault-get-tree'); }
+                updateProcess('brief', 50);
+
+                const treeSection = (!window.sessionBriefed && projectTree) ? `\n[PROJECT FILE LIST]\n${projectTree}\n` : "";
+                const instructionSection = (!window.sessionBriefed) ? `\n[SYSTEM INSTRUCTION]\nThe directory listing above shows the current root of the project. If you need to explore subdirectories or read the content of specific files to answer my request, please let me know. For example: "Please list the contents of the 'src' folder" or "Show me the code in 'main.js'". I will provide the requested details in the next turn.\n` : "";
+                const webPayload = `[USER REQUEST]\n${promptText}\n${treeSection}${instructionSection}`.trim();
+
+                window.sessionBriefed = true;
+
+                // 1. 브라우저 탭 유지 — 응답 완료 전까지 전환 금지
+                document.getElementById('tab-browser-hub').click();
+
+                // 2. injectWebPayload 먼저 전송
+                await new Promise(r => setTimeout(r, 500));
+                await injectWebPayload(webPayload);
+
+                updateProcess('extract', 90);
+
+                // 3. 응답 완료까지 await (탭 전환 없이 대기)
+                const response = await runExperimentalEngine('/marktag', promptText, null);
+                progBar.style.width = '100%'; await new Promise(r => setTimeout(r, 500));
+                overlay.style.display = 'none'; overlay.style.pointerEvents = 'none';
+
+                // 4. 응답 완료 후 로컬 탭으로 전환
+                document.getElementById('tab-local-agent').click();
+                if (response) {
+                    ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview'))); /* GravityVault.log('ai', response); */ detectAndAskCommand(response);
+                } else {
+                    const failBub = ChatUI.appendBubble('ai', '[SYSTEM] WebAI response extraction failed.'); /* GravityVault.log('ai', '[SYSTEM] WebAI response extraction failed.'); */
+                    const content = failBub.querySelector('.bubble-content');
+                    if (content) {
+                        content.innerHTML = `
+                            <div style="margin-bottom:12px; color:#aaa;">⚠️ WebAI automatic extraction failed.</div>
+                            <div style="display:flex; justify-content:center; padding:5px 0;">
+                                <button class="manual-fetch-trigger-btn" style="background:#222; border:1px solid #333; color:#aaa; padding:8px 20px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s;">Manual Fetch</button>
+                            </div>
+                        `;
+                        const btn = content.querySelector('.manual-fetch-trigger-btn');
+                        btn.onmouseenter = () => { btn.style.background = '#333'; btn.style.color = '#fff'; btn.style.borderColor = '#444'; };
+                        btn.onmouseleave = () => { btn.style.background = '#222'; btn.style.color = '#aaa'; btn.style.borderColor = '#333'; };
+                        btn.onclick = async () => { const result = await showManualInputUI(failBub); if (result) { failBub.remove(); ChatUI.appendBubble('ai', result, false, getWebIcon(document.getElementById('active-agent-webview'))); /* GravityVault.log('ai', result); */ } };
+                    }
+                }
+            } catch (e) { overlay.style.display = 'none'; ChatUI.appendBubble('ai', `[ERROR] WebAI Mode failed: ${e.message}`); }
+            return;
+        }
+
+        if (typeof overridePrompt !== 'string') { ChatUI.appendBubble('user', promptText); /* GravityVault.log('user', promptText); */ chatIn.value = ''; }
+        generating = true; sendBtn.innerText = "⏹";
+        const aiBox = targetBubble || ChatUI.appendBubble('ai', '<div class="thinking-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>');
+        const content = aiBox.querySelector('.bubble-content');
+        
+        let fullText = "";
+        ipcRenderer.removeAllListeners('ollama-response');
+        ipcRenderer.on('ollama-response', (e, { text, done }) => {
+            fullText += text; content.innerHTML = marked.parse(fullText);
+            if (chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 50) chatLog.scrollTop = chatLog.scrollHeight;
+            if (done) { generating = false; sendBtn.innerText = "➤"; /* GravityVault.log('ai', fullText); */ hljs.highlightAll(); }
+        });
+
+        const selectedModel = document.getElementById('ollama-model-select').value || 'supergemma4-e4b-abliterated:latest';
+        ipcRenderer.send('send-to-ollama', { model: selectedModel, prompt: promptText });
+    };
+
+    if (sendBtn && chatIn) { sendBtn.onclick = handleSend; chatIn.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }; }
+
+    const chatLog = document.getElementById('local-chat-messages');
+    if (chatLog) {
+        window.isRestoring = false; let autoScroll = true;
+        chatLog.onscroll = () => { if (!window.isRestoring) autoScroll = chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 50; };
+        new ResizeObserver(() => { if (autoScroll || window.isRestoring) chatLog.scrollTop = chatLog.scrollHeight; }).observe(chatLog);
+    }
+
+    document.getElementById('inspector-expand-handle').onclick = () => {
+        document.body.classList.toggle('inspector-full'); document.getElementById('expand-icon').innerText = document.body.classList.contains('inspector-full') ? '▶' : '◀';
+    };
+
+    const pMo = document.getElementById('persona-modal'), pBtn = document.getElementById('open-persona-settings');
+    if (pBtn && pMo) {
+        pBtn.onclick = async () => {
+            pMo.style.display = 'flex';
+            const traits = await ipcRenderer.invoke('vault-read-global', 'traits.md');
+            if (traits) {
+                const lines = traits.split('\n');
+                document.getElementById('ps-name').value = lines[0]?.replace('NAME: ', '') || '';
+                document.getElementById('ps-personality').value = lines[1]?.replace('PERSONALITY: ', '') || '';
+                document.getElementById('ps-info').value = lines[2]?.replace('INFO: ', '') || '';
+                document.getElementById('ps-speech').value = lines[3]?.replace('SPEECH: ', '') || '';
+            }
+        };
+        document.getElementById('cancel-persona').onclick = () => pMo.style.display = 'none';
+        document.getElementById('save-persona').onclick = () => {
+            const content = `NAME: ${document.getElementById('ps-name').value}\nPERSONALITY: ${document.getElementById('ps-personality').value}\nINFO: ${document.getElementById('ps-info').value}\nSPEECH: ${document.getElementById('ps-speech').value}`;
+            ipcRenderer.send('vault-update-global', { fileName: 'traits.md', content });
+            pMo.style.display = 'none'; GravityVault.init();
+        };
+    }
+    updateAgentBadge();
+}
+
+const ChatUI = {
+    appendBubble(role, text, isThinking = false, sourceIcon = null) {
+        const chatLog = document.getElementById('local-chat-messages'); if (!chatLog) return;
+        const box = document.createElement('div'); box.className = `chat-bubble ${role}`; box.dataset.role = role;
+        const tools = document.createElement('div'); tools.className = 'bubble-tools';
+        const btn = (icon, title, cl, fn) => { const b = document.createElement('div'); b.className = `tool-btn ${cl}`; b.innerHTML = icon; b.title = title; b.onclick = (e) => { e.stopPropagation(); fn(box); }; return b; };
+        tools.appendChild(btn('🔄', 'Regenerate', 'regen', (b) => this.regenerate(b))); tools.appendChild(btn('✏️', 'Edit', 'edit', (b) => this.edit(b))); tools.appendChild(btn('🗑️', 'Delete', 'delete', (b) => this.delete(b)));
+        box.appendChild(tools);
+        const content = document.createElement('div'); content.className = 'bubble-content';
+        if (typeof marked !== 'undefined') content.innerHTML = marked.parse(text); else content.innerText = text;
+        box.appendChild(content);
+        if (sourceIcon) { const badge = document.createElement('div'); badge.className = 'source-badge'; badge.innerHTML = `<img src="${sourceIcon}" title="Source: Web AI">`; box.appendChild(badge); }
+        chatLog.appendChild(box); chatLog.scrollTop = chatLog.scrollHeight;
+        if (typeof hljs !== 'undefined') box.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+        return box;
+    },
+    delete(box) { box.remove(); },
+    edit(box) {
+        if (box.querySelector('.edit-textarea')) return;
+        const content = box.querySelector('.bubble-content'), originalText = box.dataset.role === 'user' ? content.innerText : content.innerHTML;
+        const area = document.createElement('textarea'); area.className = 'edit-textarea';
+        area.style = `width:100%; min-height:${content.offsetHeight}px; background:rgba(0,0,0,0.2); border:1px solid #444; border-radius:4px; color:inherit; font:inherit; outline:none; resize:vertical; padding:8px; box-sizing:border-box; margin-top:5px;`;
+        area.value = originalText;
+        const save = () => {
+            if (box.dataset.role === 'user') content.innerText = area.value; else content.innerHTML = area.value;
+            area.remove(); content.style.display = 'block'; 
+            if (typeof hljs !== 'undefined') box.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+        };
+        area.oninput = () => { area.style.height = 'auto'; area.style.height = area.scrollHeight + 'px'; };
+        content.style.display = 'none'; box.appendChild(area); area.focus(); area.style.height = area.scrollHeight + 'px';
+        area.onblur = save; area.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); } };
+    },
+    regenerate(box) {
+        let pBox = (box.dataset.role === 'user') ? box : box.previousElementSibling;
+        while (pBox && !pBox.classList.contains('user')) pBox = pBox.previousElementSibling;
+        if (!pBox) return;
+        const txt = pBox.querySelector('.bubble-content').innerText;
+        let targetBubble;
+        if (box.dataset.role === 'user') {
+            targetBubble = box.nextElementSibling;
+            while (targetBubble && !targetBubble.classList.contains('ai')) targetBubble = targetBubble.nextElementSibling;
+            if (!targetBubble) targetBubble = ChatUI.appendBubble('ai', '...');
+        } else { targetBubble = box; }
+        const content = targetBubble.querySelector('.bubble-content');
+        if (content) content.innerHTML = '<div class="thinking-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+        handleSend(txt, true, false, null, targetBubble);
+    },
+    async restoreHistory() {
+        window.isRestoring = true;
+        const logContent = await ipcRenderer.invoke('vault-read-log', `${new Date().toISOString().split('T')[0]}.md`);
+        if (!logContent) { window.isRestoring = false; return; }
+        const chatLog = document.getElementById('local-chat-messages'); if (!chatLog) return;
+        chatLog.innerHTML = '';
+        logContent.split(/### \[.*?\] /).forEach(entry => {
+            if (!entry.trim()) return;
+            const role = entry.startsWith('USER') ? 'user' : (entry.startsWith('AI') ? 'ai' : null);
+            if (role) this.appendBubble(role, entry.replace(/^(USER|AI)\n/, '').trim());
+        });
+        hljs.highlightAll(); setTimeout(() => { chatLog.scrollTop = chatLog.scrollHeight; window.isRestoring = false; }, 300);
+    }
+};
+
+let generating = false; let timerInt = null;
+
+const GravityVault = {
+    activeLogPath: null, 
+    async init() {
+        const res = await ipcRenderer.invoke('vault-init'); this.activeLogPath = res.activeLogPath;
+        console.log("[Vault] Log System Initialized:", this.activeLogPath);
+    },
+    log(role, text) { if (this.activeLogPath) ipcRenderer.send('vault-log', { logPath: this.activeLogPath, role, text }); }
+};
+
+async function setupBoot() {
+    const grid = document.getElementById('agent-hub-grid'), addA = document.getElementById('add-agent-app-card');
+    if (!grid || !addA) return;
+
+    window.launchWebAgent = async (appData, isSilentBoot = false) => {
+        let u = typeof appData === 'string' ? appData : appData.url;
+        let inSel = typeof appData === 'object' ? appData.input : ''; let btnSel = typeof appData === 'object' ? appData.send : ''; let resSel = typeof appData === 'object' ? appData.response : '';
+
+        if (!isSilentBoot) {
+            const confirmed = await showAlert("현재 프로젝트 폴더의 정보를 해당 AI에게 발송합니다.");
+            if (!confirmed) return;
+        }
+
+        document.getElementById('agent-hub-home').style.display = 'none'; document.getElementById('agent-hub-webview').style.display = 'flex';
+        const urlInput = document.getElementById('agent-url-input');
+        if (urlInput) urlInput.value = u;
+
+        try {
+            const d = new URL(u).hostname; const iconSrc = `https://www.google.com/s2/favicons?domain=${d}&sz=64`; const agentName = d.split('.')[0].toUpperCase();
+            const tabIcon = document.getElementById('current-agent-tab-icon'), tabName = document.getElementById('current-agent-tab-name');
+            if (tabIcon) tabIcon.src = iconSrc; if (tabName) tabName.innerText = agentName;
+        } catch(e) {}
+
+        if (!isSilentBoot) {
+            const webToggle = document.getElementById('web-ai-mode-toggle'); if (webToggle) webToggle.checked = true;
+            document.getElementById('tab-local-agent')?.click();
+            setTimeout(() => document.getElementById('local-agent-input')?.focus(), 100);
+        }
+
+        const dock = document.getElementById('agent-view-dock'); dock.innerHTML = '';
+        const wv = document.createElement('webview'); wv.id = 'active-agent-webview'; wv.src = u;
+        wv.useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+        wv.style = "width:100%; height:100%; border:none;"; wv.setAttribute('allowpopups', '');
+        wv.addEventListener('contextmenu', () => wv.openDevTools());
+
+        if (!isSilentBoot) {
+            wv.addEventListener('did-finish-load', async () => {
+                const projectTree = await ipcRenderer.invoke('vault-get-tree');
+                if (projectTree) {
+                    setTimeout(async () => {
+                        try {
+                            await injectWebPayload("dont think simply answer me 'A'"); await runExperimentalEngine('/marktag', "dont think simply answer me 'A'", null);
+                            ChatUI.appendBubble('system', '[SYSTEM] INITIALIZATION COMPLETE.');
+                            const briefPayload = `[SYSTEM INITIALIZATION - PROJECT MAPPED]\nYou are now connected to the project workspace. \n\n### CAPABILITIES\nYou can interact with this local machine by including specific command tags in your response.\n- **Read File**: Use \`[CMD: type "filename"]\`\n- **List Files**: Use \`[CMD: dir]\`\n- **Run Tasks**: \`[CMD: command]\`\n\n### DIRECTORY STRUCTURE:\n${projectTree}`.trim();
+                            await injectWebPayload(briefPayload);
+                            const briefResponse = await Promise.race([
+                                runExperimentalEngine('/marktag', "If you need to explore subdirectories or read specific files, please ask.", null),
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('Briefing response timeout')), 120000))
+                            ]);
+                            window.sessionBriefed = true; document.getElementById('tab-local-agent').click();
+                            if (briefResponse) { ChatUI.appendBubble('ai', briefResponse, false, getWebIcon(wv)); /* GravityVault.log('ai', briefResponse); */ detectAndAskCommand(briefResponse); }
+                        } catch (err) { window.sessionBriefed = true; document.getElementById('tab-local-agent').click(); ChatUI.appendBubble('system', '[ERROR] INITIALIZATION FAILED.'); }
+                    }, 2500);
+                }
+            }, { once: true });
+        }
+
+        dock.appendChild(wv); if (window.updateAgentBadge) window.updateAgentBadge();
+        window.currentAgentSelectors = { input: inSel, send: btnSel, response: resSel };
+    };
+
+    const create = (appData) => {
+        let u = typeof appData === 'string' ? appData : appData.url; const d = new URL(u).hostname;
+        const c = document.createElement('div'); c.className = 'agent-app'; c.style.position = 'relative';
+        c.innerHTML = `<div class=\"icon-wrapper\"><img src=\"https://www.google.com/s2/favicons?domain=${d}&sz=64\"></div><div class=\"agent-name\">${d.split('.')[0]}</div>`;
+        c.onclick = () => window.launchWebAgent(appData, false);
+
+        let hoverTimer;
+        c.onmouseenter = () => {
+            hoverTimer = setTimeout(() => {
+                if (c.querySelector('.agent-del-btn')) return;
+                const delBtn = document.createElement('div'); delBtn.className = 'agent-del-btn'; delBtn.innerHTML = '×';
+                delBtn.style = `position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; background: rgba(255, 59, 48, 0.9); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 16px; font-weight: bold; line-height: 1; padding-bottom: 2px; z-index: 100; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);`;
+                delBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    const s = await ipcRenderer.invoke('vault-read-global', 'registry.json');
+                    const apps = s ? JSON.parse(s) : []; const idx = apps.findIndex(a => (typeof a === 'string' ? a : a.url) === u);
+                    if (idx > -1) apps.splice(idx, 1); ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: JSON.stringify(apps) }); c.remove();
+                };
+                c.appendChild(delBtn);
+
+                const editBtn = document.createElement('div'); editBtn.className = 'agent-edit-btn'; editBtn.innerHTML = '✏️';
+                editBtn.style = `position: absolute; top: -8px; left: -8px; width: 22px; height: 22px; background: #0078d4; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 11px; z-index: 100; box-shadow: 0 4px 12px rgba(0, 120, 212, 0.4);`;
+                editBtn.onclick = (e) => {
+                    e.stopPropagation(); const mo = document.getElementById('app-reg-modal');
+                    document.getElementById('reg-app-url').value = u; document.getElementById('reg-input-selector').value = appData.input || ''; document.getElementById('reg-send-selector').value = appData.send || ''; document.getElementById('reg-response-selector').value = appData.response || '';
+                    mo.dataset.editingUrl = u; mo.style.display = 'flex'; document.getElementById('reg-app-url').focus();
+                };
+                c.appendChild(editBtn);
+            }, 500);
+        };
+        c.onmouseleave = () => { clearTimeout(hoverTimer); c.querySelector('.agent-del-btn')?.remove(); c.querySelector('.agent-edit-btn')?.remove(); };
+        grid.insertBefore(c, addA);
+    };
+
+    const s = await ipcRenderer.invoke('vault-read-global', 'registry.json'); 
+    let apps = []; if (s) { try { apps = JSON.parse(s); } catch(e) { } }
+
+    let geminiApp = apps.find(a => (a.url || a).includes('gemini.google.com'));
+    if (!geminiApp) {
+        geminiApp = { url: 'https://gemini.google.com/app', input: 'rich-textarea, div[contenteditable="true"], textarea', send: 'button[aria-label*="Send"], button[aria-label*="보내기"]', response: '' };
+        apps.unshift(geminiApp); ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: JSON.stringify(apps) });
+    }
+    apps.forEach(appData => create(appData)); if (geminiApp) window.launchWebAgent(geminiApp, true);
+
+    document.getElementById('add-terminal').onclick = () => addSubTerminal();
+    window.loadDirectory(window.currentPath);
+
+    const sel = document.getElementById('ollama-model-select');
+    ipcRenderer.invoke('get-ollama-models').then(models => {
+        if (!models || models.length === 0) { sel.innerHTML = '<option value=\"\">Engine Offline</option>'; return; }
+        sel.innerHTML = models.map(m => `<option value=\"${m.name}\">${m.name}</option>`).join('');
+    }).catch(() => { });
+}
+
+async function injectWebPayload(webPayload) {
+    const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
+    const inKeywords = savedKeywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
+
+    return new Promise((resolve, reject) => {
+        const wv = document.getElementById('active-agent-webview'); if (!wv) return reject("Webview not found");
+        const cleanPayload = webPayload.replace(/[\r\n]+/g, ' / ').trim();
+
+        const getDiscoveryScript = () => `
+            (() => {
+                const inKeywords = ${JSON.stringify(inKeywords)};
+                const findInput = () => {
+                    const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                    const candidates = Array.from(document.querySelectorAll('textarea, input[type="text"], div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
+                    for (let el of candidates) {
+                        const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                        if (inKeywords.some(k => text.includes(k))) return el;
+                    }
+                    return candidates[0] || null;
+                };
+                const inputEl = findInput();
+                if (inputEl) {
+                    inputEl.focus();
+                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') inputEl.value = '';
+                    else if (inputEl.contentEditable === 'true') inputEl.innerText = '';
+                    return true;
+                }
+                return false;
+            })()
+        `;
+
+        wv.executeJavaScript(getDiscoveryScript()).then(async (focused) => {
+            if (!focused) return reject("Input field not found.");
+            const chars = Array.from(cleanPayload);
+            for (const char of chars) { wv.insertText(char); await new Promise(r => setTimeout(r, Math.random() * 5 + 1)); }
+
+            const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
+            const hideToast = () => { if (toast) toast.style.display = 'none'; if (toastBar) toastBar.style.display = 'block'; };
+
+            if (toast && toastText && toastBar) {
+                toastText.innerText = "Pressing Enter In 0.5 Seconds..."; toast.style.display = 'block'; toastBar.style.display = 'block';
+                toastBar.classList.remove('cooldown-active'); void toastBar.offsetWidth; toastBar.classList.add('cooldown-active');
+            }
+            const safetyTimer = setTimeout(hideToast, 7000);
+
+            setTimeout(async () => {
+                wv.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' }); wv.sendInputEvent({ type: 'char', keyCode: 'Enter' }); wv.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+                await new Promise(r => setTimeout(r, 1000));
+                const isCleared = await wv.executeJavaScript(`(() => { const i = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); return i ? (i.value === "" && i.innerText.trim() === "") : true; })()`).catch(() => false);
+
+                if (toastText) {
+                    if (isCleared) toastText.innerHTML = "<span style='color:#4caf50;'>✓ Message Sent Successfully.</span>";
+                    else toastText.innerHTML = "Enter sent. <span style='color:#ffa500;'>Please click Send manually.</span>";
+                }
+                if (toastBar) toastBar.style.display = 'none';
+                setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000); resolve(true);
+            }, 500);
+        }).catch(err => reject(err));
+    });
+}
+
+function detectAndAskCommand(text) {
+    if (!text) return;
+
+    // [🛠️ 신규 추가: read-lines 명령어 자동 감지 및 웹 AI로 전송]
+    const readLinesRegex = /\[CMD:\s*read-lines\s+"([^"]+)"\s+(\d+)\s+(\d+)\]/gi;
+    let readMatch;
+    let originalText = text;
+    
+    while ((readMatch = readLinesRegex.exec(originalText)) !== null) {
+        const filePath = readMatch[1];
+        const start = parseInt(readMatch[2]);
+        const end = parseInt(readMatch[3]);
+
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const targetPath = path.resolve(window.currentPath, filePath);
+            
+            if (fs.existsSync(targetPath)) {
+                const content = fs.readFileSync(targetPath, 'utf-8').split('\n');
+                const chunk = content.slice(start - 1, end).join('\n');
+                const isLast = end >= content.length;
+
+                const statusMsg = isLast 
+                    ? `[SYSTEM] This code is the end of the file. Complete.` 
+                    : `[SYSTEM] Sending lines ${start}-${end}. I am sending it in chunks, please wait for the next part...`;
+                    
+                injectWebPayload(`[FILE DATA: ${filePath} (${start}-${end})]\n\`\`\`\n${chunk}\n\`\`\`\n\n${statusMsg}`);
+                ChatUI.appendBubble('system', `[SYSTEM] Auto-extracted and sent ${start}-${end} lines of ${filePath} to Web AI.`);
+            } else {
+                ChatUI.appendBubble('system', `[ERROR] File not found: ${filePath}`);
+                injectWebPayload(`[SYSTEM ERROR] File not found: ${filePath}`);
+            }
+        } catch (err) {
+            ChatUI.appendBubble('system', `[ERROR] Failed to read ${filePath}: ${err.message}`);
+        }
+    }
+
+    // 처리 완료된 read-lines 명령어는 이후 수동 실행 팝업에 노출되지 않도록 제거
+    const cleanText = text.replace(readLinesRegex, '');
+
+    const cmdRegex = /\[CMD:\s*(.*?)\]|powershell:\s*([^\n]+)/gi;
+    let match; const foundCmds = [];
+    while ((match = cmdRegex.exec(cleanText)) !== null) { foundCmds.push(match[1] || match[2]); }
+    if (foundCmds.length === 0) return;
+
+    foundCmds.forEach(cmd => {
+        const cleanCmd = cmd.trim();
+        const box = ChatUI.appendBubble('system', '');
+        const content = box.querySelector('.bubble-content');
+        
+        content.innerHTML = `
+            <div style="color:#0078d4; font-weight:900; margin-bottom:10px; font-size:11px; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+                <div style="width:3px; height:12px; background:#0078d4; border-radius:10px;"></div>
+                COMMAND ACTION PROPOSED
+            </div>
+            <div style="background:rgba(0,0,0,0.4); padding:12px; border-radius:6px; font-family:'JetBrains Mono', monospace; font-size:12px; border:1px solid #1a1a1a; margin-bottom:12px; color:#eee; box-shadow:inset 0 0 10px rgba(0,0,0,0.5);">
+                <span style="color:#555;">$</span> ${cleanCmd}
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="cmd-run-btn" style="flex:1; background:#0078d4; color:white; border:none; padding:6px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">RUN</button>
+                <button class="cmd-cancel-btn" style="flex:1; background:#222; color:#aaa; border:1px solid #333; padding:6px; border-radius:4px; cursor:pointer; font-size:11px;">CANCEL</button>
+            </div>
+        `;
+
+        content.querySelector('.cmd-run-btn').onclick = () => {
+            if (window.activeSubTabId && window.terminalSessions[window.activeSubTabId]) {
+                window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
+                window.switchSubTerminal(window.activeSubTabId);
+                ipcRenderer.send('execute-cmd', cleanCmd);
+                const tL = document.getElementById('terminal-lower');
+                if (tL && tL.offsetHeight <= 40) {
+                    tL.style.height = '350px';
+                    const minBtn = document.getElementById('minimize-terminal'); if (minBtn) minBtn.innerText = '▼';
+                    syncBrowserView();
+                }
+            }
+            box.remove(); ChatUI.appendBubble('system', `[SYSTEM] Command executed: ${cleanCmd}`);
+        };
+        content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+    });
+}
+
+function getWebIcon(wv) { try { return `https://www.google.com/s2/favicons?domain=${new URL(wv.src).hostname}&sz=64`; } catch { return null; } }
+
+async function showManualInputUI(statusBub) {
+    return new Promise((resolve) => {
+        const content = statusBub.querySelector('.bubble-content');
+        if (!content) return resolve(null);
+        
+        content.innerHTML = `
+            <div style="font-size:12px; margin-bottom:8px; color:#ffa500; font-weight:bold;">[MANUAL OVERRIDE]</div>
+            <div style="font-size:11px; color:#aaa; margin-bottom:8px;">Copy the response (Ctrl+C) from the webview on the right to fetch it <b>automatically</b>.<br>Or paste it directly below.</div>
+            <textarea class="manual-input-area" placeholder="Paste the web AI response here..." style="width:100%; height:150px; background:#000; color:#ccc; border:1px solid #333; padding:10px; font-size:13px; outline:none; resize:none; border-radius:6px; font-family:inherit;"></textarea>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+                <button class="manual-cancel-btn" style="background:#222; color:#aaa; border:1px solid #333; padding:5px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">Cancel</button>
+                <button class="manual-save-btn" style="background:#fff; color:#000; border:none; padding:5px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">Save Response</button>
+            </div>
+        `;
+
+        const area = content.querySelector('.manual-input-area'), saveBtn = content.querySelector('.manual-save-btn'), cancelBtn = content.querySelector('.manual-cancel-btn');
+        let clipboardInterval = null;
+
+        const cleanup = () => {
+            if (clipboardInterval) clearInterval(clipboardInterval);
+            const toast = document.getElementById('injection-toast'); if (toast) toast.style.display = 'none';
+            const webBarCont = document.getElementById('web-extract-progress-container'); if (webBarCont) webBarCont.style.display = 'none';
+        };
+
+        saveBtn.onclick = () => {
+            const val = area.value.trim(); if (!val) { alert("Please enter content."); return; }
+            saveBtn.innerText = "Saving..."; saveBtn.disabled = true; cleanup(); resolve(val);
+        };
+        cancelBtn.onclick = () => { cleanup(); resolve(""); };
+
+        document.getElementById('tab-browser-hub')?.click();
+
+        const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar'), webBar = document.getElementById('web-extract-progress-bar');
+        if (toast) { toast.style.display = 'block'; if (toastText) toastText.innerText = "Waiting for manual copy (8s)..."; if (toastBar) toastBar.style.display = 'none'; }
+        if (webBar) { webBar.style.width = '100%'; webBar.style.background = '#0078d4'; webBar.style.transition = 'width 0.5s linear'; }
+
+        const { clipboard } = require('electron'); const initialClipboard = clipboard.readText(); let timeoutTicks = 0; 
+        clipboardInterval = setInterval(() => {
+            timeoutTicks++; const currentClipboard = clipboard.readText();
+            if (webBar) webBar.style.width = `${Math.max(0, 100 - (timeoutTicks / 16) * 100)}%`;
+            if (currentClipboard && currentClipboard !== initialClipboard) {
+                area.value = currentClipboard; cleanup();
+                setTimeout(() => { document.getElementById('tab-local-agent')?.click(); saveBtn.click(); }, 300);
+            } else if (timeoutTicks >= 16) { cleanup(); document.getElementById('tab-local-agent')?.click(); }
+        }, 500); 
+    });
+}
+
+async function runExperimentalEngine(cmd, msg, statusBub) {
+    // [🛠️ 해결: 누락된 변수 선언 추가]
+    let stableN = 0;
+    let currentExtension = 0;
+
+    const wv = document.getElementById('active-agent-webview');
+    const webBarCont = document.getElementById('web-extract-progress-container');
+    const webBar = document.getElementById('web-extract-progress-bar');
+    
+    if (!wv || !wv.src || wv.src.startsWith('about:blank')) {
+        const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
+        if (toast && toastText) {
+            toastText.innerHTML = "<b>⚠️ No Agent Selected</b><br><span style='font-size:11px; color:#aaa;'>Please select an AI agent from the Browser tab first.</span>";
+            toast.style.display = 'block'; toast.style.borderColor = "rgba(255, 165, 0, 0.5)"; if (toastBar) toastBar.style.display = 'none';
+            setTimeout(() => { toast.style.display = 'none'; toast.style.borderColor = ""; if (toastBar) toastBar.style.display = 'block'; }, 4000);
+        }
+        return null;
+    }
+
+    if (webBarCont) {
+        webBarCont.style.display = 'block'; webBarCont.style.cursor = 'pointer'; 
+        webBarCont.onclick = (e) => {
+            const rect = webBarCont.getBoundingClientRect(); const clickPos = (e.clientX - rect.left) / rect.width; const reversedPos = 1 - clickPos;
+            if (stableN >= 0) { stableN = Math.floor(reversedPos * 8); } else { const targetPos = Math.floor(reversedPos * (currentExtension + 8)); stableN = targetPos - currentExtension; }
+            updateUI(stableN < 0 ? "Wait time adjusted (Extended)" : "Wait time adjusted", 0);
+        };
+    }
+    if (webBar) { webBar.style.width = '0%'; webBar.style.background = '#0078d4'; }
+
+    let manualAbort = false, resolveManual = null; const manualPromise = new Promise(res => { resolveManual = res; });
+
+    if (statusBub) {
+        const content = statusBub.querySelector('.bubble-content');
+        if (content) {
+            content.innerHTML = `<div class="status-text">[SYSTEM] AI working...</div><button class="manual-fetch-btn" style="margin-top:8px; padding:4px 10px; background:#222; border:1px solid #333; color:#aaa; border-radius:4px; font-size:11px; cursor:pointer; transition:0.2s;">Manual Fetch</button>`;
+            content.querySelector('.manual-fetch-btn').onclick = async () => { manualAbort = true; const manualVal = await showManualInputUI(statusBub); if (resolveManual) resolveManual(manualVal); };
+        }
+    }
+
+    const updateUI = (text, progress = 0, isStableMode = false) => {
+        if (statusBub && !manualAbort) { const txtEl = statusBub.querySelector('.status-text'); if (txtEl) txtEl.innerText = `[SYSTEM] ${text}`; }
+        const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar'), toastBtn = document.getElementById('toast-reset-timer-btn');
+        
+        if (toast && !manualAbort) {
+            toast.style.display = 'block';
+            if (toastText) toastText.innerHTML = `<b>Analyzing AI response</b><br><span style='font-size:11px; color:#aaa;'>${text}</span>`;
+            if (toastBar) toastBar.style.display = 'none'; 
+            if (toastBtn) {
+                if (stableN !== 0 && stableN < 8) { toastBtn.style.display = 'block'; toastBtn.onclick = (e) => { e.stopPropagation(); currentExtension += 60; stableN -= 60; if (toastText) toastText.innerHTML = `<b>Wait Time Extended! (+60s)</b><br><span style='font-size:11px; color:#0078d4; font-weight:bold;'>Total stability window: ${currentExtension + 8}s</span>`; }; } 
+                else { toastBtn.style.display = 'none'; }
+            }
+            if (stableN < 0 && toastText) { toastText.innerHTML = `<b>Monitoring Extension</b><br><span style='font-size:11px; color:#0078d4;'>Stable state detected. Waiting ${Math.abs(stableN) + 8}s more...</span>`; }
+        }
+
+        if (webBar) {
+            const p = isStableMode ? progress : stableN;
+            if (p > 0) { webBar.style.width = `${Math.max(0, 100 - (p / 8) * 100)}%`; webBar.style.background = '#0078d4'; } 
+            else if (p < 0) { webBar.style.width = `${Math.max(0, 100 - ((p + currentExtension) / (currentExtension + 8)) * 100)}%`; webBar.style.background = '#0078d4'; } 
+            else { webBar.style.width = '100%'; webBar.style.background = '#ffa500'; }
+        }
+    };
+
+    const getUIFingerprint = `(() => { const findContainer = () => { const input = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); if (!input) return document.body; let p = input.parentElement; for(let i=0; i<5; i++) { if (p.querySelectorAll('button, [role="button"]').length > 0) return p; p = p.parentElement || p; } return p; }; const cont = findContainer(); return Array.from(cont.querySelectorAll('button, [role="button"], input, textarea')).map(el => \`\${el.tagName}:\${el.disabled || el.getAttribute('aria-disabled')==='true'}:\${el.innerText.length}:\${el.className.split(' ').sort().join('.')}\`).join('|'); })()`;
+    const idleFingerprint = await wv.executeJavaScript(getUIFingerprint).catch(() => "");
+    
+    const extractScript = `(function(){
+        const toMarkdown = (root) => {
+            let md = "";
+            const walk = (node, indent = "") => {
+                if (node.nodeType === 3) { md += node.textContent.replace(/\\s+/g, ' '); return; }
+                if (node.nodeType !== 1) return;
+                const tag = node.tagName.toLowerCase();
+                if (tag === 'br') { md += "\\n"; return; } if (tag === 'p') md += "\\n\\n";
+                if (tag.match(/^h[1-6]$/)) md += "\\n\\n" + "#".repeat(parseInt(tag[1])) + " ";
+                if (tag === 'li') md += "\\n" + indent + "- "; if (tag === 'blockquote') md += "\\n> ";
+                if (tag === 'code' && node.parentNode.tagName !== 'PRE') md += "\`"; if (tag === 'pre') md += "\\n\`\`\`\\n";
+                if (tag === 'strong' || tag === 'b') md += "**"; if (tag === 'em' || tag === 'i') md += "*";
+                if (tag === 'table') {
+                    md += "\\n\\n"; const rows = Array.from(node.querySelectorAll('tr'));
+                    rows.forEach((row, rowIndex) => { const cells = Array.from(row.querySelectorAll('th, td')); md += "| " + cells.map(c => c.innerText.trim().replace(/\\n/g, '<br>')).join(" | ") + " |\\n"; if (rowIndex === 0) { md += "| " + cells.map(() => "---").join(" | ") + " |\\n"; } });
+                    md += "\\n"; return; 
+                }
+                if (tag === 'ul' || tag === 'ol') { Array.from(node.children).forEach(child => walk(child, indent + "  ")); md += "\\n"; return; }
+                node.childNodes.forEach(child => walk(child, indent));
+                if (tag === 'p') md += "\\n"; if (tag === 'pre') md += "\\n\`\`\`\\n"; if (tag === 'code' && node.parentNode.tagName !== 'PRE') md += "\`";
+                if (tag === 'strong' || tag === 'b') md += "**"; if (tag === 'em' || tag === 'i') md += "*"; if (tag.match(/^h[1-6]$/)) md += "\\n";
+            };
+            walk(root); return md.replace(/\\n{3,}/g, '\\n\\n').trim();
+        };
+
+        let targetNode = null;
+        const geminiNodes = document.querySelectorAll('model-response, [data-testid="message-content"], message-content');
+        if (geminiNodes.length > 0) {
+            targetNode = geminiNodes[geminiNodes.length - 1]; 
+        } else {
+            const selectors = ['.markdown-prose', '.chat-message', '.message', 'article'];
+            const nodes = Array.from(document.querySelectorAll(selectors.join(',')));
+            targetNode = nodes.length > 0 ? nodes[nodes.length - 1] : document.body;
+        }
+
+        const clone = targetNode.cloneNode(true);
+        ['details', 'summary', '.thought', '.thinking', '.reasoning', '[class*="thought"]', '[class*="thinking"]', 'button', 'svg', 'nav'].forEach(sel => clone.querySelectorAll(sel).forEach(el => el.remove()));
+        return toMarkdown(clone);
+    })()`;
+
+    const cleanGarbage = (t) => {
+        if (!t) return "";
+        let cleaned = t;
+        const footers = [
+            /Gemini는 AI이며 인물 등에 관한 정보 제공 시 실수를 할 수 있습니다.*/gi,
+            /개인 정보 보호 및 Gemini새 창에서 열기/gi,
+            /Gemini의 응답/gi,
+            /Gemini may display inaccurate info.*/gi,
+            /Your privacy and Gemini Apps/gi
+        ];
+        footers.forEach(regex => { cleaned = cleaned.replace(regex, ''); });
+
+        cleaned = cleaned.replace(/^[ \t\W]*(Thinking|Thought|Analyzing|Searching|Working|\[SYSTEM\]|Processing|Reasoning).*?(\n|$)/gim, "");
+        cleaned = cleaned.replace(/[(\[]\s*(Thinking|Thought|Analyzing|Reasoning).*?\s*[)\]]/gi, "");
+        cleaned = cleaned.replace(/^\s*(Thinking|Thought|Analyzing|Reasoning)(\.\.\.|\:)?\s*/gi, "");
+        cleaned = cleaned.split('\n').filter(line => { const l = line.trim().toLowerCase(); return !(l === "thinking" || l === "thought" || l === "reasoning" || l.startsWith("thought for")); }).join('\n');
+        
+        return cleaned.trim();
+    };
+
+    const hideGlobalUI = () => { document.getElementById('injection-toast')?.setAttribute('style', 'display:none'); if (webBarCont) webBarCont.style.display = 'none'; };
+    let isGenerating = false;
+    let lastText = "";
+    let stableCount = 0;
+
+    for (let i = 0; i < 1200; i++) { // 루프 횟수 증가 — 최대 20분 대기
+        await new Promise(r => setTimeout(r, 1000));
+        if (manualAbort) { hideGlobalUI(); return await manualPromise; }
+
+        const currentFingerprint = await wv.executeJavaScript(getUIFingerprint).catch(() => "");
+        let delta = await wv.executeJavaScript(extractScript).catch(() => "");
+        
+        const pureMsg = msg.replace(/[\s\W_]+/g, '');
+        const pureDelta = delta.replace(/[\s\W_]+/g, '');
+        
+        if (pureDelta.includes(pureMsg) && pureDelta.length <= pureMsg.length + 20) {
+            delta = ""; 
+        } else {
+            const idx = delta.lastIndexOf(msg); 
+            if (idx !== -1) delta = delta.substring(idx + msg.length).trim();
+        }
+        
+        delta = cleanGarbage(delta);
+
+        if (!isGenerating && delta.length > 0) {
+            isGenerating = true;
+            updateUI("AI started responding...", 0, false);
+        }
+
+        if (isGenerating) {
+            const isUiIdle = (currentFingerprint === idleFingerprint);
+            const isTextStopped = (delta === lastText);
+            // 보수적 stableCount: 10초간 변화 없어야 종료
+            if (isTextStopped) stableCount++; else stableCount = 0;
+            lastText = delta;
+
+            if (isUiIdle && delta.length > 50) {
+                // UI idle + 최소 50자 이상일 때만 완료 인정
+                updateUI("Generation complete! Fetching...", 100); 
+                await new Promise(r => setTimeout(r, 300));
+                const finalRaw = (await wv.executeJavaScript(extractScript)).split(msg).pop().trim();
+                hideGlobalUI(); 
+                return cleanGarbage(finalRaw);
+            } else if (stableCount >= 10) {
+                // 10초간 텍스트 변화 없으면 종료
+                updateUI("Text generation stopped. Fetching...", 100);
+                hideGlobalUI(); 
+                return cleanGarbage(delta);
+            } else {
+                updateUI(`AI is typing... (${delta.length} chars)`, 50, false);
+            }
+        } else {
+            updateUI("Waiting for AI to start...", 0, false);
+        }
+    }
+    if (manualAbort) { hideGlobalUI(); return await manualPromise; } hideGlobalUI(); return null;
+}
+
+window.addEventListener('contextmenu', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const target = e.target;
+    const isEditable = target.closest('input, textarea, [contenteditable="true"]');
+    const hasSelection = window.getSelection().toString().length > 0;
+    const isInputZone = target.closest('#local-agent-input, .manual-input-area, [id^="local-agent"], div[style*="background:#0a0a0a"]');
+    ipcRenderer.send('show-context-menu', { isEditable: !!(isEditable || isInputZone), hasSelection: hasSelection });
+}, { capture: true });
+
+async function migrateToVault() {
+    const appsStr = localStorage.getItem('pormsg_agent_apps') || localStorage.getItem('vapor_agent_apps');
+    if (appsStr && appsStr !== '[]') { const currentRegistry = await ipcRenderer.invoke('vault-read-global', 'registry.json'); if (!currentRegistry) ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: appsStr }); }
+    const kwStr = localStorage.getItem('pormsg_discovery_keywords') || localStorage.getItem('vapor_discovery_keywords');
+    if (kwStr) { const currentKw = await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt'); if (!currentKw) ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: kwStr }); }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await migrateToVault(); 
+    setupUI(); 
+    addSubTerminal(true); 
+    await setupBoot();
+    
+    // [🛠️ 수정: 시작 시 항상 브라우저 탭 활성화]
+    document.getElementById('tab-browser-hub')?.click();
+    
+    GravityVault.init().then(() => {
+        // 채팅 기록 복원 여부에 따라 로직이 수행되지만, 
+        // 탭 자체는 로컬로 고정되어 시작합니다.
+        ChatUI.restoreHistory();
+    });
+});
+ipcRenderer.on('refresh-explorer', () => { window.loadDirectory(window.currentPath); });

@@ -1,0 +1,5 @@
+NAME: 
+PERSONALITY: 
+INFO: USE KOREAN 
+한글말로 전달하시오.
+SPEECH: 

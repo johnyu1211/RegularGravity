@@ -1,0 +1,483 @@
+const { app, BrowserWindow, BrowserView, ipcMain, shell, Menu, MenuItem } = require('electron');
+const path = require('path');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const http = require('http');
+const crypto = require('crypto');
+
+let watcher = null;
+
+function setupFileWatcher(projectPath) {
+    if (watcher) watcher.close();
+    if (!fs.existsSync(projectPath)) return;
+    watcher = fs.watch(projectPath, { recursive: true }, (eventType, filename) => {
+        if (filename && !filename.includes('node_modules') && !filename.includes('.git') && !filename.includes('gravity_vault')) {
+            if (mainWindow) mainWindow.webContents.send('refresh-explorer');
+        }
+    });
+}
+
+let currentLogsPath = null;
+
+const getProjectHash = () => {
+    const vaultRoot = path.join(process.cwd(), 'gravity_vault');
+    if (fs.existsSync(vaultRoot)) {
+        const dirs = fs.readdirSync(vaultRoot);
+        // 이미 존재하는 32자리 해시 폴더가 있다면 그것을 반환 (7fb146... 우선순위)
+        const existingHash = dirs.find(d => d.length === 32 && /^[0-9a-f]+$/.test(d));
+        if (existingHash) return existingHash;
+    }
+    // 없으면 기본 해시 생성
+    return crypto.createHash('md5').update(process.cwd()).digest('hex');
+};
+
+const getVaultPath = (sub) => {
+    const p = path.join(process.cwd(), 'gravity_vault', getProjectHash(), sub);
+    if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+    return p;
+};
+
+const getGlobalVaultPath = () => {
+    const p = path.join(process.cwd(), 'gravity_vault', '_global');
+    if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+    return p;
+};
+
+// 공통 날짜 포맷 함수 (Local Time)
+const getLocalDate = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+ipcMain.handle('vault-init', async () => {
+    currentKnowledgePath = getVaultPath('knowledge');
+    currentLogsPath = getVaultPath('logs');
+    const gp = getGlobalVaultPath();
+    setupFileWatcher(process.cwd());
+    
+    // 오늘 날짜의 전체 로그 파일 경로 생성
+    const activeLogPath = path.join(currentLogsPath, `${getLocalDate()}.md`);
+    
+    return { 
+        hash: getProjectHash(), 
+        activeLogPath, // [핵심] 전체 경로 전달
+        paths: { knowledge: currentKnowledgePath, logs: currentLogsPath, global: gp } 
+    };
+});
+
+// 통합된 로그 리스너: 경로가 있으면 해당 경로에, 없으면 오늘 날짜 기본 파일에 기록
+ipcMain.on('vault-log', (event, { logPath, role, text }) => {
+    try {
+        const targetPath = logPath || path.join(getVaultPath('logs'), `${getLocalDate()}.md`);
+        const entry = `\n### [${new Date().toLocaleTimeString()}] ${role.toUpperCase()}\n${text}\n`;
+        fs.appendFileSync(targetPath, entry);
+    } catch (e) {
+        console.error("[Vault] Logging Error:", e.message);
+    }
+});
+
+ipcMain.handle('vault-read-global', async (event, fileName) => {
+    const p = path.join(getGlobalVaultPath(), fileName);
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf-8');
+    return null;
+});
+
+ipcMain.on('vault-update-global', (event, { fileName, content }) => {
+    const p = path.join(getGlobalVaultPath(), fileName);
+    fs.writeFileSync(p, content);
+});
+
+ipcMain.on('vault-update-priority', (event, { content }) => {
+    const p = path.join(getVaultPath('knowledge'), 'priority.md');
+    const entry = `\n---\n### [ADDED: ${new Date().toLocaleString()}]\n${content}\n`;
+    fs.appendFileSync(p, entry);
+});
+
+ipcMain.handle('vault-read-knowledge', async (event, fileName) => {
+    const p = path.join(getVaultPath('knowledge'), fileName);
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf-8');
+    return null;
+});
+
+ipcMain.handle('vault-read-log', async (event, fileName) => {
+    const p = path.join(getVaultPath('logs'), fileName);
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf-8');
+    return null;
+});
+
+// (중복 리스너 제거됨 - 상단 통합 리스너에서 처리)
+
+ipcMain.on('vault-reset-session', (event, { logPath }) => {
+    if (!logPath) return;
+    if (fs.existsSync(logPath)) {
+        try {
+            // 1. 내용 먼저 비우기 (가장 확실함)
+            fs.writeFileSync(logPath, ''); 
+            // 2. 파일 삭제 시도
+            fs.rmSync(logPath, { force: true }); 
+            console.log(`[Vault] Reset SUCCESS: ${logPath}`);
+        } catch (e) {
+            console.error(`[Vault] Reset Partial: Content cleared but delete failed: ${e.message}`);
+        }
+    }
+});
+
+ipcMain.handle('vault-get-tree', async () => {
+    const root = process.cwd();
+    const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build'];
+    
+    try {
+        const files = fs.readdirSync(root);
+        let output = "Mode                LastWriteTime         Length Name\n";
+        output += "----                -------------         ------ ----\n";
+
+        files.forEach(file => {
+            if (ignore.includes(file)) return;
+            const fullPath = path.join(root, file);
+            const stats = fs.statSync(fullPath);
+            const isDir = stats.isDirectory();
+            
+            const mode = (isDir ? 'd-----' : '-a----');
+            const mTime = stats.mtime;
+            const dateStr = `${mTime.getFullYear()}-${String(mTime.getMonth()+1).padStart(2, '0')}-${String(mTime.getDate()).padStart(2, '0')}  ${String(mTime.getHours()).padStart(2, '0')}:${String(mTime.getMinutes()).padStart(2, '0')}`;
+            const length = isDir ? "" : stats.size.toString();
+            
+            output += `${mode.padEnd(20)}${dateStr.padEnd(22)}${length.padStart(6)} ${file}${isDir ? '/' : ''}\n`;
+        });
+        
+        return output;
+    } catch (e) {
+        return "Error listing directory: " + e.message;
+    }
+});
+
+ipcMain.handle('vault-search', async (event, { query }) => {
+    if (!query || query.length < 2) return "";
+    const vaultPath = path.join(process.cwd(), 'gravity_vault', getProjectHash());
+    const results = [];
+    const keywords = query.split(/\s+/).filter(k => k.length > 1);
+    
+    const searchInDir = (dir) => {
+        if (!fs.existsSync(dir)) return;
+        fs.readdirSync(dir).forEach(file => {
+            const filePath = path.join(dir, file);
+            if (fs.statSync(filePath).isDirectory()) {
+                searchInDir(filePath);
+            } else if (file.endsWith('.md')) {
+                const content = fs.readFileSync(filePath, 'utf-8');
+                const lines = content.split('\n');
+                lines.forEach((line, i) => {
+                    if (keywords.some(k => line.toLowerCase().includes(k.toLowerCase()))) {
+                        // Get context (1 line before, 1 after)
+                        const context = lines.slice(Math.max(0, i-1), i+2).join('\n');
+                        results.push(`[File: ${file}]\n${context}`);
+                    }
+                });
+            }
+        });
+    };
+    
+    searchInDir(vaultPath);
+    // Limit results to top 5 unique-ish snippets to save tokens
+    return results.slice(0, 5).join('\n---\n');
+});
+
+// [신규] 파일 목록을 받아서 실제 코드 내용을 읽어 반환
+ipcMain.handle('read-project-files', async (event, fileNames) => {
+    const root = process.cwd();
+    const results = [];
+    for (const name of fileNames) {
+        const fullPath = path.join(root, name);
+        try {
+            if (fs.existsSync(fullPath)) {
+                const content = fs.readFileSync(fullPath, 'utf-8');
+                results.push(`\n\n===== FILE: ${name} =====\n${content}`);
+            } else {
+                results.push(`\n\n===== FILE: ${name} =====\n[File not found]`);
+            }
+        } catch(e) {
+            results.push(`\n\n===== FILE: ${name} =====\n[Error reading file: ${e.message}]`);
+        }
+    }
+    return results.join('');
+});
+
+ipcMain.on('send-to-ollama-silent', (event, { model, prompt, tag }) => {
+    const postData = JSON.stringify({ model, prompt, stream: false });
+    const options = { hostname: '127.0.0.1', port: 11434, path: '/api/generate', method: 'POST' };
+    const req = http.request(options, (res) => {
+        let data = '';
+        res.on('data', d => data += d);
+        res.on('end', () => {
+            try {
+                const json = JSON.parse(data);
+                event.reply(tag || 'ollama-distill-res', { text: json.response });
+            } catch(e) {}
+        });
+    });
+    req.on('error', (err) => { console.error('Ollama Silent Error:', err); });
+    req.write(postData);
+    req.end();
+});
+
+ipcMain.handle('vault-snapshot', async (event, message) => {
+    const timestamp = Date.now();
+    const snapPath = path.join(getVaultPath('snapshots'), timestamp.toString());
+    fs.mkdirSync(snapPath, { recursive: true });
+    
+    // Copy Knowledge & Logs
+    const kSource = getVaultPath('knowledge'), lSource = getVaultPath('logs');
+    const copyDir = (src, dest) => {
+        if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+        fs.readdirSync(src).forEach(f => fs.copyFileSync(path.join(src, f), path.join(dest, f)));
+    };
+    copyDir(kSource, path.join(snapPath, 'knowledge'));
+    copyDir(lSource, path.join(snapPath, 'logs'));
+    
+    // Write commit message
+    fs.writeFileSync(path.join(snapPath, 'commit.txt'), `[${new Date().toLocaleString()}] ${message || 'Auto Snapshot'}`);
+    return { timestamp, path: snapPath };
+});
+
+let mainWindow;
+
+function createWindow() {
+    mainWindow = new BrowserWindow({
+        width: 1400,
+        height: 900,
+        backgroundColor: '#000',
+        icon: path.join(__dirname, 'png.png'),
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false,
+            webviewTag: true
+        }
+    });
+
+    mainWindow.loadFile('index.html');
+}
+
+// 1. STABLE DIRECTORY HANDLER
+ipcMain.handle('get-directory-content', async (event, dirPath) => {
+    try {
+        const targetPath = dirPath || process.cwd();
+        const files = fs.readdirSync(targetPath, { withFileTypes: true });
+        return files.map(file => ({
+            name: file.name,
+            isDir: file.isDirectory()
+        }));
+    } catch (err) {
+        console.error('Dir Read Error:', err);
+        return [];
+    }
+});
+
+ipcMain.on('reveal-in-explorer', (event, p) => {
+    if (p) shell.showItemInFolder(path.resolve(p));
+});
+
+// 2. OLLAMA ENGINE (CRITICAL RESTORE)
+ipcMain.handle('get-ollama-models', async () => {
+    return new Promise((resolve) => {
+        const options = { hostname: '127.0.0.1', port: 11434, path: '/api/tags', method: 'GET' };
+        const req = http.request(options, (res) => {
+            let data = '';
+            res.on('data', d => data += d);
+            res.on('end', () => {
+                try {
+                    const json = JSON.parse(data);
+                    resolve(json.models || []);
+                } catch(e) { resolve([]); }
+            });
+        });
+        req.on('error', () => resolve([]));
+        req.end();
+    });
+});
+
+let currentOllamaReq = null;
+ipcMain.on('send-to-ollama', (event, { model, prompt }) => {
+    if (currentOllamaReq) currentOllamaReq.destroy();
+    const postData = JSON.stringify({ model, prompt, stream: true });
+    const options = { hostname: '127.0.0.1', port: 11434, path: '/api/generate', method: 'POST' };
+    currentOllamaReq = http.request(options, (res) => {
+        res.on('data', d => {
+            try {
+                const lines = d.toString().split('\n');
+                lines.forEach(line => {
+                    if (line) {
+                        const json = JSON.parse(line);
+                        event.reply('ollama-response', { text: json.response, done: json.done });
+                    }
+                });
+            } catch(e) {}
+        });
+        res.on('close', () => { currentOllamaReq = null; });
+    });
+    currentOllamaReq.on('error', (err) => { 
+        event.reply('ollama-response', { text: `Error connecting to Ollama (127.0.0.1): ${err.message}`, done: true });
+        currentOllamaReq = null;
+    });
+    currentOllamaReq.write(postData);
+    currentOllamaReq.end();
+});
+
+ipcMain.on('stop-ollama', () => {
+    if (currentOllamaReq) {
+        currentOllamaReq.destroy();
+        currentOllamaReq = null;
+    }
+});
+
+// 3. TERMINAL ENGINE (UTF-8 SILVER BULLET)
+let terminalProcess = null;
+ipcMain.on('execute-cmd', (event, command) => {
+    if (!terminalProcess) {
+        terminalProcess = spawn('powershell.exe', ['-NoExit', '-Command', '-'], {
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8', LANG: 'ko_KR.UTF-8' }
+        });
+        
+        // Force UTF-8 Encoding
+        terminalProcess.stdin.write("[Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
+        terminalProcess.stdin.write("$OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
+
+        terminalProcess.stdout.on('data', (data) => event.reply('cmd-output', data.toString()));
+        terminalProcess.stderr.on('data', (data) => event.reply('cmd-output', data.toString()));
+    }
+    terminalProcess.stdin.write(`${command}\r\n`);
+});
+
+// 4. BROWSER VIEW SYNC (Temporarily Disabled per user request - transitioning to <webview>)
+let agentBrowserView = null;
+
+ipcMain.on('toggle-agent-view', (event, visible) => {
+    // if (!mainWindow) return;
+    // if (!agentBrowserView) {
+    //     if (!visible) return;
+    //     agentBrowserView = new BrowserView();
+    //     agentBrowserView.setBackgroundColor('#000');
+    //     mainWindow.setBrowserView(agentBrowserView);
+    // }
+    // if (!visible) {
+    //     agentBrowserView.setBounds({ x: -9999, y: -9999, width: 0, height: 0 });
+    // }
+});
+
+ipcMain.on('load-agent-url', (event, url) => {
+    // if (!agentBrowserView) {
+    //     agentBrowserView = new BrowserView();
+    //     agentBrowserView.setBackgroundColor('#000');
+    // }
+    // mainWindow.setBrowserView(agentBrowserView);
+    // agentBrowserView.webContents.loadURL(url);
+});
+
+let currentAgentSelectors = { input: '', send: '' };
+ipcMain.on('set-agent-selectors', (event, sels) => {
+    currentAgentSelectors = sels;
+});
+
+ipcMain.on('ask-web-ai', (event, promptText) => {
+    if (!agentBrowserView) {
+        event.reply('web-ai-response', "[SYSTEM ERROR] BrowserView is offline.");
+        return;
+    }
+    const { input, send } = currentAgentSelectors;
+    if (!input || !send) {
+        event.reply('web-ai-response', "[SYSTEM ERROR] No DOM selectors registered for this agent.");
+        return;
+    }
+
+    const script = `
+        (async () => {
+            try {
+                const inputEl = document.querySelector('${input}');
+                const sendBtn = document.querySelector('${send}');
+                if (!inputEl) return "[SYSTEM ERROR] Input element ('${input}') not found.";
+                
+                // 1. Focus the element
+                inputEl.focus();
+                
+                // 2. Use insertText command (Mimics real user typing/pasting)
+                // This is the most reliable way to trigger React/Vue/ProseMirror state updates
+                const textToInject = ${JSON.stringify(promptText)};
+                
+                // Clear existing content if necessary (optional, but safer for a clean prompt)
+                if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                    inputEl.value = '';
+                } else {
+                    inputEl.innerText = '';
+                }
+                
+                document.execCommand('insertText', false, textToInject);
+                
+                // 3. Dispatch events just in case
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                // 4. Click the send button after a short delay
+                if (sendBtn) {
+                    setTimeout(() => {
+                        sendBtn.click();
+                        // Trigger a mouse click event too for stubborn buttons
+                        sendBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                    }, 300);
+                    return "SUCCESS: Message injected and send triggered!";
+                } else {
+                    return "[SYSTEM ERROR] Send button ('${send}') not found.";
+                }
+            } catch(e) {
+                return "[SYSTEM ERROR] Script Exception: " + e.message;
+            }
+        })();
+    `;
+    
+    agentBrowserView.webContents.executeJavaScript(script).then(result => {
+        // NOTE: This currently returns immediately after clicking send.
+        // Waiting for the AI's response text will require a more complex observer.
+        event.reply('web-ai-response', result);
+    }).catch(err => {
+        event.reply('web-ai-response', "[SYSTEM ERROR] " + err.message);
+    });
+});
+
+ipcMain.on('sync-agent-view-bounds', (event, bounds) => {
+    if (agentBrowserView) agentBrowserView.setBounds(bounds);
+});
+
+ipcMain.on('show-context-menu', (event, params) => {
+    console.log("[DEBUG] Main Process: show-context-menu received", params);
+    const menu = new Menu();
+    
+    if (params.isEditable) {
+        menu.append(new MenuItem({ label: 'Undo', role: 'undo' }));
+        menu.append(new MenuItem({ label: 'Redo', role: 'redo' }));
+        menu.append(new MenuItem({ type: 'separator' }));
+        menu.append(new MenuItem({ label: 'Cut', role: 'cut' }));
+        menu.append(new MenuItem({ label: 'Copy', role: 'copy' }));
+        menu.append(new MenuItem({ label: 'Paste', role: 'paste' }));
+        menu.append(new MenuItem({ label: 'Delete', role: 'delete' }));
+        menu.append(new MenuItem({ type: 'separator' }));
+        menu.append(new MenuItem({ label: 'Select All', role: 'selectAll' }));
+    } else {
+        menu.append(new MenuItem({ label: 'Copy', role: 'copy', enabled: params.hasSelection }));
+        menu.append(new MenuItem({ label: 'Select All', role: 'selectAll' }));
+    }
+
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+        menu.popup({ window: win });
+    } else {
+        menu.popup();
+    }
+});
+
+app.whenReady().then(createWindow);
+
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});

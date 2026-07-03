@@ -1,0 +1,13 @@
+{
+  "name": "pormsg",
+  "version": "1.0.0",
+  "description": "Poor man's Gravity",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "carbonyl": "^0.0.2-next.bacf3db",
+    "electron": "^30.0.0"
+  }
+}

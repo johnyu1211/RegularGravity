@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poor man's Gravity</title>
+    <link rel="icon" type="image/png" href="png.png">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="file-utils.js"></script>
+    <script src="tree-view.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body style="margin:0; padding:0; height:100vh; overflow:hidden;">
+    <div class="app-container" style="display: flex; height: 100vh; width: 100vw; background: #000; overflow: hidden; font-size: 13.5px;">
+        <!-- Explorer (Left) -->
+        <aside class="sidebar" id="sidebar-left" style="width: 260px; height: 100%; border-right: 1px solid #111; display: flex; flex-direction: column;">
+            <div class="section-header">
+                <h3>EXPLORER <span id="item-count" class="count-badge" style="font-size:10px; opacity:0.5;"></span></h3>
+                <div class="header-actions">
+                    <span id="collapse-all-btn" class="header-btn" title="Collapse All">📂</span>
+                    <span id="reveal-btn" class="header-btn" title="Reveal in Windows Explorer">📁</span>
+                </div>
+            </div>
+            <div class="drive-bar" id="drive-jump" style="display:flex; overflow-x:auto; padding:5px; background:#050505; border-bottom:1px solid #111; gap:5px;"></div>
+            <div class="path-bar" id="path-display" style="padding:8px 12px; font-size:10px; color:#555; background:#111; border-bottom:1px solid #1a1a1a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <span class="path-segment">/root</span>
+            </div>
+            <div class="search-container" style="padding:10px; background:#070707;">
+                <input type="text" id="file-search" placeholder="Search files..." class="search-input" style="width:100%; background:#000; border:1px solid #1a1a1a; border-radius:4px; color:#eee; font-size:12px; padding:7px 12px; outline:none;">
+            </div>
+            <div id="file-tree" class="file-tree" style="flex: 1; overflow-y: auto;"></div>
+        </aside>
+
+        <div class="resizer-v" id="resizer-left"></div>
+
+        <main class="main-view" id="editor-container" style="flex: 1; position: relative; display: flex; flex-direction: column; overflow: hidden;">
+            <div class="section-header">
+                <h3>PORMSG EDITOR</h3>
+            </div>
+
+            <div class="center-split-container" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                <div id="editor-upper" style="flex: 1; position: relative;">
+                    <div id="editor-content" style="height:100%;"></div>
+                </div>
+                <div class="resizer-h" id="resizer-terminal"></div>
+                
+                <div id="terminal-lower" class="pane-lower" style="height: 350px; display: flex; flex-direction: column; background: #050505;">
+                    <div class="terminal-view-header" style="height:35px; min-height:35px; border-bottom:1px solid #111; display:flex; align-items:center; justify-content:space-between; padding:0 10px;">
+                        <div id="terminal-sub-tabs" style="flex:1; height:100%; display:flex; overflow:hidden; padding:0 2px;">
+                             <!-- Dynamic Sub-tabs now live here -->
+                        </div>
+                        <div class="terminal-actions" style="display:flex; align-items:center; gap:15px; margin-left: auto;">
+                            <span id="add-terminal" class="action-btn" style="font-size:16px; cursor:pointer; color:#555;">+</span>
+                            <span class="action-btn" id="minimize-terminal" style="cursor:pointer; color:#555;">▼</span>
+                        </div>
+                    </div>
+
+                    <div id="terminal-view" class="pane-view-content" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+                        <div id="terminal-content" class="terminal-surface" style="flex: 1; overflow-y: auto; padding: 10px;">
+                            <div id="terminal-logs-wrapper"></div>
+                                <div class="terminal-input-line" style="display: flex; align-items: center;">
+                                    <span class="terminal-prompt-prefix">> </span>
+                                    <input type="text" class="terminal-main-input" id="terminal-main-input" spellcheck="false" autocomplete="off" style="flex: 1; background: transparent; border: none; color: #ccc; outline: none; font-family: 'JetBrains Mono', monospace; font-size: 13px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        </main>
+
+        <div class="resizer-v" id="resizer-inspector"></div>
+        <div id="inspector-expand-handle" style="width: 14px; height: 100%; background: #000; border-left: 1px solid #1a1a1a; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <div id="expand-icon" style="font-size: 8px; color: #555;">◀</div>
+        </div>
+
+        <aside class="inspector" id="inspector-right" style="width: 500px; height: 100%; display: flex; flex-direction: column; background: #050505; border-left: 1px solid #111;">
+            <div id="inspector-local-chat" class="agent-hub-view" style="display: none; height: 100%; flex-direction: column; background: #070707; overflow: hidden;">
+                <div id="active-project-header" style="height: 35px; padding: 0 12px; background: #111; border-bottom: 1px solid #1a1a1a; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <img id="active-agent-icon" src="png.png" style="width: 14px; height: 14px; object-fit: contain;">
+                        <span id="active-project-badge" style="font-size: 10px; font-weight: 900; color: #fff;">PORMSG</span>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <span id="save-local-chat" class="action-btn" title="Save Chat" style="font-size:12px; cursor:pointer; color:#777;">💾</span>
+                        <span id="clear-local-chat" class="action-btn" title="Clear Chat" style="font-size:12px; cursor:pointer; color:#777;">🗑️</span>
+                    </div>
+                </div>
+                <div id="local-chat-messages" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;"></div>
+                
+                <div style="padding: 12px; border-top: 1px solid #111; background:#0a0a0a; position: relative; z-index: 40;">
+                    <textarea id="local-agent-input" placeholder="Ask local AI..." style="width: 100%; height: 70px; background: #000; color: #ccc; border: 1px solid #1a1a1a; padding: 12px; font-size: 14px; outline: none; resize: none; border-radius: 6px;"></textarea>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <select id="ollama-model-select" style="background:#000; border:1px solid #222; color:#555; font-size:11px; padding:3px 8px; outline:none; border-radius:4px; min-width:140px;">
+                                <option value="">Loading Models...</option>
+                            </select>
+                            <button id="open-persona-settings" style="background:transparent; border:1px solid #222; color:#555; border-radius:4px; width:28px; height:24px; cursor:pointer; font-size:12px;">⚙️</button>
+                            <div style="display:flex; align-items:center; gap:6px; margin-left:4px;">
+                                <span style="font-size:9px; color:#444; font-weight:900; letter-spacing:0.5px;">WEB</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="web-ai-mode-toggle">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="send-to-local" class="send-btn" style="cursor:pointer; color:#fff; font-size:16px; background:#0078d4; width:36px; height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; transition:0.2s;" title="Send Message">➤</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Persona Settings Modal -->
+            <div id="persona-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:20000; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
+                <div style="background:#0a0a0a; border:1px solid #222; width:380px; border-radius:12px; padding:25px; box-shadow:0 30px 60px rgba(0,0,0,0.5);">
+                    <h2 style="margin:0 0 20px 0; font-size:18px; color:#fff; font-weight:600;">AI Persona Settings</h2>
+                    <div style="display:flex; flex-direction:column; gap:16px;">
+                        <div>
+                            <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:1px; font-weight:600;">Name</label>
+                            <input id="ps-name" placeholder="Agent Name..." style="width:100%; background:#000; border:1px solid #222; color:#fff; padding:10px; border-radius:6px; margin-top:6px; font-size:12px;">
+                        </div>
+                        <div>
+                            <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:1px; font-weight:600;">Personality</label>
+                            <input id="ps-personality" placeholder="Friendly, Professional, etc..." style="width:100%; background:#000; border:1px solid #222; color:#fff; padding:10px; border-radius:6px; margin-top:6px; font-size:12px;">
+                        </div>
+                        <div>
+                            <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:1px; font-weight:600;">Information</label>
+                            <textarea id="ps-info" placeholder="Background info..." style="width:100%; height:60px; background:#000; border:1px solid #222; color:#fff; padding:10px; border-radius:6px; margin-top:6px; font-size:12px; resize:none;"></textarea>
+                        </div>
+                        <div>
+                            <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:1px; font-weight:600;">Speech Style</label>
+                            <input id="ps-speech" placeholder="Polite, Casual, etc..." style="width:100%; background:#000; border:1px solid #222; color:#fff; padding:10px; border-radius:6px; margin-top:6px; font-size:12px;">
+                        </div>
+                    </div>
+                    <div style="margin-top:30px; display:flex; gap:12px; justify-content:flex-end;">
+                        <button id="cancel-persona" style="background:transparent; border:none; color:#555; cursor:pointer; font-size:12px;">Cancel</button>
+                        <button id="save-persona" style="background:#0078d4; color:#fff; border:none; padding:10px 20px; border-radius:6px; font-weight:600; cursor:pointer; font-size:12px;">Save Global Traits</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Hub -->
+            <div id="inspector-browser-hub" class="agent-hub-view" style="display: flex; height: 100%; flex-direction: column; background: #000; position: relative;">
+                <div id="agent-hub-home" style="display: flex; flex-direction: column; height: 100%; position: relative;">
+                    <div id="agent-hub-grid" style="padding: 30px; display: flex; flex-wrap: wrap; gap: 25px; justify-content: center; align-content: flex-start; overflow-y: auto; flex: 1;">
+                        <!-- Agent Cards will be injected here -->
+                        <div class="agent-app" id="add-agent-app-card">
+                             <div id="add-agent-app">+</div>
+                             <div class="agent-name">NEW AGENT</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Discovery Settings Button -->
+                    <div id="open-discovery-settings" style="position: absolute; bottom: 20px; right: 20px; width: 36px; height: 36px; background: #1a1a1a; border: 1px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #777; font-size: 18px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 10;" title="Discovery Keywords Setting">⚙️</div>
+                </div>
+
+                <!-- Discovery Settings Modal (Minimal Industrial Version) -->
+                <div id="discovery-settings-modal" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 100; align-items: center; justify-content: center;">
+                    <div style="width: 85%; max-width: 380px; background: #0a0a0a; border: 1px solid #1a1a1a; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+                        <h3 style="margin: 0 0 10px 0; font-size: 13px; font-weight: 500; color: #eee; letter-spacing: 1px; text-transform: uppercase;">Discovery Keywords</h3>
+                        <p style="font-size: 11px; color: #555; margin-bottom: 20px; line-height: 1.5;">Comma-separated values used for input field auto-detection.</p>
+                        
+                        <textarea id="discovery-keywords-input" style="width: 100%; height: 140px; background: #000; border: 1px solid #1a1a1a; color: #aaa; font-size: 11px; padding: 12px; outline: none; resize: none; margin-bottom: 25px; font-family: 'JetBrains Mono', 'Consolas', monospace; line-height: 1.6;"></textarea>
+                        
+                        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                            <button id="close-discovery-settings" style="background: transparent; border: none; color: #444; cursor: pointer; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 5px;">Cancel</button>
+                            <button id="save-discovery-settings" style="background: #111; border: 1px solid #222; color: #eee; cursor: pointer; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 25px; transition: all 0.2s;">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="agent-hub-webview" style="display: none; height: 100%; flex-direction: column;">
+                    <div id="agent-hub-nav" style="display: flex; height: 40px; background: #111; border-bottom: 1px solid #1a1a1a; align-items: center; padding: 0 10px; gap: 10px;">
+                        <span id="back-to-hub" style="cursor:pointer; color:#777; font-size:14px;" title="Back to Grid">🏠</span>
+                        <input type="text" id="agent-url-input" placeholder="URL..." style="flex:1; background:#000; border:1px solid #222; color:#ccc; font-size:12px; padding:7px 14px; outline:none; border-radius:4px;">
+                        <span id="refresh-agent" style="cursor:pointer; color:#777; font-size:14px;" title="Refresh">🔄</span>
+                        <span id="debug-agent" style="cursor:pointer; color:#777; font-size:14px;" title="Inspect Element">🛠️</span>
+                    </div>
+                    <div id="agent-view-dock" style="flex: 1; background:#fff; position: relative;">
+                    </div>
+                    <div id="web-extract-progress-container" style="width:100%; height:4px; background:#111; display:none;">
+                        <div id="web-extract-progress-bar" style="width:0%; height:100%; background:#0078d4; transition: width 0.3s ease; box-shadow: 0 0 10px rgba(0,120,212,0.5);"></div>
+                    </div>
+
+                </div>
+                <!-- [수정] 토스트를 웹뷰 밖으로 빼서 브라우저 탭 전체의 최상위에 배치 -->
+                <div id="injection-toast" class="injection-toast-overlay" style="display:none;">
+                    <div class="toast-content" style="display: flex; align-items: center; gap: 15px; padding: 12px 25px; min-width: 320px; max-width: 450px;">
+                        <div class="toast-icon" style="font-size: 18px;">⌨️</div>
+                        <div class="toast-text" id="toast-text" style="flex: 1; font-size: 12px; line-height: 1.4; color: #eee; overflow: hidden; text-overflow: ellipsis;">Initializing...</div>
+                        <button id="toast-reset-timer-btn" style="display:none; flex-shrink: 0; background:#0078d4; border:none; color:#fff; padding:6px 12px; border-radius:6px; font-size:11px; cursor:pointer; font-weight:bold; box-shadow:0 0 10px rgba(0,120,212,0.5); transition: 0.2s;">Extend Wait</button>
+                        <div id="toast-progress-bar" class="toast-progress" style="left: 25px; right: 25px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="inspector-tabs" style="height: 38px; display: flex; border-top: 1px solid #1a1a1a;">
+                <div id="tab-local-agent" class="ins-tab">LOCAL</div>
+                <div id="tab-browser-hub" class="ins-tab active-tab">BROWSER</div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modals -->
+    <div id="app-reg-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:10000; align-items:center; justify-content:center;">
+        <div style="background:#111; padding:20px; width:340px; border:1px solid #222; border-radius:12px; display:flex; flex-direction:column; gap:10px;">
+            <input type="text" id="reg-app-url" placeholder="URL (e.g. chatgpt.com)..." style="width:100%; background:#000; color:#fff; border:1px solid #222; padding:12px; border-radius:6px; font-size:12px;">
+            <input type="text" id="reg-input-selector" placeholder="Input DOM Selector (Optional)" style="width:100%; background:#000; color:#fff; border:1px solid #222; padding:12px; border-radius:6px; font-size:12px;">
+            <input type="text" id="reg-send-selector" placeholder="Send Btn DOM Selector (Optional)" style="width:100%; background:#000; color:#fff; border:1px solid #222; padding:12px; border-radius:6px; font-size:12px;">
+            <input type="text" id="reg-response-selector" placeholder="Response DOM Selector (Optional)" style="width:100%; background:#000; color:#fff; border:1px solid #222; padding:12px; border-radius:6px; font-size:12px;">
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button id="cancel-reg" style="background:transparent; border:none; color:#555; cursor:pointer;">Cancel</button>
+                <button id="confirm-reg" style="background:#fff; color:#000; border:none; border-radius:4px; padding:6px 12px; cursor:pointer;">Register</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="modal-overlay">
+        <div class="modal-content confirm-box">
+            <div class="modal-header">
+                <div class="modal-title">CONFIRMATION</div>
+                <div class="modal-close" id="close-confirm">&times;</div>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message">Are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-cancel" class="modal-btn secondary">Cancel</button>
+                <button id="confirm-ok" class="modal-btn primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WebAI Process Overlay -->
+    <div id="web-process-overlay">
+        <div class="process-header">
+            <div class="process-title">PROJECT ANALYZER</div>
+            <div class="spinner"></div>
+        </div>
+        <div class="process-steps">
+            <div class="step-item" id="step-scan">
+                <div class="step-icon">📂</div>
+                <div class="step-text">
+                    <div class="step-label">Project Scan</div>
+                    <div class="step-status">Scanning file structure...</div>
+                </div>
+            </div>
+            <div class="step-item" id="step-analyze">
+                <div class="step-icon">🧠</div>
+                <div class="step-text">
+                    <div class="step-label">Context Analysis</div>
+                    <div class="step-status">Local AI processing...</div>
+                </div>
+            </div>
+            <div class="step-item" id="step-brief">
+                <div class="step-icon">🚀</div>
+                <div class="step-text">
+                    <div class="step-label">Web Briefing</div>
+                    <div class="step-status">Injecting to Web AI...</div>
+                </div>
+            </div>
+            <div class="step-item" id="step-extract">
+                <div class="step-icon">💬</div>
+                <div class="step-text">
+                    <div class="step-label">Final Response</div>
+                    <div class="step-status">Waiting for expert answer...</div>
+                </div>
+            </div>
+        </div>
+        <div class="progress-container">
+            <div id="web-process-bar" class="progress-fill"></div>
+        </div>
+    </div>
+
+    <script src="UnRef_renderer.js"></script>
+</body>
+</html>

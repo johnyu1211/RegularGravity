@@ -1079,81 +1079,85 @@ async function injectWebPayload(webPayload) {
 function detectAndAskCommand(text) {
     if (!text) return;
 
-    // [🛠️ 신규 추가: read-lines 명령어 자동 감지 및 웹 AI로 전송]
-    const readLinesRegex = /\[CMD:\s*read-lines\s+"([^"]+)"\s+(\d+)\s+(\d+)\]/gi;
-    let readMatch;
-    let originalText = text;
-    
-    while ((readMatch = readLinesRegex.exec(originalText)) !== null) {
-        const filePath = readMatch[1];
-        const start = parseInt(readMatch[2]);
-        const end = parseInt(readMatch[3]);
+    // [🛠️ 개선: 모든 [CMD:...] 태그를 정밀 추출 후 RUN 버튼 제공 (자동 실행 없음)]
+    // read-lines 포함 모든 CMD를 통합 처리 — Brain(WebAI) & Hand(Local) 분리 원칙
+    const cmdRegex = /\[CMD:\s*([^\]]+)\]/gi;
+    let match;
+    const foundCmds = [];
 
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const targetPath = path.resolve(window.currentPath, filePath);
-            
-            if (fs.existsSync(targetPath)) {
-                const content = fs.readFileSync(targetPath, 'utf-8').split('\n');
-                const chunk = content.slice(start - 1, end).join('\n');
-                const isLast = end >= content.length;
-
-                const statusMsg = isLast 
-                    ? `[SYSTEM] This code is the end of the file. Complete.` 
-                    : `[SYSTEM] Sending lines ${start}-${end}. I am sending it in chunks, please wait for the next part...`;
-                    
-                injectWebPayload(`[FILE DATA: ${filePath} (${start}-${end})]\n\`\`\`\n${chunk}\n\`\`\`\n\n${statusMsg}`);
-                ChatUI.appendBubble('system', `[SYSTEM] Auto-extracted and sent ${start}-${end} lines of ${filePath} to Web AI.`);
-            } else {
-                ChatUI.appendBubble('system', `[ERROR] File not found: ${filePath}`);
-                injectWebPayload(`[SYSTEM ERROR] File not found: ${filePath}`);
-            }
-        } catch (err) {
-            ChatUI.appendBubble('system', `[ERROR] Failed to read ${filePath}: ${err.message}`);
-        }
+    while ((match = cmdRegex.exec(text)) !== null) {
+        const cleanCmd = match[1].trim();
+        if (cleanCmd) foundCmds.push(cleanCmd);
     }
 
-    // 처리 완료된 read-lines 명령어는 이후 수동 실행 팝업에 노출되지 않도록 제거
-    const cleanText = text.replace(readLinesRegex, '');
-
-    const cmdRegex = /\[CMD:\s*(.*?)\]|powershell:\s*([^\n]+)/gi;
-    let match; const foundCmds = [];
-    while ((match = cmdRegex.exec(cleanText)) !== null) { foundCmds.push(match[1] || match[2]); }
     if (foundCmds.length === 0) return;
 
-    foundCmds.forEach(cmd => {
-        const cleanCmd = cmd.trim();
+    foundCmds.forEach(cleanCmd => {
+        const isReadLines = /^read-lines\s+"([^"]+)"\s+(\d+)\s+(\d+)$/i.test(cleanCmd);
         const box = ChatUI.appendBubble('system', '');
         const content = box.querySelector('.bubble-content');
-        
+
+        const label = isReadLines ? 'FILE READ PROPOSED' : 'COMMAND ACTION PROPOSED';
+        const labelColor = isReadLines ? '#f0a500' : '#0078d4';
+
         content.innerHTML = `
-            <div style="color:#0078d4; font-weight:900; margin-bottom:10px; font-size:11px; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
-                <div style="width:3px; height:12px; background:#0078d4; border-radius:10px;"></div>
-                COMMAND ACTION PROPOSED
+            <div style="color:${labelColor}; font-weight:900; margin-bottom:10px; font-size:11px; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+                <div style="width:3px; height:12px; background:${labelColor}; border-radius:10px;"></div>
+                ${label}
             </div>
             <div style="background:rgba(0,0,0,0.4); padding:12px; border-radius:6px; font-family:'JetBrains Mono', monospace; font-size:12px; border:1px solid #1a1a1a; margin-bottom:12px; color:#eee; box-shadow:inset 0 0 10px rgba(0,0,0,0.5);">
-                <span style="color:#555;">$</span> ${cleanCmd}
+                <span style="color:#555;">${isReadLines ? '📄' : '$'}</span> ${cleanCmd}
             </div>
             <div style="display:flex; gap:10px;">
-                <button class="cmd-run-btn" style="flex:1; background:#0078d4; color:white; border:none; padding:6px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">RUN</button>
+                <button class="cmd-run-btn" style="flex:1; background:${labelColor}; color:white; border:none; padding:6px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">RUN</button>
                 <button class="cmd-cancel-btn" style="flex:1; background:#222; color:#aaa; border:1px solid #333; padding:6px; border-radius:4px; cursor:pointer; font-size:11px;">CANCEL</button>
             </div>
         `;
 
-        content.querySelector('.cmd-run-btn').onclick = () => {
-            if (window.activeSubTabId && window.terminalSessions[window.activeSubTabId]) {
-                window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
-                window.switchSubTerminal(window.activeSubTabId);
-                ipcRenderer.send('execute-cmd', cleanCmd);
-                const tL = document.getElementById('terminal-lower');
-                if (tL && tL.offsetHeight <= 40) {
-                    tL.style.height = '350px';
-                    const minBtn = document.getElementById('minimize-terminal'); if (minBtn) minBtn.innerText = '▼';
-                    syncBrowserView();
+        content.querySelector('.cmd-run-btn').onclick = async () => {
+            box.remove();
+            if (isReadLines) {
+                // read-lines → 파일 읽어서 웹AI로 전송
+                const m = cleanCmd.match(/^read-lines\s+"([^"]+)"\s+(\d+)\s+(\d+)$/i);
+                if (!m) return;
+                const [, filePath, startStr, endStr] = m;
+                const start = parseInt(startStr), end = parseInt(endStr);
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const targetPath = path.resolve(window.currentPath, filePath);
+                    if (fs.existsSync(targetPath)) {
+                        const lines = fs.readFileSync(targetPath, 'utf-8').split('\n');
+                        const chunk = lines.slice(start - 1, end).join('\n');
+                        const isLast = end >= lines.length;
+                        const statusMsg = isLast
+                            ? '[SYSTEM] This is the end of the file.'
+                            : `[SYSTEM] Sending lines ${start}-${end}. More chunks may follow.`;
+                        document.getElementById('tab-browser-hub')?.click();
+                        await injectWebPayload(`[FILE DATA: ${filePath} (${start}-${end})]\n\`\`\`\n${chunk}\n\`\`\`\n\n${statusMsg}`);
+                        ChatUI.appendBubble('system', `[SYSTEM] Sent ${filePath} lines ${start}-${end} to Web AI.`);
+                    } else {
+                        ChatUI.appendBubble('system', `[ERROR] File not found: ${filePath}`);
+                        injectWebPayload(`[SYSTEM ERROR] File not found: ${filePath}`);
+                    }
+                } catch (err) {
+                    ChatUI.appendBubble('system', `[ERROR] ${err.message}`);
                 }
+            } else {
+                // 일반 CMD → 터미널 실행
+                if (window.activeSubTabId && window.terminalSessions[window.activeSubTabId]) {
+                    window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
+                    window.switchSubTerminal(window.activeSubTabId);
+                    ipcRenderer.send('execute-cmd', cleanCmd);
+                    const tL = document.getElementById('terminal-lower');
+                    if (tL && tL.offsetHeight <= 40) {
+                        tL.style.height = '350px';
+                        const minBtn = document.getElementById('minimize-terminal'); if (minBtn) minBtn.innerText = '▼';
+                        syncBrowserView();
+                    }
+                }
+                ChatUI.appendBubble('system', `[SYSTEM] Command executed: ${cleanCmd}`);
             }
-            box.remove(); ChatUI.appendBubble('system', `[SYSTEM] Command executed: ${cleanCmd}`);
         };
         content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
     });

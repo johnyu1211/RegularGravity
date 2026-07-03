@@ -124,31 +124,24 @@ ipcMain.on('vault-reset-session', (event, { logPath }) => {
 
 ipcMain.handle('vault-get-tree', async () => {
     const root = process.cwd();
-    const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build'];
+    const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch'];
     
-    try {
-        const files = fs.readdirSync(root);
-        let output = "Mode                LastWriteTime         Length Name\n";
-        output += "----                -------------         ------ ----\n";
-
-        files.forEach(file => {
-            if (ignore.includes(file)) return;
-            const fullPath = path.join(root, file);
-            const stats = fs.statSync(fullPath);
-            const isDir = stats.isDirectory();
-            
-            const mode = (isDir ? 'd-----' : '-a----');
-            const mTime = stats.mtime;
-            const dateStr = `${mTime.getFullYear()}-${String(mTime.getMonth()+1).padStart(2, '0')}-${String(mTime.getDate()).padStart(2, '0')}  ${String(mTime.getHours()).padStart(2, '0')}:${String(mTime.getMinutes()).padStart(2, '0')}`;
-            const length = isDir ? "" : stats.size.toString();
-            
-            output += `${mode.padEnd(20)}${dateStr.padEnd(22)}${length.padStart(6)} ${file}${isDir ? '/' : ''}\n`;
-        });
-        
-        return output;
-    } catch (e) {
-        return "Error listing directory: " + e.message;
+    function buildTree(dir, prefix = '') {
+        let result = '';
+        try {
+            const items = fs.readdirSync(dir);
+            items.forEach(item => {
+                if (ignore.includes(item)) return;
+                const fullPath = path.join(dir, item);
+                const isDir = fs.statSync(fullPath).isDirectory();
+                result += `${prefix}${isDir ? '[DIR]' : '[FILE]'} ${item}\n`;
+                if (isDir) result += buildTree(fullPath, prefix + '  ');
+            });
+        } catch (e) {}
+        return result;
     }
+    
+    return buildTree(root);
 });
 
 ipcMain.handle('vault-search', async (event, { query }) => {

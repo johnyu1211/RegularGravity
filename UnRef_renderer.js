@@ -1,4 +1,4 @@
-// --- Poor man's Gravity ULTIMATE RENDERER ENGINE (STABLE v31 - COLLABORATION EDITION) ---
+﻿// --- Poor man's Gravity ULTIMATE RENDERER ENGINE (STABLE v31 - COLLABORATION EDITION) ---
 const fs = require('fs');
 if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 
@@ -1275,61 +1275,64 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     const idleFingerprint = await wv.executeJavaScript(getUIFingerprint).catch(() => "");
     
     const extractScript = `(function(){
-        const toMarkdown = (root) => {
-            let md = "";
-            const walk = (node, indent = "") => {
-                if (node.nodeType === 3) { md += node.textContent.replace(/\\s+/g, ' '); return; }
-                if (node.nodeType !== 1) return;
-                const tag = node.tagName.toLowerCase();
-                if (tag === 'br') { md += "\\n"; return; } if (tag === 'p') md += "\\n\\n";
-                if (tag.match(/^h[1-6]$/)) md += "\\n\\n" + "#".repeat(parseInt(tag[1])) + " ";
-                if (tag === 'li') md += "\\n" + indent + "- "; if (tag === 'blockquote') md += "\\n> ";
-                if (tag === 'code' && node.parentNode.tagName !== 'PRE') md += "\`"; if (tag === 'pre') md += "\\n\`\`\`\\n";
-                if (tag === 'strong' || tag === 'b') md += "**"; if (tag === 'em' || tag === 'i') md += "*";
-                if (tag === 'table') {
-                    md += "\\n\\n"; const rows = Array.from(node.querySelectorAll('tr'));
-                    rows.forEach((row, rowIndex) => { const cells = Array.from(row.querySelectorAll('th, td')); md += "| " + cells.map(c => c.innerText.trim().replace(/\\n/g, '<br>')).join(" | ") + " |\\n"; if (rowIndex === 0) { md += "| " + cells.map(() => "---").join(" | ") + " |\\n"; } });
-                    md += "\\n"; return; 
-                }
-                if (tag === 'ul' || tag === 'ol') { Array.from(node.children).forEach(child => walk(child, indent + "  ")); md += "\\n"; return; }
-                node.childNodes.forEach(child => walk(child, indent));
-                if (tag === 'p') md += "\\n"; if (tag === 'pre') md += "\\n\`\`\`\\n"; if (tag === 'code' && node.parentNode.tagName !== 'PRE') md += "\`";
-                if (tag === 'strong' || tag === 'b') md += "**"; if (tag === 'em' || tag === 'i') md += "*"; if (tag.match(/^h[1-6]$/)) md += "\\n";
-            };
-            walk(root); return md.replace(/\\n{3,}/g, '\\n\\n').trim();
-        };
+        // [🛠️ 정밀화: 실제 AI 응답 영역만 타겟팅]
+        const preciseSelectors = [
+            'model-response',
+            '[data-message-author-role="model"]',
+            '[data-testid="message-content"]',
+            'message-content',
+            '.markdown.markdown-main-panel',
+            '.response-content',
+            '.markdown-prose'
+        ];
 
         let targetNode = null;
-        const geminiNodes = document.querySelectorAll('model-response, [data-testid="message-content"], message-content');
-        if (geminiNodes.length > 0) {
-            targetNode = geminiNodes[geminiNodes.length - 1]; 
-        } else {
-            const selectors = ['.markdown-prose', '.chat-message', '.message', 'article'];
-            const nodes = Array.from(document.querySelectorAll(selectors.join(',')));
-            targetNode = nodes.length > 0 ? nodes[nodes.length - 1] : document.body;
+        for (const sel of preciseSelectors) {
+            const nodes = document.querySelectorAll(sel);
+            if (nodes.length > 0) { targetNode = nodes[nodes.length - 1]; break; }
         }
 
+        // fallback: 일반 컨테이너
+        if (!targetNode) {
+            const fallbacks = ['.chat-message', '.message', 'article'];
+            const nodes = Array.from(document.querySelectorAll(fallbacks.join(',')));
+            targetNode = nodes.length > 0 ? nodes[nodes.length - 1] : null;
+        }
+
+        if (!targetNode) return '';
+
         const clone = targetNode.cloneNode(true);
-        ['details', 'summary', '.thought', '.thinking', '.reasoning', '[class*="thought"]', '[class*="thinking"]', 'button', 'svg', 'nav'].forEach(sel => clone.querySelectorAll(sel).forEach(el => el.remove()));
-        return toMarkdown(clone);
+        // script, style, noscript, svg, button 등 제거
+        clone.querySelectorAll('script, style, noscript, svg, button, nav, details, summary, [class*="thought"], [class*="thinking"]').forEach(el => el.remove());
+
+        return clone.innerText.trim();
     })()`;
 
     const cleanGarbage = (t) => {
         if (!t) return "";
         let cleaned = t;
+
+        // [🛠️ 강화: JS 코드 패턴 제거 (Gemini 페이지 가비지)]
+        cleaned = cleaned.replace(/\(function\(\)\{[\s\S]*?\}\.call\(this\);/gi, "");
+        cleaned = cleaned.replace(/this\.gbar_\s*=\s*this\.gbar_[\s\S]*?\}/gi, '');
+        cleaned = cleaned.replace(/'use strict';[\s\S]{0,500}/gi, '');
+        cleaned = cleaned.replace(/WIZ_global_data[\s\S]*?;/gi, '');
+        cleaned = cleaned.replace(/google\.\w+[\s\S]{0,200}\{[\s\S]{0,500}\}/gi, '');
+
         const footers = [
             /Gemini는 AI이며 인물 등에 관한 정보 제공 시 실수를 할 수 있습니다.*/gi,
             /개인 정보 보호 및 Gemini새 창에서 열기/gi,
             /Gemini의 응답/gi,
             /Gemini may display inaccurate info.*/gi,
-            /Your privacy and Gemini Apps/gi
+            /Your privacy and Gemini Apps/gi,
+            /새 창에서 열기/gi
         ];
-        footers.forEach(regex => { cleaned = cleaned.replace(regex, ''); });
+        footers.forEach(regex => { cleaned = cleaned.replace(regex, ""); });
 
         cleaned = cleaned.replace(/^[ \t\W]*(Thinking|Thought|Analyzing|Searching|Working|\[SYSTEM\]|Processing|Reasoning).*?(\n|$)/gim, "");
         cleaned = cleaned.replace(/[(\[]\s*(Thinking|Thought|Analyzing|Reasoning).*?\s*[)\]]/gi, "");
-        cleaned = cleaned.replace(/^\s*(Thinking|Thought|Analyzing|Reasoning)(\.\.\.|\:)?\s*/gi, "");
-        cleaned = cleaned.split('\n').filter(line => { const l = line.trim().toLowerCase(); return !(l === "thinking" || l === "thought" || l === "reasoning" || l.startsWith("thought for")); }).join('\n');
+        cleaned = cleaned.replace(/^\s*(Thinking|Thought|Analyzing|Reasoning)(\.\.\.|\.)*\s*/gi, "");
+        cleaned = cleaned.split("\n").filter(line => { const l = line.trim().toLowerCase(); return !(l === "thinking" || l === "thought" || l === "reasoning" || l.startsWith("thought for")); }).join("\n");
         
         return cleaned.trim();
     };

@@ -1414,13 +1414,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     addSubTerminal(true); 
     await setupBoot();
     
-    // [🛠️ 수정: 시작 시 항상 브라우저 탭 활성화]
-    document.getElementById('tab-browser-hub')?.click();
+    // [🛠️ 수정: 시작 시 로컬 탭 고정]
+    document.getElementById('tab-local-agent')?.click();
     
-    GravityVault.init().then(() => {
-        // 채팅 기록 복원 여부에 따라 로직이 수행되지만, 
-        // 탭 자체는 로컬로 고정되어 시작합니다.
-        ChatUI.restoreHistory();
-    });
+    // 초기화만 유지, 기록 복원 없음
+    GravityVault.init();
 });
 ipcRenderer.on('refresh-explorer', () => { window.loadDirectory(window.currentPath); });

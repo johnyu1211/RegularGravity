@@ -1042,8 +1042,14 @@ async function injectWebPayload(webPayload) {
                 const inputEl = findInput();
                 if (inputEl) {
                     inputEl.focus();
-                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') inputEl.value = '';
-                    else if (inputEl.contentEditable === 'true') inputEl.innerText = '';
+                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                        inputEl.value = '';
+                    } else {
+                        inputEl.innerText = '';
+                    }
+                    document.execCommand('insertText', false, ${JSON.stringify(cleanPayload)});
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
                     return true;
                 }
                 return false;
@@ -1053,8 +1059,6 @@ async function injectWebPayload(webPayload) {
         wv.executeJavaScript(getDiscoveryScript()).then(async (focused) => {
             if (!focused) return reject("Input field not found.");
             
-            // 통째로 주입하여 줄바꿈 포맷 보존 및 속도 향상
-            wv.insertText(cleanPayload);
             await new Promise(r => setTimeout(r, 100));
 
             const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
@@ -1454,14 +1458,14 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     if (manualAbort) { hideGlobalUI(); return await manualPromise; } hideGlobalUI(); return null;
 }
 
-window.addEventListener('contextmenu', (e) => {
+/* window.addEventListener('contextmenu', (e) => {
     e.preventDefault(); e.stopPropagation();
     const target = e.target;
     const isEditable = target.closest('input, textarea, [contenteditable="true"]');
     const hasSelection = window.getSelection().toString().length > 0;
     const isInputZone = target.closest('#local-agent-input, .manual-input-area, [id^="local-agent"], div[style*="background:#0a0a0a"]');
     ipcRenderer.send('show-context-menu', { isEditable: !!(isEditable || isInputZone), hasSelection: hasSelection });
-}, { capture: true });
+}, { capture: true }); */
 
 async function migrateToVault() {
     const appsStr = localStorage.getItem('pormsg_agent_apps') || localStorage.getItem('vapor_agent_apps');

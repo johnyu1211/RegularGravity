@@ -122,8 +122,8 @@ ipcMain.on('vault-reset-session', (event, { logPath }) => {
     }
 });
 
-ipcMain.handle('vault-get-tree', async () => {
-    const root = process.cwd();
+ipcMain.handle('vault-get-tree', async (event, projectPath) => {
+    const root = projectPath || process.cwd();
     const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch'];
     
     function buildTree(dir, prefix = '', depth = 0) {
@@ -134,7 +134,7 @@ ipcMain.handle('vault-get-tree', async () => {
             items = fs.readdirSync(dir);
         } catch (e) {
             console.error(`[Tree] Cannot read dir ${dir}:`, e.message);
-            return '';
+            return `[ERROR: Cannot read dir ${dir} - ${e.message}]\n`;
         }
         
         items.forEach(item => {
@@ -154,7 +154,11 @@ ipcMain.handle('vault-get-tree', async () => {
         return result;
     }
     
-    return buildTree(root);
+    const treeResult = buildTree(root);
+    if (!treeResult) {
+        return `[WARNING: No files found in target root path: ${root}]`;
+    }
+    return treeResult;
 });
 
 ipcMain.handle('vault-search', async (event, { query }) => {

@@ -584,7 +584,7 @@ function setupUI() {
             projBtn.innerText = "Sending Project Context...";
             document.getElementById('tab-browser-hub')?.click();
             
-            const tree = await ipcRenderer.invoke('vault-get-tree');
+            const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
             
             // 불필요한 설정 다 빼고 목적만 전달하는 심플한 프롬프트
             const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:

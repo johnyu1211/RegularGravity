@@ -1025,7 +1025,7 @@ async function injectWebPayload(webPayload) {
 
     return new Promise((resolve, reject) => {
         const wv = document.getElementById('active-agent-webview'); if (!wv) return reject("Webview not found");
-        const cleanPayload = webPayload.replace(/[\r\n]+/g, ' / ').trim();
+        const cleanPayload = webPayload.trim();
 
         const getDiscoveryScript = () => `
             (() => {
@@ -1052,8 +1052,10 @@ async function injectWebPayload(webPayload) {
 
         wv.executeJavaScript(getDiscoveryScript()).then(async (focused) => {
             if (!focused) return reject("Input field not found.");
-            const chars = Array.from(cleanPayload);
-            for (const char of chars) { wv.insertText(char); await new Promise(r => setTimeout(r, Math.random() * 5 + 1)); }
+            
+            // 통째로 주입하여 줄바꿈 포맷 보존 및 속도 향상
+            wv.insertText(cleanPayload);
+            await new Promise(r => setTimeout(r, 100));
 
             const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
             const hideToast = () => { if (toast) toast.style.display = 'none'; if (toastBar) toastBar.style.display = 'block'; };
@@ -1135,8 +1137,19 @@ function detectAndAskCommand(text) {
                             const finalMessage = `[FILE DATA: ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n[SYSTEM] File contents provided above. Please analyze.`;
                             
                             document.getElementById('tab-browser-hub')?.click();
+                            
+                            // 응답 캡처 엔진 먼저 대기
+                            const enginePromise = runExperimentalEngine('/marktag', finalMessage, null);
                             await injectWebPayload(finalMessage);
                             ChatUI.appendBubble('system', `[SYSTEM] Sent ${filePath} content to Web AI.`);
+                            
+                            // 응답 완료 대기 후 로컬 복귀 및 처리
+                            const response = await enginePromise;
+                            document.getElementById('tab-local-agent')?.click();
+                            if (response) {
+                                ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
+                                detectAndAskCommand(response);
+                            }
                         } else {
                             ChatUI.appendBubble('system', `[ERROR] File not found: ${filePath}`);
                             document.getElementById('tab-browser-hub')?.click();
@@ -1165,7 +1178,18 @@ function detectAndAskCommand(text) {
                 ChatUI.appendBubble('system', `[EXECUTED] ${cleanCmd}`);
                 document.getElementById('tab-browser-hub')?.click();
                 const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.`;
+                
+                // 응답 캡처 엔진 먼저 대기
+                const enginePromise = runExperimentalEngine('/marktag', payload, null);
                 await injectWebPayload(payload);
+                
+                // 응답 완료 대기 후 복귀
+                const response = await enginePromise;
+                document.getElementById('tab-local-agent')?.click();
+                if (response) {
+                    ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
+                    detectAndAskCommand(response);
+                }
             }
         };
 

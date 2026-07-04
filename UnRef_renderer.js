@@ -591,7 +591,7 @@ function setupUI() {
 ${tree}
 
 여기서 작업을 시작하기 위해 특정 파일을 탐색하거나 읽어야 할 것 같으면, 다음 명령어를 사용해 주세요:
-- 파일 읽기: [CMD: read-lines "파일명" 시작줄 끝줄] (예: [CMD: read-lines "main.js" 1 50])
+- 파일 전체 읽기: [CMD: read-file "파일명"] (예: [CMD: read-file "main.js"])
 - 시스템 명령어: [CMD: 명령어]
 
 이 메시지를 확인했다면, 작업을 파악하기 위해 필요한 명령어를 다음 답변에 바로 입력해 주세요.`.trim();
@@ -1080,48 +1080,52 @@ async function injectWebPayload(webPayload) {
 function detectAndAskCommand(text) {
     if (!text) return;
 
-    // 1. read-lines 자동 처리 (파일 읽어서 웹AI에 자동 전송)
-    const readLinesRegex = /\[CMD:\s*read-lines\s+"([^"]+)"\s+(\d+)\s+(\d+)\]/gi;
+    // 1. read-file 명령어 자동 감지 (여러 개 동시 처리)
+    const readFileRegex = /\[CMD:\s*read-file\s+"([^"]+)"\]/gi;
     let readMatch;
-    while ((readMatch = readLinesRegex.exec(text)) !== null) {
+    let combinedPayload = "";
+    let filesRead = 0;
+
+    // 요청한 모든 파일 명을 찾아서 루프를 돕니다
+    while ((readMatch = readFileRegex.exec(text)) !== null) {
         const filePath = readMatch[1];
-        const start = parseInt(readMatch[2]);
-        const end = parseInt(readMatch[3]);
         try {
             const fs = require('fs');
             const path = require('path');
             const targetPath = path.resolve(window.currentPath, filePath);
+            
             if (fs.existsSync(targetPath)) {
-                const fileLines = fs.readFileSync(targetPath, 'utf-8').split('\n');
-                const chunk = fileLines.slice(start - 1, end).join('\n');
-                const isLast = end >= fileLines.length;
-                const statusMsg = isLast
-                    ? '[SYSTEM] This is the end of the file. Complete.'
-                    : `[SYSTEM] Sending lines ${start}-${end}. More chunks may follow.`;
-                document.getElementById('tab-browser-hub')?.click();
-                injectWebPayload(`[FILE DATA: ${filePath} (${start}-${end})]\n\`\`\`\n${chunk}\n\`\`\`\n\n${statusMsg}`);
-                ChatUI.appendBubble('system', `[SYSTEM] Auto-sent ${filePath} lines ${start}-${end} to Web AI.`);
+                const content = fs.readFileSync(targetPath, 'utf-8');
+                // 파일 내용을 하나의 페이로드 문자열에 계속 누적합니다
+                combinedPayload += `\n\n[FILE DATA: ${filePath}]\n\`\`\`\n${content}\n\`\`\`\n`;
+                filesRead++;
             } else {
-                ChatUI.appendBubble('system', `[ERROR] File not found: ${filePath}`);
-                injectWebPayload(`[SYSTEM ERROR] File not found: ${filePath}`);
+                combinedPayload += `\n\n[SYSTEM ERROR] File not found: ${filePath}\n`;
             }
         } catch (err) {
-            ChatUI.appendBubble('system', `[ERROR] ${err.message}`);
+            combinedPayload += `\n\n[SYSTEM ERROR] Failed to read ${filePath}: ${err.message}\n`;
         }
     }
 
-    // 2. read-lines 제거 후 나머지 [CMD:...] → RUN 버튼 제공
-    const cleanText = text.replace(readLinesRegex, '');
-    const cmdRegex = /\[CMD:\s*([^\]]+)\]/gi;
-    let match;
+    // 누적된 파일 데이터가 있다면 웹 AI 입력창에 한 번에 쏟아붓습니다
+    if (combinedPayload) {
+        const finalMessage = `${combinedPayload}\n\n[SYSTEM] Requested ${filesRead} files provided above. Please analyze.`;
+        document.getElementById('tab-browser-hub')?.click();
+        injectWebPayload(finalMessage);
+        ChatUI.appendBubble('system', `[SYSTEM] Auto-extracted and sent ${filesRead} files to Web AI.`);
+    }
 
-    while ((match = cmdRegex.exec(cleanText)) !== null) {
+    // 2. 명령어 실행 버튼 생성 (파일 읽기 외의 일반 명령어 처리)
+    // 패턴: [CMD: 명령어] (read-file은 제외)
+    const cmdRegex = /\[CMD:\s*(?!read-file)([^\]]+)\]/gi;
+    let match;
+    while ((match = cmdRegex.exec(text)) !== null) {
         const cleanCmd = match[1].trim();
         if (!cleanCmd) continue;
-
+        
         const box = ChatUI.appendBubble('system', '');
         const content = box.querySelector('.bubble-content');
-
+        
         content.innerHTML = `
             <div style="font-size:11px; color:#0078d4; margin-bottom:8px; font-weight:900; display:flex; align-items:center; gap:6px;">
                 <div style="width:3px; height:12px; background:#0078d4; border-radius:10px;"></div>

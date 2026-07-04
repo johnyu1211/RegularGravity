@@ -1274,14 +1274,25 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     const idleFingerprint = await wv.executeJavaScript(getUIFingerprint).catch(() => "");
     
     const extractScript = `(function(){
-        // Gemini의 순수 텍스트 영역(마크다운)만 정확히 타겟팅
-        const nodes = Array.from(document.querySelectorAll('model-response .markdown, .message-content .markdown-prose, .response-content'));
-        if (nodes.length === 0) return "";
+        const selectors = [
+            'model-response .markdown', 
+            'message-content .markdown-prose', 
+            '[data-testid="message-content"]', 
+            '.response-content'
+        ];
         
-        const lastNode = nodes[nodes.length - 1];
-        const clone = lastNode.cloneNode(true);
+        let targetNode = null;
+        for (let sel of selectors) {
+            const nodes = document.querySelectorAll(sel);
+            if (nodes.length > 0) {
+                targetNode = nodes[nodes.length - 1]; // 가장 최신 응답
+                break;
+            }
+        }
         
-        // 선택지(칩), 버튼, 링크 형태의 동적 UI 요소 모조리 제거
+        if (!targetNode) return "[EXTRACT_FAIL]"; // 못 찾으면 에러 플래그 반환
+        
+        const clone = targetNode.cloneNode(true);
         clone.querySelectorAll('script, style, button, a[role="link"], [role="button"], .carousel, .suggestions-container, [aria-label*="추천"]').forEach(el => el.remove());
         
         return clone.innerText.trim();
@@ -1328,17 +1339,11 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         const currentFingerprint = await wv.executeJavaScript(getUIFingerprint).catch(() => "");
         let delta = await wv.executeJavaScript(extractScript).catch(() => "");
         
-        const pureMsg = msg.replace(/[\s\W_]+/g, '');
-        const pureDelta = delta.replace(/[\s\W_]+/g, '');
-        
-        if (pureDelta.includes(pureMsg) && pureDelta.length <= pureMsg.length + 20) {
-            delta = ""; 
+        if (delta === "[EXTRACT_FAIL]") {
+            delta = ""; // DOM을 못 찾았을 때는 빈 문자열로 처리하여 대기
         } else {
-            const idx = delta.lastIndexOf(msg); 
-            if (idx !== -1) delta = delta.substring(idx + msg.length).trim();
+            delta = cleanGarbage(delta);
         }
-        
-        delta = cleanGarbage(delta);
 
         if (!isGenerating && delta.length > 0) {
             isGenerating = true;

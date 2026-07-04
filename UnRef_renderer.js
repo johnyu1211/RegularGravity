@@ -1035,9 +1035,9 @@ async function injectWebPayload(webPayload) {
         const hideToast = () => { if (toast) toast.style.display = 'none'; if (toastBar) toastBar.style.display = 'block'; };
         const safetyTimer = setTimeout(hideToast, 7000);
 
-        // 3단계: 웹뷰 내에서 Base64 디코딩 후 execCommand 주입 + 전송 처리
+        // 3단계: 웹뷰 내에서 Base64 디코딩 후 비동기 청크 타이핑 주입 + 전송 처리
         const injectionScript = `
-            (() => {
+            (async () => {
                 const inKeywords = ${JSON.stringify(inKeywords)};
                 const findInput = () => {
                     const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
@@ -1061,38 +1061,44 @@ async function injectWebPayload(webPayload) {
                     inputEl.innerText = '';
                 }
                 
+                // Base64 디코딩하여 execCommand 주입 (안전성 100%)
+                const decodedPayload = (() => {
+                    try {
+                        const bin = atob("${base64Payload}");
+                        const bytes = new Uint8Array(bin.length);
+                        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                        return new TextDecoder("utf-8").decode(bytes);
+                    } catch (e) {
+                        return "";
+                    }
+                })();
+                
+                if (!decodedPayload) return "DECODE_ERROR";
+                
                 // 포커싱 및 청소 후 200ms 대기하여 리치 에디터의 포커스 상태가 안정화되도록 유도
-                setTimeout(() => {
-                    // Base64 디코딩하여 execCommand 주입 (안전성 100%)
-                    const decodedPayload = (() => {
-                        try {
-                            const bin = atob("${base64Payload}");
-                            const bytes = new Uint8Array(bin.length);
-                            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-                            return new TextDecoder("utf-8").decode(bytes);
-                        } catch (e) {
-                            return "";
-                        }
-                    })();
-                    
-                    if (!decodedPayload) return;
-                    
-                    document.execCommand('insertText', false, decodedPayload);
+                await new Promise(r => setTimeout(r, 200));
+                
+                // 속도와 입력을 보장하는 150자 단위 청크 타이핑 주입
+                const chunkSize = 150;
+                for (let i = 0; i < decodedPayload.length; i += chunkSize) {
+                    const chunk = decodedPayload.substring(i, i + chunkSize);
+                    document.execCommand('insertText', false, chunk);
                     inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                    
-                    // 주입 완료 후 300ms 대기 후 오직 엔터(Enter) 이벤트만 발송
-                    setTimeout(() => {
-                        const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                        inputEl.dispatchEvent(enterDown);
-                        
-                        const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                        inputEl.dispatchEvent(enterPress);
-                        
-                        const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                        inputEl.dispatchEvent(enterUp);
-                    }, 300);
-                }, 200);
+                    await new Promise(r => setTimeout(r, 10)); // 10ms 쉬어가기
+                }
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                // 주입 완료 후 300ms 대기 후 오직 엔터(Enter) 이벤트만 발송
+                await new Promise(r => setTimeout(r, 300));
+                
+                const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                inputEl.dispatchEvent(enterDown);
+                
+                const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                inputEl.dispatchEvent(enterPress);
+                
+                const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                inputEl.dispatchEvent(enterUp);
                 
                 return "SUCCESS";
             })()

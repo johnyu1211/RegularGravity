@@ -1143,21 +1143,31 @@ function detectAndAskCommand(text) {
             </div>
         `;
 
-        content.querySelector('.cmd-run-btn').onclick = () => {
+        content.querySelector('.cmd-run-btn').onclick = async () => {
+            // 1. 로컬 터미널에 명령어 전달 및 실행 (기존 로직 유지)
             if (window.activeSubTabId && window.terminalSessions[window.activeSubTabId]) {
                 window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
                 window.switchSubTerminal(window.activeSubTabId);
                 ipcRenderer.send('execute-cmd', cleanCmd);
+                
                 const tL = document.getElementById('terminal-lower');
                 if (tL && tL.offsetHeight <= 40) {
                     tL.style.height = '350px';
-                    const minBtn = document.getElementById('minimize-terminal');
+                    const minBtn = document.getElementById('minimize-terminal'); 
                     if (minBtn) minBtn.innerText = '▼';
-                    syncBrowserView();
+                    if (typeof syncBrowserView === 'function') syncBrowserView();
                 }
             }
+            
             box.remove();
             ChatUI.appendBubble('system', `[EXECUTED] ${cleanCmd}`);
+
+            // 2. 브라우저 탭으로 자동 전환
+            document.getElementById('tab-browser-hub')?.click();
+
+            // 3. 웹 AI에게 명령이 실행되었음을 알리는 메시지 발송
+            const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.`;
+            await injectWebPayload(payload);
         };
         content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
     }

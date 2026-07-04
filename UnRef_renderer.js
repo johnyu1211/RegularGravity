@@ -1274,36 +1274,16 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     const idleFingerprint = await wv.executeJavaScript(getUIFingerprint).catch(() => "");
     
     const extractScript = `(function(){
-        // [🛠️ 정밀화: 실제 AI 응답 영역만 타겟팅]
-        const preciseSelectors = [
-            'model-response',
-            '[data-message-author-role="model"]',
-            '[data-testid="message-content"]',
-            'message-content',
-            '.markdown.markdown-main-panel',
-            '.response-content',
-            '.markdown-prose'
-        ];
-
-        let targetNode = null;
-        for (const sel of preciseSelectors) {
-            const nodes = document.querySelectorAll(sel);
-            if (nodes.length > 0) { targetNode = nodes[nodes.length - 1]; break; }
-        }
-
-        // fallback: 일반 컨테이너
-        if (!targetNode) {
-            const fallbacks = ['.chat-message', '.message', 'article'];
-            const nodes = Array.from(document.querySelectorAll(fallbacks.join(',')));
-            targetNode = nodes.length > 0 ? nodes[nodes.length - 1] : null;
-        }
-
-        if (!targetNode) return '';
-
-        const clone = targetNode.cloneNode(true);
-        // script, style, noscript, svg, button 등 제거
-        clone.querySelectorAll('script, style, noscript, svg, button, nav, details, summary, [class*="thought"], [class*="thinking"]').forEach(el => el.remove());
-
+        // Gemini의 순수 텍스트 영역(마크다운)만 정확히 타겟팅
+        const nodes = Array.from(document.querySelectorAll('model-response .markdown, .message-content .markdown-prose, .response-content'));
+        if (nodes.length === 0) return "";
+        
+        const lastNode = nodes[nodes.length - 1];
+        const clone = lastNode.cloneNode(true);
+        
+        // 선택지(칩), 버튼, 링크 형태의 동적 UI 요소 모조리 제거
+        clone.querySelectorAll('script, style, button, a[role="link"], [role="button"], .carousel, .suggestions-container, [aria-label*="추천"]').forEach(el => el.remove());
+        
         return clone.innerText.trim();
     })()`;
 
@@ -1366,22 +1346,19 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         }
 
         if (isGenerating) {
-            const isUiIdle = (currentFingerprint === idleFingerprint);
+            // UI 지문 검사는 방해만 되므로 삭제하고 텍스트 변화량(stableCount)만 체크
             const isTextStopped = (delta === lastText);
-            // 보수적 stableCount: 10초간 변화 없어야 종료
-            if (isTextStopped) stableCount++; else stableCount = 0;
+            
+            if (isTextStopped && delta.length > 0) {
+                stableCount++; 
+            } else {
+                stableCount = 0;
+            }
             lastText = delta;
 
-            if (isUiIdle && delta.length > 50) {
-                // UI idle + 최소 50자 이상일 때만 완료 인정
+            // 텍스트 변화가 5번(약 5초) 이상 멈췄다면 선택지가 떴든 말든 강제로 완료 처리
+            if (stableCount >= 5) {
                 updateUI("Generation complete! Fetching...", 100); 
-                await new Promise(r => setTimeout(r, 300));
-                const finalRaw = (await wv.executeJavaScript(extractScript)).split(msg).pop().trim();
-                hideGlobalUI(); 
-                return cleanGarbage(finalRaw);
-            } else if (stableCount >= 10) {
-                // 10초간 텍스트 변화 없으면 종료
-                updateUI("Text generation stopped. Fetching...", 100);
                 hideGlobalUI(); 
                 return cleanGarbage(delta);
             } else {

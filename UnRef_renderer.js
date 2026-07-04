@@ -1081,51 +1081,16 @@ async function injectWebPayload(webPayload) {
                     inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                     inputEl.dispatchEvent(new Event('change', { bubbles: true }));
                     
-                    // 주입 완료 후 300ms 대기 후 전송
+                    // 주입 완료 후 300ms 대기 후 오직 엔터(Enter) 이벤트만 발송
                     setTimeout(() => {
-                        // 1. 전송 버튼 클릭 시도
-                        const btnSelectors = [
-                            'button[aria-label*="Send"]', 'button[aria-label*="전송"]',
-                            'button[aria-label*="보내기"]', 'button[title*="Send"]',
-                            'button[title*="전송"]', 'button[title*="보내기"]',
-                            'button.send-button', '.send-button-container button',
-                            'button[aria-label*="Prompt"]', 'button[aria-label*="prompt"]'
-                        ];
-                        let clicked = false;
-                        for (const sel of btnSelectors) {
-                            const btn = document.querySelector(sel);
-                            if (btn && !btn.disabled) { btn.click(); clicked = true; break; }
-                        }
+                        const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                        inputEl.dispatchEvent(enterDown);
                         
-                        if (!clicked) {
-                            let p = inputEl.parentElement;
-                            for (let i = 0; i < 5; i++) {
-                                if (!p) break;
-                                const buttons = p.querySelectorAll('button');
-                                for (const btn of buttons) {
-                                    if (btn.disabled) continue;
-                                    const label = (btn.getAttribute('aria-label') || btn.title || btn.innerText || '').toLowerCase();
-                                    if (label.includes('share') || label.includes('공유') || label.includes('export') || label.includes('내보내기') || label.includes('menu') || label.includes('더보기')) {
-                                        continue;
-                                    }
-                                    if (btn.querySelector('svg')) { btn.click(); clicked = true; break; }
-                                }
-                                if (clicked) break;
-                                p = p.parentElement;
-                            }
-                        }
+                        const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                        inputEl.dispatchEvent(enterPress);
                         
-                        // 2. 폴백: Enter 키 이벤트 발생
-                        if (!clicked) {
-                            const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                            inputEl.dispatchEvent(enterDown);
-                            
-                            const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                            inputEl.dispatchEvent(enterPress);
-                            
-                            const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                            inputEl.dispatchEvent(enterUp);
-                        }
+                        const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                        inputEl.dispatchEvent(enterUp);
                     }, 300);
                 }, 200);
                 

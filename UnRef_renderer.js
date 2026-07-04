@@ -1103,7 +1103,12 @@ async function injectWebPayload(webPayload) {
                                 if (!p) break;
                                 const buttons = p.querySelectorAll('button');
                                 for (const btn of buttons) {
-                                    if (btn.querySelector('svg') && !btn.disabled) { btn.click(); clicked = true; break; }
+                                    if (btn.disabled) continue;
+                                    const label = (btn.getAttribute('aria-label') || btn.title || btn.innerText || '').toLowerCase();
+                                    if (label.includes('share') || label.includes('공유') || label.includes('export') || label.includes('내보내기') || label.includes('menu') || label.includes('더보기')) {
+                                        continue;
+                                    }
+                                    if (btn.querySelector('svg')) { btn.click(); clicked = true; break; }
                                 }
                                 if (clicked) break;
                                 p = p.parentElement;

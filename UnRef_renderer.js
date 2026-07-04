@@ -1027,7 +1027,12 @@ async function injectWebPayload(webPayload) {
         const wv = document.getElementById('active-agent-webview'); if (!wv) return reject("Webview not found");
         const cleanPayload = webPayload.trim();
 
-        // 1단계: 토스트 UI 켜기
+        // 1단계: 클립보드 백업 및 주입 데이터 복사 (줄바꿈/이스케이프 깨짐 완전 우회)
+        const { clipboard } = require('electron');
+        const oldClipboardText = clipboard.readText();
+        clipboard.writeText(cleanPayload);
+
+        // 2단계: 토스트 UI 켜기
         const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
         const hideToast = () => { if (toast) toast.style.display = 'none'; if (toastBar) toastBar.style.display = 'block'; };
         if (toast && toastText && toastBar) {
@@ -1036,8 +1041,8 @@ async function injectWebPayload(webPayload) {
         }
         const safetyTimer = setTimeout(hideToast, 7000);
 
-        // 2단계: 웹뷰 내에서 입력 및 전송을 단일 비동기 흐름으로 처리하여 타이밍 오류 박멸
-        const injectionScript = `
+        // 3단계: 웹뷰 내부 입력 포커싱 및 초기화
+        const focusScript = `
             (() => {
                 const inKeywords = ${JSON.stringify(inKeywords)};
                 const findInput = () => {
@@ -1055,20 +1060,32 @@ async function injectWebPayload(webPayload) {
                 
                 inputEl.focus();
                 
-                // 기존 값 청소
+                // 입력 영역 값 청소
                 if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
                     inputEl.value = '';
                 } else {
                     inputEl.innerText = '';
                 }
-                
-                // execCommand 주입 (React 상태 갱신)
-                document.execCommand('insertText', false, ${JSON.stringify(cleanPayload)});
-                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                
-                // 300ms 딜레이 후 강제 Send 클릭 시도
-                setTimeout(() => {
+                return "SUCCESS";
+            })()
+        `;
+
+        wv.executeJavaScript(focusScript).then(async (status) => {
+            if (status !== "SUCCESS") {
+                if (toastText) toastText.innerText = "Error: Input Field Not Found!";
+                setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
+                clipboard.writeText(oldClipboardText);
+                return reject("Input field not found.");
+            }
+
+            // 4단계: 딜레이 후 클립보드 붙여넣기 (Paste) 실행 (가장 안전하고 빠름)
+            await new Promise(r => setTimeout(r, 1500)); // 웹뷰가 포커스 안정화되는 충분한 딜레이 부여
+            wv.paste(); 
+
+            // 5단계: 짧은 대기 후 전송 버튼 클릭
+            await new Promise(r => setTimeout(r, 300));
+            const clickScript = `
+                (() => {
                     const btnSelectors = [
                         'button[aria-label*="Send"]', 'button[aria-label*="전송"]',
                         'button[aria-label*="보내기"]', 'button[title*="Send"]',
@@ -1083,37 +1100,39 @@ async function injectWebPayload(webPayload) {
                     }
                     
                     if (!clicked) {
-                        let p = inputEl.parentElement;
-                        for (let i = 0; i < 5; i++) {
-                            if (!p) break;
-                            const buttons = p.querySelectorAll('button');
-                            for (const btn of buttons) {
-                                if (btn.querySelector('svg') && !btn.disabled) { btn.click(); clicked = true; break; }
+                        const input = document.querySelector('textarea, input[type="text"], div[contenteditable="true"]');
+                        if (input) {
+                            let p = input.parentElement;
+                            for (let i = 0; i < 5; i++) {
+                                if (!p) break;
+                                const buttons = p.querySelectorAll('button');
+                                for (const btn of buttons) {
+                                    if (btn.querySelector('svg') && !btn.disabled) { btn.click(); clicked = true; break; }
+                                }
+                                if (clicked) break;
+                                p = p.parentElement;
                             }
-                            if (clicked) break;
-                            p = p.parentElement;
                         }
                     }
                     
-                    // 폴백: Enter 키 이벤트 발생
+                    // 폴백: 엔터 키 이벤트 발송
                     if (!clicked) {
-                        const enterEvt = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13 });
-                        inputEl.dispatchEvent(enterEvt);
+                        const input = document.querySelector('textarea, input[type="text"], div[contenteditable="true"]');
+                        if (input) {
+                            const enterEvt = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13 });
+                            input.dispatchEvent(enterEvt);
+                        }
                     }
-                }, 300);
-                
-                return "SUCCESS";
-            })()
-        `;
+                    return clicked;
+                })()
+            `;
 
-        wv.executeJavaScript(injectionScript).then(async (status) => {
-            if (status === "INPUT_NOT_FOUND") {
-                if (toastText) toastText.innerText = "Error: Input Field Not Found!";
-                setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
-                return reject("Input field not found.");
-            }
+            await wv.executeJavaScript(clickScript).catch(() => false);
 
-            // 전송 처리 및 클리어 확인 대기
+            // 사용자의 원래 클립보드 내용 원상복구
+            clipboard.writeText(oldClipboardText);
+
+            // 6단계: 전송 결과 확인
             await new Promise(r => setTimeout(r, 1500));
             const isCleared = await wv.executeJavaScript(`(() => { const i = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); return i ? (i.value === "" && i.innerText.trim() === "") : true; })()`).catch(() => false);
 
@@ -1127,6 +1146,7 @@ async function injectWebPayload(webPayload) {
         }).catch(err => {
             if (toastText) toastText.innerText = "Injection failed: " + err.message;
             setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
+            clipboard.writeText(oldClipboardText);
             reject(err);
         });
     });

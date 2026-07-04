@@ -1068,6 +1068,35 @@ async function injectWebPayload(webPayload) {
 
             setTimeout(async () => {
                 wv.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' }); wv.sendInputEvent({ type: 'char', keyCode: 'Enter' }); wv.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+                
+                // [🛠️ 보완: 전송 버튼 강제 click]
+                await wv.executeJavaScript(`(() => {
+                    const btnSelectors = [
+                        'button[aria-label*="Send"]', 'button[aria-label*="전송"]',
+                        'button[aria-label*="보내기"]', 'button[title*="Send"]',
+                        'button[title*="전송"]', 'button[title*="보내기"]',
+                        'button.send-button', '.send-button-container button',
+                        'button[aria-label*="Prompt"]', 'button[aria-label*="prompt"]'
+                    ];
+                    for (const sel of btnSelectors) {
+                        const btn = document.querySelector(sel);
+                        if (btn && !btn.disabled) { btn.click(); return true; }
+                    }
+                    const input = document.querySelector('textarea, input[type="text"], [contenteditable="true"]');
+                    if (input) {
+                        let p = input.parentElement;
+                        for (let i = 0; i < 5; i++) {
+                            if (!p) break;
+                            const buttons = p.querySelectorAll('button');
+                            for (const btn of buttons) {
+                                if (btn.querySelector('svg') && !btn.disabled) { btn.click(); return true; }
+                            }
+                            p = p.parentElement;
+                        }
+                    }
+                    return false;
+                })()`).catch(() => false);
+
                 await new Promise(r => setTimeout(r, 1000));
                 const isCleared = await wv.executeJavaScript(`(() => { const i = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); return i ? (i.value === "" && i.innerText.trim() === "") : true; })()`).catch(() => false);
 
@@ -1366,6 +1395,8 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     };
 
     const hideGlobalUI = () => { document.getElementById('injection-toast')?.setAttribute('style', 'display:none'); if (webBarCont) webBarCont.style.display = 'none'; };
+    // [🛠️ 보완: 대기 시작 시점의 기존 텍스트 저장]
+    const initialText = cleanGarbage(await wv.executeJavaScript(extractScript).catch(() => ""));
     let isGenerating = false;
     let lastText = "";
     let stableCount = 0;
@@ -1381,6 +1412,15 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             delta = ""; // DOM을 못 찾았을 때는 빈 문자열로 처리하여 대기
         } else {
             delta = cleanGarbage(delta);
+        }
+
+        // [🛠️ 보완: 이전 답변 내용 필터링 및 대기]
+        if (delta === initialText) {
+            delta = ""; // 아직 새 답변 작성을 시작하지 않은 상태
+        } else {
+            if (initialText && delta.startsWith(initialText)) {
+                delta = delta.substring(initialText.length).trim();
+            }
         }
 
         if (!isGenerating && delta.length > 0) {

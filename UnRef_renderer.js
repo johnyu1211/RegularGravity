@@ -1131,7 +1131,6 @@ async function injectWebPayload(webPayload) {
         });
     });
 }
-}
 
 function detectAndAskCommand(text) {
     if (!text) return;

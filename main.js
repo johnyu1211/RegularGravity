@@ -126,18 +126,31 @@ ipcMain.handle('vault-get-tree', async () => {
     const root = process.cwd();
     const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch'];
     
-    function buildTree(dir, prefix = '') {
+    function buildTree(dir, prefix = '', depth = 0) {
+        if (depth > 4) return ''; // 최대 4단계 깊이 제한
         let result = '';
+        let items = [];
         try {
-            const items = fs.readdirSync(dir);
-            items.forEach(item => {
-                if (ignore.includes(item)) return;
-                const fullPath = path.join(dir, item);
-                const isDir = fs.statSync(fullPath).isDirectory();
+            items = fs.readdirSync(dir);
+        } catch (e) {
+            console.error(`[Tree] Cannot read dir ${dir}:`, e.message);
+            return '';
+        }
+        
+        items.forEach(item => {
+            if (ignore.includes(item)) return;
+            const fullPath = path.join(dir, item);
+            try {
+                const stats = fs.statSync(fullPath);
+                const isDir = stats.isDirectory();
                 result += `${prefix}${isDir ? '[DIR]' : '[FILE]'} ${item}\n`;
-                if (isDir) result += buildTree(fullPath, prefix + '  ');
-            });
-        } catch (e) {}
+                if (isDir) {
+                    result += buildTree(fullPath, prefix + '  ', depth + 1);
+                }
+            } catch (err) {
+                console.error(`[Tree] Skip error item ${item}:`, err.message);
+            }
+        });
         return result;
     }
     

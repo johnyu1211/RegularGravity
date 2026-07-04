@@ -1070,6 +1070,7 @@ async function injectWebPayload(webPayload) {
             })()
         `;
 
+        wv.focus();
         wv.executeJavaScript(focusScript).then(async (status) => {
             if (status !== "SUCCESS") {
                 if (toastText) toastText.innerText = "Error: Input Field Not Found!";
@@ -1078,12 +1079,13 @@ async function injectWebPayload(webPayload) {
                 return reject("Input field not found.");
             }
 
-            // 4단계: 딜레이 후 클립보드 붙여넣기 (Paste) 실행 (가장 안전하고 빠름)
-            await new Promise(r => setTimeout(r, 1500)); // 웹뷰가 포커스 안정화되는 충분한 딜레이 부여
+            // 4단계: 딜레이 후 클립보드 붙여넣기 (Paste) 실행
+            await new Promise(r => setTimeout(r, 200)); 
+            wv.focus();
             wv.paste(); 
 
             // 5단계: 짧은 대기 후 전송 버튼 클릭
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise(r => setTimeout(r, 200));
             const clickScript = `
                 (() => {
                     const btnSelectors = [

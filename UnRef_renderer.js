@@ -1027,12 +1027,15 @@ async function injectWebPayload(webPayload) {
         const wv = document.getElementById('active-agent-webview'); if (!wv) return reject("Webview not found");
         const cleanPayload = webPayload.trim();
 
-        // 1단계: 토스트 UI 제어용 타이머 세팅 (토스트 UI 숨김 유지)
+        // 1단계: payload를 Base64로 안전하게 인코딩 (특수문자/줄바꿈 이스케이프 파싱 에러 100% 원천 방지)
+        const base64Payload = Buffer.from(cleanPayload, 'utf-8').toString('base64');
+
+        // 2단계: 토스트 UI 제어용 타이머 세팅 (토스트 UI 숨김 유지)
         const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
         const hideToast = () => { if (toast) toast.style.display = 'none'; if (toastBar) toastBar.style.display = 'block'; };
         const safetyTimer = setTimeout(hideToast, 7000);
 
-        // 2단계: execCommand 주입 후 Enter 키보드 이벤트만 순차 발송하는 단일 스크립트
+        // 3단계: 웹뷰 내에서 Base64 디코딩 후 execCommand 주입 + 전송 처리
         const injectionScript = `
             (() => {
                 const inKeywords = ${JSON.stringify(inKeywords)};
@@ -1058,21 +1061,64 @@ async function injectWebPayload(webPayload) {
                     inputEl.innerText = '';
                 }
                 
-                // execCommand 주입 (React 상태 갱신)
-                document.execCommand('insertText', false, ${JSON.stringify(cleanPayload)});
+                // Base64 디코딩하여 execCommand 주입 (안전성 100%)
+                const decodedPayload = (() => {
+                    try {
+                        const bin = atob("${base64Payload}");
+                        const bytes = new Uint8Array(bin.length);
+                        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                        return new TextDecoder("utf-8").decode(bytes);
+                    } catch (e) {
+                        return "";
+                    }
+                })();
+                
+                if (!decodedPayload) return "DECODE_ERROR";
+                
+                document.execCommand('insertText', false, decodedPayload);
                 inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
                 
-                // 300ms 후 오직 Enter 키 입력만 발생
+                // 300ms 후 전송 실행
                 setTimeout(() => {
-                    const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                    inputEl.dispatchEvent(enterDown);
+                    // 1. 전송 버튼 클릭 시도
+                    const btnSelectors = [
+                        'button[aria-label*="Send"]', 'button[aria-label*="전송"]',
+                        'button[aria-label*="보내기"]', 'button[title*="Send"]',
+                        'button[title*="전송"]', 'button[title*="보내기"]',
+                        'button.send-button', '.send-button-container button',
+                        'button[aria-label*="Prompt"]', 'button[aria-label*="prompt"]'
+                    ];
+                    let clicked = false;
+                    for (const sel of btnSelectors) {
+                        const btn = document.querySelector(sel);
+                        if (btn && !btn.disabled) { btn.click(); clicked = true; break; }
+                    }
                     
-                    const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                    inputEl.dispatchEvent(enterPress);
+                    if (!clicked) {
+                        let p = inputEl.parentElement;
+                        for (let i = 0; i < 5; i++) {
+                            if (!p) break;
+                            const buttons = p.querySelectorAll('button');
+                            for (const btn of buttons) {
+                                if (btn.querySelector('svg') && !btn.disabled) { btn.click(); clicked = true; break; }
+                            }
+                            if (clicked) break;
+                            p = p.parentElement;
+                        }
+                    }
                     
-                    const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                    inputEl.dispatchEvent(enterUp);
+                    // 2. 폴백: Enter 키 이벤트 발생
+                    if (!clicked) {
+                        const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                        inputEl.dispatchEvent(enterDown);
+                        
+                        const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                        inputEl.dispatchEvent(enterPress);
+                        
+                        const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                        inputEl.dispatchEvent(enterUp);
+                    }
                 }, 300);
                 
                 return "SUCCESS";
@@ -1082,9 +1128,9 @@ async function injectWebPayload(webPayload) {
         wv.focus();
         wv.executeJavaScript(injectionScript).then(async (status) => {
             if (status !== "SUCCESS") {
-                if (toastText) toastText.innerText = "Error: Input Field Not Found!";
+                if (toastText) toastText.innerText = "Error: " + status;
                 setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
-                return reject("Input field not found.");
+                return reject("Input failed: " + status);
             }
 
             // 전송 처리 및 클리어 확인 대기

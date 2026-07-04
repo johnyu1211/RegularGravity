@@ -1328,7 +1328,8 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         if (statusBub && !manualAbort) { const txtEl = statusBub.querySelector('.status-text'); if (txtEl) txtEl.innerText = `[SYSTEM] ${text}`; }
         const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar'), toastBtn = document.getElementById('toast-reset-timer-btn');
         
-        if (toast && !manualAbort) {
+        // ㅈ같은 토스트 팝업 백그라운드 강제 부활 차단
+        /* if (toast && !manualAbort) {
             toast.style.display = 'block';
             if (toastText) toastText.innerHTML = `<b>Analyzing AI response</b><br><span style='font-size:11px; color:#aaa;'>${text}</span>`;
             if (toastBar) toastBar.style.display = 'none'; 
@@ -1337,7 +1338,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                 else { toastBtn.style.display = 'none'; }
             }
             if (stableN < 0 && toastText) { toastText.innerHTML = `<b>Monitoring Extension</b><br><span style='font-size:11px; color:#0078d4;'>Stable state detected. Waiting ${Math.abs(stableN) + 8}s more...</span>`; }
-        }
+        } */
 
         if (webBar) {
             const p = isStableMode ? progress : stableN;
@@ -1347,8 +1348,8 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         }
     };
 
-    const getUIFingerprint = `(() => { const findContainer = () => { const input = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); if (!input) return document.body; let p = input.parentElement; for(let i=0; i<5; i++) { if (p.querySelectorAll('button, [role="button"]').length > 0) return p; p = p.parentElement || p; } return p; }; const cont = findContainer(); return Array.from(cont.querySelectorAll('button, [role="button"], input, textarea')).map(el => \`\${el.tagName}:\${el.disabled || el.getAttribute('aria-disabled')==='true'}:\${el.innerText.length}:\${el.className.split(' ').sort().join('.')}\`).join('|'); })()`;
-    const idleFingerprint = await wv.executeJavaScript(getUIFingerprint).catch(() => "");
+    // 무익한 핑거프린트 돔 간섭 코드 제거
+    const idleFingerprint = "";
     
     const extractScript = `(function(){
         const selectors = [
@@ -1415,7 +1416,6 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         await new Promise(r => setTimeout(r, 1000));
         if (manualAbort) { hideGlobalUI(); return await manualPromise; }
 
-        const currentFingerprint = await wv.executeJavaScript(getUIFingerprint).catch(() => "");
         let delta = await wv.executeJavaScript(extractScript).catch(() => "");
         
         if (delta === "[EXTRACT_FAIL]") {

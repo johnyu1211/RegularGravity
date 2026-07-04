@@ -586,18 +586,15 @@ function setupUI() {
             
             const tree = await ipcRenderer.invoke('vault-get-tree');
             
-            const webPayload = `[SYSTEM INSTRUCTION: COMMAND EXECUTION]
-You are connected to a local machine via G-Dual bridge. To interact with the filesystem, use ONLY these tags:
-1. Read a file  → [CMD: read-lines "filename" startLine endLine]
-2. Run a command → [CMD: your-command-here]
-Rules: Output tags on their own line. No JavaScript. No raw HTML. Pure conversational text only.
-
-[PROJECT CONTEXT]
-Project File Structure:
+            // 불필요한 설정 다 빼고 목적만 전달하는 심플한 프롬프트
+            const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
 ${tree}
 
-[REQUEST]
-Acknowledge you have received this context. Then in your next response, analyze the file structure and summarize the core architecture of this project. If you need to inspect any file to understand the logic, request it with [CMD: read-lines ...].`.trim();
+여기서 작업을 시작하기 위해 특정 파일을 탐색하거나 읽어야 할 것 같으면, 다음 명령어를 사용해 주세요:
+- 파일 읽기: [CMD: read-lines "파일명" 시작줄 끝줄] (예: [CMD: read-lines "main.js" 1 50])
+- 시스템 명령어: [CMD: 명령어]
+
+이 메시지를 확인했다면, 작업을 파악하기 위해 필요한 명령어를 다음 답변에 바로 입력해 주세요.`.trim();
             
             // 전송
             await new Promise(r => setTimeout(r, 300));

@@ -1061,65 +1061,68 @@ async function injectWebPayload(webPayload) {
                     inputEl.innerText = '';
                 }
                 
-                // Base64 디코딩하여 execCommand 주입 (안전성 100%)
-                const decodedPayload = (() => {
-                    try {
-                        const bin = atob("${base64Payload}");
-                        const bytes = new Uint8Array(bin.length);
-                        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-                        return new TextDecoder("utf-8").decode(bytes);
-                    } catch (e) {
-                        return "";
-                    }
-                })();
-                
-                if (!decodedPayload) return "DECODE_ERROR";
-                
-                document.execCommand('insertText', false, decodedPayload);
-                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                
-                // 300ms 후 전송 실행
+                // 포커싱 및 청소 후 200ms 대기하여 리치 에디터의 포커스 상태가 안정화되도록 유도
                 setTimeout(() => {
-                    // 1. 전송 버튼 클릭 시도
-                    const btnSelectors = [
-                        'button[aria-label*="Send"]', 'button[aria-label*="전송"]',
-                        'button[aria-label*="보내기"]', 'button[title*="Send"]',
-                        'button[title*="전송"]', 'button[title*="보내기"]',
-                        'button.send-button', '.send-button-container button',
-                        'button[aria-label*="Prompt"]', 'button[aria-label*="prompt"]'
-                    ];
-                    let clicked = false;
-                    for (const sel of btnSelectors) {
-                        const btn = document.querySelector(sel);
-                        if (btn && !btn.disabled) { btn.click(); clicked = true; break; }
-                    }
-                    
-                    if (!clicked) {
-                        let p = inputEl.parentElement;
-                        for (let i = 0; i < 5; i++) {
-                            if (!p) break;
-                            const buttons = p.querySelectorAll('button');
-                            for (const btn of buttons) {
-                                if (btn.querySelector('svg') && !btn.disabled) { btn.click(); clicked = true; break; }
-                            }
-                            if (clicked) break;
-                            p = p.parentElement;
+                    // Base64 디코딩하여 execCommand 주입 (안전성 100%)
+                    const decodedPayload = (() => {
+                        try {
+                            const bin = atob("${base64Payload}");
+                            const bytes = new Uint8Array(bin.length);
+                            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                            return new TextDecoder("utf-8").decode(bytes);
+                        } catch (e) {
+                            return "";
                         }
-                    }
+                    })();
                     
-                    // 2. 폴백: Enter 키 이벤트 발생
-                    if (!clicked) {
-                        const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                        inputEl.dispatchEvent(enterDown);
+                    if (!decodedPayload) return;
+                    
+                    document.execCommand('insertText', false, decodedPayload);
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                    
+                    // 주입 완료 후 300ms 대기 후 전송
+                    setTimeout(() => {
+                        // 1. 전송 버튼 클릭 시도
+                        const btnSelectors = [
+                            'button[aria-label*="Send"]', 'button[aria-label*="전송"]',
+                            'button[aria-label*="보내기"]', 'button[title*="Send"]',
+                            'button[title*="전송"]', 'button[title*="보내기"]',
+                            'button.send-button', '.send-button-container button',
+                            'button[aria-label*="Prompt"]', 'button[aria-label*="prompt"]'
+                        ];
+                        let clicked = false;
+                        for (const sel of btnSelectors) {
+                            const btn = document.querySelector(sel);
+                            if (btn && !btn.disabled) { btn.click(); clicked = true; break; }
+                        }
                         
-                        const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                        inputEl.dispatchEvent(enterPress);
+                        if (!clicked) {
+                            let p = inputEl.parentElement;
+                            for (let i = 0; i < 5; i++) {
+                                if (!p) break;
+                                const buttons = p.querySelectorAll('button');
+                                for (const btn of buttons) {
+                                    if (btn.querySelector('svg') && !btn.disabled) { btn.click(); clicked = true; break; }
+                                }
+                                if (clicked) break;
+                                p = p.parentElement;
+                            }
+                        }
                         
-                        const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                        inputEl.dispatchEvent(enterUp);
-                    }
-                }, 300);
+                        // 2. 폴백: Enter 키 이벤트 발생
+                        if (!clicked) {
+                            const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                            inputEl.dispatchEvent(enterDown);
+                            
+                            const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                            inputEl.dispatchEvent(enterPress);
+                            
+                            const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                            inputEl.dispatchEvent(enterUp);
+                        }
+                    }, 300);
+                }, 200);
                 
                 return "SUCCESS";
             })()

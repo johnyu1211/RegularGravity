@@ -581,26 +581,34 @@ function setupUI() {
         `;
 
         projBtn.onclick = async () => {
-            projBtn.innerText = "Sending Project Tree...";
+            projBtn.innerText = "Sending Project Context...";
             document.getElementById('tab-browser-hub')?.click();
             
             const tree = await ipcRenderer.invoke('vault-get-tree');
-            console.log("전송되는 트리 데이터:", tree);
             
-            const webPayload = `[PROJECT CONTEXT]\nHere is the current project file structure:\n${tree}\n\n[SYSTEM INSTRUCTION — STRICT RULES]\nPlease follow these rules for every response:\n1. Output ONLY conversational text. Do NOT include JavaScript code, system logs, or raw HTML.\n2. To read a specific file, output EXACTLY: [CMD: read-lines "filename" startLine endLine]\n3. To propose a terminal command, output EXACTLY: [CMD: your-command-here]\n4. Keep [CMD:...] tags on their own line. No extra explanation inside the brackets.\n5. Acknowledge this context with a brief confirmation only.\n\nPlease acknowledge you have received this project context.`;
+            const webPayload = `[SYSTEM INSTRUCTION: COMMAND EXECUTION]
+You are connected to a local machine via G-Dual bridge. To interact with the filesystem, use ONLY these tags:
+1. Read a file  → [CMD: read-lines "filename" startLine endLine]
+2. Run a command → [CMD: your-command-here]
+Rules: Output tags on their own line. No JavaScript. No raw HTML. Pure conversational text only.
+
+[PROJECT CONTEXT]
+Project File Structure:
+${tree}
+
+[REQUEST]
+Acknowledge you have received this context. Then in your next response, analyze the file structure and summarize the core architecture of this project. If you need to inspect any file to understand the logic, request it with [CMD: read-lines ...].`.trim();
             
-            // 1. 전송 먼저
+            // 전송
             await new Promise(r => setTimeout(r, 300));
             await injectWebPayload(webPayload);
             
-            // 2. 버튼 숨김 (탭은 아직 브라우저 유지)
+            // 버튼 숨김
             projBtn.style.display = 'none';
             chatIn.focus();
             
-            // 3. 응답 완료까지 await (탭 전환 없이 대기)
+            // 응답 캡처 후 로컬 채팅에 표시
             const response = await runExperimentalEngine('/marktag', webPayload, null);
-            
-            // 4. 응답 완료 후 로컬 탭으로 전환 및 버블 표시
             document.getElementById('tab-local-agent')?.click();
             if (response) {
                 ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));

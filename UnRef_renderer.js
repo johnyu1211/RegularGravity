@@ -1032,12 +1032,13 @@ async function injectWebPayload(webPayload) {
         const oldClipboardText = clipboard.readText();
         clipboard.writeText(cleanPayload);
 
-        // 2단계: 토스트 UI 켜기
+        // 2단계: 토스트 UI 켜기 (비활성화하여 시각적 간섭 제거)
         const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
         const hideToast = () => { if (toast) toast.style.display = 'none'; if (toastBar) toastBar.style.display = 'block'; };
         if (toast && toastText && toastBar) {
-            toastText.innerText = "Injecting Context and Sending..."; toast.style.display = 'block'; toastBar.style.display = 'block';
-            toastBar.classList.remove('cooldown-active'); void toastBar.offsetWidth; toastBar.classList.add('cooldown-active');
+            toastText.innerText = "Injecting Context and Sending..."; 
+            // toast.style.display = 'block'; // 비활성화
+            // toastBar.style.display = 'block'; // 비활성화
         }
         const safetyTimer = setTimeout(hideToast, 7000);
 
@@ -1139,14 +1140,17 @@ async function injectWebPayload(webPayload) {
             const isCleared = await wv.executeJavaScript(`(() => { const i = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); return i ? (i.value === "" && i.innerText.trim() === "") : true; })()`).catch(() => false);
 
             if (toastText) {
-                if (isCleared) toastText.innerHTML = "<span style='color:#4caf50;'>✓ Message Sent Successfully.</span>";
-                else toastText.innerHTML = "Injected. <span style='color:#ffa500;'>Please click Send manually.</span>";
+                // toastText.innerHTML = ... (비활성화)
             }
-            if (toastBar) toastBar.style.display = 'none';
+            if (toastBar) {
+                // toastBar.style.display = 'none'; // (비활성화)
+            }
             setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
             resolve(true);
         }).catch(err => {
-            if (toastText) toastText.innerText = "Injection failed: " + err.message;
+            if (toastText) {
+                // toastText.innerText = ... (비활성화)
+            }
             setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
             clipboard.writeText(oldClipboardText);
             reject(err);

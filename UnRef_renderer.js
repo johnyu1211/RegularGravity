@@ -140,17 +140,13 @@ window.openFileInEditor = (filePath) => {
                         <input type="text" id="editor-search-input" placeholder="Search (Ctrl+F)" style="background:transparent; border:none; color:#ccc; font-size:11px; width:120px; outline:none; font-family:'JetBrains Mono', monospace;">
                         <span id="editor-search-result" style="font-size:10px; color:#888; margin-left:8px; min-width:15px; text-align:right;"></span>
                     </div>
-                    <div style="display:flex; gap:4px; margin-right:10px;">
-                        <button id="btn-undo" title="Undo (Ctrl+Z)" style="background:#111; border:1px solid #333; color:#aaa; padding:2px 8px; border-radius:4px; cursor:pointer;">↶</button>
-                        <button id="btn-redo" title="Redo (Ctrl+Shift+Z)" style="background:#111; border:1px solid #333; color:#aaa; padding:2px 8px; border-radius:4px; cursor:pointer;">↷</button>
-                    </div>
+
                     <button id="btn-collapse-all" style="background:#111; color:#aaa; border:1px solid #333; padding:5px 12px; border-radius:4px; font-size:11px; cursor:pointer; transition:0.2s;">Collapse All</button>
                     <button id="btn-expand-all" style="background:#0078d4; color:#fff; border:1px solid #005a9e; padding:5px 12px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold; transition:0.2s;">Expand All</button>
                 </div>
             `;
             
-            document.getElementById('btn-undo').onclick = window.performUndo;
-            document.getElementById('btn-redo').onclick = window.performRedo;
+
             document.getElementById('btn-collapse-all').onclick = () => { editorContent.querySelectorAll('.editor-detail').forEach(d => { d.open = false; const mini = document.getElementById(d.getAttribute('data-mini-id')); if (mini) mini.open = false; }); };
             document.getElementById('btn-expand-all').onclick = () => { editorContent.querySelectorAll('.editor-detail').forEach(d => { d.open = true; const mini = document.getElementById(d.getAttribute('data-mini-id')); if (mini) mini.open = true; }); };
         }

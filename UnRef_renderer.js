@@ -1027,7 +1027,17 @@ async function injectWebPayload(webPayload) {
         const wv = document.getElementById('active-agent-webview'); if (!wv) return reject("Webview not found");
         const cleanPayload = webPayload.trim();
 
-        const getDiscoveryScript = () => `
+        // 1단계: 토스트 UI 켜기
+        const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
+        const hideToast = () => { if (toast) toast.style.display = 'none'; if (toastBar) toastBar.style.display = 'block'; };
+        if (toast && toastText && toastBar) {
+            toastText.innerText = "Injecting Context and Sending..."; toast.style.display = 'block'; toastBar.style.display = 'block';
+            toastBar.classList.remove('cooldown-active'); void toastBar.offsetWidth; toastBar.classList.add('cooldown-active');
+        }
+        const safetyTimer = setTimeout(hideToast, 7000);
+
+        // 2단계: 웹뷰 내에서 입력 및 전송을 단일 비동기 흐름으로 처리하여 타이밍 오류 박멸
+        const injectionScript = `
             (() => {
                 const inKeywords = ${JSON.stringify(inKeywords)};
                 const findInput = () => {
@@ -1039,42 +1049,26 @@ async function injectWebPayload(webPayload) {
                     }
                     return candidates[0] || null;
                 };
-                const inputEl = findInput();
-                if (inputEl) {
-                    inputEl.focus();
-                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
-                        inputEl.value = '';
-                    } else {
-                        inputEl.innerText = '';
-                    }
-                    document.execCommand('insertText', false, ${JSON.stringify(cleanPayload)});
-                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                    return true;
-                }
-                return false;
-            })()
-        `;
-
-        wv.executeJavaScript(getDiscoveryScript()).then(async (focused) => {
-            if (!focused) return reject("Input field not found.");
-            
-            await new Promise(r => setTimeout(r, 100));
-
-            const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
-            const hideToast = () => { if (toast) toast.style.display = 'none'; if (toastBar) toastBar.style.display = 'block'; };
-
-            if (toast && toastText && toastBar) {
-                toastText.innerText = "Pressing Enter In 0.5 Seconds..."; toast.style.display = 'block'; toastBar.style.display = 'block';
-                toastBar.classList.remove('cooldown-active'); void toastBar.offsetWidth; toastBar.classList.add('cooldown-active');
-            }
-            const safetyTimer = setTimeout(hideToast, 7000);
-
-            setTimeout(async () => {
-                wv.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' }); wv.sendInputEvent({ type: 'char', keyCode: 'Enter' }); wv.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
                 
-                // [🛠️ 보완: 전송 버튼 강제 click]
-                await wv.executeJavaScript(`(() => {
+                const inputEl = findInput();
+                if (!inputEl) return "INPUT_NOT_FOUND";
+                
+                inputEl.focus();
+                
+                // 기존 값 청소
+                if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                    inputEl.value = '';
+                } else {
+                    inputEl.innerText = '';
+                }
+                
+                // execCommand 주입 (React 상태 갱신)
+                document.execCommand('insertText', false, ${JSON.stringify(cleanPayload)});
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                // 300ms 딜레이 후 강제 Send 클릭 시도
+                setTimeout(() => {
                     const btnSelectors = [
                         'button[aria-label*="Send"]', 'button[aria-label*="전송"]',
                         'button[aria-label*="보내기"]', 'button[title*="Send"]',
@@ -1082,37 +1076,61 @@ async function injectWebPayload(webPayload) {
                         'button.send-button', '.send-button-container button',
                         'button[aria-label*="Prompt"]', 'button[aria-label*="prompt"]'
                     ];
+                    let clicked = false;
                     for (const sel of btnSelectors) {
                         const btn = document.querySelector(sel);
-                        if (btn && !btn.disabled) { btn.click(); return true; }
+                        if (btn && !btn.disabled) { btn.click(); clicked = true; break; }
                     }
-                    const input = document.querySelector('textarea, input[type="text"], [contenteditable="true"]');
-                    if (input) {
-                        let p = input.parentElement;
+                    
+                    if (!clicked) {
+                        let p = inputEl.parentElement;
                         for (let i = 0; i < 5; i++) {
                             if (!p) break;
                             const buttons = p.querySelectorAll('button');
                             for (const btn of buttons) {
-                                if (btn.querySelector('svg') && !btn.disabled) { btn.click(); return true; }
+                                if (btn.querySelector('svg') && !btn.disabled) { btn.click(); clicked = true; break; }
                             }
+                            if (clicked) break;
                             p = p.parentElement;
                         }
                     }
-                    return false;
-                })()`).catch(() => false);
+                    
+                    // 폴백: Enter 키 이벤트 발생
+                    if (!clicked) {
+                        const enterEvt = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13 });
+                        inputEl.dispatchEvent(enterEvt);
+                    }
+                }, 300);
+                
+                return "SUCCESS";
+            })()
+        `;
 
-                await new Promise(r => setTimeout(r, 1000));
-                const isCleared = await wv.executeJavaScript(`(() => { const i = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); return i ? (i.value === "" && i.innerText.trim() === "") : true; })()`).catch(() => false);
+        wv.executeJavaScript(injectionScript).then(async (status) => {
+            if (status === "INPUT_NOT_FOUND") {
+                if (toastText) toastText.innerText = "Error: Input Field Not Found!";
+                setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
+                return reject("Input field not found.");
+            }
 
-                if (toastText) {
-                    if (isCleared) toastText.innerHTML = "<span style='color:#4caf50;'>✓ Message Sent Successfully.</span>";
-                    else toastText.innerHTML = "Enter sent. <span style='color:#ffa500;'>Please click Send manually.</span>";
-                }
-                if (toastBar) toastBar.style.display = 'none';
-                setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000); resolve(true);
-            }, 500);
-        }).catch(err => reject(err));
+            // 전송 처리 및 클리어 확인 대기
+            await new Promise(r => setTimeout(r, 1500));
+            const isCleared = await wv.executeJavaScript(`(() => { const i = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); return i ? (i.value === "" && i.innerText.trim() === "") : true; })()`).catch(() => false);
+
+            if (toastText) {
+                if (isCleared) toastText.innerHTML = "<span style='color:#4caf50;'>✓ Message Sent Successfully.</span>";
+                else toastText.innerHTML = "Injected. <span style='color:#ffa500;'>Please click Send manually.</span>";
+            }
+            if (toastBar) toastBar.style.display = 'none';
+            setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
+            resolve(true);
+        }).catch(err => {
+            if (toastText) toastText.innerText = "Injection failed: " + err.message;
+            setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
+            reject(err);
+        });
     });
+}
 }
 
 function detectAndAskCommand(text) {

@@ -130,11 +130,18 @@ body {
     background: var(--surface-low); 
 }
 
-/* Scrollbar Style */
+/* Scrollbar Style - Premium Hover System */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.15s ease; }
+.file-tree:hover::-webkit-scrollbar-thumb,
+#local-chat-messages:hover::-webkit-scrollbar-thumb,
+#agent-hub-grid:hover::-webkit-scrollbar-thumb,
+#terminal-sub-tabs:hover::-webkit-scrollbar-thumb,
+.sidebar:hover::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25) !important; }
 
 /* Tree Structure */
 .file-tree {
@@ -152,9 +159,13 @@ body {
 }
 
 .tree-children {
-    margin-left: 20px;
-    padding-left: 10px;
-    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    margin-left: 12px;
+    padding-left: 6px;
+    border-left: 1px dashed var(--border-color);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    padding-top: 4px;
+    padding-bottom: 4px;
     overflow: visible !important;
 }
 
@@ -172,7 +183,7 @@ body {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     white-space: nowrap;
     border-radius: 6px;
-    margin: 2px 8px;
+    margin: 2px 4px;
 }
 
 .file-item.directory {
@@ -180,15 +191,17 @@ body {
 }
 
 .file-item:hover {
-    background: var(--surface-low);
+    background: rgba(255, 255, 255, 0.05);
     color: var(--text-main);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .file-item.active {
-    background: var(--surface-high);
+    background: var(--primary-glow);
     color: #fff;
     font-weight: 600;
     border-left: 3px solid var(--primary);
+    box-shadow: 0 4px 15px rgba(70, 140, 246, 0.1);
 }
 
 .tree-arrow {
@@ -493,27 +506,30 @@ body {
 }
 
 /* Resizers */
+/* Resizers - RAGistry Glow benchmark */
 .resizer-v {
     width: 2px;
     height: 100%;
-    background: #000;
+    background: var(--border-color);
     cursor: col-resize;
-    transition: background 0.2s;
+    transition: background 0.2s, box-shadow 0.2s;
     z-index: 10;
 }
-.resizer-v:hover {
-    background: var(--primary);
+.resizer-v:hover, .resizer-v:active {
+    background: var(--primary) !important;
+    box-shadow: 0 0 8px var(--primary);
 }
 .resizer-h {
     height: 2px;
     width: 100%;
-    background: #000;
+    background: var(--border-color);
     cursor: row-resize;
-    transition: background 0.2s;
+    transition: background 0.2s, box-shadow 0.2s;
     z-index: 10;
 }
-.resizer-h:hover {
-    background: var(--primary);
+.resizer-h:hover, .resizer-h:active {
+    background: var(--primary) !important;
+    box-shadow: 0 0 8px var(--primary);
 }
 
 .sub-tab.active {
@@ -922,9 +938,18 @@ input:checked + .slider:before {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 11.5px;
-    font-weight: 700;
-    color: var(--text-muted);
+}
+
+.titlebar-logo-text {
+    font-family: 'DM Sans', 'Outfit', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    background: linear-gradient(to right, #ffffff, #8ba2f9);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
 }
 
 .titlebar-icon {

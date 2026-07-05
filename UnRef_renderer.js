@@ -1027,9 +1027,10 @@ async function injectWebPayload(webPayload) {
     const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
     const inKeywords = savedKeywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
 
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
         const wv = document.getElementById('active-agent-webview'); if (!wv) return reject("Webview not found");
         const cleanPayload = webPayload.trim();
+        const base64Payload = Buffer.from(cleanPayload, 'utf-8').toString('base64');
 
         // 1단계: 토스트 UI 켜기 및 진행바를 초록색으로 설정
         const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
@@ -1044,10 +1045,31 @@ async function injectWebPayload(webPayload) {
             toastBar.style.height = '4px';
         }
 
-        // 2단계: 웹뷰 포커싱 및 입력 필드 정리
-        wv.focus();
-        const focusStatus = await wv.executeJavaScript(`
-            (() => {
+        // 2단계: 웹뷰 콘솔 리스너 장착 (진행률 실시간 고속 수신용)
+        const onConsole = (e) => {
+            if (e.message.startsWith('[INJECT_PCT]:')) {
+                const pct = parseInt(e.message.split(':')[1]);
+                if (toastText && toastBar) {
+                    if (pct === 100) {
+                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">100% 진행되었음 (Sending...)</span>`;
+                        toastBar.style.width = "100%";
+                    } else {
+                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">${pct}% 진행되었음</span>`;
+                        toastBar.style.width = `${pct}%`;
+                    }
+                }
+            }
+        };
+        wv.addEventListener('console-message', onConsole);
+
+        const cleanup = () => {
+            wv.removeEventListener('console-message', onConsole);
+            if (toast) toast.style.display = 'none';
+        };
+
+        // 3단계: 단 1회의 executeJavaScript 호출로 웹뷰 내부 비동기 타이핑 실행 (IPC 병목 100% 제거)
+        const injectionScript = `
+            (async () => {
                 const inKeywords = ${JSON.stringify(inKeywords)};
                 const findInput = () => {
                     const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
@@ -1069,76 +1091,71 @@ async function injectWebPayload(webPayload) {
                 } else {
                     inputEl.innerText = '';
                 }
-                return "SUCCESS";
-            })()
-        `).catch(() => "ERROR");
-
-        if (focusStatus !== "SUCCESS") {
-            if (toastText) toastText.innerText = "Error: Input Field Not Found!";
-            setTimeout(() => { if (toast) toast.style.display = 'none'; }, 3000);
-            return reject("Input field not found: " + focusStatus);
-        }
-
-        await new Promise(r => setTimeout(r, 200));
-
-        // 3단계: 렌더러 측에서 청크를 순차 분할하여 주입하고 초록 진행바 갱신 (초광속 모드)
-        const chunkSize = 1000;
-        const totalLen = cleanPayload.length;
-        
-        for (let i = 0; i < totalLen; i += chunkSize) {
-            const chunk = cleanPayload.substring(i, i + chunkSize);
-            const base64Chunk = Buffer.from(chunk, 'utf-8').toString('base64');
-            
-            await wv.executeJavaScript(`(() => {
-                try {
-                    const input = document.querySelector('textarea, input[type="text"], div[contenteditable="true"]');
-                    if (input) {
-                        const bin = atob("${base64Chunk}");
+                
+                // Base64 디코딩 (안전성 100%)
+                const decodedPayload = (() => {
+                    try {
+                        const bin = atob("${base64Payload}");
                         const bytes = new Uint8Array(bin.length);
                         for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
-                        const decoded = new TextDecoder("utf-8").decode(bytes);
-                        
-                        document.execCommand('insertText', false, decoded);
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        return new TextDecoder("utf-8").decode(bytes);
+                    } catch (e) {
+                        return "";
                     }
-                } catch(e) {}
-            })()`).catch(() => false);
-
-            const pct = Math.floor((i / totalLen) * 100);
-            if (toastText && toastBar) {
-                toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">${pct}% 진행되었음</span>`;
-                toastBar.style.width = `${pct}%`;
-            }
-            await new Promise(r => setTimeout(r, 1));
-        }
-
-        if (toastText && toastBar) {
-            toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">100% 진행되었음 (Sending...)</span>`;
-            toastBar.style.width = "100%";
-        }
-
-        // 4단계: 엔터 전송 발송
-        await new Promise(r => setTimeout(r, 300));
-        await wv.executeJavaScript(`(() => {
-            const input = document.querySelector('textarea, input[type="text"], div[contenteditable="true"]');
-            if (input) {
-                input.dispatchEvent(new Event('change', { bubbles: true }));
+                })();
+                
+                if (!decodedPayload) return "DECODE_ERROR";
+                
+                // 100ms 포커스 대기
+                await new Promise(r => setTimeout(r, 100));
+                
+                // 웹뷰 내부에서 루프를 동기/비동기 수행 (통신 지연이 없어 10배 이상 가속)
+                const chunkSize = 2000;
+                const totalLen = decodedPayload.length;
+                for (let i = 0; i < totalLen; i += chunkSize) {
+                    const chunk = decodedPayload.substring(i, i + chunkSize);
+                    document.execCommand('insertText', false, chunk);
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    const pct = Math.floor((i / totalLen) * 100);
+                    console.log("[INJECT_PCT]:" + pct);
+                    await new Promise(r => setTimeout(r, 1));
+                }
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                console.log("[INJECT_PCT]:100");
+                
+                // 주입 후 짧은 텀을 주고 엔터 전송
+                await new Promise(r => setTimeout(r, 150));
                 
                 const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                input.dispatchEvent(enterDown);
+                inputEl.dispatchEvent(enterDown);
                 
                 const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                input.dispatchEvent(enterPress);
+                inputEl.dispatchEvent(enterPress);
                 
                 const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                input.dispatchEvent(enterUp);
-            }
-        })()`).catch(() => false);
+                inputEl.dispatchEvent(enterUp);
+                
+                return "SUCCESS";
+            })()
+        `;
 
-        // 5단계: 전송 확인 후 토스트 종료
-        await new Promise(r => setTimeout(r, 1500));
-        if (toast) toast.style.display = 'none';
-        resolve(true);
+        wv.focus();
+        wv.executeJavaScript(injectionScript).then(async (status) => {
+            if (status !== "SUCCESS") {
+                if (toastText) toastText.innerText = "Error: " + status;
+                setTimeout(cleanup, 3000);
+                return reject("Input failed: " + status);
+            }
+
+            // 전송 처리 확인 대기 및 종료
+            await new Promise(r => setTimeout(r, 1500));
+            cleanup();
+            resolve(true);
+        }).catch(err => {
+            cleanup();
+            reject(err);
+        });
     });
 }
 function detectAndAskCommand(text) {

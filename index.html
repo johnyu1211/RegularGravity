@@ -74,6 +74,38 @@
                 <h3>PORMSG EDITOR</h3>
             </div>
             <div id="editor-content" style="flex: 1; height: 100%;"></div>
+
+            <!-- Floating Terminal Popover Trigger (Bottom-Left of Editor) -->
+            <div id="terminal-toggle-btn" title="Toggle Terminal Popover" style="position: absolute; left: 15px; bottom: 15px; z-index: 1001; width: 34px; height: 34px; border-radius: 50%; background: var(--surface-high); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            </div>
+
+            <!-- Floating Terminal Popover Window -->
+            <div id="terminal-popover" style="position: absolute; left: 15px; bottom: 58px; width: 500px; height: 350px; display: none; flex-direction: column; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.75); z-index: 1000; overflow: hidden; transition: all 0.2s ease;">
+                <div class="terminal-view-header" style="height:38px; min-height:38px; border-bottom: 1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: rgba(0,0,0,0.25);">
+                    <div id="terminal-sub-tabs" style="flex:1; height:100%; display:flex; overflow:hidden; padding:0 2px; gap: 4px;">
+                         <!-- Dynamic Sub-tabs now live here -->
+                    </div>
+                    <div class="terminal-actions" style="display:flex; align-items:center; gap:12px; margin-left: auto; padding-left: 10px;">
+                        <span id="add-terminal" class="action-btn" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Add Terminal">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </span>
+                        <span class="action-btn" id="minimize-terminal" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Minimize Terminal">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </span>
+                    </div>
+                </div>
+
+                <div id="terminal-view" class="pane-view-content" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+                    <div id="terminal-content" class="terminal-surface" style="flex: 1; overflow-y: auto; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6;">
+                        <div id="terminal-logs-wrapper"></div>
+                        <div class="terminal-input-line" style="display: flex; align-items: center; margin-top: 4px;">
+                            <span class="terminal-prompt-prefix" style="color: var(--primary); font-weight: bold; margin-right: 6px;">> </span>
+                            <input type="text" class="terminal-main-input" id="terminal-main-input" spellcheck="false" autocomplete="off" style="flex: 1; background: transparent; border: none; color: #ccc; outline: none; font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <div class="resizer-v" id="resizer-inspector"></div>
@@ -266,38 +298,6 @@
             document.getElementById('win-close').onclick = () => ipc.send('window-close');
         })();
     </script>
-    
-    <!-- Floating Terminal Popover Trigger (Bottom-Left) -->
-    <div id="terminal-toggle-btn" title="Toggle Terminal Popover" style="position: fixed; left: 15px; bottom: 15px; z-index: 10001; width: 34px; height: 34px; border-radius: 50%; background: var(--surface-high); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-    </div>
-
-    <!-- Floating Terminal Popover Window -->
-    <div id="terminal-popover" style="position: fixed; left: 15px; bottom: 58px; width: 500px; height: 350px; display: none; flex-direction: column; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.75); z-index: 10000; overflow: hidden; transition: all 0.2s ease;">
-        <div class="terminal-view-header" style="height:38px; min-height:38px; border-bottom: 1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: rgba(0,0,0,0.25);">
-            <div id="terminal-sub-tabs" style="flex:1; height:100%; display:flex; overflow:hidden; padding:0 2px; gap: 4px;">
-                 <!-- Dynamic Sub-tabs now live here -->
-            </div>
-            <div class="terminal-actions" style="display:flex; align-items:center; gap:12px; margin-left: auto; padding-left: 10px;">
-                <span id="add-terminal" class="action-btn" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Add Terminal">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                </span>
-                <span class="action-btn" id="minimize-terminal" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Minimize Terminal">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </span>
-            </div>
-        </div>
-
-        <div id="terminal-view" class="pane-view-content" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
-            <div id="terminal-content" class="terminal-surface" style="flex: 1; overflow-y: auto; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6;">
-                <div id="terminal-logs-wrapper"></div>
-                <div class="terminal-input-line" style="display: flex; align-items: center; margin-top: 4px;">
-                    <span class="terminal-prompt-prefix" style="color: var(--primary); font-weight: bold; margin-right: 6px;">> </span>
-                    <input type="text" class="terminal-main-input" id="terminal-main-input" spellcheck="false" autocomplete="off" style="flex: 1; background: transparent; border: none; color: #ccc; outline: none; font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script src="UnRef_renderer.js"></script>
 </body>

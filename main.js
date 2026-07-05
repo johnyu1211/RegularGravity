@@ -318,59 +318,6 @@ ipcMain.on('reveal-in-explorer', (event, p) => {
     if (p) shell.showItemInFolder(path.resolve(p));
 });
 
-// 2. OLLAMA ENGINE (CRITICAL RESTORE)
-ipcMain.handle('get-ollama-models', async () => {
-    return new Promise((resolve) => {
-        const options = { hostname: '127.0.0.1', port: 11434, path: '/api/tags', method: 'GET' };
-        const req = http.request(options, (res) => {
-            let data = '';
-            res.on('data', d => data += d);
-            res.on('end', () => {
-                try {
-                    const json = JSON.parse(data);
-                    resolve(json.models || []);
-                } catch(e) { resolve([]); }
-            });
-        });
-        req.on('error', () => resolve([]));
-        req.end();
-    });
-});
-
-let currentOllamaReq = null;
-ipcMain.on('send-to-ollama', (event, { model, prompt }) => {
-    if (currentOllamaReq) currentOllamaReq.destroy();
-    const postData = JSON.stringify({ model, prompt, stream: true });
-    const options = { hostname: '127.0.0.1', port: 11434, path: '/api/generate', method: 'POST' };
-    currentOllamaReq = http.request(options, (res) => {
-        res.on('data', d => {
-            try {
-                const lines = d.toString().split('\n');
-                lines.forEach(line => {
-                    if (line) {
-                        const json = JSON.parse(line);
-                        event.reply('ollama-response', { text: json.response, done: json.done });
-                    }
-                });
-            } catch(e) {}
-        });
-        res.on('close', () => { currentOllamaReq = null; });
-    });
-    currentOllamaReq.on('error', (err) => { 
-        event.reply('ollama-response', { text: `Error connecting to Ollama (127.0.0.1): ${err.message}`, done: true });
-        currentOllamaReq = null;
-    });
-    currentOllamaReq.write(postData);
-    currentOllamaReq.end();
-});
-
-ipcMain.on('stop-ollama', () => {
-    if (currentOllamaReq) {
-        currentOllamaReq.destroy();
-        currentOllamaReq = null;
-    }
-});
-
 // 3. TERMINAL ENGINE (UTF-8 SILVER BULLET)
 let terminalProcess = null;
 ipcMain.on('execute-cmd', (event, command) => {

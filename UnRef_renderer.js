@@ -522,26 +522,9 @@ function setupUI() {
         dsModal.style.display = 'none';
     };
 
-    const tLA = document.getElementById('tab-local-agent'), tBH = document.getElementById('tab-browser-hub');
-    const vLC = document.getElementById('inspector-local-chat'), vBH = document.getElementById('inspector-browser-hub');
-    const swi = (m) => {
-        vLC.style.display = (m === 'local') ? 'flex' : 'none'; vBH.style.display = (m !== 'local') ? 'flex' : 'none';
-        tLA.classList.toggle('active-tab', (m === 'local')); tBH.classList.toggle('active-tab', (m !== 'local'));
-        if (m === 'local' && document.hasFocus()) { const ci = document.getElementById('local-agent-input'); if (ci) setTimeout(() => ci.focus(), 100); }
-    };
-    if (tLA) tLA.onclick = () => swi('local'); if (tBH) tBH.onclick = () => swi('browser');
-
-    document.getElementById('save-local-chat').onclick = () => { ChatUI.appendBubble('system', '[SYSTEM] Chat snapshot save requested.'); };
-    document.getElementById('clear-local-chat').onclick = () => { 
-        showConfirm("Initialize both chat history file and screen? (Irrecoverable)", () => {
-            ipcRenderer.send('stop-ollama'); ipcRenderer.removeAllListeners('ollama-response'); generating = false; 
-            const sendBtn = document.getElementById('send-to-local'); if (sendBtn) sendBtn.innerText = "➤";
-            ipcRenderer.send('vault-reset-session', { logPath: GravityVault.activeLogPath }); 
-            document.getElementById('local-chat-messages').innerHTML = ''; if (window.chatLog) window.chatLog = []; 
-            const overlay = document.getElementById('web-process-overlay'); if (overlay) { overlay.style.display = 'none'; overlay.style.pointerEvents = 'none'; }
-            const chatIn = document.getElementById('local-agent-input'); if (chatIn) { setTimeout(() => { chatIn.focus(); chatIn.click(); }, 50); }
-        });
-    };
+    // 로컬 AI 탭 연동 비활성화 및 BROWSER 단독 활성화 보장
+    const vBH = document.getElementById('inspector-browser-hub');
+    if (vBH) vBH.style.display = 'flex';
 
     // [🛠️ 신규 추가: Web 토글 기본 활성화 보장]
     const webAiToggle = document.getElementById('web-ai-mode-toggle');
@@ -604,13 +587,10 @@ ${tree}
             
             // 버튼 숨김
             projBtn.style.display = 'none';
-            chatIn.focus();
             
-            // 응답 캡처 대기 완료 후 로컬 복귀
+            // 응답 캡처 대기
             const response = await enginePromise;
-            document.getElementById('tab-local-agent')?.click();
             if (response) {
-                ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
                 detectAndAskCommand(response);
             }
         };
@@ -739,69 +719,29 @@ ${tree}
 
                 window.sessionBriefed = true;
 
-                // 1. 브라우저 탭 유지 — 응답 완료 전까지 전환 금지
-                document.getElementById('tab-browser-hub').click();
-
-                // 2. injectWebPayload 먼저 전송
+                // 1. injectWebPayload 전송
                 await new Promise(r => setTimeout(r, 500));
                 await injectWebPayload(webPayload);
 
                 updateProcess('extract', 90);
 
-                // 3. 응답 완료까지 await (탭 전환 없이 대기)
+                // 2. 응답 완료까지 await
                 const response = await runExperimentalEngine('/marktag', promptText, null);
                 progBar.style.width = '100%'; await new Promise(r => setTimeout(r, 500));
                 overlay.style.display = 'none'; overlay.style.pointerEvents = 'none';
 
-                // 4. 응답 완료 후 로컬 탭으로 전환
-                document.getElementById('tab-local-agent').click();
                 if (response) {
-                    ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview'))); /* GravityVault.log('ai', response); */ detectAndAskCommand(response);
+                    detectAndAskCommand(response);
                 } else {
-                    const failBub = ChatUI.appendBubble('ai', '[SYSTEM] WebAI response extraction failed.'); /* GravityVault.log('ai', '[SYSTEM] WebAI response extraction failed.'); */
-                    const content = failBub.querySelector('.bubble-content');
-                    if (content) {
-                        content.innerHTML = `
-                            <div style="margin-bottom:12px; color:#aaa;">⚠️ WebAI automatic extraction failed.</div>
-                            <div style="display:flex; justify-content:center; padding:5px 0;">
-                                <button class="manual-fetch-trigger-btn" style="background:#222; border:1px solid #333; color:#aaa; padding:8px 20px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s;">Manual Fetch</button>
-                            </div>
-                        `;
-                        const btn = content.querySelector('.manual-fetch-trigger-btn');
-                        btn.onmouseenter = () => { btn.style.background = '#333'; btn.style.color = '#fff'; btn.style.borderColor = '#444'; };
-                        btn.onmouseleave = () => { btn.style.background = '#222'; btn.style.color = '#aaa'; btn.style.borderColor = '#333'; };
-                        btn.onclick = async () => { const result = await showManualInputUI(failBub); if (result) { failBub.remove(); ChatUI.appendBubble('ai', result, false, getWebIcon(document.getElementById('active-agent-webview'))); /* GravityVault.log('ai', result); */ } };
-                    }
+                    console.error('WebAI response extraction failed.');
                 }
-            } catch (e) { overlay.style.display = 'none'; ChatUI.appendBubble('ai', `[ERROR] WebAI Mode failed: ${e.message}`); }
+            } catch (e) { 
+                overlay.style.display = 'none'; 
+                console.error('WebAI Mode failed:', e); 
+            }
             return;
         }
-
-        if (typeof overridePrompt !== 'string') { ChatUI.appendBubble('user', promptText); /* GravityVault.log('user', promptText); */ chatIn.value = ''; }
-        generating = true; sendBtn.innerText = "⏹";
-        const aiBox = targetBubble || ChatUI.appendBubble('ai', '<div class="thinking-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>');
-        const content = aiBox.querySelector('.bubble-content');
-        
-        let fullText = "";
-        ipcRenderer.removeAllListeners('ollama-response');
-        ipcRenderer.on('ollama-response', (e, { text, done }) => {
-            fullText += text; content.innerHTML = marked.parse(fullText);
-            if (chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 50) chatLog.scrollTop = chatLog.scrollHeight;
-            if (done) { generating = false; sendBtn.innerText = "➤"; /* GravityVault.log('ai', fullText); */ hljs.highlightAll(); }
-        });
-
-        const selectedModel = document.getElementById('ollama-model-select').value || 'supergemma4-e4b-abliterated:latest';
-        ipcRenderer.send('send-to-ollama', { model: selectedModel, prompt: promptText });
     };
-
-    if (sendBtn && chatIn) { sendBtn.onclick = handleSend; chatIn.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }; }
-
-    const chatLog = document.getElementById('local-chat-messages');
-    if (chatLog) {
-        window.isRestoring = false; let autoScroll = true;
-        chatLog.onscroll = () => { if (!window.isRestoring) autoScroll = chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 50; };
-        new ResizeObserver(() => { if (autoScroll || window.isRestoring) chatLog.scrollTop = chatLog.scrollHeight; }).observe(chatLog);
-    }
 
     document.getElementById('inspector-expand-handle').onclick = () => {
         document.body.classList.toggle('inspector-full'); document.getElementById('expand-icon').innerText = document.body.classList.contains('inspector-full') ? '▶' : '◀';
@@ -1010,12 +950,6 @@ async function setupBoot() {
 
     document.getElementById('add-terminal').onclick = () => addSubTerminal();
     window.loadDirectory(window.currentPath);
-
-    const sel = document.getElementById('ollama-model-select');
-    ipcRenderer.invoke('get-ollama-models').then(models => {
-        if (!models || models.length === 0) { sel.innerHTML = '<option value=\"\">Engine Offline</option>'; return; }
-        sel.innerHTML = models.map(m => `<option value=\"${m.name}\">${m.name}</option>`).join('');
-    }).catch(() => { });
 }
 
 window.totalFilesCount = 0;

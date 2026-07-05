@@ -1683,8 +1683,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Resizing drag logic
         const rR = popoverWin.querySelector('.popover-resizer-r');
-        const rB = popoverWin.querySelector('.popover-resizer-b');
-        const rBR = popoverWin.querySelector('.popover-resizer-br');
+        const rT = popoverWin.querySelector('.popover-resizer-t');
+        const rTR = popoverWin.querySelector('.popover-resizer-tr');
         
         const initResize = (e, dir) => {
             e.preventDefault(); e.stopPropagation();
@@ -1693,12 +1693,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             popoverWin.style.transition = 'none'; // 드래그 시 딜레이 제거
             
             const mv = (m) => {
-                if (dir === 'r' || dir === 'br') {
+                if (dir === 'r' || dir === 'tr') {
                     const nw = sw + (m.clientX - sx);
                     popoverWin.style.width = `${Math.max(350, Math.min(window.innerWidth * 0.9, nw))}px`;
                 }
-                if (dir === 'b' || dir === 'br') {
-                    const nh = sh + (m.clientY - sy);
+                if (dir === 't' || dir === 'tr') {
+                    const nh = sh - (m.clientY - sy);
                     popoverWin.style.height = `${Math.max(200, Math.min(window.innerHeight * 0.8, nh))}px`;
                 }
             };
@@ -1711,8 +1711,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.addEventListener('mouseup', up);
         };
         if (rR) rR.addEventListener('mousedown', (e) => initResize(e, 'r'));
-        if (rB) rB.addEventListener('mousedown', (e) => initResize(e, 'b'));
-        if (rBR) rBR.addEventListener('mousedown', (e) => initResize(e, 'br'));
+        if (rT) rT.addEventListener('mousedown', (e) => initResize(e, 't'));
+        if (rTR) rTR.addEventListener('mousedown', (e) => initResize(e, 'tr'));
     }
 
     GravityVault.init();

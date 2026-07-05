@@ -1120,3 +1120,40 @@ input:checked + .slider:before {
     background: rgba(30, 30, 38, 0.9) !important;
     border-color: rgba(255, 255, 255, 0.25);
 }
+
+/* Popover resizer handles styling - High priority stacking context */
+.popover-resizer-r {
+    position: absolute !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 8px !important;
+    height: 100% !important;
+    cursor: col-resize !important;
+    z-index: 100002 !important;
+    background: transparent !important;
+    pointer-events: auto !important;
+}
+
+.popover-resizer-t {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: 8px !important;
+    cursor: row-resize !important;
+    z-index: 100002 !important;
+    background: transparent !important;
+    pointer-events: auto !important;
+}
+
+.popover-resizer-tr {
+    position: absolute !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 16px !important;
+    height: 16px !important;
+    cursor: nesw-resize !important;
+    z-index: 100003 !important;
+    background: transparent !important;
+    pointer-events: auto !important;
+}

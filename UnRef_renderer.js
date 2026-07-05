@@ -588,20 +588,24 @@ function setupUI() {
         projBtn.style = `
             width: 100%;
             height: 40px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             background: var(--primary);
             color: #fff;
             border: none;
-            border-radius: 6px;
-            font-weight: bold;
+            border-radius: 8px;
+            font-family: 'DM Sans', 'Outfit', sans-serif;
+            font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12.5px;
-            box-shadow: 0 4px 10px var(--primary-glow);
-            transition: all 0.2s ease;
+            font-size: 12px;
+            letter-spacing: -0.01em;
+            box-shadow: 0 4px 12px rgba(70, 140, 246, 0.2);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         `;
+        projBtn.onmouseenter = () => { projBtn.style.filter = 'brightness(1.1)'; projBtn.style.boxShadow = '0 4px 14px rgba(70, 140, 246, 0.3)'; };
+        projBtn.onmouseleave = () => { projBtn.style.filter = 'none'; projBtn.style.boxShadow = '0 4px 12px rgba(70, 140, 246, 0.2)'; };
 
         projBtn.onclick = async () => {
             projBtn.innerText = "Sending Project Context...";

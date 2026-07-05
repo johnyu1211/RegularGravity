@@ -100,12 +100,44 @@ const syncBrowserView = (() => {
 })();
 
 window.fetchDirContent = async (p) => await ipcRenderer.invoke('get-directory-content', p);
+function formatPathDisplay(pathStr) {
+    if (pathStr === 'DRIVES') return 'THIS PC';
+    if (!pathStr) return '';
+    const parts = pathStr.split(/[\\/]/).filter(Boolean);
+    if (parts.length > 2) {
+        const lastTwo = parts.slice(-2);
+        return `... \\ ${lastTwo[0]} \\ ${lastTwo[1]}`;
+    }
+    return pathStr;
+}
+
 window.loadDirectory = async (p) => {
     try {
-        window.currentPath = p; document.getElementById('path-display').innerHTML = `<span class="path-segment">${p === 'DRIVES' ? 'THIS PC' : p}</span>`;
+        window.currentPath = p; 
+        document.getElementById('path-display').innerHTML = `<span class="path-segment">${formatPathDisplay(p)}</span>`;
         const badge = document.getElementById('active-project-badge'); if (badge) badge.innerText = p === 'DRIVES' ? 'PC' : p.split(/[\\/]/).pop().toUpperCase() || 'PORMSG';
         const f = await window.fetchDirContent(p === 'DRIVES' ? '' : p);
         if (window.renderTree) window.renderTree(p, f);
+        
+        // 경로 복사 클릭 리스너 설정
+        const copyBtn = document.getElementById('path-copy-btn');
+        const container = document.getElementById('path-display-container');
+        if (container && copyBtn && !window.hasPathCopyBind) {
+            container.onclick = async (e) => {
+                e.stopPropagation();
+                if (window.currentPath && window.currentPath !== 'DRIVES') {
+                    await navigator.clipboard.writeText(window.currentPath);
+                    const originalSvg = copyBtn.innerHTML;
+                    copyBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                    copyBtn.style.color = '#10b981';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = originalSvg;
+                        copyBtn.style.color = '';
+                    }, 1000);
+                }
+            };
+            window.hasPathCopyBind = true;
+        }
     } catch (e) { }
 };
 

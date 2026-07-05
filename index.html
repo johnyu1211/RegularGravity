@@ -39,8 +39,13 @@
         <aside class="sidebar" id="sidebar-left" style="width: 260px; height: 100%; border-right: 1px solid var(--border-color); display: flex; flex-direction: column;">
             <!-- Path bar is merged directly as the header instead of "EXPLORER" text -->
             <div class="section-header" style="height: 38px; min-height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--border-color); background: var(--surface-lowest);">
-                <div id="path-display" style="font-size: 11px; font-family: 'DM Sans', 'Outfit', sans-serif; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px;">
-                    <span class="path-segment">/root</span>
+                <div id="path-display-container" style="display: flex; align-items: center; gap: 6px; cursor: pointer; max-width: 100%; position: relative;" title="Click to copy full path">
+                    <div id="path-display" style="font-size: 11px; font-family: 'DM Sans', 'Outfit', sans-serif; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">
+                        <span class="path-segment">/root</span>
+                    </div>
+                    <span id="path-copy-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; color: var(--text-muted); opacity: 0; transition: opacity 0.2s, background 0.2s, color 0.2s;">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </span>
                 </div>
             </div>
             

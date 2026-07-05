@@ -206,13 +206,41 @@ body {
 
 .tree-arrow {
     width: 12px;
-    display: flex;
+    height: 14px;
+    display: inline-flex;
     justify-content: center;
     align-items: center;
-    font-size: 9px;
     color: var(--text-muted);
     opacity: 0.6;
     transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.file-icon {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1.2;
+}
+
+#path-display-container:hover #path-copy-btn {
+    opacity: 0.7;
+}
+
+#path-copy-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-main);
 }
 
 .header-btn:hover {
@@ -221,19 +249,6 @@ body {
     border-color: rgba(255, 255, 255, 0.08) !important;
     box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
 }
-
-.file-icon {
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-}
-
-.file-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 .jump-folder-btn {
     opacity: 0;
     font-size: 10px;

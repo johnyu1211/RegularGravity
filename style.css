@@ -1103,3 +1103,34 @@ input:checked + .slider:before {
     background: rgba(255, 255, 255, 0.1) !important;
     color: #ff5f5f !important;
 }
+
+/* Semi-transparent Terminal Toggle Button */
+#terminal-toggle-btn {
+    position: absolute;
+    left: 15px;
+    bottom: 15px;
+    z-index: 1001;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(22, 22, 28, 0.6) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0.75;
+}
+
+#terminal-toggle-btn:hover {
+    opacity: 1;
+    color: #fff;
+    background: rgba(30, 30, 38, 0.9) !important;
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.05);
+}

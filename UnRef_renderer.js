@@ -1632,6 +1632,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }, 1000);
 
+    // Terminal Popover Event Bindings
+    const popoverBtn = document.getElementById('terminal-toggle-btn');
+    const popoverWin = document.getElementById('terminal-popover');
+    if (popoverBtn && popoverWin) {
+        popoverBtn.onclick = (e) => {
+            e.stopPropagation();
+            const isHidden = popoverWin.style.display === 'none' || !popoverWin.style.display;
+            popoverWin.style.display = isHidden ? 'flex' : 'none';
+            popoverBtn.style.color = isHidden ? '#fff' : '';
+            popoverBtn.style.background = isHidden ? 'var(--primary)' : '';
+            popoverBtn.style.boxShadow = isHidden ? '0 0 15px var(--primary-glow)' : '0 4px 15px rgba(0,0,0,0.5)';
+            if (isHidden) {
+                setTimeout(() => document.getElementById('terminal-main-input')?.focus(), 150);
+            }
+        };
+        // Minimize/Close terminal inside popover action
+        const minBtn = document.getElementById('minimize-terminal');
+        if (minBtn) {
+            minBtn.onclick = (e) => {
+                e.stopPropagation();
+                popoverWin.style.display = 'none';
+                popoverBtn.style.color = '';
+                popoverBtn.style.background = '';
+                popoverBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+            };
+        }
+        // Click outside popover to close
+        document.addEventListener('click', (e) => {
+            if (!popoverWin.contains(e.target) && e.target !== popoverBtn) {
+                popoverWin.style.display = 'none';
+                popoverBtn.style.color = '';
+                popoverBtn.style.background = '';
+                popoverBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+            }
+        });
+    }
+
     GravityVault.init();
 });
 ipcRenderer.on('refresh-explorer', () => { window.loadDirectory(window.currentPath); });

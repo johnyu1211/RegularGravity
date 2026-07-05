@@ -1343,7 +1343,27 @@ function detectAndAskCommand(text) {
                 if (window.activeSubTabId && window.terminalSessions[window.activeSubTabId]) {
                     window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
                     window.switchSubTerminal(window.activeSubTabId);
-                    ipcRenderer.send('execute-cmd', cleanCmd);
+                    
+                    // cd 명령어 실시간 가로채서 currentPath 동적 갱신
+                    if (cleanCmd.toLowerCase().startsWith('cd ')) {
+                        let targetDir = cleanCmd.substring(3).trim().replace(/['"]/g, '');
+                        const pathModule = require('path');
+                        try {
+                            let newPath = '';
+                            if (pathModule.isAbsolute(targetDir)) {
+                                newPath = targetDir;
+                            } else {
+                                newPath = pathModule.resolve(window.currentPath || process.cwd(), targetDir);
+                            }
+                            if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
+                                window.loadDirectory(newPath); // 디렉토리 구조 및 프롬프트 연동 갱신!
+                            }
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    }
+
+                    ipcRenderer.send('execute-cmd', { tabId: window.activeSubTabId, command: cleanCmd, cwd: window.currentPath });
                     
                     const tL = document.getElementById('terminal-lower');
                     if (tL && tL.offsetHeight <= 40) {

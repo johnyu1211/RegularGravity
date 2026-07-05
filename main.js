@@ -318,10 +318,22 @@ ipcMain.on('reveal-in-explorer', (event, p) => {
     if (p) shell.showItemInFolder(path.resolve(p));
 });// 3. TERMINAL ENGINE (UTF-8 SILVER BULLET - MULTI-TAB SESSION ISOLATED)
 const terminalProcesses = {};
-ipcMain.on('execute-cmd', (event, { tabId, command, cwd }) => {
+ipcMain.on('execute-cmd', (event, arg) => {
+    let tabId = 'sub-1';
+    let command = '';
+    let cwd = process.cwd();
+
+    if (typeof arg === 'string') {
+        command = arg;
+    } else if (arg && typeof arg === 'object') {
+        tabId = arg.tabId || 'sub-1';
+        command = arg.command || '';
+        cwd = arg.cwd || process.cwd();
+    }
+
     if (!terminalProcesses[tabId]) {
         terminalProcesses[tabId] = spawn('powershell.exe', ['-NoExit', '-Command', '-'], {
-            cwd: cwd || process.cwd(),
+            cwd: cwd,
             env: { ...process.env, PYTHONIOENCODING: 'utf-8', LANG: 'ko_KR.UTF-8' }
         });
         

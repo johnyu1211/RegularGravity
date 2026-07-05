@@ -601,12 +601,6 @@ function setupUI() {
         });
     };
 
-    // [🛠️ 신규 추가: Web 토글 기본 활성화 보장]
-    const webAiToggle = document.getElementById('web-ai-mode-toggle');
-    if (webAiToggle && !webAiToggle.checked) {
-        webAiToggle.checked = true;
-    }
-
     const chatIn = document.getElementById('local-agent-input');
     const localControls = chatIn ? chatIn.parentElement : null;
     
@@ -692,26 +686,12 @@ ${tree}
                 const d = new URL(wv.src).hostname; const name = d.split('.')[0].toUpperCase();
                 const icon = `https://www.google.com/s2/favicons?domain=${d}&sz=64`;
                 if (badge) badge.innerText = `PORMSG · ${name}`; if (headerIcon) headerIcon.src = icon;
-                if (chatIn) { chatIn.placeholder = (webAiToggle && webAiToggle.checked) ? `Ask ${name} (Web AI mode active)...` : `Ask local AI... (Web AI standby: ${name})`; }
+                if (chatIn) { chatIn.placeholder = `Ask ${name}...`; }
             } catch(e) {}
         } else {
-            if (badge) badge.innerText = `PORMSG`; if (headerIcon) headerIcon.src = 'png.png'; if (chatIn) chatIn.placeholder = `Ask local AI...`;
+            if (badge) badge.innerText = `PORMSG`; if (headerIcon) headerIcon.src = 'png.png'; if (chatIn) chatIn.placeholder = `Ask AI...`;
         }
     };
-
-    if (webAiToggle) {
-        webAiToggle.onchange = () => {
-            if (webAiToggle.checked) {
-                const wv = document.getElementById('active-agent-webview');
-                if (!wv) {
-                    ChatUI.appendBubble('system', '[SYSTEM] No Web AI Service selected. Please launch an AI Service from Browser Hub first.');
-                    webAiToggle.checked = true; document.getElementById('tab-browser-hub').click();
-                    document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex';
-                } else { ChatUI.appendBubble('system', '[SYSTEM] WebAI Mode ON. Messages will be routed to the external AI Service.'); }
-            } else { ChatUI.appendBubble('system', '[SYSTEM] WebAI Mode OFF. Reverting to local Ollama model.'); }
-            updateAgentBadge();
-        };
-    }
 
     window.updateAgentBadge = updateAgentBadge;
     const sendBtn = document.getElementById('send-to-local');
@@ -781,7 +761,7 @@ ${tree}
             return;
         }
 
-        if (webAiToggle.checked) {
+        if (true) {
             if (typeof overridePrompt !== 'string') { ChatUI.appendBubble('user', promptText); /* GravityVault.log('user', promptText); */ chatIn.value = ''; }
             const overlay = document.getElementById('web-process-overlay'), progBar = document.getElementById('web-process-bar');
             const steps = { scan: document.getElementById('step-scan'), analyze: document.getElementById('step-analyze'), brief: document.getElementById('step-brief'), extract: document.getElementById('step-extract') };

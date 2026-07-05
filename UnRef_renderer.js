@@ -81,6 +81,7 @@ ipcRenderer.on('soft-reload-workspace', () => {
 
 let terminalCount = 0; let activeSubTabId = null; const terminalSessions = {};
 let webRequestId = 0; window.currentPath = process.cwd();
+setTimeout(updateTerminalPrompt, 100);
 
 const syncBrowserView = (() => {
     let syncPending = false;
@@ -114,6 +115,7 @@ function formatPathDisplay(pathStr) {
 window.loadDirectory = async (p) => {
     try {
         window.currentPath = p; 
+        updateTerminalPrompt();
         document.getElementById('path-display').innerHTML = `<span class="path-segment">${formatPathDisplay(p)}</span>`;
         const badge = document.getElementById('active-project-badge'); if (badge) badge.innerText = p === 'DRIVES' ? 'PC' : p.split(/[\\/]/).pop().toUpperCase() || 'PORMSG';
         const f = await window.fetchDirContent(p === 'DRIVES' ? '' : p);
@@ -357,6 +359,23 @@ window.openFileInEditor = (filePath) => {
         editorContent.innerHTML = `<div style="position: absolute; inset: 0; overflow:auto; background:#000; color:#f44; padding:20px; font-family:'JetBrains Mono', monospace;">Failed to open file:<br>${err.message}</div>`;
     }
 };
+
+function updateTerminalPrompt() {
+    const prefixEl = document.getElementById('terminal-prompt-prefix');
+    if (!prefixEl) return;
+    const p = window.currentPath || '';
+    if (!p || p === 'DRIVES') {
+        prefixEl.innerText = '> ';
+        return;
+    }
+    const parts = p.split(/[\\/]/).filter(Boolean);
+    if (parts.length === 0) {
+        prefixEl.innerText = '> ';
+    } else {
+        const last = parts[parts.length - 1];
+        prefixEl.innerText = `.../${last} > `;
+    }
+}
 
 function setupHorizontalScroll(el) {
     if (!el) return;

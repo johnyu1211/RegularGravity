@@ -374,23 +374,16 @@ function ensureTabVisible(id) {
 function addSubTerminal(isInitial = false) {
     terminalCount++; const id = `sub-${terminalCount}`; terminalSessions[id] = { logs: [] };
     const tab = document.createElement('div'); tab.className = `sub-tab ${isInitial ? 'active' : ''}`; tab.id = `tab-${id}`;
-    tab.style = "padding: 0 15px; flex-shrink: 0; min-width: max-content; height: 100%; display: flex; align-items: center; font-size: 10px; color: #555; background: #070707; border-right: 1px solid #111; cursor: pointer; transition: 0.2s; position: relative;";
-    tab.innerHTML = `powershell ${terminalCount} <span class="sub-close" style="margin-left:10px; display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; transition:all 0.2s ease; opacity:0; color:#555; pointer-events:auto;">
+    tab.innerHTML = `powershell ${terminalCount} <span class="sub-close">
         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
     </span>`;
-    
-    const closeBtn = tab.querySelector('.sub-close');
-    tab.onmouseenter = () => { closeBtn.style.opacity = '0.7'; };
-    tab.onmouseleave = () => { closeBtn.style.opacity = '0'; };
-    closeBtn.onmouseenter = (e) => { e.stopPropagation(); closeBtn.style.opacity = '1'; closeBtn.style.background = 'rgba(255,255,255,0.08)'; closeBtn.style.color = '#ff5f5f'; };
-    closeBtn.onmouseleave = () => { closeBtn.style.background = 'transparent'; closeBtn.style.color = '#555'; };
     
     tab.onclick = (e) => { if (e.target.classList.contains('sub-close')) closeSubTerminal(id); else switchSubTerminal(id); };
     document.getElementById('terminal-sub-tabs')?.appendChild(tab); switchSubTerminal(id);
 }
 function switchSubTerminal(id) {
-    document.querySelectorAll('.sub-tab').forEach(t => { t.classList.remove('active'); t.style.background = '#070707'; t.style.color = '#555'; });
-    const at = document.getElementById(`tab-${id}`); if (at) { at.classList.add('active'); at.style.background = '#0a0a0a'; at.style.color = '#ccc'; ensureTabVisible(id); }
+    document.querySelectorAll('.sub-tab').forEach(t => { t.classList.remove('active'); });
+    const at = document.getElementById(`tab-${id}`); if (at) { at.classList.add('active'); ensureTabVisible(id); }
     activeSubTabId = id; const lw = document.getElementById('terminal-logs-wrapper'), ti = document.getElementById('terminal-main-input');
     if (!lw) return; lw.innerHTML = '';
     (terminalSessions[id].logs || []).forEach(log => {

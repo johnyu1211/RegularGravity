@@ -1038,3 +1038,66 @@ input:checked + .slider:before {
 .titlebar-btn.close:hover svg path {
     stroke: #fff !important;
 }
+
+/* Browser-style Tab Design for Terminal Popover */
+#terminal-sub-tabs {
+    display: flex;
+    align-items: flex-end;
+    height: 100%;
+    gap: 3px;
+    padding-left: 6px !important;
+}
+
+.sub-tab {
+    height: 28px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-family: 'DM Sans', 'Outfit', sans-serif;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    border: 1px solid transparent;
+    border-bottom: none;
+    box-sizing: border-box;
+}
+
+.sub-tab:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-color);
+}
+
+.sub-tab.active {
+    background: rgba(12, 12, 14, 0.95) !important;
+    color: #fff !important;
+    border: 1px solid var(--border-color) !important;
+    border-bottom: none !important;
+}
+
+.sub-close {
+    margin-left: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    transition: all 0.15s ease;
+    opacity: 0;
+    color: var(--text-muted);
+}
+
+.sub-tab:hover .sub-close {
+    opacity: 0.6;
+}
+
+.sub-close:hover {
+    opacity: 1 !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #ff5f5f !important;
+}

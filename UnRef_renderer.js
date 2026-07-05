@@ -552,32 +552,29 @@ function setupUI() {
     const chatIn = document.getElementById('local-agent-input');
     const localControls = chatIn ? chatIn.parentElement : null;
     
-// [🛠️ 수정: 프로젝트 정보 전송 버튼 (초기 상태 채팅 입력창 덮기)]
+// [🛠️ 수정: 프로젝트 정보 전송 버튼 (입력창 윗단에 정갈하게 배치)]
     if (localControls && !document.getElementById('btn-send-project-info')) {
         const projBtn = document.createElement('button');
         projBtn.id = 'btn-send-project-info';
         projBtn.innerHTML = '📁 Send Project Info to Browser';
 
-        // 부모인 localControls를 기준점으로 설정
-        localControls.style.position = 'relative';
-
-        // 버튼이 입력창(chatIn)을 덮도록 설정
+        // absolute 대신 안전한 블록형 구조로 교정
         projBtn.style = `
-            position: absolute;
-            top: 0;
-            left: 0;
             width: 100%;
-            height: 100%;
-            z-index: 999;
-            background: #0078d4;
+            height: 40px;
+            margin-bottom: 10px;
+            background: var(--primary);
             color: #fff;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             font-weight: bold;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 12.5px;
+            box-shadow: 0 4px 10px var(--primary-glow);
+            transition: all 0.2s ease;
         `;
 
         projBtn.onclick = async () => {
@@ -618,8 +615,8 @@ ${tree}
             }
         };
 
-        // insertBefore가 아닌 appendChild로 마지막에 추가하여 레이어 우선순위 확보
-        localControls.appendChild(projBtn);
+        // 입력창(chatIn) 바로 위에 깔끔하게 삽입
+        localControls.insertBefore(projBtn, chatIn);
     }
 
     

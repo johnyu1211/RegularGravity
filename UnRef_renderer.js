@@ -594,10 +594,7 @@ ${tree}
 - 파일 전체 읽기: [CMD: read-file "파일명"]
 - 시스템 명령어: [CMD: 명령어]
 
-[CRITICAL RULE]
-반드시 한 번의 답변에 오직 한 개의 [CMD: ...] 태그만 사용하십시오. 여러 파일을 보고 싶더라도 한 번에 하나씩만 요청해야 합니다.
-
-이 메시지를 확인했다면, 작업을 파악하기 위해 필요한 첫 번째 명령어를 다음 답변에 바로 입력해 주세요.`.trim();
+이 메시지를 확인했다면, 작업을 파악하기 위해 필요한 첫 번째 명령어를 다음 답변에 바로 입력해 주세요.${CRITICAL_RULE_SUFFIX}`.trim();
             
             // 응답 캡처 엔진 먼저 작동 후 주입 실행 (타이밍 꼬임 해결)
             const enginePromise = runExperimentalEngine('/marktag', webPayload, null);
@@ -1019,6 +1016,12 @@ async function setupBoot() {
     }).catch(() => { });
 }
 
+const CRITICAL_RULE_SUFFIX = `
+
+[CRITICAL RULE]
+1. 분석 및 계획 수립 단계로 넘어갈 때는 절대 [CMD: ...] 태그를 제안하지 마십시오. 탐색이 다 끝났다면 구체적인 작업 계획을 제시해 주세요.
+2. 한 번의 답변에 오직 한 개의 [CMD: ...] 태그만 사용하십시오. 여러 파일을 보고 싶더라도 한 번에 하나씩만 요청해야 합니다.`;
+
 async function injectWebPayload(webPayload) {
     const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
     const inKeywords = savedKeywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
@@ -1192,7 +1195,7 @@ function detectAndAskCommand(text) {
                         
                         if (fs.existsSync(targetPath)) {
                             const fileContent = fs.readFileSync(targetPath, 'utf-8');
-                            const finalMessage = `[FILE DATA: ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n[SYSTEM] File contents provided above. Please analyze.`;
+                            const finalMessage = `[FILE DATA: ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n[SYSTEM] File contents provided above. Please analyze.${CRITICAL_RULE_SUFFIX}`;
                             
                             document.getElementById('tab-browser-hub')?.click();
                             await new Promise(r => setTimeout(r, 500));
@@ -1237,7 +1240,7 @@ function detectAndAskCommand(text) {
                 ChatUI.appendBubble('system', `[EXECUTED] ${cleanCmd}`);
                 document.getElementById('tab-browser-hub')?.click();
                 await new Promise(r => setTimeout(r, 500));
-                const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.`;
+                const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${CRITICAL_RULE_SUFFIX}`;
                 
                 // 응답 캡처 엔진 먼저 대기
                 const enginePromise = runExperimentalEngine('/marktag', payload, null);
@@ -1394,7 +1397,46 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         const clone = targetNode.cloneNode(true);
         clone.querySelectorAll('script, style, button, a[role="link"], [role="button"], .carousel, .suggestions-container, [aria-label*="추천"]').forEach(el => el.remove());
         
-        return clone.innerText.trim();
+        // HTML to Markdown 재귀 파서
+        const toMarkdown = (node) => {
+            if (node.nodeType === 3) {
+                return node.nodeValue;
+            }
+            if (node.nodeType !== 1) {
+                return "";
+            }
+            
+            const tag = node.tagName.toLowerCase();
+            let childrenMarkdown = "";
+            node.childNodes.forEach(child => {
+                childrenMarkdown += toMarkdown(child);
+            });
+            
+            switch (tag) {
+                case 'h1': return "\\n# " + childrenMarkdown.trim() + "\\n";
+                case 'h2': return "\\n## " + childrenMarkdown.trim() + "\\n";
+                case 'h3': return "\\n### " + childrenMarkdown.trim() + "\\n";
+                case 'h4': return "\\n#### " + childrenMarkdown.trim() + "\\n";
+                case 'p': return "\\n" + childrenMarkdown.trim() + "\\n";
+                case 'br': return "\\n";
+                case 'strong':
+                case 'b': return "**" + childrenMarkdown.trim() + "**";
+                case 'em':
+                case 'i': return "*" + childrenMarkdown.trim() + "*";
+                case 'code': {
+                    const isBlock = node.parentNode && node.parentNode.tagName.toLowerCase() === 'pre';
+                    return isBlock ? childrenMarkdown : "`" + childrenMarkdown.trim() + "`";
+                }
+                case 'pre': return "\\n\`\`\`\\n" + childrenMarkdown.trim() + "\\n\`\`\`\\n";
+                case 'li': return "\\n- " + childrenMarkdown.trim();
+                case 'ul': return "\\n" + childrenMarkdown + "\\n";
+                case 'ol': return "\\n" + childrenMarkdown + "\\n";
+                case 'blockquote': return "\\n> " + childrenMarkdown.trim().split("\\n").join("\\n> ") + "\\n";
+                default: return childrenMarkdown;
+            }
+        };
+        
+        return toMarkdown(clone).replace(/\\n{3,}/g, "\\n\\n").trim();
     })()`;
 
     const cleanGarbage = (t) => {

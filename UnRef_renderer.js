@@ -1027,21 +1027,27 @@ async function injectWebPayload(webPayload) {
     const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
     const inKeywords = savedKeywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
 
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         const wv = document.getElementById('active-agent-webview'); if (!wv) return reject("Webview not found");
         const cleanPayload = webPayload.trim();
 
-        // 1단계: payload를 Base64로 안전하게 인코딩 (특수문자/줄바꿈 이스케이프 파싱 에러 100% 원천 방지)
-        const base64Payload = Buffer.from(cleanPayload, 'utf-8').toString('base64');
-
-        // 2단계: 토스트 UI 제어용 타이머 세팅 (토스트 UI 숨김 유지)
+        // 1단계: 토스트 UI 켜기 및 진행바를 초록색으로 설정
         const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
-        const hideToast = () => { if (toast) toast.style.display = 'none'; if (toastBar) toastBar.style.display = 'block'; };
-        const safetyTimer = setTimeout(hideToast, 7000);
+        if (toast && toastText && toastBar) {
+            toast.style.display = 'block';
+            toast.style.background = '#0a0a0a';
+            toast.style.border = '1px solid #4caf50';
+            toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">0% 진행되었음</span>`;
+            toastBar.style.display = 'block';
+            toastBar.style.width = "0%";
+            toastBar.style.background = '#4caf50';
+            toastBar.style.height = '4px';
+        }
 
-        // 3단계: 웹뷰 내에서 Base64 디코딩 후 비동기 청크 타이핑 주입 + 전송 처리
-        const injectionScript = `
-            (async () => {
+        // 2단계: 웹뷰 포커싱 및 입력 필드 정리
+        wv.focus();
+        const focusStatus = await wv.executeJavaScript(`
+            (() => {
                 const inKeywords = ${JSON.stringify(inKeywords)};
                 const findInput = () => {
                     const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
@@ -1058,75 +1064,81 @@ async function injectWebPayload(webPayload) {
                 
                 inputEl.focus();
                 
-                // 기존 값 청소
                 if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
                     inputEl.value = '';
                 } else {
                     inputEl.innerText = '';
                 }
-                
-                // Base64 디코딩하여 execCommand 주입 (안전성 100%)
-                const decodedPayload = (() => {
-                    try {
-                        const bin = atob("${base64Payload}");
-                        const bytes = new Uint8Array(bin.length);
-                        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-                        return new TextDecoder("utf-8").decode(bytes);
-                    } catch (e) {
-                        return "";
-                    }
-                })();
-                
-                if (!decodedPayload) return "DECODE_ERROR";
-                
-                // 포커싱 및 청소 후 200ms 대기하여 리치 에디터의 포커스 상태가 안정화되도록 유도
-                await new Promise(r => setTimeout(r, 200));
-                
-                // 속도와 입력을 보장하는 150자 단위 청크 타이핑 주입
-                const chunkSize = 150;
-                for (let i = 0; i < decodedPayload.length; i += chunkSize) {
-                    const chunk = decodedPayload.substring(i, i + chunkSize);
-                    document.execCommand('insertText', false, chunk);
-                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                    await new Promise(r => setTimeout(r, 10)); // 10ms 쉬어가기
-                }
-                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                
-                // 주입 완료 후 300ms 대기 후 오직 엔터(Enter) 이벤트만 발송
-                await new Promise(r => setTimeout(r, 300));
-                
-                const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                inputEl.dispatchEvent(enterDown);
-                
-                const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                inputEl.dispatchEvent(enterPress);
-                
-                const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                inputEl.dispatchEvent(enterUp);
-                
                 return "SUCCESS";
             })()
-        `;
+        `).catch(() => "ERROR");
 
-        wv.focus();
-        wv.executeJavaScript(injectionScript).then(async (status) => {
-            if (status !== "SUCCESS") {
-                if (toastText) toastText.innerText = "Error: " + status;
-                setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
-                return reject("Input failed: " + status);
+        if (focusStatus !== "SUCCESS") {
+            if (toastText) toastText.innerText = "Error: Input Field Not Found!";
+            setTimeout(() => { if (toast) toast.style.display = 'none'; }, 3000);
+            return reject("Input field not found: " + focusStatus);
+        }
+
+        await new Promise(r => setTimeout(r, 200));
+
+        // 3단계: 렌더러 측에서 청크를 순차 분할하여 주입하고 초록 진행바 갱신
+        const chunkSize = 150;
+        const totalLen = cleanPayload.length;
+        
+        for (let i = 0; i < totalLen; i += chunkSize) {
+            const chunk = cleanPayload.substring(i, i + chunkSize);
+            const base64Chunk = Buffer.from(chunk, 'utf-8').toString('base64');
+            
+            await wv.executeJavaScript(`(() => {
+                try {
+                    const input = document.querySelector('textarea, input[type="text"], div[contenteditable="true"]');
+                    if (input) {
+                        const bin = atob("${base64Chunk}");
+                        const bytes = new Uint8Array(bin.length);
+                        for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+                        const decoded = new TextDecoder("utf-8").decode(bytes);
+                        
+                        document.execCommand('insertText', false, decoded);
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                } catch(e) {}
+            })()`).catch(() => false);
+
+            const pct = Math.floor((i / totalLen) * 100);
+            if (toastText && toastBar) {
+                toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">${pct}% 진행되었음</span>`;
+                toastBar.style.width = `${pct}%`;
             }
+            await new Promise(r => setTimeout(r, 10));
+        }
 
-            // 전송 처리 및 클리어 확인 대기
-            await new Promise(r => setTimeout(r, 1500));
-            const isCleared = await wv.executeJavaScript(`(() => { const i = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); return i ? (i.value === "" && i.innerText.trim() === "") : true; })()`).catch(() => false);
+        if (toastText && toastBar) {
+            toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">100% 진행되었음 (Sending...)</span>`;
+            toastBar.style.width = "100%";
+        }
 
-            if (toastBar) toastBar.style.display = 'none';
-            setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
-            resolve(true);
-        }).catch(err => {
-            setTimeout(() => { clearTimeout(safetyTimer); hideToast(); }, 3000);
-            reject(err);
-        });
+        // 4단계: 엔터 전송 발송
+        await new Promise(r => setTimeout(r, 300));
+        await wv.executeJavaScript(`(() => {
+            const input = document.querySelector('textarea, input[type="text"], div[contenteditable="true"]');
+            if (input) {
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                input.dispatchEvent(enterDown);
+                
+                const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                input.dispatchEvent(enterPress);
+                
+                const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                input.dispatchEvent(enterUp);
+            }
+        })()`).catch(() => false);
+
+        // 5단계: 전송 확인 후 토스트 종료
+        await new Promise(r => setTimeout(r, 1500));
+        if (toast) toast.style.display = 'none';
+        resolve(true);
     });
 }
 function detectAndAskCommand(text) {

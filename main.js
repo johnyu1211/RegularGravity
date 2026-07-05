@@ -381,7 +381,6 @@ ipcMain.on('execute-cmd', (event, arg) => {
         }
     }
 });
-});
 
 // 4. BROWSER VIEW SYNC (Temporarily Disabled per user request - transitioning to <webview>)
 let agentBrowserView = null;

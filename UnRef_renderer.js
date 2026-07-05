@@ -405,6 +405,16 @@ function closeSubTerminal(id) {
     if (tabs.length <= 1) {
         terminalSessions[id].logs = [];
         switchSubTerminal(id);
+        
+        // 마지막 탭 닫기 클릭 시 팝오버 창도 함께 닫아줌
+        const popoverWin = document.getElementById('terminal-popover');
+        const popoverBtn = document.getElementById('terminal-toggle-btn');
+        if (popoverWin) popoverWin.style.display = 'none';
+        if (popoverBtn) {
+            popoverBtn.style.color = '';
+            popoverBtn.style.background = '';
+            popoverBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+        }
         return;
     }
     delete terminalSessions[id];

@@ -522,9 +522,26 @@ function setupUI() {
         dsModal.style.display = 'none';
     };
 
-    // 로컬 AI 탭 연동 비활성화 및 BROWSER 단독 활성화 보장
-    const vBH = document.getElementById('inspector-browser-hub');
-    if (vBH) vBH.style.display = 'flex';
+    const tLA = document.getElementById('tab-local-agent'), tBH = document.getElementById('tab-browser-hub');
+    const vLC = document.getElementById('inspector-local-chat'), vBH = document.getElementById('inspector-browser-hub');
+    const swi = (m) => {
+        vLC.style.display = (m === 'local') ? 'flex' : 'none'; vBH.style.display = (m !== 'local') ? 'flex' : 'none';
+        tLA.classList.toggle('active-tab', (m === 'local')); tBH.classList.toggle('active-tab', (m !== 'local'));
+        if (m === 'local' && document.hasFocus()) { const ci = document.getElementById('local-agent-input'); if (ci) setTimeout(() => ci.focus(), 100); }
+    };
+    if (tLA) tLA.onclick = () => swi('local'); if (tBH) tBH.onclick = () => swi('browser');
+
+    document.getElementById('save-local-chat').onclick = () => { ChatUI.appendBubble('system', '[SYSTEM] Chat snapshot save requested.'); };
+    document.getElementById('clear-local-chat').onclick = () => { 
+        showConfirm("Initialize both chat history file and screen? (Irrecoverable)", () => {
+            generating = false; 
+            const sendBtn = document.getElementById('send-to-local'); if (sendBtn) sendBtn.innerText = "➤";
+            ipcRenderer.send('vault-reset-session', { logPath: GravityVault.activeLogPath }); 
+            document.getElementById('local-chat-messages').innerHTML = ''; if (window.chatLog) window.chatLog = []; 
+            const overlay = document.getElementById('web-process-overlay'); if (overlay) { overlay.style.display = 'none'; overlay.style.pointerEvents = 'none'; }
+            const chatIn = document.getElementById('local-agent-input'); if (chatIn) { setTimeout(() => { chatIn.focus(); chatIn.click(); }, 50); }
+        });
+    };
 
     // [🛠️ 신규 추가: Web 토글 기본 활성화 보장]
     const webAiToggle = document.getElementById('web-ai-mode-toggle');
@@ -587,10 +604,13 @@ ${tree}
             
             // 버튼 숨김
             projBtn.style.display = 'none';
+            if (chatIn) chatIn.focus();
             
-            // 응답 캡처 대기
+            // 응답 캡처 대기 완료 후 로컬 복귀
             const response = await enginePromise;
+            document.getElementById('tab-local-agent')?.click();
             if (response) {
+                ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
                 detectAndAskCommand(response);
             }
         };
@@ -719,25 +739,31 @@ ${tree}
 
                 window.sessionBriefed = true;
 
-                // 1. injectWebPayload 전송
+                // 1. 브라우저 탭 유지 — 응답 완료 전까지 전환 금지
+                document.getElementById('tab-browser-hub')?.click();
+
+                // 2. injectWebPayload 전송
                 await new Promise(r => setTimeout(r, 500));
                 await injectWebPayload(webPayload);
 
                 updateProcess('extract', 90);
 
-                // 2. 응답 완료까지 await
+                // 3. 응답 완료까지 await
                 const response = await runExperimentalEngine('/marktag', promptText, null);
                 progBar.style.width = '100%'; await new Promise(r => setTimeout(r, 500));
                 overlay.style.display = 'none'; overlay.style.pointerEvents = 'none';
 
+                // 4. 응답 완료 후 로컬 탭으로 복귀
+                document.getElementById('tab-local-agent')?.click();
                 if (response) {
+                    ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
                     detectAndAskCommand(response);
                 } else {
-                    console.error('WebAI response extraction failed.');
+                    ChatUI.appendBubble('ai', '[SYSTEM] WebAI response extraction failed.');
                 }
             } catch (e) { 
                 overlay.style.display = 'none'; 
-                console.error('WebAI Mode failed:', e); 
+                ChatUI.appendBubble('ai', `[ERROR] WebAI Mode failed: ${e.message}`);
             }
             return;
         }

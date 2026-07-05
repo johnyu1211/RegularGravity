@@ -1199,7 +1199,6 @@ function detectAndAskCommand(text) {
                             const finalMessage = `[FILE DATA: ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n[SYSTEM] File contents provided above. Please analyze.${CRITICAL_RULE_SUFFIX}`;
                             
                             document.getElementById('tab-browser-hub')?.click();
-                            await new Promise(r => setTimeout(r, 500));
                             
                             // 응답 캡처 엔진 먼저 대기
                             const enginePromise = runExperimentalEngine('/marktag', finalMessage, null);
@@ -1240,7 +1239,6 @@ function detectAndAskCommand(text) {
                 
                 ChatUI.appendBubble('system', `[EXECUTED] ${cleanCmd}`);
                 document.getElementById('tab-browser-hub')?.click();
-                await new Promise(r => setTimeout(r, 500));
                 const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${CRITICAL_RULE_SUFFIX}`;
                 
                 // 응답 캡처 엔진 먼저 대기

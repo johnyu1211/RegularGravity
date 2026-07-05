@@ -13,7 +13,7 @@
     <script src="file-utils.js"></script>
     <script src="tree-view.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<</head>
+</head>
 <body style="margin:0; padding:0; height:100vh; overflow:hidden; background:#0c0c0e;">
     <!-- Custom Windows Titlebar -->
     <div class="custom-titlebar">
@@ -330,10 +330,12 @@
     </div>
 
     <script>
-        const { ipcRenderer } = require('electron');
-        document.getElementById('win-min').onclick = () => ipcRenderer.send('window-minimize');
-        document.getElementById('win-max').onclick = () => ipcRenderer.send('window-maximize');
-        document.getElementById('win-close').onclick = () => ipcRenderer.send('window-close');
+        (() => {
+            const ipc = require('electron').ipcRenderer;
+            document.getElementById('win-min').onclick = () => ipc.send('window-minimize');
+            document.getElementById('win-max').onclick = () => ipc.send('window-maximize');
+            document.getElementById('win-close').onclick = () => ipc.send('window-close');
+        })();
     </script>
     <script src="UnRef_renderer.js"></script>
 </body>

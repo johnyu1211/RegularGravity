@@ -593,7 +593,7 @@ function setupUI() {
     document.getElementById('clear-local-chat').onclick = () => { 
         showConfirm("Initialize both chat history file and screen? (Irrecoverable)", () => {
             generating = false; 
-            const sendBtn = document.getElementById('send-to-local'); if (sendBtn) sendBtn.innerText = "➤";
+            const sendBtn = document.getElementById('send-to-local'); if (sendBtn) sendBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`;
             ipcRenderer.send('vault-reset-session', { logPath: GravityVault.activeLogPath }); 
             document.getElementById('local-chat-messages').innerHTML = ''; if (window.chatLog) window.chatLog = []; 
             const overlay = document.getElementById('web-process-overlay'); if (overlay) { overlay.style.display = 'none'; overlay.style.pointerEvents = 'none'; }
@@ -697,7 +697,7 @@ ${tree}
     const sendBtn = document.getElementById('send-to-local');
     
     const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false, sourceIcon = null, targetBubble = null) => {
-        if (generating) { ipcRenderer.send('stop-ollama'); generating = false; sendBtn.innerText = "➤"; return; }
+        if (generating) { ipcRenderer.send('stop-ollama'); generating = false; sendBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`; return; }
 
         const promptText = (typeof overridePrompt === 'string') ? overridePrompt : chatIn.value.trim();
         if (!promptText) return;

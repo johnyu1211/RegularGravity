@@ -1426,7 +1426,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                 case 'i': return "*" + childrenMarkdown.trim() + "*";
                 case 'code': {
                     const isBlock = node.parentNode && node.parentNode.tagName.toLowerCase() === 'pre';
-                    return isBlock ? childrenMarkdown : "`" + childrenMarkdown.trim() + "`";
+                    return isBlock ? childrenMarkdown : "\`" + childrenMarkdown.trim() + "\`";
                 }
                 case 'pre': return "\\n\`\`\`\\n" + childrenMarkdown.trim() + "\\n\`\`\`\\n";
                 case 'li': return "\\n- " + childrenMarkdown.trim();

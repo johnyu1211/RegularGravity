@@ -1658,15 +1658,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 popoverBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
             };
         }
-        // Click outside popover to close
-        document.addEventListener('click', (e) => {
-            if (!popoverWin.contains(e.target) && e.target !== popoverBtn) {
-                popoverWin.style.display = 'none';
-                popoverBtn.style.color = '';
-                popoverBtn.style.background = '';
-                popoverBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
-            }
-        });
     }
 
     GravityVault.init();

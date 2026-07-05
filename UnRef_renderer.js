@@ -769,10 +769,6 @@ ${tree}
         }
     };
 
-    document.getElementById('inspector-expand-handle').onclick = () => {
-        document.body.classList.toggle('inspector-full'); document.getElementById('expand-icon').innerText = document.body.classList.contains('inspector-full') ? '▶' : '◀';
-    };
-
     const pMo = document.getElementById('persona-modal'), pBtn = document.getElementById('open-persona-settings');
     if (pBtn && pMo) {
         pBtn.onclick = async () => {

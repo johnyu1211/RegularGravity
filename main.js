@@ -160,6 +160,34 @@ ipcMain.handle('vault-get-tree', async (event, projectPath) => {
     }
     return treeResult;
 });
+ipcMain.handle('vault-count-files', async (event, projectPath) => {
+    const root = projectPath || process.cwd();
+    const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch'];
+    let fileCount = 0;
+    
+    function countDir(dir) {
+        let items = [];
+        try {
+            items = fs.readdirSync(dir);
+        } catch (e) {
+            return;
+        }
+        items.forEach(item => {
+            if (ignore.includes(item)) return;
+            const fullPath = path.join(dir, item);
+            try {
+                const stats = fs.statSync(fullPath);
+                if (stats.isDirectory()) {
+                    countDir(fullPath);
+                } else if (stats.isFile()) {
+                    fileCount++;
+                }
+            } catch (err) {}
+        });
+    }
+    countDir(root);
+    return fileCount;
+});
 
 ipcMain.handle('vault-search', async (event, { query }) => {
     if (!query || query.length < 2) return "";

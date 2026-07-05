@@ -584,6 +584,11 @@ function setupUI() {
             projBtn.innerText = "Sending Project Context...";
             document.getElementById('tab-browser-hub')?.click();
             
+            // 파일 카운트 측정 및 진행도 UI 초기화
+            window.totalFilesCount = await ipcRenderer.invoke('vault-count-files', window.currentPath).catch(() => 0);
+            window.readFilesSet.clear();
+            updateProjectReadUI();
+            
             const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
             
             // 불필요한 설정 다 빼고 목적만 전달하는 심플한 프롬프트
@@ -1016,6 +1021,46 @@ async function setupBoot() {
     }).catch(() => { });
 }
 
+window.totalFilesCount = 0;
+window.readFilesSet = new Set();
+
+function updateProjectReadUI() {
+    let el = document.getElementById('project-read-progress-bar');
+    const container = document.getElementById('inspector-local-chat');
+    if (!container) return;
+    
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'project-read-progress-bar';
+        el.style = 'padding: 10px 15px 0 15px; display: none;';
+        container.insertBefore(el, container.firstChild);
+    }
+    
+    if (!window.totalFilesCount) {
+        el.style.display = 'none';
+        return;
+    }
+    el.style.display = 'block';
+    
+    const readCount = window.readFilesSet.size;
+    const pct = Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100));
+    
+    el.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:4px; padding:10px 12px; background:#0e0e0e; border:1px solid #2e7d32; border-radius:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:bold; color:#aaa; font-family:sans-serif;">
+                <span style="display:flex; align-items:center; gap:6px;">
+                    <span style="display:inline-block; width:6px; height:6px; background:#4caf50; border-radius:50%; box-shadow: 0 0 8px #4caf50;"></span>
+                    프로젝트 분석률 (${pct}%)
+                </span>
+                <span>총 ${window.totalFilesCount}개 중 ${readCount}개 파악 완료</span>
+            </div>
+            <div style="width:100%; height:4px; background:#222; border-radius:10px; overflow:hidden; margin-top:2px;">
+                <div style="width:${pct}%; height:100%; background:#4caf50; transition:width 0.3s ease;"></div>
+            </div>
+        </div>
+    `;
+}
+
 const CRITICAL_RULE_SUFFIX = `
 
 [CRITICAL RULE]
@@ -1031,6 +1076,7 @@ async function injectWebPayload(webPayload) {
         const wv = document.getElementById('active-agent-webview'); if (!wv) return reject("Webview not found");
         const cleanPayload = webPayload.trim();
         const base64Payload = Buffer.from(cleanPayload, 'utf-8').toString('base64');
+        const totalLines = cleanPayload.split('\n').length; // 전체 라인수 산출
 
         // 1단계: 토스트 UI 켜기 및 진행바를 초록색으로 설정
         const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
@@ -1038,7 +1084,7 @@ async function injectWebPayload(webPayload) {
             toast.style.display = 'block';
             toast.style.background = '#0a0a0a';
             toast.style.border = '1px solid #4caf50';
-            toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">0% 진행되었음</span>`;
+            toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">0% 진행되었음 (총 ${totalLines}라인)</span>`;
             toastBar.style.display = 'block';
             toastBar.style.width = "0%";
             toastBar.style.background = '#4caf50';
@@ -1048,13 +1094,16 @@ async function injectWebPayload(webPayload) {
         // 2단계: 웹뷰 콘솔 리스너 장착 (진행률 실시간 고속 수신용)
         const onConsole = (e) => {
             if (e.message.startsWith('[INJECT_PCT]:')) {
-                const pct = parseInt(e.message.split(':')[1]);
+                const parts = e.message.split(':')[1].split(',');
+                const pct = parseInt(parts[0]);
+                const curLines = parseInt(parts[1] || '0');
+                const totLines = parseInt(parts[2] || '0');
                 if (toastText && toastBar) {
                     if (pct === 100) {
-                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">100% 진행되었음 (Sending...)</span>`;
+                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">100% 진행되었음 (총 ${totLines}라인 전송 완료)</span>`;
                         toastBar.style.width = "100%";
                     } else {
-                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">${pct}% 진행되었음</span>`;
+                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">${pct}% 진행되었음 (${totLines}라인 중 ${curLines}라인 완료)</span>`;
                         toastBar.style.width = `${pct}%`;
                     }
                 }
@@ -1118,11 +1167,12 @@ async function injectWebPayload(webPayload) {
                     inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                     
                     const pct = Math.floor((i / totalLen) * 100);
-                    console.log("[INJECT_PCT]:" + pct);
+                    const curLines = decodedPayload.substring(0, i).split('\\n').length;
+                    console.log("[INJECT_PCT]:" + pct + "," + curLines + ",${totalLines}");
                     await new Promise(r => setTimeout(r, 1));
                 }
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                console.log("[INJECT_PCT]:100");
+                console.log("[INJECT_PCT]:100,${totalLines},${totalLines}");
                 
                 // 주입 후 짧은 텀을 주고 엔터 전송
                 await new Promise(r => setTimeout(r, 150));
@@ -1224,6 +1274,10 @@ function detectAndAskCommand(text) {
                         const targetPath = path.resolve(window.currentPath, filePath);
                         
                         if (fs.existsSync(targetPath)) {
+                            // 읽은 파일셋에 기록 및 진행률 UI 업데이트
+                            window.readFilesSet.add(filePath);
+                            updateProjectReadUI();
+                            
                             const fileContent = fs.readFileSync(targetPath, 'utf-8');
                             const finalMessage = `[FILE DATA: ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n[SYSTEM] File contents provided above. Please analyze.${CRITICAL_RULE_SUFFIX}`;
                             

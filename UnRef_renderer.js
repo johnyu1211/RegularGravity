@@ -212,7 +212,7 @@ window.openFileInEditor = (filePath) => {
                         let syncId = `mini-block-${blockCounter++}`;
                         blockStack.push({ title: titleName, id: syncId, start: i });
 
-                        finalHTML += `<div class="pormsg-block"><details open class="editor-detail" data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<span class="caret">▶</span><div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine}</div><div class="box-paste-btn" onclick="window.pasteToBlock('${syncId}', event)">📋 Paste</div></summary><div class="pormsg-body" id="body-${syncId}">`;
+                        finalHTML += `<div class="pormsg-block"><details open class="editor-detail" data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<span class="caret">▶</span><div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine}</div></summary><div class="pormsg-body" id="body-${syncId}">`;
                         minimapHTML += `<details open id="${syncId}" class="mini-detail"><summary class="mini-summary">${mmLine}</summary><div class="mini-body">`;
                     } else if (net < 0 && blockStack.length > 0) {
                         let popped = blockStack.pop();

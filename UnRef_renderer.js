@@ -1019,8 +1019,9 @@ async function setupBoot() {
 const CRITICAL_RULE_SUFFIX = `
 
 [CRITICAL RULE]
-1. 분석 및 계획 수립 단계로 넘어갈 때는 절대 [CMD: ...] 태그를 제안하지 마십시오. 탐색이 다 끝났다면 구체적인 작업 계획을 제시해 주세요.
-2. 한 번의 답변에 오직 한 개의 [CMD: ...] 태그만 사용하십시오. 여러 파일을 보고 싶더라도 한 번에 하나씩만 요청해야 합니다.`;
+1. 아직 전체 프로젝트가 파악되지 않았다면, 읽은 파일에 대해 구구절절 설명하지 말고 그냥 다음 탐색할 [CMD: ...] 명령어만 단답형으로 제출하십시오.
+2. 분석 및 계획 수립 단계로 넘어갈 때는 절대 [CMD: ...] 태그를 제안하지 마십시오. 탐색이 다 끝났다면 구체적인 작업 계획을 제시해 주세요.
+3. 한 번의 답변에 오직 한 개의 [CMD: ...] 태그만 사용하십시오. 여러 파일을 보고 싶더라도 한 번에 하나씩만 요청해야 합니다.`;
 
 async function injectWebPayload(webPayload) {
     const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';

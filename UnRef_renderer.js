@@ -1680,6 +1680,39 @@ document.addEventListener('DOMContentLoaded', async () => {
                 popoverBtn.style.boxShadow = '';
             };
         }
+        
+        // Resizing drag logic
+        const rR = popoverWin.querySelector('.popover-resizer-r');
+        const rB = popoverWin.querySelector('.popover-resizer-b');
+        const rBR = popoverWin.querySelector('.popover-resizer-br');
+        
+        const initResize = (e, dir) => {
+            e.preventDefault(); e.stopPropagation();
+            const sx = e.clientX, sy = e.clientY;
+            const sw = popoverWin.offsetWidth, sh = popoverWin.offsetHeight;
+            popoverWin.style.transition = 'none'; // 드래그 시 딜레이 제거
+            
+            const mv = (m) => {
+                if (dir === 'r' || dir === 'br') {
+                    const nw = sw + (m.clientX - sx);
+                    popoverWin.style.width = `${Math.max(350, Math.min(window.innerWidth * 0.9, nw))}px`;
+                }
+                if (dir === 'b' || dir === 'br') {
+                    const nh = sh + (m.clientY - sy);
+                    popoverWin.style.height = `${Math.max(200, Math.min(window.innerHeight * 0.8, nh))}px`;
+                }
+            };
+            const up = () => {
+                window.removeEventListener('mousemove', mv);
+                window.removeEventListener('mouseup', up);
+                popoverWin.style.transition = 'opacity 0.2s, transform 0.2s';
+            };
+            window.addEventListener('mousemove', mv);
+            window.addEventListener('mouseup', up);
+        };
+        if (rR) rR.addEventListener('mousedown', (e) => initResize(e, 'r'));
+        if (rB) rB.addEventListener('mousedown', (e) => initResize(e, 'b'));
+        if (rBR) rBR.addEventListener('mousedown', (e) => initResize(e, 'br'));
     }
 
     GravityVault.init();

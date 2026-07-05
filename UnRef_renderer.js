@@ -587,7 +587,6 @@ function setupUI() {
             // 파일 카운트 측정 및 진행도 UI 초기화
             window.totalFilesCount = await ipcRenderer.invoke('vault-count-files', window.currentPath).catch(() => 0);
             window.readFilesSet.clear();
-            updateProjectReadUI();
             
             const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
             
@@ -1024,35 +1023,6 @@ async function setupBoot() {
 window.totalFilesCount = 0;
 window.readFilesSet = new Set();
 
-function updateProjectReadUI() {
-    const el = document.getElementById('project-read-progress-bar');
-    if (!el) return;
-    
-    if (!window.totalFilesCount) {
-        el.style.display = 'none';
-        return;
-    }
-    el.style.display = 'block';
-    
-    const readCount = window.readFilesSet.size;
-    const pct = Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100));
-    
-    el.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:4px; padding:10px 12px; background:#0e0e0e; border:1px solid #2e7d32; border-radius:6px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:bold; color:#aaa; font-family:sans-serif;">
-                <span style="display:flex; align-items:center; gap:6px;">
-                    <span style="display:inline-block; width:6px; height:6px; background:#4caf50; border-radius:50%; box-shadow: 0 0 8px #4caf50;"></span>
-                    프로젝트 분석률 (${pct}%)
-                </span>
-                <span>총 ${window.totalFilesCount}개 중 ${readCount}개 파악 완료</span>
-            </div>
-            <div style="width:100%; height:4px; background:#222; border-radius:10px; overflow:hidden; margin-top:2px;">
-                <div style="width:${pct}%; height:100%; background:#4caf50; transition:width 0.3s ease;"></div>
-            </div>
-        </div>
-    `;
-}
-
 const CRITICAL_RULE_SUFFIX = `
 
 [CRITICAL RULE]
@@ -1076,7 +1046,19 @@ async function injectWebPayload(webPayload) {
             toast.style.display = 'block';
             toast.style.background = '#0a0a0a';
             toast.style.border = '1px solid #4caf50';
-            toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">0% [0/${totalLines}]</span>`;
+            
+            const readCount = window.readFilesSet.size;
+            const projectPct = window.totalFilesCount ? Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100)) : 0;
+            
+            toastText.innerHTML = `
+                <div style="font-size:11px; color:#aaa; font-weight:bold; margin-bottom:4px; font-family:sans-serif;">
+                    프로젝트 파악률: <span style="color:#4caf50;">${projectPct}% (${readCount}/${window.totalFilesCount})</span>
+                </div>
+                <div style="font-size:12px; color:#eee; font-weight:bold; font-family:sans-serif;">
+                    주입률: <span style="color:#4caf50;">0% [0/${totalLines}]</span>
+                </div>
+            `;
+            
             toastBar.style.display = 'block';
             toastBar.style.width = "0%";
             toastBar.style.background = '#4caf50';
@@ -1090,12 +1072,30 @@ async function injectWebPayload(webPayload) {
                 const pct = parseInt(parts[0]);
                 const curLines = parseInt(parts[1] || '0');
                 const totLines = parseInt(parts[2] || '0');
+                
+                const readCount = window.readFilesSet.size;
+                const projectPct = window.totalFilesCount ? Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100)) : 0;
+                
                 if (toastText && toastBar) {
                     if (pct === 100) {
-                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">100% [${totLines}/${totLines}]</span>`;
+                        toastText.innerHTML = `
+                            <div style="font-size:11px; color:#aaa; font-weight:bold; margin-bottom:4px; font-family:sans-serif;">
+                                프로젝트 파악률: <span style="color:#4caf50;">${projectPct}% (${readCount}/${window.totalFilesCount})</span>
+                            </div>
+                            <div style="font-size:12px; color:#eee; font-weight:bold; font-family:sans-serif;">
+                                주입률: <span style="color:#4caf50;">100% [${totLines}/${totLines}]</span>
+                            </div>
+                        `;
                         toastBar.style.width = "100%";
                     } else {
-                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">${pct}% [${curLines}/${totLines}]</span>`;
+                        toastText.innerHTML = `
+                            <div style="font-size:11px; color:#aaa; font-weight:bold; margin-bottom:4px; font-family:sans-serif;">
+                                프로젝트 파악률: <span style="color:#4caf50;">${projectPct}% (${readCount}/${window.totalFilesCount})</span>
+                            </div>
+                            <div style="font-size:12px; color:#eee; font-weight:bold; font-family:sans-serif;">
+                                주입률: <span style="color:#4caf50;">${pct}% [${curLines}/${totLines}]</span>
+                            </div>
+                        `;
                         toastBar.style.width = `${pct}%`;
                     }
                 }
@@ -1266,9 +1266,8 @@ function detectAndAskCommand(text) {
                         const targetPath = path.resolve(window.currentPath, filePath);
                         
                         if (fs.existsSync(targetPath)) {
-                            // 읽은 파일셋에 기록 및 진행률 UI 업데이트
+                            // 읽은 파일셋에 기록
                             window.readFilesSet.add(filePath);
-                            updateProjectReadUI();
                             
                             const fileContent = fs.readFileSync(targetPath, 'utf-8');
                             const finalMessage = `[FILE DATA: ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n[SYSTEM] File contents provided above. Please analyze.${CRITICAL_RULE_SUFFIX}`;

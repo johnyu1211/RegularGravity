@@ -1065,6 +1065,8 @@ input:checked + .slider:before {
     border: 1px solid transparent;
     border-bottom: none;
     box-sizing: border-box;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .sub-tab:hover {

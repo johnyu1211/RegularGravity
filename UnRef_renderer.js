@@ -361,23 +361,22 @@ window.openFileInEditor = (filePath) => {
 };
 
 function updateTerminalPrompt() {
+    const pathEl = document.getElementById('terminal-prompt-path');
     const prefixEl = document.getElementById('terminal-prompt-prefix');
-    if (!prefixEl) return;
+    if (prefixEl && (!activeSubTabId || !terminalSessions[activeSubTabId]?.loading)) {
+        prefixEl.innerText = '> ';
+    }
+    if (!pathEl) return;
+    
     let p = process.cwd();
     if (activeSubTabId && terminalSessions[activeSubTabId] && terminalSessions[activeSubTabId].cwd) {
         p = terminalSessions[activeSubTabId].cwd;
     }
     if (!p || p === 'DRIVES') {
-        prefixEl.innerText = '> ';
+        pathEl.innerText = '';
         return;
     }
-    const parts = p.split(/[\\/]/).filter(Boolean);
-    if (parts.length === 0) {
-        prefixEl.innerText = '> ';
-    } else {
-        const last = parts[parts.length - 1];
-        prefixEl.innerText = `.../${last} > `;
-    }
+    pathEl.innerText = p; // 한줄 전체 폴더경로 표시
 }
 
 function setupHorizontalScroll(el) {
@@ -394,7 +393,8 @@ function ensureTabVisible(id) {
     }, 20);
 }
 function addSubTerminal(isInitial = false) {
-    terminalCount++; const id = `sub-${terminalCount}`; terminalSessions[id] = { logs: [], cwd: window.currentPath || process.cwd() };
+    terminalCount++; const id = `sub-${terminalCount}`; 
+    terminalSessions[id] = { logs: [], cwd: window.currentPath || process.cwd(), loading: true };
     const tab = document.createElement('div'); tab.className = `sub-tab ${isInitial ? 'active' : ''}`; tab.id = `tab-${id}`;
     tab.innerHTML = `powershell ${terminalCount} <span class="sub-close">
         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -402,6 +402,9 @@ function addSubTerminal(isInitial = false) {
     
     tab.onclick = (e) => { if (e.target.classList.contains('sub-close')) closeSubTerminal(id); else switchSubTerminal(id); };
     document.getElementById('terminal-sub-tabs')?.appendChild(tab); switchSubTerminal(id);
+    
+    // 백엔드 프로세스 선제적 기동(Pre-spawn) 자극
+    ipcRenderer.send('execute-cmd', { tabId: id, command: '', cwd: terminalSessions[id].cwd });
 }
 function switchSubTerminal(id) {
     document.querySelectorAll('.sub-tab').forEach(t => { t.classList.remove('active'); });
@@ -412,7 +415,26 @@ function switchSubTerminal(id) {
         const line = document.createElement('div'); line.innerText = log.text; line.style.color = log.type === 'cmd' ? '#ccc' : '#888';
         line.style.marginBottom = '8px'; line.style.whiteSpace = 'pre-wrap'; lw.appendChild(line);
     });
-    if (ti) ti.focus(); const surface = document.getElementById('terminal-content'); if (surface) surface.scrollTop = surface.scrollHeight;
+    
+    const prefixEl = document.getElementById('terminal-prompt-prefix');
+    if (ti) {
+        if (terminalSessions[id].loading) {
+            ti.disabled = true;
+            ti.placeholder = 'powershell 기동 중...';
+            if (prefixEl) prefixEl.innerHTML = '<div class="terminal-loading-spinner"></div>';
+        } else {
+            ti.disabled = false;
+            ti.placeholder = '';
+            if (prefixEl) prefixEl.innerHTML = '> ';
+            setTimeout(() => { if (activeSubTabId === id) ti.focus(); }, 100);
+        }
+    }
+    
+    if (typeof updateTerminalPrompt === 'function') {
+        updateTerminalPrompt();
+    }
+    
+    const surface = document.getElementById('terminal-content'); if (surface) surface.scrollTop = surface.scrollHeight;
 }
 
 function closeSubTerminal(id) {
@@ -533,6 +555,9 @@ function setupUI() {
         }
         if (tId && terminalSessions[tId]) {
             terminalSessions[tId].logs.push({ type: 'out', text: txt }); 
+            if (terminalSessions[tId].loading) {
+                terminalSessions[tId].loading = false;
+            }
             if (tId === activeSubTabId) {
                 switchSubTerminal(activeSubTabId);
             }

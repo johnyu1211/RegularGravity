@@ -1073,6 +1073,8 @@ input:checked + .slider:before {
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-bottom: 1px solid rgba(12, 12, 14, 0.95) !important;
     z-index: 2;
+    position: relative;
+    top: 1px;
 }
 
 .sub-close {

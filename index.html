@@ -36,7 +36,7 @@
 
     <div class="app-container" style="display: flex; height: calc(100vh - 30px); width: 100vw; background: #0c0c0e; overflow: hidden; font-size: 13.5px;">
         <!-- Explorer (Left) -->
-        <aside class="sidebar" id="sidebar-left" style="width: 260px; height: 100%; border-right: 1px solid var(--border-color); display: flex; flex-direction: column;">
+        <aside class="sidebar" id="sidebar-left" style="width: 260px; height: 100%; border-right: none; display: flex; flex-direction: column;">
             <!-- Path bar is merged directly as the header instead of "EXPLORER" text -->
             <div class="section-header" style="height: 38px; min-height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: none; background: var(--surface-lowest);">
                 <div id="path-display-container" style="display: flex; align-items: center; gap: 6px; cursor: pointer; max-width: 100%; position: relative;" title="Click to copy full path">
@@ -70,7 +70,7 @@
         <div class="resizer-v" id="resizer-left"></div>
 
         <main class="main-view" id="editor-container" style="flex: 1; position: relative; display: flex; flex-direction: column; overflow: hidden;">
-            <div class="section-header">
+            <div class="section-header" style="border-bottom: none;">
                 <h3>PORMSG EDITOR</h3>
             </div>
 
@@ -81,7 +81,7 @@
                 <div class="resizer-h" id="resizer-terminal"></div>
                 
                 <div id="terminal-lower" class="pane-lower" style="height: 350px; display: flex; flex-direction: column; background: var(--surface-lowest);">
-                    <div class="terminal-view-header" style="height:35px; min-height:35px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; padding:0 10px;">
+                    <div class="terminal-view-header" style="height:35px; min-height:35px; border-bottom: none; display:flex; align-items:center; justify-content:space-between; padding:0 10px;">
                         <div id="terminal-sub-tabs" style="flex:1; height:100%; display:flex; overflow:hidden; padding:0 2px;">
                              <!-- Dynamic Sub-tabs now live here -->
                         </div>
@@ -109,7 +109,7 @@
         </main>
 
         <div class="resizer-v" id="resizer-inspector"></div>
-        <aside class="inspector" id="inspector-right" style="width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--surface-lowest); border-left: 1px solid var(--border-color);">
+        <aside class="inspector" id="inspector-right" style="width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--surface-lowest); border-left: none;">
             <!-- LOCAL Chat View (For logs & execution proposals) -->
             <div id="inspector-local-chat" class="agent-hub-view" style="display: flex; height: calc(100% - 38px); flex-direction: column; background: var(--bg-color); overflow: hidden;">
                 <div id="active-project-header" style="height: 35px; padding: 0 12px; background: var(--surface-lowest); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">

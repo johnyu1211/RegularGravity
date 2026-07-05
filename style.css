@@ -547,28 +547,26 @@ body {
 /* Resizers */
 /* Resizers - RAGistry Glow benchmark */
 .resizer-v {
-    width: 2px;
+    width: 1px;
     height: 100%;
     background: var(--border-color);
     cursor: col-resize;
-    transition: background 0.2s, box-shadow 0.2s;
+    transition: background 0.15s ease;
     z-index: 10;
 }
 .resizer-v:hover, .resizer-v:active {
     background: var(--primary) !important;
-    box-shadow: 0 0 8px var(--primary);
 }
 .resizer-h {
-    height: 2px;
+    height: 1px;
     width: 100%;
     background: var(--border-color);
     cursor: row-resize;
-    transition: background 0.2s, box-shadow 0.2s;
+    transition: background 0.15s ease;
     z-index: 10;
 }
 .resizer-h:hover, .resizer-h:active {
     background: var(--primary) !important;
-    box-shadow: 0 0 8px var(--primary);
 }
 
 .sub-tab.active {

@@ -485,15 +485,40 @@ function setupUI() {
         tI.onkeydown = (e) => {
             if (e.key === 'Enter') {
                 const cmd = tI.value.trim(); if (!cmd) return;
-                terminalSessions[activeSubTabId].logs.push({ type: 'cmd', text: `> ${cmd}` }); switchSubTerminal(activeSubTabId);
-                ipcRenderer.send('execute-cmd', cmd); tI.value = '';
+                terminalSessions[activeSubTabId].logs.push({ type: 'cmd', text: `> ${cmd}` }); 
+                switchSubTerminal(activeSubTabId);
+                
+                // cd 명령어 실시간 가로채서 currentPath 동적 갱신
+                if (cmd.toLowerCase().startsWith('cd ')) {
+                    let targetDir = cmd.substring(3).trim().replace(/['"]/g, '');
+                    const pathModule = require('path');
+                    try {
+                        let newPath = '';
+                        if (pathModule.isAbsolute(targetDir)) {
+                            newPath = targetDir;
+                        } else {
+                            newPath = pathModule.resolve(window.currentPath || process.cwd(), targetDir);
+                        }
+                        if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
+                            window.loadDirectory(newPath); // 디렉토리 구조 및 프롬프트 연동 갱신!
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                }
+                
+                ipcRenderer.send('execute-cmd', { tabId: activeSubTabId, command: cmd, cwd: window.currentPath }); 
+                tI.value = '';
             }
         };
     }
     ipcRenderer.removeAllListeners('cmd-output');
-    ipcRenderer.on('cmd-output', (e, data) => {
-        if (activeSubTabId && terminalSessions[activeSubTabId]) {
-            terminalSessions[activeSubTabId].logs.push({ type: 'out', text: data }); switchSubTerminal(activeSubTabId);
+    ipcRenderer.on('cmd-output', (e, { tabId, data }) => {
+        if (tabId && terminalSessions[tabId]) {
+            terminalSessions[tabId].logs.push({ type: 'out', text: data }); 
+            if (tabId === activeSubTabId) {
+                switchSubTerminal(activeSubTabId);
+            }
         }
     });
 

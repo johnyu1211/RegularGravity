@@ -316,24 +316,32 @@ ipcMain.handle('get-directory-content', async (event, dirPath) => {
 
 ipcMain.on('reveal-in-explorer', (event, p) => {
     if (p) shell.showItemInFolder(path.resolve(p));
-});
-
-// 3. TERMINAL ENGINE (UTF-8 SILVER BULLET)
-let terminalProcess = null;
-ipcMain.on('execute-cmd', (event, command) => {
-    if (!terminalProcess) {
-        terminalProcess = spawn('powershell.exe', ['-NoExit', '-Command', '-'], {
+});// 3. TERMINAL ENGINE (UTF-8 SILVER BULLET - MULTI-TAB SESSION ISOLATED)
+const terminalProcesses = {};
+ipcMain.on('execute-cmd', (event, { tabId, command, cwd }) => {
+    if (!terminalProcesses[tabId]) {
+        terminalProcesses[tabId] = spawn('powershell.exe', ['-NoExit', '-Command', '-'], {
+            cwd: cwd || process.cwd(),
             env: { ...process.env, PYTHONIOENCODING: 'utf-8', LANG: 'ko_KR.UTF-8' }
         });
         
         // Force UTF-8 Encoding
-        terminalProcess.stdin.write("[Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
-        terminalProcess.stdin.write("$OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
+        terminalProcesses[tabId].stdin.write("[Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
+        terminalProcesses[tabId].stdin.write("$OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
+        
+        // cd 명령어를 통해 실제 powershell의 디렉토리가 변경될 수 있으므로, 최초 cwd에 맞게 동기화
+        if (cwd) {
+            terminalProcesses[tabId].stdin.write(`cd "${cwd.replace(/"/g, '""')}"\r\n`);
+        }
 
-        terminalProcess.stdout.on('data', (data) => event.reply('cmd-output', data.toString()));
-        terminalProcess.stderr.on('data', (data) => event.reply('cmd-output', data.toString()));
+        terminalProcesses[tabId].stdout.on('data', (data) => {
+            event.reply('cmd-output', { tabId, data: data.toString() });
+        });
+        terminalProcesses[tabId].stderr.on('data', (data) => {
+            event.reply('cmd-output', { tabId, data: data.toString() });
+        });
     }
-    terminalProcess.stdin.write(`${command}\r\n`);
+    terminalProcesses[tabId].stdin.write(`${command}\r\n`);
 });
 
 // 4. BROWSER VIEW SYNC (Temporarily Disabled per user request - transitioning to <webview>)

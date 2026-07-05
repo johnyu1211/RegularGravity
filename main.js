@@ -268,10 +268,14 @@ function createWindow() {
     // 기본 상단 메뉴 제거
     Menu.setApplicationMenu(null);
 
-    // 단축키 제어 (Ctrl+Shift+I 및 F12 개발자 도구 작동)
+    // 단축키 제어 (Ctrl+Shift+I/F12 개발자도구, Ctrl+R/F5 새로고침 작동)
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if ((input.control && input.shift && input.key.toLowerCase() === 'i') || input.key === 'F12') {
             mainWindow.webContents.toggleDevTools();
+            event.preventDefault();
+        }
+        if ((input.control && input.key.toLowerCase() === 'r') || input.key === 'F5') {
+            mainWindow.webContents.reload();
             event.preventDefault();
         }
     });

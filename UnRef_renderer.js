@@ -599,16 +599,16 @@ ${tree}
 
 이 메시지를 확인했다면, 작업을 파악하기 위해 필요한 첫 번째 명령어를 다음 답변에 바로 입력해 주세요.`.trim();
             
-            // 전송
-            await new Promise(r => setTimeout(r, 300));
+            // 응답 캡처 엔진 먼저 작동 후 주입 실행 (타이밍 꼬임 해결)
+            const enginePromise = runExperimentalEngine('/marktag', webPayload, null);
             await injectWebPayload(webPayload);
             
             // 버튼 숨김
             projBtn.style.display = 'none';
             chatIn.focus();
             
-            // 응답 캡처 후 로컬 채팅에 표시
-            const response = await runExperimentalEngine('/marktag', webPayload, null);
+            // 응답 캡처 대기 완료 후 로컬 복귀
+            const response = await enginePromise;
             document.getElementById('tab-local-agent')?.click();
             if (response) {
                 ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));

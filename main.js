@@ -265,6 +265,9 @@ function createWindow() {
         }
     });
 
+    // 기본 상단 메뉴 제거
+    Menu.setApplicationMenu(null);
+
     mainWindow.loadFile('index.html');
 }
 

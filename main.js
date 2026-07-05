@@ -255,7 +255,8 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1400,
         height: 900,
-        backgroundColor: '#000',
+        backgroundColor: '#0c0c0e',
+        frame: false,
         icon: path.join(__dirname, 'png.png'),
         webPreferences: {
             nodeIntegration: true,
@@ -266,6 +267,22 @@ function createWindow() {
 
     mainWindow.loadFile('index.html');
 }
+
+ipcMain.on('window-minimize', () => {
+    if (mainWindow) mainWindow.minimize();
+});
+ipcMain.on('window-maximize', () => {
+    if (mainWindow) {
+        if (mainWindow.isMaximized()) {
+            mainWindow.unmaximize();
+        } else {
+            mainWindow.maximize();
+        }
+    }
+});
+ipcMain.on('window-close', () => {
+    if (mainWindow) mainWindow.close();
+});
 
 // 1. STABLE DIRECTORY HANDLER
 ipcMain.handle('get-directory-content', async (event, dirPath) => {

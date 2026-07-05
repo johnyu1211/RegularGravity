@@ -363,7 +363,10 @@ window.openFileInEditor = (filePath) => {
 function updateTerminalPrompt() {
     const prefixEl = document.getElementById('terminal-prompt-prefix');
     if (!prefixEl) return;
-    const p = window.currentPath || '';
+    let p = process.cwd();
+    if (activeSubTabId && terminalSessions[activeSubTabId] && terminalSessions[activeSubTabId].cwd) {
+        p = terminalSessions[activeSubTabId].cwd;
+    }
     if (!p || p === 'DRIVES') {
         prefixEl.innerText = '> ';
         return;
@@ -391,7 +394,7 @@ function ensureTabVisible(id) {
     }, 20);
 }
 function addSubTerminal(isInitial = false) {
-    terminalCount++; const id = `sub-${terminalCount}`; terminalSessions[id] = { logs: [] };
+    terminalCount++; const id = `sub-${terminalCount}`; terminalSessions[id] = { logs: [], cwd: window.currentPath || process.cwd() };
     const tab = document.createElement('div'); tab.className = `sub-tab ${isInitial ? 'active' : ''}`; tab.id = `tab-${id}`;
     tab.innerHTML = `powershell ${terminalCount} <span class="sub-close">
         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -488,26 +491,32 @@ function setupUI() {
                 terminalSessions[activeSubTabId].logs.push({ type: 'cmd', text: `> ${cmd}` }); 
                 switchSubTerminal(activeSubTabId);
                 
-                // cd 명령어 실시간 가로채서 currentPath 동적 갱신
+                // cd 명령어 실시간 가로채서 세션 cwd 갱신 (탐색기와 별개 작동)
                 if (cmd.toLowerCase().startsWith('cd ')) {
                     let targetDir = cmd.substring(3).trim().replace(/['"]/g, '');
                     const pathModule = require('path');
                     try {
+                        const curCwd = terminalSessions[activeSubTabId].cwd || window.currentPath || process.cwd();
                         let newPath = '';
                         if (pathModule.isAbsolute(targetDir)) {
                             newPath = targetDir;
                         } else {
-                            newPath = pathModule.resolve(window.currentPath || process.cwd(), targetDir);
+                            newPath = pathModule.resolve(curCwd, targetDir);
                         }
                         if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
-                            window.loadDirectory(newPath); // 디렉토리 구조 및 프롬프트 연동 갱신!
+                            terminalSessions[activeSubTabId].cwd = newPath;
+                            updateTerminalPrompt();
                         }
                     } catch (err) {
                         console.error(err);
                     }
                 }
                 
-                ipcRenderer.send('execute-cmd', { tabId: activeSubTabId, command: cmd, cwd: window.currentPath }); 
+                ipcRenderer.send('execute-cmd', { 
+                    tabId: activeSubTabId, 
+                    command: cmd, 
+                    cwd: terminalSessions[activeSubTabId].cwd || window.currentPath || process.cwd() 
+                }); 
                 tI.value = '';
             }
         };
@@ -1344,26 +1353,32 @@ function detectAndAskCommand(text) {
                     window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
                     window.switchSubTerminal(window.activeSubTabId);
                     
-                    // cd 명령어 실시간 가로채서 currentPath 동적 갱신
+                    // cd 명령어 실시간 가로채서 세션 cwd 갱신 (탐색기와 별개 작동)
                     if (cleanCmd.toLowerCase().startsWith('cd ')) {
                         let targetDir = cleanCmd.substring(3).trim().replace(/['"]/g, '');
                         const pathModule = require('path');
                         try {
+                            const curCwd = window.terminalSessions[window.activeSubTabId].cwd || window.currentPath || process.cwd();
                             let newPath = '';
                             if (pathModule.isAbsolute(targetDir)) {
                                 newPath = targetDir;
                             } else {
-                                newPath = pathModule.resolve(window.currentPath || process.cwd(), targetDir);
+                                newPath = pathModule.resolve(curCwd, targetDir);
                             }
                             if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
-                                window.loadDirectory(newPath); // 디렉토리 구조 및 프롬프트 연동 갱신!
+                                window.terminalSessions[window.activeSubTabId].cwd = newPath;
+                                if (typeof updateTerminalPrompt === 'function') updateTerminalPrompt();
                             }
                         } catch (err) {
                             console.error(err);
                         }
                     }
 
-                    ipcRenderer.send('execute-cmd', { tabId: window.activeSubTabId, command: cleanCmd, cwd: window.currentPath });
+                    ipcRenderer.send('execute-cmd', { 
+                        tabId: window.activeSubTabId, 
+                        command: cleanCmd, 
+                        cwd: window.terminalSessions[window.activeSubTabId].cwd || window.currentPath || process.cwd() 
+                    });
                     
                     const tL = document.getElementById('terminal-lower');
                     if (tL && tL.offsetHeight <= 40) {

@@ -37,24 +37,28 @@
     <div class="app-container" style="display: flex; height: calc(100vh - 30px); width: 100vw; background: #0c0c0e; overflow: hidden; font-size: 13.5px;">
         <!-- Explorer (Left) -->
         <aside class="sidebar" id="sidebar-left" style="width: 260px; height: 100%; border-right: 1px solid var(--border-color); display: flex; flex-direction: column;">
-            <div class="section-header">
-                <h3>EXPLORER <span id="item-count" class="count-badge" style="font-size:10px; opacity:0.5;"></span></h3>
-                <div class="header-actions" style="display: flex; align-items: center; gap: 8px;">
-                    <span id="collapse-all-btn" class="header-btn" title="Collapse All" style="display: flex; align-items: center; cursor: pointer; color: var(--text-muted);">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+            <!-- Path bar is merged directly as the header instead of "EXPLORER" text -->
+            <div class="section-header" style="height: 38px; min-height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--border-color); background: var(--surface-lowest);">
+                <div id="path-display" style="font-size: 11px; font-family: 'DM Sans', 'Outfit', sans-serif; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px;">
+                    <span class="path-segment">/root</span>
+                </div>
+            </div>
+            
+            <div class="drive-bar" id="drive-jump" style="display:flex; overflow-x:auto; padding: 4px 8px; background:var(--surface-lowest); border-bottom:1px solid var(--border-color); gap:5px;"></div>
+            
+            <!-- Reorganized Action row: Search files input + Action buttons in a single row -->
+            <div class="search-container" style="padding: 8px 10px; background: var(--surface-lowest); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
+                <input type="text" id="file-search" placeholder="Search files..." class="search-input" style="flex: 1; background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 6px; color: #eee; font-size: 11.5px; padding: 6px 10px; outline: none; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                    <span id="collapse-all-btn" class="header-btn" title="Collapse All" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-muted); background: var(--surface-low); border: 1px solid var(--border-color); transition: all 0.2s;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="9" y1="14" x2="15" y2="14"></line></svg>
                     </span>
-                    <span id="reveal-btn" class="header-btn" title="Reveal in Windows Explorer" style="display: flex; align-items: center; cursor: pointer; color: var(--text-muted);">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    <span id="reveal-btn" class="header-btn" title="Reveal in Windows Explorer" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-muted); background: var(--surface-low); border: 1px solid var(--border-color); transition: all 0.2s;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                     </span>
                 </div>
             </div>
-            <div class="drive-bar" id="drive-jump" style="display:flex; overflow-x:auto; padding:5px; background:var(--surface-lowest); border-bottom:1px solid var(--border-color); gap:5px;"></div>
-            <div class="path-bar" id="path-display" style="padding:8px 12px; font-size:10px; color:var(--text-muted); background:var(--surface-lowest); border-bottom:1px solid var(--border-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                <span class="path-segment">/root</span>
-            </div>
-            <div class="search-container" style="padding:10px; background:var(--surface-lowest);">
-                <input type="text" id="file-search" placeholder="Search files..." class="search-input" style="width:100%; background:var(--surface-low); border:1px solid var(--border-color); border-radius:6px; color:#eee; font-size:12px; padding:7px 12px; outline:none;">
-            </div>
+            
             <div id="file-tree" class="file-tree" style="flex: 1; overflow-y: auto;"></div>
         </aside>
 

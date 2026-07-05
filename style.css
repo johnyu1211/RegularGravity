@@ -215,6 +215,13 @@ body {
     transition: transform 0.2s ease;
 }
 
+.header-btn:hover {
+    background: var(--surface-high) !important;
+    color: var(--text-main) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
+}
+
 .file-icon {
     font-size: 12px;
     display: flex;

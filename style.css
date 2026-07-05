@@ -14,9 +14,9 @@
     --surface-highest: #333333;
     --surface-lowest: #060607;
     
-    --primary: #7799FF;
-    --primary-light: #99AAFF;
-    --primary-glow: rgba(119, 153, 255, 0.15);
+    --primary: #468CF6;
+    --primary-light: #6ba2f8;
+    --primary-glow: rgba(70, 140, 246, 0.15);
     
     --secondary: #10b981;     /* Electric Emerald */
     --secondary-glow: rgba(16, 185, 129, 0.15);
@@ -26,7 +26,7 @@
     --text-dark: #5f6368;
     
     --border-color: rgba(255, 255, 255, 0.06);
-    --border-focus: #7799FF;
+    --border-focus: #468CF6;
     
     --sidebar-w: 260px;
 }

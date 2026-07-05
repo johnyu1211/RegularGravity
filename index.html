@@ -38,7 +38,7 @@
         <!-- Explorer (Left) -->
         <aside class="sidebar" id="sidebar-left" style="width: 260px; height: 100%; border-right: 1px solid var(--border-color); display: flex; flex-direction: column;">
             <!-- Path bar is merged directly as the header instead of "EXPLORER" text -->
-            <div class="section-header" style="height: 38px; min-height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--border-color); background: var(--surface-lowest);">
+            <div class="section-header" style="height: 38px; min-height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: none; background: var(--surface-lowest);">
                 <div id="path-display-container" style="display: flex; align-items: center; gap: 6px; cursor: pointer; max-width: 100%; position: relative;" title="Click to copy full path">
                     <div id="path-display" style="font-size: 11px; font-family: 'DM Sans', 'Outfit', sans-serif; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">
                         <span class="path-segment">/root</span>
@@ -49,7 +49,7 @@
                 </div>
             </div>
             
-            <div class="drive-bar" id="drive-jump" style="display:flex; overflow-x:auto; padding: 4px 8px; background:var(--surface-lowest); border-bottom:1px solid var(--border-color); gap:5px;"></div>
+            <div class="drive-bar" id="drive-jump" style="display:flex; overflow-x:auto; padding: 4px 8px; background:var(--surface-lowest); border-bottom: none; gap:5px;"></div>
             
             <!-- Reorganized Action row: Search files input + Action buttons in a single row -->
             <div class="search-container" style="padding: 8px 10px; background: var(--surface-lowest); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">

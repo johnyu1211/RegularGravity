@@ -1645,7 +1645,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             popoverWin.style.display = isHidden ? 'flex' : 'none';
             popoverBtn.style.color = isHidden ? '#fff' : '';
             popoverBtn.style.background = isHidden ? 'var(--primary)' : '';
-            popoverBtn.style.boxShadow = isHidden ? '0 0 15px var(--primary-glow)' : '0 4px 15px rgba(0,0,0,0.5)';
+            popoverBtn.style.boxShadow = '';
             if (isHidden) {
                 setTimeout(() => document.getElementById('terminal-main-input')?.focus(), 150);
             }
@@ -1658,7 +1658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 popoverWin.style.display = 'none';
                 popoverBtn.style.color = '';
                 popoverBtn.style.background = '';
-                popoverBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+                popoverBtn.style.boxShadow = '';
             };
         }
     }

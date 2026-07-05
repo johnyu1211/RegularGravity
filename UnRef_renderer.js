@@ -1025,16 +1025,8 @@ window.totalFilesCount = 0;
 window.readFilesSet = new Set();
 
 function updateProjectReadUI() {
-    let el = document.getElementById('project-read-progress-bar');
-    const container = document.getElementById('inspector-local-chat');
-    if (!container) return;
-    
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'project-read-progress-bar';
-        el.style = 'padding: 10px 15px 0 15px; display: none;';
-        container.insertBefore(el, container.firstChild);
-    }
+    const el = document.getElementById('project-read-progress-bar');
+    if (!el) return;
     
     if (!window.totalFilesCount) {
         el.style.display = 'none';
@@ -1084,7 +1076,7 @@ async function injectWebPayload(webPayload) {
             toast.style.display = 'block';
             toast.style.background = '#0a0a0a';
             toast.style.border = '1px solid #4caf50';
-            toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">0% 진행되었음 (총 ${totalLines}라인)</span>`;
+            toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">0% [0/${totalLines}]</span>`;
             toastBar.style.display = 'block';
             toastBar.style.width = "0%";
             toastBar.style.background = '#4caf50';
@@ -1100,10 +1092,10 @@ async function injectWebPayload(webPayload) {
                 const totLines = parseInt(parts[2] || '0');
                 if (toastText && toastBar) {
                     if (pct === 100) {
-                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">100% 진행되었음 (총 ${totLines}라인 전송 완료)</span>`;
+                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">100% [${totLines}/${totLines}]</span>`;
                         toastBar.style.width = "100%";
                     } else {
-                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">${pct}% 진행되었음 (${totLines}라인 중 ${curLines}라인 완료)</span>`;
+                        toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">${pct}% [${curLines}/${totLines}]</span>`;
                         toastBar.style.width = `${pct}%`;
                     }
                 }

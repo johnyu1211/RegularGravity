@@ -1053,13 +1053,9 @@ input:checked + .slider:before {
     border-radius: 6px 6px 0 0;
     cursor: pointer;
     transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    border: 1px solid transparent;
-    border-bottom: none;
     box-sizing: border-box;
     white-space: nowrap;
     flex-shrink: 0;
-    margin-bottom: -1px;
 }
 
 .sub-tab:hover {
@@ -1070,11 +1066,6 @@ input:checked + .slider:before {
 .sub-tab.active {
     background: rgba(12, 12, 14, 0.95) !important;
     color: #fff !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-bottom: 1px solid rgba(12, 12, 14, 0.95) !important;
-    z-index: 2;
-    position: relative;
-    top: 1px;
 }
 
 .sub-close {

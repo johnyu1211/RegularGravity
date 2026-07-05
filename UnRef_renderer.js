@@ -1140,11 +1140,26 @@ function detectAndAskCommand(text) {
     if (foundCmds.length === 0) return;
 
     foundCmds.forEach(cleanCmd => {
+        // read-file 인지 검사
+        const isReadFile = /^read-file\s+"([^"]+)"$/i.test(cleanCmd);
+        
+        // [🛠️ 실존 파일 필터링: read-file 제안 시 파일이 실존하지 않으면 Proposed Bubble 생성을 통째로 무시]
+        if (isReadFile) {
+            const fileMatch = cleanCmd.match(/^read-file\s+"([^"]+)"$/i);
+            if (fileMatch) {
+                const filePath = fileMatch[1];
+                const fs = require('fs');
+                const path = require('path');
+                const targetPath = path.resolve(window.currentPath, filePath);
+                if (!fs.existsSync(targetPath)) {
+                    return; // forEach 이므로 continue와 동치
+                }
+            }
+        }
+
         const box = ChatUI.appendBubble('system', '');
         const content = box.querySelector('.bubble-content');
         
-        // read-file 인지 검사
-        const isReadFile = /^read-file\s+"([^"]+)"$/i.test(cleanCmd);
         const title = isReadFile ? "📄 FILE READ PROPOSED" : "⚡ COMMAND PROPOSED";
         const themeColor = isReadFile ? "#ffa500" : "#0078d4"; // 파일 읽기는 오렌지, 명령어는 블루
 

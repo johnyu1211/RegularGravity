@@ -522,10 +522,18 @@ function setupUI() {
         };
     }
     ipcRenderer.removeAllListeners('cmd-output');
-    ipcRenderer.on('cmd-output', (e, { tabId, data }) => {
-        if (tabId && terminalSessions[tabId]) {
-            terminalSessions[tabId].logs.push({ type: 'out', text: data }); 
-            if (tabId === activeSubTabId) {
+    ipcRenderer.on('cmd-output', (e, arg) => {
+        let tId = activeSubTabId;
+        let txt = '';
+        if (typeof arg === 'string') {
+            txt = arg;
+        } else if (arg && typeof arg === 'object') {
+            tId = arg.tabId || activeSubTabId;
+            txt = arg.data || '';
+        }
+        if (tId && terminalSessions[tId]) {
+            terminalSessions[tId].logs.push({ type: 'out', text: txt }); 
+            if (tId === activeSubTabId) {
                 switchSubTerminal(activeSubTabId);
             }
         }

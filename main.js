@@ -331,29 +331,56 @@ ipcMain.on('execute-cmd', (event, arg) => {
         cwd = arg.cwd || process.cwd();
     }
 
-    if (!terminalProcesses[tabId]) {
-        terminalProcesses[tabId] = spawn('powershell.exe', ['-NoExit', '-Command', '-'], {
-            cwd: cwd,
-            env: { ...process.env, PYTHONIOENCODING: 'utf-8', LANG: 'ko_KR.UTF-8' }
-        });
-        
-        // Force UTF-8 Encoding
-        terminalProcesses[tabId].stdin.write("[Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
-        terminalProcesses[tabId].stdin.write("$OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
-        
-        // cd 명령어를 통해 실제 powershell의 디렉토리가 변경될 수 있으므로, 최초 cwd에 맞게 동기화
-        if (cwd) {
-            terminalProcesses[tabId].stdin.write(`cd "${cwd.replace(/"/g, '""')}"\r\n`);
+    // 디렉토리 경로 검증 (가상경로 DRIVES 거르기)
+    const fs = require('fs');
+    let safeCwd = process.cwd();
+    try {
+        if (cwd && cwd !== 'DRIVES' && fs.existsSync(cwd) && fs.statSync(cwd).isDirectory()) {
+            safeCwd = cwd;
         }
-
-        terminalProcesses[tabId].stdout.on('data', (data) => {
-            event.reply('cmd-output', { tabId, data: data.toString() });
-        });
-        terminalProcesses[tabId].stderr.on('data', (data) => {
-            event.reply('cmd-output', { tabId, data: data.toString() });
-        });
+    } catch (e) {
+        safeCwd = process.cwd();
     }
-    terminalProcesses[tabId].stdin.write(`${command}\r\n`);
+
+    if (!terminalProcesses[tabId]) {
+        try {
+            terminalProcesses[tabId] = spawn('powershell.exe', ['-NoExit', '-Command', '-'], {
+                cwd: safeCwd,
+                env: { ...process.env, PYTHONIOENCODING: 'utf-8', LANG: 'ko_KR.UTF-8' }
+            });
+            
+            terminalProcesses[tabId].on('error', (err) => {
+                event.reply('cmd-output', { tabId, data: `[Shell Error] ${err.message}\r\n` });
+            });
+
+            // Force UTF-8 Encoding
+            terminalProcesses[tabId].stdin.write("[Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
+            terminalProcesses[tabId].stdin.write("$OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
+            
+            // cd 명령어를 통해 실제 powershell의 디렉토리가 변경될 수 있으므로, 최초 cwd에 맞게 동기화
+            if (safeCwd) {
+                terminalProcesses[tabId].stdin.write(`cd "${safeCwd.replace(/"/g, '""')}"\r\n`);
+            }
+
+            terminalProcesses[tabId].stdout.on('data', (data) => {
+                event.reply('cmd-output', { tabId, data: data.toString() });
+            });
+            terminalProcesses[tabId].stderr.on('data', (data) => {
+                event.reply('cmd-output', { tabId, data: data.toString() });
+            });
+        } catch (spawnErr) {
+            event.reply('cmd-output', { tabId, data: `[Spawn Fail] ${spawnErr.message}\r\n` });
+        }
+    }
+    
+    if (terminalProcesses[tabId] && terminalProcesses[tabId].stdin) {
+        try {
+            terminalProcesses[tabId].stdin.write(`${command}\r\n`);
+        } catch (writeErr) {
+            event.reply('cmd-output', { tabId, data: `[Write Fail] ${writeErr.message}\r\n` });
+        }
+    }
+});
 });
 
 // 4. BROWSER VIEW SYNC (Temporarily Disabled per user request - transitioning to <webview>)

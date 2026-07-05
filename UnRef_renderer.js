@@ -584,11 +584,12 @@ function setupUI() {
             projBtn.innerText = "Sending Project Context...";
             document.getElementById('tab-browser-hub')?.click();
             
-            // 파일 카운트 측정 및 진행도 UI 초기화
-            window.totalFilesCount = await ipcRenderer.invoke('vault-count-files', window.currentPath).catch(() => 0);
-            window.readFilesSet.clear();
-            
             const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
+            
+            // AI에게 전달하는 트리 내부의 [FILE] 개수를 카운트하여 분모 설정 (동기식 정확성 확보)
+            const fileMatches = tree.match(/\[FILE\]/g);
+            window.totalFilesCount = fileMatches ? fileMatches.length : 0;
+            window.readFilesSet.clear();
             
             // 불필요한 설정 다 빼고 목적만 전달하는 심플한 프롬프트
             const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:

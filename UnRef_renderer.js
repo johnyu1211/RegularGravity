@@ -361,6 +361,25 @@ function switchSubTerminal(id) {
     if (ti) ti.focus(); const surface = document.getElementById('terminal-content'); if (surface) surface.scrollTop = surface.scrollHeight;
 }
 
+function closeSubTerminal(id) {
+    const tabs = document.querySelectorAll('.sub-tab');
+    if (tabs.length <= 1) {
+        terminalSessions[id].logs = [];
+        switchSubTerminal(id);
+        return;
+    }
+    delete terminalSessions[id];
+    const tabEl = document.getElementById(`tab-${id}`);
+    if (tabEl) tabEl.remove();
+    if (activeSubTabId === id) {
+        const remainingTabs = document.querySelectorAll('.sub-tab');
+        if (remainingTabs.length > 0) {
+            const nextId = remainingTabs[0].id.replace('tab-', '');
+            switchSubTerminal(nextId);
+        }
+    }
+}
+
 function showConfirm(msg, onOk) {
     return new Promise((resolve) => {
         const modal = document.getElementById('custom-confirm-modal');

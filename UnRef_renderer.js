@@ -1081,8 +1081,8 @@ async function injectWebPayload(webPayload) {
 
         await new Promise(r => setTimeout(r, 200));
 
-        // 3단계: 렌더러 측에서 청크를 순차 분할하여 주입하고 초록 진행바 갱신
-        const chunkSize = 150;
+        // 3단계: 렌더러 측에서 청크를 순차 분할하여 주입하고 초록 진행바 갱신 (초광속 모드)
+        const chunkSize = 1000;
         const totalLen = cleanPayload.length;
         
         for (let i = 0; i < totalLen; i += chunkSize) {
@@ -1109,7 +1109,7 @@ async function injectWebPayload(webPayload) {
                 toastText.innerHTML = `<span style="color:#4caf50; font-weight:bold;">${pct}% 진행되었음</span>`;
                 toastBar.style.width = `${pct}%`;
             }
-            await new Promise(r => setTimeout(r, 10));
+            await new Promise(r => setTimeout(r, 1));
         }
 
         if (toastText && toastBar) {

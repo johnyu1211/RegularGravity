@@ -41,16 +41,28 @@ async function renderTree(basePath, rootFiles, searchQuery = '') {
     // Save scroll position
     const savedScrollPos = fileTree.scrollTop;
     
-    fileTree.innerHTML = '';
+    // 더블 버퍼링: 오프스크린 임시 엘리먼트에 먼저 비동기 렌더링 진행하여 깜빡임 제거
+    const tempContainer = document.createElement('div');
     
     let sortedFiles = sortFiles(rootFiles);
 
-    // Prepend ../ if not at the root
+    // 최상위(project root) 여부 판단
+    const isAtProjectRoot = window.projectRoot && basePath === window.projectRoot;
+
     if (basePath !== 'DRIVES') {
-        sortedFiles.unshift({ name: '../', isDir: true, isParentEntry: true });
+        if (!isAtProjectRoot) {
+            sortedFiles.unshift({ name: '../', isDir: true, isParentEntry: true });
+        }
     }
     
-    await renderLevel(basePath, sortedFiles, fileTree, 0, searchQuery);
+    // 백그라운드 렌더링
+    await renderLevel(basePath, sortedFiles, tempContainer, 0, searchQuery);
+    
+    // 렌더 완료 후 동기적으로 노드 일괄 스왑 (깜빡임 완전 차단)
+    fileTree.innerHTML = '';
+    while (tempContainer.firstChild) {
+        fileTree.appendChild(tempContainer.firstChild);
+    }
     
     // Restore scroll position
     fileTree.scrollTop = savedScrollPos;
@@ -84,9 +96,18 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         node.className = `tree-node ${isDir ? 'dir-node' : 'file-node'}`;
         
         const item = document.createElement('div');
-        item.className = `file-item ${isDir && !isParentEntry ? 'directory' : 'file'} ${window.currentPath === fullPath ? 'active' : ''}`;
+        item.className = `file-item ${isDir && !isParentEntry ? 'directory' : 'file'} ${window.currentFilePath === fullPath ? 'active' : ''}`;
         item.dataset.path = fullPath;
-        item.style.setProperty('--level', level); 
+        if (!isDir) {
+            item.draggable = true;
+            item.ondragstart = (e) => {
+                const pathModule = require('path');
+                let relPath = pathModule.relative(window.currentPath || '', fullPath);
+                e.dataTransfer.setData('text/plain', relPath);
+                e.dataTransfer.effectAllowed = 'copy';
+            };
+        }
+        item.style.setProperty('--level', level);
         
         const arrowSpan = document.createElement('span');
         arrowSpan.className = 'tree-arrow';
@@ -149,17 +170,17 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
                 return;
             }
 
-            // Selection Highlight Only
+            // Selection Highlight
             document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
             item.classList.add('active');
 
             if (isDir) {
                 if (isExpanded) window.expandedPaths.delete(fullPath);
                 else window.expandedPaths.add(fullPath);
-                window.loadDirectory(window.currentPath);
+                // parentPath = 현재 보고있는 디렉토리. window.currentPath 대신 사용해야 파일 선택 후에도 안전
+                window.loadDirectory(window.currentPath || parentPath);
             } else {
-                window.currentPath = fullPath;
-                // [수정된 부분] 파일 클릭 시 에디터에 렌더링 함수 호출
+                window.currentFilePath = fullPath; // 파일 선택은 별도 변수
                 if (window.openFileInEditor) {
                     window.openFileInEditor(fullPath);
                 }

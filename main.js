@@ -20,25 +20,17 @@ function setupFileWatcher(projectPath) {
 let currentLogsPath = null;
 
 const getProjectHash = () => {
-    const vaultRoot = path.join(process.cwd(), 'gravity_vault');
-    if (fs.existsSync(vaultRoot)) {
-        const dirs = fs.readdirSync(vaultRoot);
-        // 이미 존재하는 32자리 해시 폴더가 있다면 그것을 반환 (7fb146... 우선순위)
-        const existingHash = dirs.find(d => d.length === 32 && /^[0-9a-f]+$/.test(d));
-        if (existingHash) return existingHash;
-    }
-    // 없으면 기본 해시 생성
     return crypto.createHash('md5').update(process.cwd()).digest('hex');
 };
 
 const getVaultPath = (sub) => {
-    const p = path.join(process.cwd(), 'gravity_vault', getProjectHash(), sub);
+    const p = path.join(app.getPath('userData'), 'vault', getProjectHash(), sub);
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
     return p;
 };
 
 const getGlobalVaultPath = () => {
-    const p = path.join(process.cwd(), 'gravity_vault', '_global');
+    const p = path.join(app.getPath('userData'), 'config');
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
     return p;
 };
@@ -60,20 +52,13 @@ ipcMain.handle('vault-init', async () => {
     
     return { 
         hash: getProjectHash(), 
-        activeLogPath, // [핵심] 전체 경로 전달
+        activeLogPath, 
         paths: { knowledge: currentKnowledgePath, logs: currentLogsPath, global: gp } 
     };
 });
 
-// 통합된 로그 리스너: 경로가 있으면 해당 경로에, 없으면 오늘 날짜 기본 파일에 기록
 ipcMain.on('vault-log', (event, { logPath, role, text }) => {
-    try {
-        const targetPath = logPath || path.join(getVaultPath('logs'), `${getLocalDate()}.md`);
-        const entry = `\n### [${new Date().toLocaleTimeString()}] ${role.toUpperCase()}\n${text}\n`;
-        fs.appendFileSync(targetPath, entry);
-    } catch (e) {
-        console.error("[Vault] Logging Error:", e.message);
-    }
+    // Stub: 로컬 AI 로깅 비활성화
 });
 
 ipcMain.handle('vault-read-global', async (event, fileName) => {
@@ -88,9 +73,7 @@ ipcMain.on('vault-update-global', (event, { fileName, content }) => {
 });
 
 ipcMain.on('vault-update-priority', (event, { content }) => {
-    const p = path.join(getVaultPath('knowledge'), 'priority.md');
-    const entry = `\n---\n### [ADDED: ${new Date().toLocaleString()}]\n${content}\n`;
-    fs.appendFileSync(p, entry);
+    // Stub: 로컬 AI 우선순위 학습 비활성화
 });
 
 ipcMain.handle('vault-read-knowledge', async (event, fileName) => {
@@ -105,21 +88,8 @@ ipcMain.handle('vault-read-log', async (event, fileName) => {
     return null;
 });
 
-// (중복 리스너 제거됨 - 상단 통합 리스너에서 처리)
-
 ipcMain.on('vault-reset-session', (event, { logPath }) => {
-    if (!logPath) return;
-    if (fs.existsSync(logPath)) {
-        try {
-            // 1. 내용 먼저 비우기 (가장 확실함)
-            fs.writeFileSync(logPath, ''); 
-            // 2. 파일 삭제 시도
-            fs.rmSync(logPath, { force: true }); 
-            console.log(`[Vault] Reset SUCCESS: ${logPath}`);
-        } catch (e) {
-            console.error(`[Vault] Reset Partial: Content cleared but delete failed: ${e.message}`);
-        }
-    }
+    // Stub: 로컬 AI 세션 초기화 비활성화
 });
 
 ipcMain.handle('vault-get-tree', async (event, projectPath) => {
@@ -275,7 +245,7 @@ function createWindow() {
             event.preventDefault();
         }
         if ((input.control && input.key.toLowerCase() === 'r') || input.key === 'F5') {
-            mainWindow.webContents.reload();
+            mainWindow.webContents.send('trigger-app-reload');
             event.preventDefault();
         }
     });
@@ -299,7 +269,42 @@ ipcMain.on('window-close', () => {
     if (mainWindow) mainWindow.close();
 });
 
-// 1. STABLE DIRECTORY HANDLER
+// --- PROJECT PICKER & RECENT PROJECTS ---
+const { dialog } = require('electron');
+const RECENT_PROJECTS_FILE = path.join(app.getPath('userData'), 'recent_projects.json');
+
+function loadRecentProjects() {
+    try {
+        if (fs.existsSync(RECENT_PROJECTS_FILE)) return JSON.parse(fs.readFileSync(RECENT_PROJECTS_FILE, 'utf-8'));
+    } catch(e) {}
+    return [];
+}
+function saveRecentProjects(list) {
+    try { fs.writeFileSync(RECENT_PROJECTS_FILE, JSON.stringify(list), 'utf-8'); } catch(e) {}
+}
+
+ipcMain.handle('select-folder-dialog', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
+    if (result.canceled || !result.filePaths.length) return null;
+    const selected = result.filePaths[0];
+    // 최근 프로젝트 저장 (중복 제거, 최대 10개)
+    let recents = loadRecentProjects().filter(p => p !== selected);
+    recents.unshift(selected);
+    if (recents.length > 10) recents = recents.slice(0, 10);
+    saveRecentProjects(recents);
+    return selected;
+});
+
+ipcMain.handle('get-recent-projects', async () => loadRecentProjects());
+
+ipcMain.on('save-recent-project', (event, folderPath) => {
+    let recents = loadRecentProjects().filter(p => p !== folderPath);
+    recents.unshift(folderPath);
+    if (recents.length > 10) recents = recents.slice(0, 10);
+    saveRecentProjects(recents);
+});
+
+
 ipcMain.handle('get-directory-content', async (event, dirPath) => {
     try {
         const targetPath = dirPath || process.cwd();

@@ -2,6 +2,86 @@
 const fs = require('fs');
 if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 
+window.reloadAgentSettings = function() {
+    const _path = require('path');
+    const _fs = require('fs');
+    const p = _path.join(window.currentPath || process.cwd(), 'Settings.json');
+    try {
+        if (_fs.existsSync(p)) {
+            const settings = JSON.parse(_fs.readFileSync(p, 'utf-8'));
+            window.autoContinueOnRead = !!settings.autoContinueOnRead;
+            window.hideUIOverlay = !!settings.hideUIOverlay;
+            return;
+        }
+    } catch(e) {}
+    window.autoContinueOnRead = false;
+    window.hideUIOverlay = false;
+};
+
+function extractHtmlOutline(htmlContent) {
+    let processed = htmlContent.replace(/<!--[\s\S]*?-->/g, '');
+    processed = processed.replace(/<script([\s\S]*?)>([\s\S]*?)<\/script>/gi, '<script$1>// [SCRIPT BODY COLLAPSED]</script>');
+    processed = processed.replace(/<style([\s\S]*?)>([\s\S]*?)<\/style>/gi, '<style$1>/* [STYLE BODY COLLAPSED] */</style>');
+    
+    const lines = processed.replace(/\r/g, '').split('\n');
+    const outlineLines = [];
+    for (let line of lines) {
+        let trimmed = line.trim();
+        if (!trimmed) continue;
+        let lineOut = line;
+        const textMatch = line.match(/>([^<]{30,})</);
+        if (textMatch) {
+            const longText = textMatch[1];
+            lineOut = line.replace(longText, ` ... [TEXT COLLAPSED (${longText.length} chars)] ... `);
+        }
+        outlineLines.push(lineOut);
+    }
+    return outlineLines.join('\n');
+}
+
+function extractCodeOutline(content, ext) {
+    const foldLangs = ['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'c', 'cpp', 'java', 'go', 'rs', 'py', 'php', 'swift'];
+    if (!foldLangs.includes(ext)) {
+        return content;
+    }
+    if (ext === 'html') {
+        return extractHtmlOutline(content);
+    }
+    const lines = content.replace(/\r/g, '').split('\n');
+    let outlineLines = [];
+    let skipDepth = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        
+        let openBraces = 0;
+        let closeBraces = 0;
+        for (let char of line) {
+            if (char === '{') openBraces++;
+            if (char === '}') closeBraces++;
+        }
+        let net = openBraces - closeBraces;
+        
+        if (skipDepth > 0) {
+            skipDepth += net;
+            if (skipDepth <= 0) {
+                skipDepth = 0;
+                let indent = line.match(/^\s*/)[0];
+                outlineLines.push(`${indent}}`);
+            }
+            continue;
+        }
+        
+        if (net > 0) {
+            outlineLines.push(line + " // [BODY COLLAPSED]");
+            skipDepth = net;
+        } else {
+            outlineLines.push(line);
+        }
+    }
+    return outlineLines.join('\n');
+}
+
 // --- [전역 히스토리 스택 & Undo/Redo 엔진] ---
 window.editorHistory = window.editorHistory || [];
 window.historyIndex = window.editorHistory.length > 0 ? window.editorHistory.length - 1 : -1;
@@ -71,8 +151,8 @@ window.pasteToBlock = async (syncId, event) => {
 
 ipcRenderer.on('soft-reload-workspace', () => {
     if (window.currentPath && typeof window.loadDirectory === 'function') window.loadDirectory(window.currentPath);
-    const header = document.querySelector('#editor-container .section-header h3');
-    if (header) header.innerText = 'PORMSG VIEW';
+    const header = document.getElementById('editor-header-title');
+    if (header) header.innerText = 'FILE VIEWER';
     const editorContent = document.getElementById('editor-content');
     if (editorContent) {
         editorContent.innerHTML = `<div style="display:flex; justify-content:center; align-items:center; height:100%; color:#444; font-family:'JetBrains Mono', monospace; flex-direction:column; gap:10px;"><div style="font-size: 24px;">🔄</div><div>Workspace Soft Reloaded</div><div style="font-size: 11px; color: #333;">AI session preserved</div></div>`;
@@ -112,13 +192,17 @@ function formatPathDisplay(pathStr) {
     return pathStr;
 }
 
+let _loadDirSeq = 0;
 window.loadDirectory = async (p) => {
+    const seq = ++_loadDirSeq;
     try {
         window.currentPath = p; 
         updateTerminalPrompt();
         document.getElementById('path-display').innerHTML = `<span class="path-segment">${formatPathDisplay(p)}</span>`;
-        const badge = document.getElementById('active-project-badge'); if (badge) badge.innerText = p === 'DRIVES' ? 'PC' : p.split(/[\\/]/).pop().toUpperCase() || 'PORMSG';
+        const badge = document.getElementById('active-project-badge'); if (badge) badge.innerText = p === 'DRIVES' ? 'PC' : p.split(/[\\\/]/).pop().toUpperCase() || 'PORMSG';
         const f = await window.fetchDirContent(p === 'DRIVES' ? '' : p);
+        if (seq !== _loadDirSeq) return; // stale 응답 무시
+        if (f == null) return;           // null/undefined면 트리 유지
         if (window.renderTree) window.renderTree(p, f);
         
         // 경로 복사 클릭 리스너 설정
@@ -129,19 +213,40 @@ window.loadDirectory = async (p) => {
                 e.stopPropagation();
                 if (window.currentPath && window.currentPath !== 'DRIVES') {
                     await navigator.clipboard.writeText(window.currentPath);
-                    const originalSvg = copyBtn.innerHTML;
-                    copyBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-                    copyBtn.style.color = '#10b981';
-                    setTimeout(() => {
-                        copyBtn.innerHTML = originalSvg;
-                        copyBtn.style.color = '';
-                    }, 1000);
+                    const pathDisplay = document.getElementById('path-display');
+                    if (pathDisplay) {
+                        const originalHTML = pathDisplay.innerHTML;
+                        pathDisplay.innerHTML = `<span style="color: #10b981; font-weight: 600;">Copied!</span>`;
+                        copyBtn.style.opacity = '1';
+                        copyBtn.style.color = '#10b981';
+                        const originalSvg = copyBtn.innerHTML;
+                        copyBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                        
+                        setTimeout(() => {
+                            pathDisplay.innerHTML = originalHTML;
+                            copyBtn.innerHTML = originalSvg;
+                            copyBtn.style.color = '';
+                            copyBtn.style.opacity = '';
+                        }, 1000);
+                    }
                 }
             };
             window.hasPathCopyBind = true;
         }
+        const revealBtn = document.getElementById('reveal-btn');
+        if (revealBtn && !window.hasRevealBind) {
+            revealBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (window.currentPath && window.currentPath !== 'DRIVES') {
+                    const { ipcRenderer } = require('electron');
+                    ipcRenderer.send('reveal-in-explorer', window.currentPath);
+                }
+            };
+            window.hasRevealBind = true;
+        }
     } catch (e) { }
 };
+
 
 if (!window.hasEditorSearchBind) {
     window.addEventListener('keydown', (e) => {
@@ -163,26 +268,65 @@ window.openFileInEditor = (filePath) => {
         const ext = path.extname(filePath).toLowerCase().substring(1);
         const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
         
-        const header = document.querySelector('#editor-container .section-header');
-        if (header) {
-            header.style.display = 'flex'; header.style.alignItems = 'center';
-            header.innerHTML = `
-                <h3 style="margin:0;">PORMSG VIEW - ${path.basename(filePath)}</h3>
-                <div style="margin-left: auto; display: flex; gap: 8px; padding-right: 15px; align-items:center;">
-                    <div id="editor-search-box" style="display:flex; align-items:center; background:#0a0a0a; border:1px solid #333; border-radius:4px; padding:2px 8px; margin-right: 10px; transition: 0.2s;">
-                        <span style="font-size:10px; color:#555; margin-right:6px;">🔍</span>
-                        <input type="text" id="editor-search-input" placeholder="Search (Ctrl+F)" style="background:transparent; border:none; color:#ccc; font-size:11px; width:120px; outline:none; font-family:'JetBrains Mono', monospace;">
-                        <span id="editor-search-result" style="font-size:10px; color:#888; margin-left:8px; min-width:15px; text-align:right;"></span>
-                    </div>
+        // 파일명만 업데이트, 버튼/검색은 HTML에서 항상 존재
+        const titleEl = document.getElementById('editor-header-title');
+        if (titleEl) titleEl.innerText = `FILE VIEWER - ${path.basename(filePath)}`;
 
-                    <button id="btn-collapse-all" style="background:#111; color:#aaa; border:1px solid #333; padding:5px 12px; border-radius:4px; font-size:11px; cursor:pointer; transition:0.2s;">Collapse All</button>
-                    <button id="btn-expand-all" style="background:#0078d4; color:#fff; border:1px solid #005a9e; padding:5px 12px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold; transition:0.2s;">Expand All</button>
+        const toggleCollapseBtn = document.getElementById('btn-editor-toggle-collapse');
+
+        if (toggleCollapseBtn) {
+            const editorCollapseIcon = document.getElementById('editor-collapse-icon');
+            toggleCollapseBtn.onclick = () => {
+                if (!window._editorCollapsed) {
+                    editorContent.querySelectorAll('.editor-detail').forEach(d => {
+                        d.open = false;
+                        const mini = document.getElementById(d.getAttribute('data-mini-id'));
+                        if (mini) mini.open = false;
+                    });
+                    window._editorCollapsed = true;
+                    toggleCollapseBtn.title = 'Expand All';
+                    if (editorCollapseIcon) {
+                        editorCollapseIcon.innerHTML = `<polyline points="7 9 12 4 17 9"></polyline><polyline points="7 15 12 20 17 15"></polyline>`;
+                        editorCollapseIcon.classList.add('rotate-left');
+                    }
+                } else {
+                    editorContent.querySelectorAll('.editor-detail').forEach(d => {
+                        d.open = true;
+                        const mini = document.getElementById(d.getAttribute('data-mini-id'));
+                        if (mini) mini.open = true;
+                    });
+                    window._editorCollapsed = false;
+                    toggleCollapseBtn.title = 'Collapse All';
+                    if (editorCollapseIcon) {
+                        editorCollapseIcon.innerHTML = `<polyline points="17 4 12 9 7 4"></polyline><polyline points="7 20 12 15 17 20"></polyline>`;
+                        editorCollapseIcon.classList.add('rotate-left');
+                    }
+                }
+                setTimeout(() => { if (typeof window.updateMinimapThumb === 'function') window.updateMinimapThumb(); }, 80);
+            };
+            // Reset to default (collapsed) when a new file opens
+            window._editorCollapsed = true;
+            toggleCollapseBtn.title = 'Expand All';
+            if (editorCollapseIcon) {
+                editorCollapseIcon.innerHTML = `<polyline points="17 4 12 9 7 4"></polyline><polyline points="7 20 12 15 17 20"></polyline>`;
+                editorCollapseIcon.classList.add('rotate-left');
+            }
+            setTimeout(() => { if (typeof window.updateMinimapThumb === 'function') window.updateMinimapThumb(); }, 120);
+        }
+
+
+
+        const binaryExts = ['exe', 'dll', 'bin', 'zip', 'rar', 'tar', 'gz', '7z', 'pdf', 'mp3', 'mp4', 'wav', 'avi', 'mov', 'iso', 'so', 'dylib', 'class', 'jar', 'war', 'db', 'sqlite'];
+        if (binaryExts.includes(ext)) {
+            editorContent.innerHTML = `
+                <div style="position: absolute; inset: 0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#0c0c0e; color:var(--text-muted); font-family:'DM Sans', sans-serif; gap: 12px; box-sizing:border-box; padding:20px;">
+                    <div style="font-size: 24px;">⚠️</div>
+                    <div style="font-size: 14px; font-weight: 600; color: #eee;">Binary File Detected</div>
+                    <div style="font-size: 11.5px; color: var(--text-dark); text-align:center; max-width: 300px; line-height: 1.5; margin-bottom: 8px;">This file is binary and cannot be viewed as text in the editor.</div>
+                    <button onclick="const ipc = require('electron').ipcRenderer; ipc.send('reveal-in-explorer', '${filePath.replace(/\\/g, '\\\\')}');" style="background:var(--surface-high); border: 1px solid var(--border-color); color:#fff; padding:6px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer; transition:background 0.2s;">Open in File Explorer</button>
                 </div>
             `;
-            
-
-            document.getElementById('btn-collapse-all').onclick = () => { editorContent.querySelectorAll('.editor-detail').forEach(d => { d.open = false; const mini = document.getElementById(d.getAttribute('data-mini-id')); if (mini) mini.open = false; }); };
-            document.getElementById('btn-expand-all').onclick = () => { editorContent.querySelectorAll('.editor-detail').forEach(d => { d.open = true; const mini = document.getElementById(d.getAttribute('data-mini-id')); if (mini) mini.open = true; }); };
+            return;
         }
 
         if (imageExts.includes(ext)) {
@@ -193,7 +337,13 @@ window.openFileInEditor = (filePath) => {
             const content = fs.readFileSync(filePath, 'utf-8').replace(/\r/g, '');
             if (typeof hljs !== 'undefined') {
                 const linesRaw = content.split('\n');
-                const lines = hljs.highlight(content, { language: ext, ignoreIllegals: true }).value.split('\n');
+                let lang = ext;
+                if (!hljs.getLanguage(lang)) {
+                    lang = (ext === 'bat' || ext === 'cmd') ? 'dos' : 'plaintext';
+                }
+                const foldLangs = ['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'c', 'cpp', 'java', 'go', 'rs', 'py', 'php', 'swift'];
+                const shouldFold = foldLangs.includes(lang);
+                const lines = hljs.highlight(content, { language: lang, ignoreIllegals: true }).value.split('\n');
                 
                 let finalHTML = ''; let minimapHTML = ''; let blockStack = []; let blockCounter = 0; 
 
@@ -206,16 +356,19 @@ window.openFileInEditor = (filePath) => {
                     if (pureText.startsWith('//')) mmColor = '#1e4620'; 
                     let mmLine = pureText.length > 0 ? `<div style="height:2px; margin-bottom:1px; margin-left:${Math.min(spaces, 25)}px; width:${Math.min(pureText.length, 35)}px; background:${mmColor}; border-radius:1px;"></div>` : `<div style="height:2px; margin-bottom:1px;"></div>`;
                     
-                    let net = 0; for (let j = 0; j < line.length; j++) { if (line[j] === '{') net++; if (line[j] === '}') net--; }
-                    if (net === 0 && blockStack.length === 0 && line.trim() === '') continue;
+                    let net = 0; 
+                    if (shouldFold) {
+                        for (let j = 0; j < line.length; j++) { if (line[j] === '{') net++; if (line[j] === '}') net--; }
+                    }
+                    if (shouldFold && net === 0 && blockStack.length === 0 && line.trim() === '') continue;
 
                     if (net > 0) {
                         let titleName = line.replace(/[{}]/g, '').trim() || "Block";
                         let syncId = `mini-block-${blockCounter++}`;
                         blockStack.push({ title: titleName, id: syncId, start: i });
 
-                        finalHTML += `<div class="pormsg-block"><details open class="editor-detail" data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<span class="caret">▶</span><div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine}</div></summary><div class="pormsg-body" id="body-${syncId}">`;
-                        minimapHTML += `<details open id="${syncId}" class="mini-detail"><summary class="mini-summary">${mmLine}</summary><div class="mini-body">`;
+                        finalHTML += `<div class="pormsg-block"><details class="editor-detail" data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<span class="caret">▶</span><div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine}</div></summary><div class="pormsg-body" id="body-${syncId}">`;
+                        minimapHTML += `<details id="${syncId}" class="mini-detail"><summary class="mini-summary">${mmLine}</summary><div class="mini-body">`;
                     } else if (net < 0 && blockStack.length > 0) {
                         let popped = blockStack.pop();
                         let lineCount = i - popped.start + 1;
@@ -226,6 +379,12 @@ window.openFileInEditor = (filePath) => {
                         finalHTML += `<div class="pormsg-line">${lineNumHTML} <span style="white-space:pre;">${htmlLine || ' '}</span></div>`;
                         minimapHTML += mmLine;
                     }
+                }
+
+                while (blockStack.length > 0) {
+                    blockStack.pop();
+                    finalHTML += `</div></details></div>`;
+                    minimapHTML += `</div></details>`;
                 }
 
                 editorContent.innerHTML = `
@@ -266,11 +425,7 @@ window.openFileInEditor = (filePath) => {
                     </style>
                     <div style="display: flex; position: absolute; inset: 0; background: #000; overflow: hidden;">
                         <div id="editor-scroll-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px; position: relative;">
-                            <pre style="margin:0; padding:0; width:100%; max-width:100%; overflow-x:auto;">
-                                <code class="hljs" style="font-family:'JetBrains Mono', monospace; font-size:13px; background:transparent; display:block; width:100%; padding:0; margin:0;">
-                                    ${finalHTML}
-                                </code>
-                            </pre>
+                            <pre style="margin:0; padding:0; width:100%; max-width:100%; overflow-x:auto;"><code class="hljs" style="font-family:'JetBrains Mono', monospace; font-size:13px; background:transparent; display:block; width:100%; padding:0; margin:0;">${finalHTML}</code></pre>
                         </div>
                         <div id="minimap-container" style="width: 70px; min-width: 70px; background: #050505; border-left: 1px solid #1a1a1a; position: relative; user-select: none;">
                             <div id="minimap-track" style="position: absolute; left: 0; right: 0; top: 10px; pointer-events: none; transition: transform 0.1s ease-out;">${minimapHTML}</div>
@@ -284,9 +439,11 @@ window.openFileInEditor = (filePath) => {
                 let searchTimer;
 
                 if (searchInput && scrollCont) {
-                    searchInput.addEventListener('focus', () => { document.getElementById('editor-search-box').style.borderColor = '#0078d4'; });
-                    searchInput.addEventListener('blur', () => { document.getElementById('editor-search-box').style.borderColor = '#333'; });
-                    searchInput.addEventListener('input', () => {
+                    searchInput.onfocus = () => { document.getElementById('editor-search-box').style.borderColor = 'var(--primary)'; };
+                    searchInput.onblur = () => { document.getElementById('editor-search-box').style.borderColor = 'var(--border-color)'; };
+                    searchInput.value = ''; // 새 파일 열면 검색 초기화
+                    if (searchResult) searchResult.innerText = '';
+                    searchInput.oninput = () => {
                         clearTimeout(searchTimer);
                         searchTimer = setTimeout(() => {
                             const query = searchInput.value.toLowerCase();
@@ -312,8 +469,9 @@ window.openFileInEditor = (filePath) => {
                             searchResult.innerText = matchCount > 0 ? matchCount : '0';
                             if (firstMatch) { scrollCont.scrollTo({ top: firstMatch.offsetTop - 40, behavior: 'smooth' }); setTimeout(updateThumb, 50); }
                         }, 250);
-                    });
+                    };
                 }
+
 
                 if (scrollCont && miniThumb && miniCont) {
                     editorContent.querySelectorAll('.editor-detail').forEach(d => {
@@ -324,8 +482,17 @@ window.openFileInEditor = (filePath) => {
                     });
                     const updateThumb = () => {
                         const sh = scrollCont.scrollHeight, ch = scrollCont.clientHeight;
-                        if (sh <= ch) { miniThumb.style.display = 'none'; miniTrack.style.transform = `translateY(0px)`; return; }
                         miniThumb.style.display = 'block';
+                        
+                        if (sh <= ch) {
+                            miniThumb.style.height = miniCont.clientHeight + 'px';
+                            miniThumb.style.top = '0px';
+                            miniThumb.style.opacity = '0.25';
+                            miniTrack.style.transform = `translateY(0px)`;
+                            return;
+                        }
+                        
+                        miniThumb.style.opacity = '';
                         const thumbHeight = Math.max((ch / sh) * miniCont.clientHeight, 20); 
                         miniThumb.style.height = thumbHeight + 'px';
                         const scrollRatio = scrollCont.scrollTop / (sh - ch);
@@ -334,6 +501,7 @@ window.openFileInEditor = (filePath) => {
                             miniTrack.style.transform = `translateY(-${scrollRatio * (miniTrack.scrollHeight - miniCont.clientHeight + 20)}px)`;
                         } else { miniTrack.style.transform = `translateY(0px)`; }
                     };
+                    window.updateMinimapThumb = updateThumb;
                     scrollCont.addEventListener('scroll', updateThumb); window.addEventListener('resize', updateThumb); setTimeout(updateThumb, 50);
 
                     let isDragging = false;
@@ -405,6 +573,14 @@ function addSubTerminal(isInitial = false) {
     
     // 백엔드 프로세스 선제적 기동(Pre-spawn) 자극
     ipcRenderer.send('execute-cmd', { tabId: id, command: '', cwd: terminalSessions[id].cwd });
+
+    // 1초 후 강제 로딩 해제 (출력이 안 들어오더라도 입력 가능하도록)
+    setTimeout(() => {
+        if (terminalSessions[id] && terminalSessions[id].loading) {
+            terminalSessions[id].loading = false;
+            if (activeSubTabId === id) switchSubTerminal(id);
+        }
+    }, 1000);
 }
 function switchSubTerminal(id) {
     document.querySelectorAll('.sub-tab').forEach(t => { t.classList.remove('active'); });
@@ -503,6 +679,57 @@ function showAlert(msg, onOk) {
 }
 
 function setupUI() {
+    // Agent Settings 초기화 및 바인딩 (Settings.json 기반)
+    const _path = require('path');
+    function getSettingsPath() {
+        return _path.join(window.currentPath || process.cwd(), 'Settings.json');
+    }
+    function loadSettings() {
+        try {
+            const p = getSettingsPath();
+            if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf-8'));
+        } catch(e) {}
+        return {};
+    }
+    function saveSettings(data) {
+        try { fs.writeFileSync(getSettingsPath(), JSON.stringify(data, null, 2), 'utf-8'); } catch(e) {}
+    }
+
+    window.reloadAgentSettings();
+
+    const localSettingsBtn = document.getElementById('btn-local-settings');
+    const localSettingsModal = document.getElementById('local-settings-modal');
+    const closeLocalSettings = document.getElementById('close-local-settings');
+    const saveLocalSettings = document.getElementById('save-local-settings');
+    const chkAutoRead = document.getElementById('chk-auto-read');
+    const chkHideOverlay = document.getElementById('chk-hide-overlay');
+
+    if (localSettingsBtn && localSettingsModal) {
+        localSettingsBtn.onclick = () => {
+            window.reloadAgentSettings(); // 열릴 때 설정 다시 로드
+            if (chkAutoRead) chkAutoRead.checked = window.autoContinueOnRead;
+            if (chkHideOverlay) chkHideOverlay.checked = window.hideUIOverlay;
+            localSettingsModal.style.display = 'flex';
+        };
+    }
+    if (closeLocalSettings && localSettingsModal) {
+        closeLocalSettings.onclick = () => {
+            localSettingsModal.style.display = 'none';
+        };
+    }
+    if (saveLocalSettings && localSettingsModal) {
+        saveLocalSettings.onclick = () => {
+            if (chkAutoRead || chkHideOverlay) {
+                const current = loadSettings();
+                if (chkAutoRead) current.autoContinueOnRead = chkAutoRead.checked;
+                if (chkHideOverlay) current.hideUIOverlay = chkHideOverlay.checked;
+                saveSettings(current);
+                window.reloadAgentSettings(); // 저장 후 즉시 전역변수 최신화
+            }
+            localSettingsModal.style.display = 'none';
+        };
+    }
+
     const tL = document.getElementById('terminal-lower'), tI = document.getElementById('terminal-main-input'), tS = document.getElementById('terminal-content');
     setupHorizontalScroll(document.querySelector('.terminal-tabs')); setupHorizontalScroll(document.getElementById('terminal-sub-tabs'));
     if (tS && tI) tS.onmouseup = () => { if (!window.getSelection().toString()) tI.focus(); };
@@ -564,10 +791,13 @@ function setupUI() {
         }
     });
 
-    document.getElementById('minimize-terminal').onclick = () => {
-        const im = tL.offsetHeight <= 40; tL.style.height = im ? '350px' : '35px';
-        document.getElementById('minimize-terminal').innerText = im ? '▼' : '▲'; syncBrowserView();
-    };
+    const minTermBtn = document.getElementById('minimize-terminal');
+    if (minTermBtn) {
+        minTermBtn.onclick = () => {
+            const im = tL.offsetHeight <= 40; tL.style.height = im ? '350px' : '35px';
+            minTermBtn.innerText = im ? '▼' : '▲'; syncBrowserView();
+        };
+    }
 
     const vd = (r, t, s) => {
         if (!r || !t) return;
@@ -589,10 +819,57 @@ function setupUI() {
         };
     }
 
+    // --- 프로젝트 폴더 선택 버튼 ---
+    const selectProjectBtn = document.getElementById('select-project-btn');
+    if (selectProjectBtn) {
+        selectProjectBtn.onclick = () => {
+            if (window.openProjectModal) window.openProjectModal();
+        };
+    }
+
+    // --- 폴더 접기/펼치기 토글 버튼 ---
+    const collapseToggleBtn = document.getElementById('collapse-all-btn');
+    const collapseIcon = document.getElementById('collapse-all-icon');
+    const SVG_COLLAPSE = `<polyline points="7 4 12 9 17 4"></polyline><polyline points="7 20 12 15 17 20"></polyline>`;
+    const SVG_EXPAND   = `<polyline points="7 9 12 4 17 9"></polyline><polyline points="7 15 12 20 17 15"></polyline>`;
+    let _treeCollapsed = false;
+
+    if (collapseToggleBtn) {
+        collapseToggleBtn.onclick = () => {
+            if (!_treeCollapsed) {
+                // 모두 접기
+                window.expandedPaths && window.expandedPaths.clear();
+                _treeCollapsed = true;
+                collapseToggleBtn.title = 'Expand All';
+                if (collapseIcon) {
+                    collapseIcon.innerHTML = SVG_EXPAND;
+                    collapseIcon.classList.add('rotate-left');
+                }
+            } else {
+                // 모두 펼치기: 현재 트리의 모든 폴더를 expanded에 추가
+                document.querySelectorAll('.dir-node .file-item').forEach(el => {
+                    const p = el.dataset.path;
+                    if (p && window.expandedPaths) window.expandedPaths.add(p);
+                });
+                _treeCollapsed = false;
+                collapseToggleBtn.title = 'Collapse All';
+                if (collapseIcon) {
+                    collapseIcon.innerHTML = SVG_COLLAPSE;
+                    collapseIcon.classList.remove('rotate-left');
+                }
+            }
+            if (window.loadDirectory) window.loadDirectory(window.currentPath || process.cwd());
+        };
+    }
+
+
     const addA = document.getElementById('add-agent-app-card'), mo = document.getElementById('app-reg-modal');
     if (addA && mo) addA.onclick = () => { mo.style.display = 'flex'; document.getElementById('reg-app-url')?.focus(); };
     document.getElementById('cancel-reg').onclick = () => { mo.style.display = 'none'; };
     document.getElementById('confirm-reg').onclick = async () => {
+
+
+        
         let u = document.getElementById('reg-app-url').value.trim(); if (!u) return;
         if (!u.startsWith('http')) u = 'https://' + u;
         let inSel = document.getElementById('reg-input-selector')?.value.trim() || '';
@@ -674,36 +951,134 @@ function setupUI() {
     const swi = (m) => {
         vLC.style.display = (m === 'local') ? 'flex' : 'none'; vBH.style.display = (m !== 'local') ? 'flex' : 'none';
         tLA.classList.toggle('active-tab', (m === 'local')); tBH.classList.toggle('active-tab', (m !== 'local'));
-        if (m === 'local' && document.hasFocus()) { const ci = document.getElementById('local-agent-input'); if (ci) setTimeout(() => ci.focus(), 100); }
+        if (m === 'local') {
+            const chatLog = document.getElementById('local-chat-messages');
+            if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+            if (document.hasFocus()) { const ci = document.getElementById('local-agent-input'); if (ci) setTimeout(() => ci.focus(), 100); }
+        }
     };
     if (tLA) tLA.onclick = () => swi('local'); if (tBH) tBH.onclick = () => swi('browser');
 
-    document.getElementById('save-local-chat').onclick = () => { ChatUI.appendBubble('system', '[SYSTEM] Chat snapshot save requested.'); };
-    document.getElementById('clear-local-chat').onclick = () => { 
-        showConfirm("Initialize both chat history file and screen? (Irrecoverable)", () => {
-            generating = false; 
-            const sendBtn = document.getElementById('send-to-local'); if (sendBtn) sendBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`;
-            ipcRenderer.send('vault-reset-session', { logPath: GravityVault.activeLogPath }); 
-            document.getElementById('local-chat-messages').innerHTML = ''; if (window.chatLog) window.chatLog = []; 
-            const overlay = document.getElementById('web-process-overlay'); if (overlay) { overlay.style.display = 'none'; overlay.style.pointerEvents = 'none'; }
-            const chatIn = document.getElementById('local-agent-input'); if (chatIn) { setTimeout(() => { chatIn.focus(); chatIn.click(); }, 50); }
+    // 로컬 챗 실시간 검색 제어기 바인딩
+    const searchBtn = document.getElementById('btn-local-search');
+    const searchContainer = document.getElementById('local-chat-search-container');
+    const searchInput = document.getElementById('local-chat-search-input');
+    const searchCount = document.getElementById('local-chat-search-count');
+    const closeSearch = document.getElementById('close-local-search');
+    const chatMessages = document.getElementById('local-chat-messages');
+
+    function clearSearch() {
+        if (searchInput) searchInput.value = '';
+        if (searchCount) searchCount.innerText = '0 found';
+        if (chatMessages) {
+            const bubbles = chatMessages.querySelectorAll('.chat-bubble');
+            bubbles.forEach(b => { b.style.display = 'flex'; });
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+
+    function performSearch() {
+        const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        if (!chatMessages) return;
+        const bubbles = chatMessages.querySelectorAll('.chat-bubble');
+        let found = 0;
+
+        bubbles.forEach(b => {
+            const content = b.querySelector('.bubble-content');
+            if (!content) return;
+            const text = content.innerText.toLowerCase();
+            if (!query || text.includes(query)) {
+                b.style.display = 'flex';
+                if (query) found++;
+            } else {
+                b.style.display = 'none';
+            }
         });
+
+        if (searchCount) {
+            searchCount.innerText = query ? `${found} found` : '0 found';
+        }
+    }
+
+    if (searchBtn && searchContainer && searchInput) {
+        searchBtn.onclick = () => {
+            const isHidden = searchContainer.style.display === 'none';
+            searchContainer.style.display = isHidden ? 'flex' : 'none';
+            if (isHidden) {
+                searchInput.focus();
+                performSearch();
+            } else {
+                clearSearch();
+            }
+        };
+    }
+
+    if (closeSearch) {
+        closeSearch.onclick = () => {
+            if (searchContainer) searchContainer.style.display = 'none';
+            clearSearch();
+        };
+    }
+
+    if (searchInput) {
+        searchInput.oninput = performSearch;
+        searchInput.onkeydown = (e) => {
+            if (e.key === 'Escape') {
+                if (searchContainer) searchContainer.style.display = 'none';
+                clearSearch();
+            }
+        };
+    }
+
+    const saveBtn = document.getElementById('save-local-chat');
+    if (saveBtn) {
+        saveBtn.onclick = () => { ChatUI.appendBubble('system', '[SYSTEM] Chat snapshot save requested.'); };
+    }
+    const clearBtn = document.getElementById('clear-local-chat');
+    if (clearBtn) {
+        clearBtn.onclick = () => { 
+            showConfirm("Initialize both chat history file and screen? (Irrecoverable)", () => {
+                generating = false; 
+                const sendBtn = document.getElementById('send-to-local'); if (sendBtn) sendBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`;
+                ipcRenderer.send('vault-reset-session', { logPath: GravityVault.activeLogPath }); 
+                document.getElementById('local-chat-messages').innerHTML = ''; if (window.chatLog) window.chatLog = []; 
+                const overlay = document.getElementById('web-process-overlay'); if (overlay) { overlay.style.display = 'none'; overlay.style.pointerEvents = 'none'; }
+                const chatIn = document.getElementById('local-agent-input'); if (chatIn) { setTimeout(() => { chatIn.focus(); chatIn.click(); }, 50); }
+            });
+        };
+    }
+
+    window.updateSendProgress = (current, total) => {
+        const textEl = document.getElementById('overlay-progress-text');
+        const barEl = document.getElementById('overlay-progress-bar');
+        if (textEl && barEl) {
+            const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+            textEl.innerText = `${current} / ${total} Files processed (${pct}%)`;
+            barEl.style.width = `${pct}%`;
+        }
     };
 
     const chatIn = document.getElementById('local-agent-input');
-    const localControls = chatIn ? chatIn.parentElement : null;
+    if (chatIn) {
+        chatIn.onkeydown = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const sendBtn = document.getElementById('send-to-local');
+                if (sendBtn) sendBtn.click();
+            }
+        };
+    }
+    const chatOverlay = document.getElementById('local-chat-overlay');
     
-// [🛠️ 수정: 프로젝트 정보 전송 버튼 (입력창 윗단에 정갈하게 배치)]
-    if (localControls && !document.getElementById('btn-send-project-info')) {
+    if (chatOverlay && !document.getElementById('btn-send-project-info')) {
         const projBtn = document.createElement('button');
         projBtn.id = 'btn-send-project-info';
-        projBtn.innerHTML = '📁 Send Project Info to Browser';
+        projBtn.innerHTML = 'Send Project Info to Browser';
 
-        // absolute 대신 안전한 블록형 구조로 교정
         projBtn.style = `
-            width: 100%;
-            height: 40px;
-            margin-bottom: 12px;
+            width: 80%;
+            max-width: 280px;
+            height: 42px;
             background: var(--primary);
             color: #fff;
             border: none;
@@ -714,7 +1089,7 @@ function setupUI() {
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 12.5px;
             letter-spacing: -0.01em;
             box-shadow: 0 4px 12px rgba(70, 140, 246, 0.2);
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -723,45 +1098,34 @@ function setupUI() {
         projBtn.onmouseleave = () => { projBtn.style.filter = 'none'; projBtn.style.boxShadow = '0 4px 12px rgba(70, 140, 246, 0.2)'; };
 
         projBtn.onclick = async () => {
-            projBtn.innerText = "Sending Project Context...";
+            projBtn.style.display = 'none';
             document.getElementById('tab-browser-hub')?.click();
             
             const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
-            
-            // AI에게 전달하는 트리 내부의 [FILE] 개수를 카운트하여 분모 설정 (동기식 정확성 확보)
             const fileMatches = tree.match(/\[FILE\]/g);
             window.totalFilesCount = fileMatches ? fileMatches.length : 0;
             window.readFilesSet.clear();
             
-            // 불필요한 설정 다 빼고 목적만 전달하는 심플한 프롬프트
-            const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
-${tree}
-
-여기서 작업을 시작하기 위해 특정 파일을 탐색하거나 읽어야 할 것 같으면, 다음 명령어를 사용해 주세요:
-- 파일 전체 읽기: [CMD: read-file "파일명"]
-- 시스템 명령어: [CMD: 명령어]
-
-이 메시지를 확인했다면, 작업을 파악하기 위해 필요한 첫 번째 명령어를 다음 답변에 바로 입력해 주세요.${CRITICAL_RULE_SUFFIX}`.trim();
+            const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${tree}\n\n[SYSTEM INSTRUCTION]\n1. 프로젝트 파악을 위해 코드를 분석하십시오. 모든 파일을 다 읽으려 하지 말고, package.json이나 핵심 엔트리 포인트(예: main.js, index.html 등)의 아키텍처를 파악하십시오.\n2. 분석할 첫 번째 핵심 소스코드를 읽으려면 반드시 다음 형식의 대괄호 명령어를 본문 답변에 정확히 써서 요청하십시오. 자연어로만 말하면 시스템이 감지하지 못합니다:\n- [CMD: read-file "파일명"]\n3. 만약 한 번에 여러 소스 파일을 동시에 읽어 분석하고 싶다면, [CMD: read-file "파일명1"] [CMD: read-file "파일명2"] 형태로 여러 개의 명령어를 나열하여 요청하십시오. 시스템이 병합하여 1턴 만에 전송해 줄 것입니다.\n\n이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.${CRITICAL_RULE_SUFFIX}`.trim();
             
-            // 응답 캡처 엔진 먼저 작동 후 주입 실행 (타이밍 꼬임 해결)
             const enginePromise = runExperimentalEngine('/marktag', webPayload, null);
             await injectWebPayload(webPayload);
             
-            // 버튼 숨김
-            projBtn.style.display = 'none';
+            // Hide overlay when execution done
+            chatOverlay.style.display = 'none';
+            projBtn.style.display = 'flex';
+            
             if (chatIn) chatIn.focus();
             
-            // 응답 캡처 대기 완료 후 로컬 복귀
             const response = await enginePromise;
-            document.getElementById('tab-local-agent')?.click();
+            if (!window.autoContinueOnRead) document.getElementById('tab-local-agent')?.click();
             if (response) {
                 ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
                 detectAndAskCommand(response);
             }
         };
 
-        // 입력창(chatIn) 바로 위에 깔끔하게 삽입
-        localControls.insertBefore(projBtn, chatIn);
+        chatOverlay.appendChild(projBtn);
     }
 
     
@@ -784,6 +1148,9 @@ ${tree}
 
     window.updateAgentBadge = updateAgentBadge;
     const sendBtn = document.getElementById('send-to-local');
+    if (sendBtn) {
+        sendBtn.onclick = () => handleSend();
+    }
     
     const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false, sourceIcon = null, targetBubble = null) => {
         if (generating) { ipcRenderer.send('stop-ollama'); generating = false; sendBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`; return; }
@@ -826,7 +1193,7 @@ ${tree}
                     await injectWebPayload(msg);
                     const response = await enginePromise;
                     if (statusBub) statusBub.remove();
-                    document.getElementById('tab-local-agent').click();
+                    if (!window.autoContinueOnRead) document.getElementById('tab-local-agent').click();
 
                     if (response) { ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview'))); /* GravityVault.log('ai', response); */ detectAndAskCommand(response); } 
                     else {
@@ -860,22 +1227,17 @@ ${tree}
             };
 
             try {
-                let projectTree = "";
-                if (!window.sessionBriefed) { updateProcess('scan', 10); projectTree = await ipcRenderer.invoke('vault-get-tree'); }
-                updateProcess('brief', 50);
-
-                const treeSection = (!window.sessionBriefed && projectTree) ? `\n[PROJECT FILE LIST]\n${projectTree}\n` : "";
-                const instructionSection = (!window.sessionBriefed) ? `\n[SYSTEM INSTRUCTION]\nThe directory listing above shows the current root of the project. If you need to explore subdirectories or read the content of specific files to answer my request, please let me know. For example: "Please list the contents of the 'src' folder" or "Show me the code in 'main.js'". I will provide the requested details in the next turn.\n` : "";
-                const webPayload = `[USER REQUEST]\n${promptText}\n${treeSection}${instructionSection}`.trim();
-
+                const webPayload = promptText.trim();
                 window.sessionBriefed = true;
 
-                // 1. 브라우저 탭 유지 — 응답 완료 전까지 전환 금지
-                document.getElementById('tab-browser-hub')?.click();
+                // 1. 브라우저 탭 강제 전환 제거 (로컬 탭 고정 대화 실현)
+                // if (!window.autoContinueOnRead) {
+                //     document.getElementById('tab-browser-hub')?.click();
+                // }
 
-                // 2. injectWebPayload 전송
+                // 2. injectWebPayload 전송 (fileCount=0 으로 유저 챗 모드 표시)
                 await new Promise(r => setTimeout(r, 500));
-                await injectWebPayload(webPayload);
+                await injectWebPayload(webPayload, 0);
 
                 updateProcess('extract', 90);
 
@@ -884,11 +1246,9 @@ ${tree}
                 progBar.style.width = '100%'; await new Promise(r => setTimeout(r, 500));
                 overlay.style.display = 'none'; overlay.style.pointerEvents = 'none';
 
-                // 4. 응답 완료 후 로컬 탭으로 복귀
-                document.getElementById('tab-local-agent')?.click();
+                // 4. 응답 완료 후 로컬 탭 복귀 (이동하지 않았으므로 스키마 클릭 제거)
                 if (response) {
-                    ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
-                    detectAndAskCommand(response);
+                    // 백그라운드 미러링이 단독 1회 추가하므로 여기서는 수동 추가 및 명령 파싱을 생략
                 } else {
                     ChatUI.appendBubble('ai', '[SYSTEM] WebAI response extraction failed.');
                 }
@@ -927,12 +1287,9 @@ const ChatUI = {
     appendBubble(role, text, isThinking = false, sourceIcon = null) {
         const chatLog = document.getElementById('local-chat-messages'); if (!chatLog) return;
         const box = document.createElement('div'); box.className = `chat-bubble ${role}`; box.dataset.role = role;
-        const tools = document.createElement('div'); tools.className = 'bubble-tools';
-        const btn = (icon, title, cl, fn) => { const b = document.createElement('div'); b.className = `tool-btn ${cl}`; b.innerHTML = icon; b.title = title; b.onclick = (e) => { e.stopPropagation(); fn(box); }; return b; };
-        tools.appendChild(btn('🔄', 'Regenerate', 'regen', (b) => this.regenerate(b))); tools.appendChild(btn('✏️', 'Edit', 'edit', (b) => this.edit(b))); tools.appendChild(btn('🗑️', 'Delete', 'delete', (b) => this.delete(b)));
-        box.appendChild(tools);
+        // bubble-tools (regenerate, edit, delete) removed for clean visual flow
         const content = document.createElement('div'); content.className = 'bubble-content';
-        if (typeof marked !== 'undefined') content.innerHTML = marked.parse(text); else content.innerText = text;
+        if (typeof marked !== 'undefined') content.innerHTML = marked.parse(text).trim(); else content.innerText = text.trim();
         box.appendChild(content);
         if (sourceIcon) { const badge = document.createElement('div'); badge.className = 'source-badge'; badge.innerHTML = `<img src="${sourceIcon}" title="Source: Web AI">`; box.appendChild(badge); }
         chatLog.appendChild(box); chatLog.scrollTop = chatLog.scrollHeight;
@@ -1030,6 +1387,47 @@ async function setupBoot() {
         wv.useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
         wv.style = "width:100%; height:100%; border:none;"; wv.setAttribute('allowpopups', '');
         wv.addEventListener('contextmenu', () => wv.openDevTools());
+        wv.addEventListener('dom-ready', () => {
+            wv.executeJavaScript(`
+                window.addEventListener('keydown', (e) => {
+                    const key = e.key.toLowerCase();
+                    if ((e.controlKey && key === 'r') || e.key === 'F5') {
+                        e.preventDefault();
+                        location.reload();
+                    }
+                }, true);
+            `);
+            wv.executeJavaScript(`
+                (() => {
+                    let lastSentText = "";
+                    let stableTimer = null;
+                    const checkAndSend = () => {
+                        const bubbles = document.querySelectorAll('message-content, div.message-content, .markdown, .message, div[data-message-author-role="assistant"]');
+                        if (bubbles.length === 0) return;
+                        let lastAiBubble = null;
+                        for (let i = bubbles.length - 1; i >= 0; i--) {
+                            const b = bubbles[i];
+                            const text = (b.innerText || b.textContent || "").trim();
+                            if (text && !b.closest('rich-textarea, div[contenteditable="true"], textarea')) {
+                                lastAiBubble = b;
+                                break;
+                            }
+                        }
+                        if (!lastAiBubble) return;
+                        const currentText = (lastAiBubble.innerText || lastAiBubble.textContent || "").trim();
+                        if (!currentText || currentText === lastSentText) return;
+                        clearTimeout(stableTimer);
+                        stableTimer = setTimeout(() => {
+                            lastSentText = currentText;
+                            const encoded = btoa(unescape(encodeURIComponent(currentText)));
+                            console.log("[BACKGROUND_AI_RESP]:" + encoded);
+                        }, 1200);
+                    };
+                    const observer = new MutationObserver(() => { checkAndSend(); });
+                    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+                })();
+            `);
+        });
 
         if (!isSilentBoot) {
             wv.addEventListener('did-finish-load', async () => {
@@ -1052,6 +1450,32 @@ async function setupBoot() {
                 }
             }, { once: true });
         }
+
+        let lastReceivedMirrorText = "";
+        wv.addEventListener('console-message', (e) => {
+            if (e.message.startsWith('[BACKGROUND_AI_RESP]:')) {
+                try {
+                    const base64Data = e.message.split('[BACKGROUND_AI_RESP]:')[1];
+                    const decodedText = decodeURIComponent(escape(atob(base64Data))).trim();
+                    if (!decodedText) return;
+                    if (decodedText === lastReceivedMirrorText) return;
+                    const chatHistory = document.getElementById('chat-history');
+                    if (chatHistory) {
+                        const existingBubbles = Array.from(chatHistory.querySelectorAll('.bubble.ai .bubble-content'));
+                        const isDuplicate = existingBubbles.some(bubble => bubble.innerText.trim() === decodedText);
+                        if (isDuplicate) {
+                            lastReceivedMirrorText = decodedText;
+                            return;
+                        }
+                    }
+                    lastReceivedMirrorText = decodedText;
+                    ChatUI.appendBubble('ai', decodedText, false, getWebIcon(wv));
+                    detectAndAskCommand(decodedText);
+                } catch (err) {
+                    console.error("[ERROR] Background mirror parsing error:", err);
+                }
+            }
+        });
 
         dock.appendChild(wv); if (window.updateAgentBadge) window.updateAgentBadge();
         window.currentAgentSelectors = { input: inSel, send: btnSel, response: resSel };
@@ -1111,11 +1535,13 @@ window.readFilesSet = new Set();
 const CRITICAL_RULE_SUFFIX = `
 
 [CRITICAL RULE]
-1. 아직 전체 프로젝트가 파악되지 않았다면, 읽은 파일에 대해 구구절절 설명하지 말고 그냥 다음 탐색할 [CMD: ...] 명령어만 단답형으로 제출하십시오.
-2. 분석 및 계획 수립 단계로 넘어갈 때는 절대 [CMD: ...] 태그를 제안하지 마십시오. 탐색이 다 끝났다면 구체적인 작업 계획을 제시해 주세요.
-3. 한 번의 답변에 오직 한 개의 [CMD: ...] 태그만 사용하십시오. 여러 파일을 보고 싶더라도 한 번에 하나씩만 요청해야 합니다.`;
+1. 아직 전체 프로젝트가 파악되지 않았다면, 읽은 파일에 대해 설명하지 말고 빠르게 다음 탐색할 [CMD: ...] 명령어만 단답형으로 제출하십시오.
+2. 파일의 구조나 함수 목록만 파악할 때는 [CMD: read-file "파일명"] 을 사용하십시오.
+3. 세부 로직을 정밀 분석/수정할 때는 [CMD: read-file-full "파일명"] 을 사용하십시오. (단, 한 턴에 최대 200줄 제한으로 잘려서 전송됩니다.)
+4. 특정 라인 범위(최대 200줄 한도)만 지정해서 읽고 싶다면 [CMD: read-file-range "파일명" 시작줄-끝줄] (예: [CMD: read-file-range "main.js" 1-200] 또는 [CMD: read-file-range "main.js" 201-400]) 을 적극적으로 사용하십시오.
+5. 파일 탐색 및 파악이 최종적으로 완료되었다면 자의적인 향후 작업 계획 수립이나 임의의 대안 작성을 일절 중단하십시오. 오직 파악된 현재 프로젝트 구조 및 핵심 기능에 대해서만 간결히 설명한 후, 유저의 구체적인 지시(Wait for user instructions)를 대기하십시오.`;
 
-async function injectWebPayload(webPayload) {
+async function injectWebPayload(webPayload, fileCount = 1) {
     const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
     const inKeywords = savedKeywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
 
@@ -1125,29 +1551,29 @@ async function injectWebPayload(webPayload) {
         const base64Payload = Buffer.from(cleanPayload, 'utf-8').toString('base64');
         const totalLines = cleanPayload.split('\n').length; // 전체 라인수 산출
 
-        // 1단계: 토스트 UI 켜기 및 진행바를 초록색으로 설정
-        const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
-        if (toast && toastText && toastBar) {
-            toast.style.display = 'block';
-            toast.style.background = '#0a0a0a';
-            toast.style.border = '1px solid #4caf50';
+        // 1단계: 토스트 UI 켜기 및 진행바를 테마색으로 설정
+        const toast = document.getElementById('injection-toast');
+        const projLbl = document.getElementById('project-pct-label');
+        const projBar = document.getElementById('toast-project-progress-bar');
+        const injLbl = document.getElementById('inject-pct-label');
+        const injBar = document.getElementById('toast-inject-progress-bar');
+        
+        if (toast) {
+            toast.style.display = window.hideUIOverlay ? 'none' : 'flex';
+            toast.style.background = 'transparent';
+            toast.style.border = 'none';
             
-            const readCount = window.readFilesSet.size;
-            const projectPct = window.totalFilesCount ? Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100)) : 0;
+            if (projLbl) {
+                if (fileCount === 0) {
+                    projLbl.innerHTML = `System Status: <span style="color: var(--primary); font-weight: bold;">Sending message...</span>`;
+                } else {
+                    projLbl.innerHTML = `Project Context: <span style="color: var(--primary); font-weight: bold;">100% (${fileCount}/${fileCount})</span>`;
+                }
+            }
+            if (projBar) projBar.style.width = "100%";
             
-            toastText.innerHTML = `
-                <div style="font-size:11px; color:#aaa; font-weight:bold; margin-bottom:4px; font-family:sans-serif;">
-                    프로젝트 파악률: <span style="color:#4caf50;">${projectPct}% (${readCount}/${window.totalFilesCount})</span>
-                </div>
-                <div style="font-size:12px; color:#eee; font-weight:bold; font-family:sans-serif;">
-                    주입률: <span style="color:#4caf50;">0% [0/${totalLines}]</span>
-                </div>
-            `;
-            
-            toastBar.style.display = 'block';
-            toastBar.style.width = "0%";
-            toastBar.style.background = '#4caf50';
-            toastBar.style.height = '4px';
+            if (injLbl) injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">0% (0/${totalLines})</span>`;
+            if (injBar) injBar.style.width = "0%";
         }
 
         // 2단계: 웹뷰 콘솔 리스너 장착 (진행률 실시간 고속 수신용)
@@ -1158,30 +1584,22 @@ async function injectWebPayload(webPayload) {
                 const curLines = parseInt(parts[1] || '0');
                 const totLines = parseInt(parts[2] || '0');
                 
-                const readCount = window.readFilesSet.size;
-                const projectPct = window.totalFilesCount ? Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100)) : 0;
-                
-                if (toastText && toastBar) {
-                    if (pct === 100) {
-                        toastText.innerHTML = `
-                            <div style="font-size:11px; color:#aaa; font-weight:bold; margin-bottom:4px; font-family:sans-serif;">
-                                프로젝트 파악률: <span style="color:#4caf50;">${projectPct}% (${readCount}/${window.totalFilesCount})</span>
-                            </div>
-                            <div style="font-size:12px; color:#eee; font-weight:bold; font-family:sans-serif;">
-                                주입률: <span style="color:#4caf50;">100% [${totLines}/${totLines}]</span>
-                            </div>
-                        `;
-                        toastBar.style.width = "100%";
+                if (projLbl && projBar) {
+                    if (fileCount === 0) {
+                        projLbl.innerHTML = `System Status: <span style="color: var(--primary); font-weight: bold;">Sending message...</span>`;
                     } else {
-                        toastText.innerHTML = `
-                            <div style="font-size:11px; color:#aaa; font-weight:bold; margin-bottom:4px; font-family:sans-serif;">
-                                프로젝트 파악률: <span style="color:#4caf50;">${projectPct}% (${readCount}/${window.totalFilesCount})</span>
-                            </div>
-                            <div style="font-size:12px; color:#eee; font-weight:bold; font-family:sans-serif;">
-                                주입률: <span style="color:#4caf50;">${pct}% [${curLines}/${totLines}]</span>
-                            </div>
-                        `;
-                        toastBar.style.width = `${pct}%`;
+                        projLbl.innerHTML = `Project Context: <span style="color: var(--primary); font-weight: bold;">100% (${fileCount}/${fileCount})</span>`;
+                    }
+                    projBar.style.width = "100%";
+                }
+                
+                if (injLbl && injBar) {
+                    if (pct === 100) {
+                        injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">100% (${totLines}/${totLines})</span>`;
+                        injBar.style.width = "100%";
+                    } else {
+                        injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">${pct}% (${curLines}/${totLines})</span>`;
+                        injBar.style.width = `${pct}%`;
                     }
                 }
             }
@@ -1190,7 +1608,7 @@ async function injectWebPayload(webPayload) {
 
         const cleanup = () => {
             wv.removeEventListener('console-message', onConsole);
-            if (toast) toast.style.display = 'none';
+            if (toast && !window.autoContinueOnRead) toast.style.display = 'none';
         };
 
         // 3단계: 단 1회의 executeJavaScript 호출로 웹뷰 내부 비동기 타이핑 실행 (IPC 병목 100% 제거)
@@ -1235,33 +1653,80 @@ async function injectWebPayload(webPayload) {
                 // 100ms 포커스 대기
                 await new Promise(r => setTimeout(r, 100));
                 
-                // 웹뷰 내부에서 루프를 동기/비동기 수행 (통신 지연이 없어 10배 이상 가속)
-                const chunkSize = 2000;
-                const totalLen = decodedPayload.length;
-                for (let i = 0; i < totalLen; i += chunkSize) {
-                    const chunk = decodedPayload.substring(i, i + chunkSize);
+                // 메시지 라인 분할 및 30라인 단위의 고속 청크 쪼개기 (React 버퍼 오버헤드 차단)
+                const lines = decodedPayload.split('\\n');
+                const chunkSize = 30;
+                const chunks = [];
+                for (let idx = 0; idx < lines.length; idx += chunkSize) {
+                    chunks.push(lines.slice(idx, idx + chunkSize).join('\\n') + (idx + chunkSize < lines.length ? '\\n' : ''));
+                }
+
+                let currentLine = 0;
+                for (let idx = 0; idx < chunks.length; idx++) {
+                    const chunk = chunks[idx];
                     document.execCommand('insertText', false, chunk);
                     inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
                     
-                    const pct = Math.floor((i / totalLen) * 100);
-                    const curLines = decodedPayload.substring(0, i).split('\\n').length;
-                    console.log("[INJECT_PCT]:" + pct + "," + curLines + ",${totalLines}");
-                    await new Promise(r => setTimeout(r, 1));
+                    const chunkLines = chunk.split('\\n').length - 1;
+                    currentLine += chunkLines;
+                    const pct = Math.floor(((idx + 1) / chunks.length) * 100);
+                    console.log("[INJECT_PCT]:" + pct + "," + currentLine + ",${totalLines}");
+                    
+                    // 15ms 미세 딜레이를 주어 브라우저가 버퍼를 렌더링하고 렌더러가 실시간 게이지를 갱신할 틈을 줌
+                    await new Promise(r => setTimeout(r, 15));
                 }
-                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                console.log("[INJECT_PCT]:100,${totalLines},${totalLines}");
                 
-                // 주입 후 짧은 텀을 주고 엔터 전송
+                // 주입 후 짧은 텀을 주고 엔터 전송 및 전송 버튼 강제 클릭 시도
                 await new Promise(r => setTimeout(r, 150));
                 
-                const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                inputEl.dispatchEvent(enterDown);
+                const findSendBtn = () => {
+                    const btns = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"]'));
+                    for (let el of btns) {
+                        const label = (el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                        if (label.includes('전송') || label.includes('send') || label.includes('submit')) return el;
+                    }
+                    // 날개 비행기 SVG 아이콘을 품은 버튼 후보 탐색
+                    const svgBtns = Array.from(document.querySelectorAll('button'));
+                    for (let el of svgBtns) {
+                        if (el.querySelector('svg')) {
+                            const html = el.innerHTML.toLowerCase();
+                            if (html.includes('send') || html.includes('paper-plane') || html.includes('arrow') || html.includes('submit')) return el;
+                        }
+                    }
+                    return null;
+                };
+
+                const sendBtn = findSendBtn();
+                if (sendBtn) {
+                    sendBtn.click();
+                } else {
+                    const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                    inputEl.dispatchEvent(enterDown);
+                    const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                    inputEl.dispatchEvent(enterPress);
+                    const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                    inputEl.dispatchEvent(enterUp);
+                }
                 
-                const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                inputEl.dispatchEvent(enterPress);
-                
-                const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                inputEl.dispatchEvent(enterUp);
+                // 발송 성공 검증부 (입력창 텍스트가 완전히 비워지거나 정지 버튼이 생길 때까지 최대 3.5초 폴링 대기)
+                let isDispatched = false;
+                for (let i = 0; i < 35; i++) {
+                    const currentVal = (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') ? inputEl.value : inputEl.innerText;
+                    const hasStopBtn = Array.from(document.querySelectorAll('button, div[role="button"]')).some(el => {
+                        const lbl = (el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                        return lbl.includes('중단') || lbl.includes('stop') || lbl.includes('cancel');
+                    });
+                    if (!currentVal.trim() || hasStopBtn) {
+                        isDispatched = true;
+                        break;
+                    }
+                    if (i === 10 || i === 20) {
+                        if (sendBtn) sendBtn.click();
+                    }
+                    await new Promise(r => setTimeout(r, 100));
+                }
+                if (!isDispatched) return "SEND_TIMEOUT";
                 
                 return "SUCCESS";
             })()
@@ -1274,6 +1739,9 @@ async function injectWebPayload(webPayload) {
                 setTimeout(cleanup, 3000);
                 return reject("Input failed: " + status);
             }
+
+            if (injLbl) injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">100% (${totalLines}/${totalLines})</span>`;
+            if (injBar) injBar.style.width = "100%";
 
             // 전송 처리 확인 대기 및 종료
             await new Promise(r => setTimeout(r, 1500));
@@ -1297,146 +1765,281 @@ function detectAndAskCommand(text) {
         if (cleanCmd) foundCmds.push(cleanCmd);
     }
 
-    if (foundCmds.length === 0) return;
-
-    foundCmds.forEach(cleanCmd => {
-        // read-file 인지 검사
-        const isReadFile = /^read-file\s+"([^"]+)"$/i.test(cleanCmd);
-        
-        // [🛠️ 실존 파일 필터링: read-file 제안 시 파일이 실존하지 않으면 Proposed Bubble 생성을 통째로 무시]
-        if (isReadFile) {
-            const fileMatch = cleanCmd.match(/^read-file\s+"([^"]+)"$/i);
-            if (fileMatch) {
-                const filePath = fileMatch[1];
-                const fs = require('fs');
-                const path = require('path');
-                const targetPath = path.resolve(window.currentPath, filePath);
-                if (!fs.existsSync(targetPath)) {
-                    return; // forEach 이므로 continue와 동치
-                }
-            }
+    if (foundCmds.length === 0) {
+        if (window.autoContinueOnRead) {
+            // 더 이상 명령어 없음 = 최종 완료 → 토스트 닫고 로컬 복귀
+            const toast = document.getElementById('injection-toast');
+            if (toast) toast.style.display = 'none';
+            document.getElementById('tab-local-agent')?.click();
         }
+        return;
+    }
 
+    // 1. read-file 명령어 추출 및 분리
+    const readCmds = [];
+    const otherCmds = [];
+
+    foundCmds.forEach(cmd => {
+        const fileMatch = cmd.match(/^read-file\s+["']?([^"']+)["']?$/i);
+        const fileFullMatch = cmd.match(/^read-file-full\s+["']?([^"']+)["']?$/i);
+        const rangeMatch = cmd.match(/^read-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
+        if (rangeMatch) {
+            const filePath = rangeMatch[1].trim();
+            readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]) });
+        } else if (fileFullMatch) {
+            const filePath = fileFullMatch[1].trim();
+            readCmds.push({ path: filePath, full: true });
+        } else if (fileMatch) {
+            const filePath = fileMatch[1].trim();
+            readCmds.push({ path: filePath, full: false });
+        } else {
+            otherCmds.push(cmd);
+        }
+    });
+
+    const hasReadFile = (readCmds.length > 0);
+
+    // autoContinueOnRead 켜져있고 read-file 없으면 복귀
+    if (!hasReadFile && window.autoContinueOnRead) {
+        const toast = document.getElementById('injection-toast');
+        if (toast) toast.style.display = 'none';
+        document.getElementById('tab-local-agent')?.click();
+    }
+
+    // 2. 파일 읽기 명령어 병합 제안 생성
+    if (hasReadFile) {
+        const displayCmd = readCmds.map(f => {
+            if (f.range) return `read-file-range "${f.path}" ${f.start}-${f.end}`;
+            return `${f.full ? 'read-file-full' : 'read-file'} "${f.path}"`;
+        }).join(', ');
+        
         const box = ChatUI.appendBubble('system', '');
         const content = box.querySelector('.bubble-content');
-        
-        const title = isReadFile ? "📄 FILE READ PROPOSED" : "⚡ COMMAND PROPOSED";
-        const themeColor = isReadFile ? "#ffa500" : "#0078d4"; // 파일 읽기는 오렌지, 명령어는 블루
+        const themeColor = "#468CF6"; 
+        const glowShadow = "rgba(70, 140, 246, 0.15)";
 
         content.innerHTML = `
-            <div style="font-size:11px; color:${themeColor}; margin-bottom:8px; font-weight:900; display:flex; align-items:center; gap:6px;">
-                <div style="width:3px; height:12px; background:${themeColor}; border-radius:10px;"></div>
-                ${title}
+            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">📄</span>${displayCmd}
             </div>
-            <div style="background:#0a0a0a; padding:10px 12px; border-radius:4px; border:1px solid #2a2a2a; font-family:'JetBrains Mono',monospace; font-size:12px; color:#eee; margin-bottom:10px;">
-                <span style="color:#555;">${isReadFile ? '📄' : '$'}</span> ${cleanCmd}
-            </div>
-            <div style="display:flex; gap:8px;">
-                <button class="cmd-run-btn" style="flex:1; background:${themeColor}; color:white; border:none; padding:6px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">RUN</button>
-                <button class="cmd-cancel-btn" style="flex:1; background:#222; color:#aaa; border:1px solid #333; padding:6px; border-radius:4px; cursor:pointer; font-size:11px;">CANCEL</button>
+            <div style="display: flex; gap: 8px;">
+                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
             </div>
         `;
+
+        const runBtn = content.querySelector('.cmd-run-btn');
+        const cancelBtn = content.querySelector('.cmd-cancel-btn');
+        if (runBtn) {
+            runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(70, 140, 246, 0.3)"; };
+            runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
+        }
+        if (cancelBtn) {
+            cancelBtn.onmouseenter = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.08)"; cancelBtn.style.color = "var(--text-main)"; cancelBtn.style.borderColor = "rgba(255,255,255,0.15)"; };
+            cancelBtn.onmouseleave = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.04)"; cancelBtn.style.color = "var(--text-muted)"; cancelBtn.style.borderColor = "var(--border-color)"; };
+        }
+
+        if (window.autoContinueOnRead) {
+            setTimeout(() => {
+                const btn = content.querySelector('.cmd-run-btn');
+                if (btn) {
+                    ChatUI.appendBubble('system', `[SYSTEM] Auto-continuing batch read for ${readCmds.length} files...`);
+                    btn.click();
+                }
+            }, 800);
+        }
 
         content.querySelector('.cmd-run-btn').onclick = async () => {
             box.remove();
             
-            if (isReadFile) {
-                // read-file 처리
-                const fileMatch = cleanCmd.match(/^read-file\s+"([^"]+)"$/i);
-                if (fileMatch) {
-                    const filePath = fileMatch[1];
-                    try {
-                        const fs = require('fs');
-                        const path = require('path');
-                        const targetPath = path.resolve(window.currentPath, filePath);
-                        
-                        if (fs.existsSync(targetPath)) {
-                            // 읽은 파일셋에 기록
-                            window.readFilesSet.add(filePath);
+            try {
+                const fs = require('fs');
+                const path = require('path');
+
+                // auto-continue 아닐 때만 chatOverlay 수동 표시
+                const chatOverlay = document.getElementById('local-chat-overlay');
+                const progressBox = document.getElementById('overlay-progress-box');
+                const projBtn = document.getElementById('btn-send-project-info');
+                if (!window.autoContinueOnRead && chatOverlay && progressBox && projBtn) {
+                    chatOverlay.style.display = 'flex';
+                    projBtn.style.display = 'none';
+                    progressBox.style.display = 'flex';
+                }
+
+                // 묶음 파일 정보 생성
+                let mergedContent = "";
+                readCmds.forEach(fileObj => {
+                    const filePath = fileObj.path;
+                    window.readFilesSet.add(filePath);
+                    const targetPath = path.resolve(window.currentPath, filePath);
+                    if (fs.existsSync(targetPath)) {
+                        const rawContent = fs.readFileSync(targetPath, 'utf-8');
+                        const allLines = rawContent.replace(/\r/g, '').split('\n');
+                        if (fileObj.range) {
+                            let startIdx = Math.max(0, fileObj.start - 1);
+                            let endIdx = Math.min(allLines.length, fileObj.end);
+                            let isTruncated = false;
                             
-                            const fileContent = fs.readFileSync(targetPath, 'utf-8');
-                            const finalMessage = `[FILE DATA: ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n[SYSTEM] File contents provided above. Please analyze.${CRITICAL_RULE_SUFFIX}`;
-                            
-                            document.getElementById('tab-browser-hub')?.click();
-                            
-                            // 응답 캡처 엔진 먼저 대기
-                            const enginePromise = runExperimentalEngine('/marktag', finalMessage, null);
-                            await injectWebPayload(finalMessage);
-                            ChatUI.appendBubble('system', `[SYSTEM] Sent ${filePath} content to Web AI.`);
-                            
-                            // 응답 완료 대기 후 로컬 복귀 및 처리
-                            const response = await enginePromise;
-                            document.getElementById('tab-local-agent')?.click();
-                            if (response) {
-                                ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
-                                detectAndAskCommand(response);
+                            if (endIdx - startIdx > 200) {
+                                endIdx = startIdx + 200;
+                                isTruncated = true;
                             }
+                            
+                            let slicedContent = allLines.slice(startIdx, endIdx).join('\n');
+                            if (isTruncated) {
+                                const nextStart = endIdx + 1;
+                                const nextEnd = nextStart + 199;
+                                slicedContent += `\n// ... [TRUNCATED: Max 200 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range "${filePath}" ${nextStart}-${nextEnd}]]`;
+                            }
+                            mergedContent += `[FILE DATA (LINE RANGE ${fileObj.start}-${fileObj.start + (endIdx - startIdx) - 1}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
+                        } else if (fileObj.full) {
+                            let endIdx = allLines.length;
+                            let isTruncated = false;
+                            
+                            if (endIdx > 200) {
+                                endIdx = 200;
+                                isTruncated = true;
+                            }
+                            
+                            let slicedContent = allLines.slice(0, endIdx).join('\n');
+                            if (isTruncated) {
+                                slicedContent += `\n// ... [TRUNCATED: Max 200 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range "${filePath}" 201-400]]`;
+                            }
+                            mergedContent += `[FILE DATA (${isTruncated ? 'PARTIAL CONTENT' : 'FULL CONTENT'}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
                         } else {
-                            ChatUI.appendBubble('system', `[ERROR] File not found: ${filePath}`);
-                            document.getElementById('tab-browser-hub')?.click();
-                            await injectWebPayload(`[SYSTEM ERROR] File not found: ${filePath}`);
+                            const ext = filePath.split('.').pop().toLowerCase();
+                            const fileContent = extractCodeOutline(rawContent, ext);
+                            mergedContent += `[FILE DATA (OUTLINE ONLY): ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n`;
+                        }
+                    } else {
+                        mergedContent += `[FILE DATA ERROR: ${filePath} not found on the local machine]\n\n`;
+                    }
+                });
+
+                if (typeof window.updateSendProgress === 'function') {
+                    window.updateSendProgress(window.readFilesSet.size, window.totalFilesCount);
+                }
+
+                // AI가 소스코드를 온전히 읽을 수 있도록 마크다운 코드 블록 주입
+                const finalMessage = `${mergedContent}Proceed to analyze the files above.`;
+
+                if (!window.autoContinueOnRead) document.getElementById('tab-browser-hub')?.click();
+
+                // 1단계: 텍스트 주입 먼저 온전히 완료 (진행률 게이지 방해 요소 제거)
+                await injectWebPayload(finalMessage, readCmds.length);
+                ChatUI.appendBubble('system', `[SYSTEM] Sent ${readCmds.length} files content outline to Web AI.`);
+
+                // 2단계: 주입 완결 및 전송 버튼 클릭 직후에 감시 엔진을 가동하여 대기 루프 개시
+                const response = await runExperimentalEngine('/marktag', finalMessage, null);
+                if (!window.autoContinueOnRead) {
+                    document.getElementById('tab-local-agent')?.click();
+                }
+
+                // auto-continue 아닐 때만 chatOverlay 숨기기
+                if (!window.autoContinueOnRead && chatOverlay && progressBox && projBtn) {
+                    chatOverlay.style.display = 'none';
+                    progressBox.style.display = 'none';
+                    projBtn.style.display = 'flex';
+                }
+
+                if (response) {
+                    // 백그라운드 미러링이 단독 1회 추가하므로 여기서는 수동 추가 및 명령 파싱을 생략
+                }
+            } catch (err) {
+                ChatUI.appendBubble('system', `[ERROR] Failed to read files batch: ${err.message}`);
+            }
+        };
+
+        content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+    }
+
+    // 3. 파일 읽기 외의 일반 명령어들 제안 생성
+    otherCmds.forEach(cleanCmd => {
+        const box = ChatUI.appendBubble('system', '');
+        const content = box.querySelector('.bubble-content');
+        const themeColor = "#468CF6"; 
+        const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+        content.innerHTML = `
+            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">$</span>${cleanCmd}
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+            </div>
+        `;
+
+        const runBtn = content.querySelector('.cmd-run-btn');
+        const cancelBtn = content.querySelector('.cmd-cancel-btn');
+        if (runBtn) {
+            runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(70, 140, 246, 0.3)"; };
+            runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
+        }
+        if (cancelBtn) {
+            cancelBtn.onmouseenter = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.08)"; cancelBtn.style.color = "var(--text-main)"; cancelBtn.style.borderColor = "rgba(255,255,255,0.15)"; };
+            cancelBtn.onmouseleave = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.04)"; cancelBtn.style.color = "var(--text-muted)"; cancelBtn.style.borderColor = "var(--border-color)"; };
+        }
+
+        content.querySelector('.cmd-run-btn').onclick = async () => {
+            box.remove();
+            
+            if (window.activeSubTabId && window.terminalSessions[window.activeSubTabId]) {
+                window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
+                window.switchSubTerminal(window.activeSubTabId);
+                
+                if (cleanCmd.toLowerCase().startsWith('cd ')) {
+                    let targetDir = cleanCmd.substring(3).trim().replace(/['"]/g, '');
+                    const pathModule = require('path');
+                    try {
+                        const curCwd = window.terminalSessions[window.activeSubTabId].cwd || window.currentPath || process.cwd();
+                        let newPath = '';
+                        if (pathModule.isAbsolute(targetDir)) {
+                            newPath = targetDir;
+                        } else {
+                            newPath = pathModule.resolve(curCwd, targetDir);
+                        }
+                        if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
+                            window.terminalSessions[window.activeSubTabId].cwd = newPath;
+                            if (typeof updateTerminalPrompt === 'function') updateTerminalPrompt();
                         }
                     } catch (err) {
-                        ChatUI.appendBubble('system', `[ERROR] Failed to read ${filePath}: ${err.message}`);
+                        console.error(err);
                     }
                 }
-            } else {
-                // 일반 커맨드 처리
-                if (window.activeSubTabId && window.terminalSessions[window.activeSubTabId]) {
-                    window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
-                    window.switchSubTerminal(window.activeSubTabId);
-                    
-                    // cd 명령어 실시간 가로채서 세션 cwd 갱신 (탐색기와 별개 작동)
-                    if (cleanCmd.toLowerCase().startsWith('cd ')) {
-                        let targetDir = cleanCmd.substring(3).trim().replace(/['"]/g, '');
-                        const pathModule = require('path');
-                        try {
-                            const curCwd = window.terminalSessions[window.activeSubTabId].cwd || window.currentPath || process.cwd();
-                            let newPath = '';
-                            if (pathModule.isAbsolute(targetDir)) {
-                                newPath = targetDir;
-                            } else {
-                                newPath = pathModule.resolve(curCwd, targetDir);
-                            }
-                            if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
-                                window.terminalSessions[window.activeSubTabId].cwd = newPath;
-                                if (typeof updateTerminalPrompt === 'function') updateTerminalPrompt();
-                            }
-                        } catch (err) {
-                            console.error(err);
-                        }
-                    }
 
-                    ipcRenderer.send('execute-cmd', { 
-                        tabId: window.activeSubTabId, 
-                        command: cleanCmd, 
-                        cwd: window.terminalSessions[window.activeSubTabId].cwd || window.currentPath || process.cwd() 
-                    });
-                    
-                    const tL = document.getElementById('terminal-lower');
-                    if (tL && tL.offsetHeight <= 40) {
-                        tL.style.height = '350px';
-                        const minBtn = document.getElementById('minimize-terminal'); 
-                        if (minBtn) minBtn.innerText = '▼';
-                        if (typeof syncBrowserView === 'function') syncBrowserView();
-                    }
+                ipcRenderer.send('execute-cmd', { 
+                    tabId: window.activeSubTabId, 
+                    command: cleanCmd, 
+                    cwd: window.terminalSessions[window.activeSubTabId].cwd || window.currentPath || process.cwd() 
+                });
+                
+                const tL = document.getElementById('terminal-lower');
+                if (tL && tL.offsetHeight <= 40) {
+                    tL.style.height = '350px';
+                    const minBtn = document.getElementById('minimize-terminal'); 
+                    if (minBtn) minBtn.innerText = '▼';
+                    if (typeof syncBrowserView === 'function') syncBrowserView();
                 }
-                
-                ChatUI.appendBubble('system', `[EXECUTED] ${cleanCmd}`);
-                document.getElementById('tab-browser-hub')?.click();
-                const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${CRITICAL_RULE_SUFFIX}`;
-                
-                // 응답 캡처 엔진 먼저 대기
+            }
+            
+            ChatUI.appendBubble('system', `[EXECUTED] ${cleanCmd}`);
+            document.getElementById('tab-browser-hub')?.click();
+            const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${CRITICAL_RULE_SUFFIX}`;
+            
+            try {
                 const enginePromise = runExperimentalEngine('/marktag', payload, null);
                 await injectWebPayload(payload);
-                
-                // 응답 완료 대기 후 복귀
                 const response = await enginePromise;
-                document.getElementById('tab-local-agent')?.click();
+                if (!window.autoContinueOnRead) {
+                    document.getElementById('tab-local-agent')?.click();
+                }
                 if (response) {
                     ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
                     detectAndAskCommand(response);
                 }
+            } catch (e) {
+                ChatUI.appendBubble('ai', `[ERROR] Command failed: ${e.message}`);
             }
         };
 
@@ -1477,9 +2080,21 @@ async function showManualInputUI(statusBub) {
 
         document.getElementById('tab-browser-hub')?.click();
 
-        const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar'), webBar = document.getElementById('web-extract-progress-bar');
-        if (toast) { toast.style.display = 'block'; if (toastText) toastText.innerText = "Waiting for manual copy (8s)..."; if (toastBar) toastBar.style.display = 'none'; }
-        if (webBar) { webBar.style.width = '100%'; webBar.style.background = '#0078d4'; webBar.style.transition = 'width 0.5s linear'; }
+        const toast = document.getElementById('injection-toast');
+        const projLbl = document.getElementById('project-pct-label');
+        const injLbl = document.getElementById('inject-pct-label');
+        const projBar = document.getElementById('toast-project-progress-bar');
+        const injBar = document.getElementById('toast-inject-progress-bar');
+        const webBar = document.getElementById('web-extract-progress-bar');
+
+        if (toast) {
+            toast.style.display = 'flex';
+            if (projLbl) projLbl.innerHTML = `Manual Injection: <span style="color:var(--primary); font-weight:bold;">Copy Mode Active</span>`;
+            if (injLbl) injLbl.innerHTML = `Waiting for manual copy (8s)...`;
+            if (projBar) projBar.style.width = '100%';
+            if (injBar) injBar.style.width = '0%';
+        }
+        if (webBar) { webBar.style.width = '100%'; webBar.style.background = 'var(--primary)'; webBar.style.transition = 'width 0.5s linear'; }
 
         const { clipboard } = require('electron'); const initialClipboard = clipboard.readText(); let timeoutTicks = 0; 
         clipboardInterval = setInterval(() => {
@@ -1503,11 +2118,22 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     const webBar = document.getElementById('web-extract-progress-bar');
     
     if (!wv || !wv.src || wv.src.startsWith('about:blank')) {
-        const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar');
-        if (toast && toastText) {
-            toastText.innerHTML = "<b>⚠️ No Agent Selected</b><br><span style='font-size:11px; color:#aaa;'>Please select an AI agent from the Browser tab first.</span>";
-            toast.style.display = 'block'; toast.style.borderColor = "rgba(255, 165, 0, 0.5)"; if (toastBar) toastBar.style.display = 'none';
-            setTimeout(() => { toast.style.display = 'none'; toast.style.borderColor = ""; if (toastBar) toastBar.style.display = 'block'; }, 4000);
+        const toast = document.getElementById('injection-toast');
+        const projLbl = document.getElementById('project-pct-label');
+        const injLbl = document.getElementById('inject-pct-label');
+        const projBar = document.getElementById('toast-project-progress-bar');
+        const injBar = document.getElementById('toast-inject-progress-bar');
+
+        if (toast) {
+            toast.style.display = 'flex';
+            if (projLbl) projLbl.innerHTML = `⚠️ <span style="color:var(--primary); font-weight:bold;">No Agent Selected</span>`;
+            if (injLbl) injLbl.innerHTML = `Please select an AI agent from the Browser tab first.`;
+            if (projBar) projBar.style.width = '0%';
+            if (injBar) injBar.style.width = '0%';
+            
+            setTimeout(() => { 
+                toast.style.display = 'none'; 
+            }, 4000);
         }
         return null;
     }
@@ -1534,25 +2160,40 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
 
     const updateUI = (text, progress = 0, isStableMode = false) => {
         if (statusBub && !manualAbort) { const txtEl = statusBub.querySelector('.status-text'); if (txtEl) txtEl.innerText = `[SYSTEM] ${text}`; }
-        const toast = document.getElementById('injection-toast'), toastText = document.getElementById('toast-text'), toastBar = document.getElementById('toast-progress-bar'), toastBtn = document.getElementById('toast-reset-timer-btn');
+        const toast = document.getElementById('injection-toast');
+        const injLbl = document.getElementById('inject-pct-label');
+        const injBar = document.getElementById('toast-inject-progress-bar');
         
-        // ㅈ같은 토스트 팝업 백그라운드 강제 부활 차단
-        /* if (toast && !manualAbort) {
-            toast.style.display = 'block';
-            if (toastText) toastText.innerHTML = `<b>Analyzing AI response</b><br><span style='font-size:11px; color:#aaa;'>${text}</span>`;
-            if (toastBar) toastBar.style.display = 'none'; 
-            if (toastBtn) {
-                if (stableN !== 0 && stableN < 8) { toastBtn.style.display = 'block'; toastBtn.onclick = (e) => { e.stopPropagation(); currentExtension += 60; stableN -= 60; if (toastText) toastText.innerHTML = `<b>Wait Time Extended! (+60s)</b><br><span style='font-size:11px; color:#0078d4; font-weight:bold;'>Total stability window: ${currentExtension + 8}s</span>`; }; } 
-                else { toastBtn.style.display = 'none'; }
+        if (toast && !manualAbort) {
+            toast.style.display = window.hideUIOverlay ? 'none' : 'flex';
+            if (injLbl) {
+                let prefix = "System Status";
+                if (text.includes('typing') || text.includes('responding') || text.includes('complete')) {
+                    prefix = "AI Status";
+                }
+                injLbl.innerHTML = `${prefix}: <span style="color: var(--primary); font-weight: bold;">${text}</span>`;
             }
-            if (stableN < 0 && toastText) { toastText.innerHTML = `<b>Monitoring Extension</b><br><span style='font-size:11px; color:#0078d4;'>Stable state detected. Waiting ${Math.abs(stableN) + 8}s more...</span>`; }
-        } */
+            if (injBar) {
+                if (text.includes('complete') || text.includes('Fetching')) {
+                    injBar.style.width = '100%';
+                    injBar.style.background = 'var(--primary)';
+                } else if (text.includes('typing')) {
+                    const charCount = parseInt(text.match(/\d+/) || '0');
+                    const simulatedProgress = Math.min(90, 30 + Math.floor(charCount / 20));
+                    injBar.style.width = `${simulatedProgress}%`;
+                    injBar.style.background = 'var(--primary)';
+                } else {
+                    injBar.style.width = '15%';
+                    injBar.style.background = '#333';
+                }
+            }
+        }
 
         if (webBar) {
             const p = isStableMode ? progress : stableN;
-            if (p > 0) { webBar.style.width = `${Math.max(0, 100 - (p / 8) * 100)}%`; webBar.style.background = '#0078d4'; } 
-            else if (p < 0) { webBar.style.width = `${Math.max(0, 100 - ((p + currentExtension) / (currentExtension + 8)) * 100)}%`; webBar.style.background = '#0078d4'; } 
-            else { webBar.style.width = '100%'; webBar.style.background = '#ffa500'; }
+            if (p > 0) { webBar.style.width = `${Math.max(0, 100 - (p / 8) * 100)}%`; webBar.style.background = 'var(--primary)'; } 
+            else if (p < 0) { webBar.style.width = `${Math.max(0, 100 - ((p + currentExtension) / (currentExtension + 8)) * 100)}%`; webBar.style.background = 'var(--primary)'; } 
+            else { webBar.style.width = '100%'; webBar.style.background = 'var(--primary)'; }
         }
     };
 
@@ -1652,9 +2293,24 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         return cleaned.trim();
     };
 
-    const hideGlobalUI = () => { document.getElementById('injection-toast')?.setAttribute('style', 'display:none'); if (webBarCont) webBarCont.style.display = 'none'; };
-    // [🛠️ 보완: 대기 시작 시점의 기존 텍스트 저장]
+    const hideGlobalUI = () => {
+        if (!window.autoContinueOnRead) {
+            const toast = document.getElementById('injection-toast');
+            if (toast) toast.style.display = 'none';
+        }
+        if (webBarCont) webBarCont.style.display = 'none';
+    };
+    // [🛠️ 보완: 대기 시작 시점의 기존 텍스트 및 노드 개수 저장]
     const initialText = cleanGarbage(await wv.executeJavaScript(extractScript).catch(() => ""));
+    const getNodeCountScript = `(() => {
+        const selectors = ['model-response .markdown', 'message-content .markdown-prose', '[data-testid="message-content"]', '.response-content'];
+        for (let sel of selectors) {
+            const nodes = document.querySelectorAll(sel);
+            if (nodes.length > 0) return nodes.length;
+        }
+        return 0;
+    })()`;
+    const initialNodeCount = await wv.executeJavaScript(getNodeCountScript).catch(() => 0);
     let isGenerating = false;
     let lastText = "";
     let stableCount = 0;
@@ -1671,9 +2327,12 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             delta = cleanGarbage(delta);
         }
 
-        // [🛠️ 보완: 이전 답변 내용 필터링 및 대기]
-        if (delta === initialText) {
-            delta = ""; // 아직 새 답변 작성을 시작하지 않은 상태
+        // [🛠️ 보완: 이전 답변 내용 및 대화 턴(노드 개수) 검증 필터링]
+        const currentNodeCount = await wv.executeJavaScript(getNodeCountScript).catch(() => 0);
+        if (currentNodeCount <= initialNodeCount && delta === initialText) {
+            delta = ""; // 아직 새 노드가 생성되지 않았고 텍스트가 이전 답변과 동일함
+        } else if (currentNodeCount > initialNodeCount) {
+            // 새 노드가 생성된 상태이므로 자유롭게 답변 수집
         } else {
             if (initialText && delta.startsWith(initialText)) {
                 delta = delta.substring(initialText.length).trim();
@@ -1696,8 +2355,8 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             }
             lastText = delta;
 
-            // 텍스트 변화가 5번(약 5초) 이상 멈췄다면 선택지가 떴든 말든 강제로 완료 처리
-            if (stableCount >= 5) {
+            // 텍스트 변화가 2번(약 2초) 이상 멈췄다면 선택지가 떴든 말든 강제로 완료 처리
+            if (stableCount >= 2) {
                 updateUI("Generation complete! Fetching...", 100); 
                 hideGlobalUI(); 
                 return cleanGarbage(delta);
@@ -1706,6 +2365,11 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             }
         } else {
             updateUI("Waiting for AI to start...", 0, false);
+            if (i >= 15) {
+                hideGlobalUI();
+                ChatUI.appendBubble('system', '[SYSTEM] Web AI response start timeout (15s). Releasing lock.');
+                return null;
+            }
         }
     }
     if (manualAbort) { hideGlobalUI(); return await manualPromise; } hideGlobalUI(); return null;
@@ -1727,13 +2391,164 @@ async function migrateToVault() {
     if (kwStr) { const currentKw = await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt'); if (!currentKw) ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: kwStr }); }
 }
 
+
+// ====== PROJECT PICKER MODAL LOGIC ======
+window.projectRoot = null;
+
+async function openProjectModal() {
+    const modal = document.getElementById('project-picker-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+  // 최근 프로젝트 로드
+    const recents = await ipcRenderer.invoke('get-recent-projects');
+    const list = document.getElementById('recent-projects-list');
+    if (!list) return;
+
+    if (!recents || recents.length === 0) {
+        list.innerHTML = `<div style="font-size:12px; color:#777; padding:10px 0; font-family:'JetBrains Mono',monospace; text-align:center;">No recent projects</div>`;
+    } else {
+        list.innerHTML = recents.map((p, i) => {
+            const name = p.split(/[\\/]/).pop() || p;
+            const short = p.length > 48 ? '...' + p.slice(-45) : p;
+            
+            // ▼ onclick 부분을 this.getAttribute('data-path') 로 깔끔하게 변경했습니다.
+            return `<div data-path="${p}" class="recent-project-item" onclick="window.selectProject(this.getAttribute('data-path'))" 
+                style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; cursor:pointer; border:1px solid transparent; transition:all 0.15s; background:transparent;"
+                onmouseover="this.style.background='#1a1a1f'; this.style.borderColor='#333';"
+                onmouseout="this.style.background='transparent'; this.style.borderColor='transparent';">
+                <div style="min-width:0;">
+                    <div style="font-size:13px; font-weight:600; color:#ddd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>
+                    <div style="font-size:10px; color:#777; font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">${short}</div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Browse 버튼
+    const browseBtn = document.getElementById('picker-browse-btn');
+    if (browseBtn) {
+        browseBtn.onclick = async () => {
+            const selected = await ipcRenderer.invoke('select-folder-dialog');
+            if (selected) window.selectProject(selected);
+        };
+    }
+
+    // 브라우저 탭 영역 드래그 앤 드롭 파일 첨부 연동
+    const hub = document.getElementById('inspector-browser-hub');
+    if (hub) {
+        hub.ondragover = (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        };
+        hub.ondrop = async (e) => {
+            e.preventDefault();
+            
+            let filePath = '';
+            
+            // 1. 내부 드래그 (Tree View 파일 드래그)
+            const internalPath = e.dataTransfer.getData('text/plain');
+            if (internalPath) {
+                filePath = internalPath;
+            } 
+            // 2. 외부 드래그 (탐색기 파일 드래그)
+            else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const fs = require('fs');
+                const path = require('path');
+                const file = e.dataTransfer.files[0];
+                const absolutePath = file.path;
+                if (window.currentPath) {
+                    filePath = path.relative(window.currentPath, absolutePath);
+                } else {
+                    filePath = path.basename(absolutePath);
+                }
+            }
+
+            if (!filePath) return;
+
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+                
+                if (fs.existsSync(targetPath)) {
+                    const chatOverlay = document.getElementById('local-chat-overlay');
+                    const progressBox = document.getElementById('overlay-progress-box');
+                    const projBtn = document.getElementById('btn-send-project-info');
+                    if (chatOverlay && progressBox && projBtn) {
+                        chatOverlay.style.display = 'flex';
+                        projBtn.style.display = 'none';
+                        progressBox.style.display = 'flex';
+                    }
+
+                    window.readFilesSet.add(filePath);
+                    if (typeof window.updateSendProgress === 'function') {
+                        window.updateSendProgress(window.readFilesSet.size, window.totalFilesCount);
+                    }
+
+                    const rawContent = fs.readFileSync(targetPath, 'utf-8');
+                    const ext = filePath.split('.').pop().toLowerCase();
+                    const fileContent = extractCodeOutline(rawContent, ext);
+                    const finalMessage = `[FILE DATA (OUTLINE ONLY): ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\nProceed to analyze this file.`;
+
+                    ChatUI.appendBubble('system', `[SYSTEM] Drag & Drop: Injecting ${filePath} content outline to Web AI...`);
+
+                    // 1단계: 주입 완료 후 발송 처리
+                    await injectWebPayload(finalMessage, 1);
+                    
+                    // 2단계: 주입 완결 직후 감시 엔진 구동
+                    const response = await runExperimentalEngine('/marktag', finalMessage, null);
+                    
+                    if (chatOverlay && progressBox && projBtn) {
+                        chatOverlay.style.display = 'none';
+                        progressBox.style.display = 'none';
+                        projBtn.style.display = 'flex';
+                    }
+
+                    if (response) {
+                        // 백그라운드 미러링이 단독 1회 추가하므로 여기서는 수동 추가 및 명령 파싱을 생략
+                    }
+                } else {
+                    ChatUI.appendBubble('system', `[ERROR] Drag & Drop failed: File not found: ${filePath}`);
+                }
+            } catch (err) {
+                ChatUI.appendBubble('system', `[ERROR] Drag & Drop parse failed: ${err.message}`);
+            }
+        };
+    }
+}
+
+window.selectProject = async (folderPath) => {
+    if (!folderPath) return;
+    window.projectRoot = folderPath;
+    window.currentPath = folderPath;
+    ipcRenderer.send('save-recent-project', folderPath);
+    window.reloadAgentSettings();
+
+    // 모달 닫기
+    const modal = document.getElementById('project-picker-modal');
+    if (modal) modal.style.display = 'none';
+
+    // 파일 트리 로드
+    await window.loadDirectory(folderPath);
+
+};
+
+window.openProjectModal = openProjectModal;
+// ====== END PROJECT PICKER MODAL LOGIC ======
+
 document.addEventListener('DOMContentLoaded', async () => {
+
     await migrateToVault(); 
     setupUI(); 
-    addSubTerminal(true); 
+    addSubTerminal(true);
+
+    // 시작 시 프로젝트 선택 모달 표시
+    openProjectModal();
     
     // 1. 먼저 Browser 탭에서 시작 (초기화 및 컨텍스트 로딩을 시각적으로 보여줌)
     document.getElementById('tab-browser-hub')?.click();
+
     
     await setupBoot();
     
@@ -1746,6 +2561,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (chatIn) chatIn.focus();
         }
     }, 1000);
+
+    ipcRenderer.on('trigger-app-reload', () => {
+        const browserTab = document.getElementById('inspector-browser-hub');
+        const wv = document.getElementById('active-agent-webview');
+        if (browserTab && browserTab.style.display === 'flex' && wv) {
+            wv.reload();
+            ChatUI.appendBubble('system', '[SYSTEM] Browser Webview refreshed.');
+        } else {
+            location.reload();
+        }
+    });
+
+    // 20x20 좌측 상단 비상 탈출 터치존 이벤트 결합
+    const bailoutZone = document.getElementById('toast-bailout-zone');
+    if (bailoutZone) {
+        bailoutZone.onclick = (e) => {
+            e.stopPropagation();
+            const toast = document.getElementById('injection-toast');
+            if (toast) toast.style.display = 'none';
+            const chatOverlay = document.getElementById('local-chat-overlay');
+            if (chatOverlay) chatOverlay.style.display = 'none';
+            ChatUI.appendBubble('system', '[SYSTEM] Emergency bailout: Force closed loading overlays.');
+        };
+    }
 
     // Terminal Popover Event Bindings
     const popoverBtn = document.getElementById('terminal-toggle-btn');
@@ -1785,14 +2624,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             const sw = popoverWin.offsetWidth, sh = popoverWin.offsetHeight;
             popoverWin.style.transition = 'none'; // 드래그 시 딜레이 제거
             
+            const parent = popoverWin.parentElement;
+            const parentWidth = parent ? parent.clientWidth : window.innerWidth;
+            const parentHeight = parent ? parent.clientHeight : window.innerHeight;
+            const maxWidth = parentWidth - 30; // left 15px + margin 15px
+            const maxHeight = parentHeight - 73; // bottom 58px + margin 15px
+            
             const mv = (m) => {
                 if (dir === 'r' || dir === 'tr') {
                     const nw = sw + (m.clientX - sx);
-                    popoverWin.style.width = `${Math.max(350, Math.min(window.innerWidth * 0.9, nw))}px`;
+                    popoverWin.style.width = `${Math.max(350, Math.min(maxWidth, nw))}px`;
                 }
                 if (dir === 't' || dir === 'tr') {
                     const nh = sh - (m.clientY - sy);
-                    popoverWin.style.height = `${Math.max(200, Math.min(window.innerHeight * 0.8, nh))}px`;
+                    popoverWin.style.height = `${Math.max(200, Math.min(maxHeight, nh))}px`;
                 }
             };
             const up = () => {

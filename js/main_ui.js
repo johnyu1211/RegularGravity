@@ -672,15 +672,31 @@ ${projectTree}
                     const decodedText = decodeURIComponent(escape(atob(base64Data))).trim();
                     if (!decodedText) return;
                     if (decodedText === lastReceivedMirrorText) return;
-                    const chatHistory = document.getElementById('chat-history');
-                    if (chatHistory) {
-                        const existingBubbles = Array.from(chatHistory.querySelectorAll('.bubble.ai .bubble-content'));
+                    
+                    const chatLog = document.getElementById('local-chat-messages');
+                    if (chatLog) {
+                        const existingBubbles = Array.from(chatLog.querySelectorAll('.chat-bubble.ai .bubble-content'));
                         const isDuplicate = existingBubbles.some(bubble => bubble.innerText.trim() === decodedText);
                         if (isDuplicate) {
                             lastReceivedMirrorText = decodedText;
                             return;
                         }
+                        
+                        if (existingBubbles.length > 0) {
+                            const lastBubble = existingBubbles[existingBubbles.length - 1];
+                            const lastText = lastBubble.innerText.trim();
+                            if (lastText && decodedText.startsWith(lastText)) {
+                                lastBubble.innerHTML = typeof marked !== 'undefined' ? marked.parse(decodedText).trim() : decodedText.trim();
+                                if (typeof hljs !== 'undefined') {
+                                    lastBubble.parentElement.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                                }
+                                lastReceivedMirrorText = decodedText;
+                                detectAndAskCommand(decodedText);
+                                return;
+                            }
+                        }
                     }
+                    
                     lastReceivedMirrorText = decodedText;
                     ChatUI.appendBubble('ai', decodedText, false, getWebIcon(wv));
                     detectAndAskCommand(decodedText);

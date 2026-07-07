@@ -386,7 +386,7 @@ function detectAndAskCommand(text) {
             }
         };
 
-        if (window.autoContinueOnRead) {
+        if (window.autoContinueOnRead && !window.dragDropMode) {
             runRead();
         } else {
             const box = ChatUI.appendBubble('system', '');

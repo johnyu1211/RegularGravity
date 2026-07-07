@@ -724,12 +724,6 @@ ${projectTree}
                     
                     const chatLog = document.getElementById('local-chat-messages');
                     if (chatLog) {
-                        const existingBubbles = Array.from(chatLog.querySelectorAll('.chat-bubble.ai .bubble-content'));
-                        const isDuplicate = existingBubbles.some(bubble => (bubble.dataset.rawText || bubble.innerText.trim()) === decodedText);
-                        if (isDuplicate) {
-                            lastReceivedMirrorText = decodedText;
-                            return;
-                        }
                         
                         if (!window.isNewResponse && window.lastActiveAiBubble) {
                             const contentEl = window.lastActiveAiBubble.querySelector('.bubble-content');

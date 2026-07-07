@@ -456,14 +456,11 @@ function detectAndAskCommand(text) {
 
                     const overlay = document.createElement('div');
                     overlay.id = 'drag-drop-input-overlay';
-                    overlay.style.cssText = "position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.95); z-index: 100; font-family: 'DM Sans', sans-serif; padding: 6px; box-sizing: border-box;";
+                    overlay.style.cssText = "position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 100; pointer-events: none; display: flex; align-items: center; justify-content: center;";
 
                     overlay.innerHTML = `
-                        <div style="font-size: 24px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; margin-bottom: 2px;">
+                        <div style="font-size: 24px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; line-height: 1;">
                             ↓
-                        </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="drag-cancel-btn" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 10px;">CANCEL</button>
                         </div>
                     `;
 
@@ -506,10 +503,6 @@ function detectAndAskCommand(text) {
                     window.activeDragDropCleanup = cleanupDragDrop;
                     window.activeDragDropContinue = async () => {
                         await runRead();
-                    };
-
-                    overlay.querySelector('.drag-cancel-btn').onclick = () => {
-                        cleanupDragDrop();
                     };
 
                     const wv = document.getElementById('active-agent-webview');

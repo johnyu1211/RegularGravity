@@ -1275,6 +1275,20 @@ ${tree}
                 GravityVault.init();
             };
         }
+    const bailoutZone = document.getElementById('toast-bailout-zone');
+    if (bailoutZone) {
+        bailoutZone.onclick = (e) => {
+            e.stopPropagation();
+            const toast = document.getElementById('injection-toast');
+            if (toast) toast.style.display = 'none';
+            const chatOverlay = document.getElementById('local-chat-overlay');
+            if (chatOverlay) chatOverlay.style.display = 'none';
+            const progressBox = document.getElementById('overlay-progress-box');
+            if (progressBox) progressBox.style.display = 'none';
+            const projBtn = document.getElementById('btn-send-project-info');
+            if (projBtn) projBtn.style.display = 'flex';
+            ChatUI.appendBubble('system', '[SYSTEM] Emergency bailout: Force closed loading overlays.');
+        };
     }
     updateAgentBadge();
 }

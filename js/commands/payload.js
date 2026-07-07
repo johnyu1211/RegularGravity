@@ -235,29 +235,6 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             await new Promise(r => setTimeout(r, 350));
             const clickScript = `
                 (async () => {
-                    const findSendBtn = () => {
-                        const btns = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"]'));
-                        for (let el of btns) {
-                            const label = (el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
-                            if (label.includes('전송') || label.includes('보내기') || label.includes('send') || label.includes('submit')) return el;
-                        }
-                        const svgBtns = Array.from(document.querySelectorAll('button'));
-                        for (let el of svgBtns) {
-                            if (el.querySelector('svg')) {
-                                const html = el.innerHTML.toLowerCase();
-                                if (html.includes('send') || html.includes('paper-plane') || html.includes('arrow') || html.includes('submit')) return el;
-                            }
-                        }
-                        return null;
-                    };
-
-                    const sendBtn = findSendBtn();
-                    if (sendBtn) {
-                        sendBtn.click();
-                        return true;
-                    }
-
-                    // Fallback to double Enter if send button not found
                     const findInput = () => {
                         const inKeywords = ${JSON.stringify(inKeywords)};
                         const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
@@ -281,20 +258,27 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
 
                     input.focus();
 
+                    const dispatchEnter = (el) => {
+                        const createEvent = (type) => {
+                            const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter' });
+                            Object.defineProperty(ev, 'keyCode', { get: () => 13 });
+                            Object.defineProperty(ev, 'which', { get: () => 13 });
+                            Object.defineProperty(ev, 'charCode', { get: () => 13 });
+                            return ev;
+                        };
+                        el.dispatchEvent(createEvent('keydown'));
+                        el.dispatchEvent(createEvent('keypress'));
+                        el.dispatchEvent(createEvent('keyup'));
+                    };
+
                     // Dispatch Enter 1
-                    const down1 = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                    const up1 = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                    input.dispatchEvent(down1);
-                    input.dispatchEvent(up1);
+                    dispatchEnter(input);
 
                     // Wait 500ms
                     await new Promise(r => setTimeout(r, 500));
 
                     // Dispatch Enter 2
-                    const down2 = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                    const up2 = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                    input.dispatchEvent(down2);
-                    input.dispatchEvent(up2);
+                    dispatchEnter(input);
 
                     return true;
                 })()

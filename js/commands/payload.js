@@ -146,12 +146,17 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                     const newText = ${isAppend} ? inputEl.value + decodedPayload : decodedPayload;
                     setter.call(inputEl, newText);
                 } else {
-                    const lines = decodedPayload.split('\\n');
-                    const chunkSize = 30;
-                    for (let idx = 0; idx < lines.length; idx += chunkSize) {
-                        const chunk = lines.slice(idx, idx + chunkSize).join('\\n') + (idx + chunkSize < lines.length ? '\\n' : '');
-                        document.execCommand('insertText', false, chunk);
-                    }
+                    const escapeHtml = (text) => {
+                        return text
+                            .replace(/&/g, "&amp;")
+                            .replace(/</g, "&lt;")
+                            .replace(/>/g, "&gt;")
+                            .replace(/"/g, "&quot;")
+                            .replace(/'/g, "&#039;")
+                            .replace(/\\n/g, "<br>");
+                    };
+                    const htmlText = escapeHtml(decodedPayload);
+                    document.execCommand('insertHTML', false, htmlText);
                 }
                 
                 inputEl.dispatchEvent(new Event('input', { bubbles: true }));

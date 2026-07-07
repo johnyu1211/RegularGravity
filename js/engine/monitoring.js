@@ -315,7 +315,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             }
             lastText = delta;
 
-            if (stableCount >= 4) {
+            if (stableCount >= 8) {
                 updateUI("Generation complete! Fetching...", 100); 
                 
                 const hasCmd = /\[CMD:\s*([^\]]+)\]/gi.test(delta);

@@ -759,21 +759,14 @@ async function setupBoot() {
                             await injectWebPayload("dont think simply answer me 'A'"); await runExperimentalEngine('/marktag', "dont think simply answer me 'A'", null);
                             ChatUI.appendBubble('system', '[SYSTEM] INITIALIZATION COMPLETE.');
                             
+                            const startPrompt = window.dragDropMode 
+                                ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "파일명"] 형태로 즉시 답변하십시오.` 
+                                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.`;
+
                             const briefPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
 ${projectTree}
-
-[SYSTEM RULES]
-1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 [CMD: ...] 명령어만 단답형 제출.
-2. 명령 규격:
-   - [CMD: read-file "경로"] (개요 파악)
-   - [CMD: read-file-full "경로"] (전체 정밀 분석)
-   - [CMD: read-file-range "경로" 시작줄-끝줄] (범위 분석, 최대 2000줄 제한)
-   - [CMD: search-file "경로" "검색어"] (파일 내 검색)
-   - [CMD: search-all "검색어"] (전역 검색)
-3. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 핵심 키워드로 [CMD: search-all "검색어"]를 최우선 실행하여 위치를 파악한 뒤, 대상 소스 본문을 [CMD: read-file...]로 직접 읽고 검증하여 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
-4. 문구 제한: 명령어 제출 시 '코드를 읽어보는게 정확하겠습니다' 등 사족 절대 금지. 오직 '읽어보겠습니다.' 등 짧은 단답 직후 명령어만 표시.
-5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).
-이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.`.trim();
+${window.getSystemRulesPrompt()}
+${startPrompt}`.trim();
 
                             window.currentBatchFileCount = -1;
                             const briefPromise = runExperimentalEngine('/marktag', briefPayload, null);

@@ -750,7 +750,7 @@ ${projectTree}
                             window.briefingInProgress = false;
                             window.hideInputLoading();
                             document.getElementById('tab-local-agent').click();
-                            if (briefResponse) { window.finalizeAiBubble(briefResponse); detectAndAskCommand(briefResponse); }
+                            if (briefResponse) { detectAndAskCommand(briefResponse); }
                         } catch (err) {
                             window.sessionBriefed = true;
                             window.briefingInProgress = false;
@@ -835,6 +835,7 @@ ${projectTree}
         wv.addEventListener('console-message', (e) => {
             if (e.message.startsWith('[BACKGROUND_AI_RESP]:')) {
                 if (!window.activeAiResponding) return;
+                if (window.currentBatchFileCount === -1) return;
                 try {
                     const base64Data = e.message.split('[BACKGROUND_AI_RESP]:')[1];
                     const decodedText = decodeURIComponent(escape(atob(base64Data))).trim();
@@ -1401,7 +1402,6 @@ ${tree}
             try {
                 const response = await enginePromise;
                 if (response) {
-                    ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
                     detectAndAskCommand(response);
                 }
             } catch (err) {

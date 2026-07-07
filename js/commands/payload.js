@@ -169,6 +169,20 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                 let currentLine = 0;
                 for (let idx = 0; idx < chunks.length; idx++) {
                     const chunk = chunks[idx];
+                    
+                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                        inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length;
+                    } else {
+                        const range = document.createRange();
+                        range.selectNodeContents(inputEl);
+                        range.collapse(false);
+                        const selection = window.getSelection();
+                        if (selection) {
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
+                    }
+
                     document.execCommand('insertText', false, chunk);
                     inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                     inputEl.dispatchEvent(new Event('change', { bubbles: true }));

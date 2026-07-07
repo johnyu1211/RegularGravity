@@ -306,16 +306,19 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                 return false;
             })()`).catch(() => false);
 
-            const isTextStopped = (delta === lastText);
-            
-            if (isTextStopped && delta.length > 0 && !isStillResponding) {
-                stableCount++; 
-            } else {
+            if (isStillResponding) {
                 stableCount = 0;
+            } else {
+                const isTextStopped = (delta === lastText);
+                if (isTextStopped && delta.length > 0) {
+                    stableCount++;
+                } else {
+                    stableCount = 0;
+                }
             }
             lastText = delta;
 
-            if (stableCount >= 8) {
+            if (stableCount >= 2) {
                 updateUI("Generation complete! Fetching...", 100); 
                 
                 const hasCmd = /\[CMD:\s*([^\]]+)\]/gi.test(delta);

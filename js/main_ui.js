@@ -851,14 +851,15 @@ ${startPrompt}`.trim();
         window.finalizeAiBubble = (response) => {
             if (!response) return;
             const chatLog = document.getElementById('local-chat-messages');
-            if (window.lastActiveAiBubble && window.lastActiveAiBubble.parentNode === chatLog) {
-                const contentEl = window.lastActiveAiBubble.querySelector('.bubble-content');
+            const targetBubble = window.lastActiveAiBubble;
+            if (targetBubble && targetBubble.parentNode === chatLog) {
+                const contentEl = targetBubble.querySelector('.bubble-content');
                 if (contentEl) {
                     window.activeAiResponding = false; // Turn off stream overwrites
                     window.typewriterHTML(contentEl, response, () => {
                         contentEl.dataset.rawText = response;
-                        if (typeof hljs !== 'undefined') {
-                            window.lastActiveAiBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                        if (targetBubble && typeof hljs !== 'undefined') {
+                            targetBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
                         }
                         if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
                     });

@@ -1675,14 +1675,52 @@ ${startPrompt}`.trim();
                     const fs = require('fs');
                     const pathModule = require('path');
                     try {
-                        const content = fs.readFileSync(filePath, 'utf8');
+                        const contentBuffer = fs.readFileSync(filePath);
                         const filename = pathModule.basename(filePath);
-                        const injectText = `Below is the content of file "${filename}":\n\n\`\`\`\n${content}\n\`\`\``;
-                        if (typeof injectWebPayload === 'function') {
-                            await injectWebPayload(injectText, 1, 1, false, true);
+                        const base64Content = contentBuffer.toString('base64');
+                        
+                        const ext = filename.split('.').pop().toLowerCase();
+                        const mimeMap = {
+                            'js': 'text/javascript', 'json': 'application/json',
+                            'html': 'text/html', 'css': 'text/css',
+                            'txt': 'text/plain', 'md': 'text/markdown',
+                            'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                            'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
+                        };
+                        const mimeType = mimeMap[ext] || 'application/octet-stream';
+                        
+                        const wv = document.getElementById('active-agent-webview');
+                        if (wv) {
+                            wv.executeJavaScript(`
+                                (() => {
+                                    const b64 = "${base64Content}";
+                                    const name = "${filename}";
+                                    const mime = "${mimeType}";
+                                    
+                                    const binary = atob(b64);
+                                    const array = new Uint8Array(binary.length);
+                                    for (let i = 0; i < binary.length; i++) {
+                                        array[i] = binary.charCodeAt(i);
+                                    }
+                                    const blob = new Blob([array], { type: mime });
+                                    const file = new File([blob], name, { type: mime });
+                                    
+                                    const dt = new DataTransfer();
+                                    dt.items.add(file);
+                                    
+                                    let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
+                                    
+                                    const options = { bubbles: true, cancelable: true, dataTransfer: dt };
+                                    target.dispatchEvent(new DragEvent('dragenter', options));
+                                    target.dispatchEvent(new DragEvent('dragover', options));
+                                    target.dispatchEvent(new DragEvent('drop', options));
+                                    
+                                    console.log("[GuestDrop] Dispatched drop event for file:", name);
+                                })();
+                            `).catch(err => console.error("Failed to execute drop injection script:", err));
                         }
                     } catch (err) {
-                        console.error("Failed to read dropped file content:", err);
+                        console.error("Failed to process drop upload:", err);
                     }
                 }
             }

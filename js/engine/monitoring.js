@@ -258,6 +258,10 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             else if (p < 0) { webBar.style.width = `${Math.max(0, 100 - ((p + currentExtension) / (currentExtension + 8)) * 100)}%`; webBar.style.background = 'var(--primary)'; } 
             else { webBar.style.width = '100%'; webBar.style.background = 'var(--primary)'; }
         }
+
+        if (typeof window.showInputLoading === 'function' && !manualAbort) {
+            window.showInputLoading(text);
+        }
     };
 
     const hideGlobalUI = () => {
@@ -266,6 +270,9 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             if (toast) toast.style.display = 'none';
         }
         if (webBarCont) webBarCont.style.display = 'none';
+        if (typeof window.hideInputLoading === 'function') {
+            window.hideInputLoading();
+        }
     };
 
     window.activeAiResponding = true;

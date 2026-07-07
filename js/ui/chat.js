@@ -187,6 +187,10 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
         } catch (e) { 
             overlay.style.display = 'none'; 
             ChatUI.appendBubble('ai', `[ERROR] WebAI Mode failed: ${e.message}`);
+        } finally {
+            if (typeof window.hideInputLoading === 'function') {
+                window.hideInputLoading();
+            }
         }
         return;
     }

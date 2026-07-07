@@ -57,6 +57,10 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             
             if (injLbl) injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">0% (0/${totalLines})</span>`;
             if (injBar) injBar.style.width = "0%";
+            
+            if (typeof window.showInputLoading === 'function') {
+                window.showInputLoading("Injecting...");
+            }
         }
 
         // 2단계: 웹뷰 내부 단일 동기식 청크 주입 스크립트 실행 (중간 렌더러 스레드 양보가 없어 커서 튐/텍스트 깨짐 100% 차단)
@@ -91,6 +95,10 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                         injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">${pct}% (${curLines}/${totLines})</span>`;
                         injBar.style.width = `${pct}%`;
                     }
+                }
+                
+                if (typeof window.showInputLoading === 'function') {
+                    window.showInputLoading(`Injecting... (${pct}%)`);
                 }
             }
         };

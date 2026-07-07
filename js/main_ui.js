@@ -340,7 +340,9 @@ function detectAndAskCommand(text) {
 
                     combinedPayload += fileContentPayload;
                     
-                    // Update read progress smoothly
+                    if (typeof window.showInputLoading === 'function') {
+                        window.showInputLoading(`Reading files... (${i + 1}/${readCmds.length})`);
+                    }
                     if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${i + 1}/${readCmds.length}</span>`;
                     if (projBar) projBar.style.width = `${Math.floor(((i + 1) / readCmds.length) * 100)}%`;
                     ChatUI.appendBubble('system', `[SYSTEM] Prepared ${filePath} context (${i + 1}/${readCmds.length}).`);
@@ -377,6 +379,9 @@ function detectAndAskCommand(text) {
             } catch (err) {
                 ChatUI.appendBubble('system', `[ERROR] Failed to read files batch: ${err.message}`);
             } finally {
+                if (typeof window.hideInputLoading === 'function') {
+                    window.hideInputLoading();
+                }
                 if (!window.autoContinueOnRead) {
                     document.getElementById('tab-local-agent')?.click();
                 }
@@ -749,15 +754,13 @@ ${projectTree}
                             ]);
                             window.sessionBriefed = true;
                             window.briefingInProgress = false;
-                            const chatOverlay = document.getElementById('local-chat-overlay');
-                            if (chatOverlay) chatOverlay.style.display = 'none';
+                            window.hideInputLoading();
                             document.getElementById('tab-local-agent').click();
                             if (briefResponse) { window.finalizeAiBubble(briefResponse); detectAndAskCommand(briefResponse); }
                         } catch (err) {
                             window.sessionBriefed = true;
                             window.briefingInProgress = false;
-                            const chatOverlay = document.getElementById('local-chat-overlay');
-                            if (chatOverlay) chatOverlay.style.display = 'none';
+                            window.hideInputLoading();
                             document.getElementById('tab-local-agent').click();
                             ChatUI.appendBubble('system', '[ERROR] INITIALIZATION FAILED.');
                         }
@@ -765,6 +768,25 @@ ${projectTree}
                 }
             }, { once: true });
         }
+
+        window.showInputLoading = (text = "Processing...") => {
+            const overlay = document.getElementById('local-chat-overlay');
+            if (!overlay) return;
+            overlay.style.display = 'flex';
+            overlay.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px; color: #fff; font-size: 12px; font-weight: 500; font-family: 'DM Sans', sans-serif;">
+                    <div class="spinner-small" style="width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s infinite linear;"></div>
+                    <span>${text}</span>
+                </div>
+            `;
+        };
+        window.hideInputLoading = () => {
+            const overlay = document.getElementById('local-chat-overlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+                overlay.innerHTML = '';
+            }
+        };
 
         window.finalizeAiBubble = (response) => {
             if (!response) return;

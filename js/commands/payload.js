@@ -59,71 +59,73 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             if (injBar) injBar.style.width = "0%";
         }
 
-        // 2단계: 웹뷰 콘솔 리스너 장착 (진행률 실시간 고속 수신용)
-        const onConsole = (e) => {
-            if (e.message.startsWith('[INJECT_PCT]:')) {
-                const parts = e.message.split(':')[1].split(',');
-                const pct = parseInt(parts[0]);
-                const curLines = parseInt(parts[1] || '0');
-                const totLines = parseInt(parts[2] || '0');
-                
-                if (projLbl && projBar) {
-                    if (fileCount === -1) {
-                        const readCount = window.readFilesSet ? window.readFilesSet.size : 0;
-                        const projectPct = window.totalFilesCount ? Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100)) : 0;
-                        projLbl.innerHTML = `Project Context: <span style="color: var(--primary); font-weight: bold;">${projectPct}% (${readCount}/${window.totalFilesCount})</span> (Injecting ${pct}%)`;
-                        projBar.style.width = `${projectPct}%`;
-                    } else if (fileCount === 0) {
-                        projLbl.innerHTML = `System Status: <span style="color: var(--primary); font-weight: bold;">Sending message...</span>`;
-                        projBar.style.width = "100%";
-                    } else {
-                        projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${currentFileIndex}/${fileCount}</span>`;
-                        const filePct = Math.floor((currentFileIndex / fileCount) * 100);
-                        projBar.style.width = `${filePct}%`;
-                    }
-                }
-                
-                if (injLbl && injBar) {
-                    if (pct === 100) {
-                        injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">100% (${totLines}/${totLines})</span>`;
-                        injBar.style.width = "100%";
-                    } else {
-                        injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">${pct}% (${curLines}/${totLines})</span>`;
-                        injBar.style.width = `${pct}%`;
-                    }
-                }
-            }
-        };
-        wv.addEventListener('console-message', onConsole);
-
-        const cleanup = () => {
-            wv.removeEventListener('console-message', onConsole);
-            if (toast && !window.autoContinueOnRead) toast.style.display = 'none';
-        };
-
-        // 3단계: 단 1회의 executeJavaScript 호출로 웹뷰 내부 비동기 타이핑 실행 (IPC 병목 100% 제거)
+        // 2단계: 웹뷰 내부 단일 동기식 청크 주입 스크립트 실행 (중간 렌더러 스레드 양보가 없어 커서 튐/텍스트 깨짐 100% 차단)
         const injectionScript = `
-            (async () => {
+            (() => {
                 const inKeywords = ${JSON.stringify(inKeywords)};
+                
+                // Prioritize textareas and contenteditables over shallow text inputs
                 const findInput = () => {
                     const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-                    const candidates = Array.from(document.querySelectorAll('textarea, input[type="text"], div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
-                    for (let el of candidates) {
+                    const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
+                    for (let el of mainCandidates) {
                         const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
                         if (inKeywords.some(k => text.includes(k))) return el;
                     }
-                    return candidates[0] || null;
+                    if (mainCandidates.length > 0) return mainCandidates[0];
+
+                    const fallbackCandidates = Array.from(document.querySelectorAll('input[type="text"]')).filter(el => isVisible(el));
+                    for (let el of fallbackCandidates) {
+                        const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                        if (inKeywords.some(k => text.includes(k))) return el;
+                    }
+                    return fallbackCandidates[0] || null;
                 };
                 
                 const inputEl = findInput();
                 if (!inputEl) return "INPUT_NOT_FOUND";
                 
                 inputEl.focus();
+
+                const setCursorToEnd = (el) => {
+                    el.focus();
+                    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                        el.selectionStart = el.selectionEnd = el.value.length;
+                    } else {
+                        const getLastTextNode = (node) => {
+                            if (node.nodeType === 3) return node;
+                            for (let i = node.childNodes.length - 1; i >= 0; i--) {
+                                const child = node.childNodes[i];
+                                const textNode = getLastTextNode(child);
+                                if (textNode) return textNode;
+                            }
+                            return null;
+                        };
+                        const lastTextNode = getLastTextNode(el);
+                        const range = document.createRange();
+                        const selection = window.getSelection();
+                        if (selection) {
+                            if (lastTextNode) {
+                                range.setStart(lastTextNode, lastTextNode.length);
+                                range.setEnd(lastTextNode, lastTextNode.length);
+                            } else {
+                                range.selectNodeContents(el);
+                                range.collapse(false);
+                            }
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
+                    }
+                };
                 
-                if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
-                    inputEl.value = '';
+                if (!${isAppend}) {
+                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                        inputEl.value = '';
+                    } else {
+                        inputEl.innerText = '';
+                    }
                 } else {
-                    inputEl.innerText = '';
+                    setCursorToEnd(inputEl);
                 }
                 
                 // Base64 디코딩 (안전성 100%)
@@ -140,87 +142,15 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                 
                 if (!decodedPayload) return "DECODE_ERROR";
                 
-                // 100ms 포커스 대기
-                await new Promise(r => setTimeout(r, 100));
-                
-                // 메시지 라인 분할 및 30라인 단위의 고속 청크 쪼개기 (React 버퍼 오버헤드 차단)
+                // 메시지 라인 분할 및 30라인 단위 동기 루프 실행 (동기적 실행으로 중간 리렌더링 및 커서 튐 완벽 방지)
                 const lines = decodedPayload.split('\\n');
                 const chunkSize = 30;
-                const chunks = [];
                 for (let idx = 0; idx < lines.length; idx += chunkSize) {
-                    chunks.push(lines.slice(idx, idx + chunkSize).join('\\n') + (idx + chunkSize < lines.length ? '\\n' : ''));
-                }
-
-                let currentLine = 0;
-                for (let idx = 0; idx < chunks.length; idx++) {
-                    const chunk = chunks[idx];
+                    const chunk = lines.slice(idx, idx + chunkSize).join('\\n') + (idx + chunkSize < lines.length ? '\\n' : '');
                     document.execCommand('insertText', false, chunk);
                     inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                     inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                    
-                    const chunkLines = chunk.split('\\n').length - 1;
-                    currentLine += chunkLines;
-                    const pct = Math.floor(((idx + 1) / chunks.length) * 100);
-                    console.log("[INJECT_PCT]:" + pct + "," + currentLine + ",${totalLines}");
-                    
-                    // 15ms 미세 딜레이를 주어 브라우저가 버퍼를 렌더링하고 렌더러가 실시간 게이지를 갱신할 틈을 줌
-                    await new Promise(r => setTimeout(r, 15));
                 }
-                
-                if (!${clickSend}) {
-                    return "SUCCESS";
-                }
-
-                // 주입 후 짧은 텀을 주고 엔터 전송 및 전송 버튼 강제 클릭 시도
-                await new Promise(r => setTimeout(r, 150));
-                
-                const findSendBtn = () => {
-                    const btns = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"]'));
-                    for (let el of btns) {
-                        const label = (el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
-                        if (label.includes('전송') || label.includes('send') || label.includes('submit')) return el;
-                    }
-                    // 날개 비행기 SVG 아이콘을 품은 버튼 후보 탐색
-                    const svgBtns = Array.from(document.querySelectorAll('button'));
-                    for (let el of svgBtns) {
-                        if (el.querySelector('svg')) {
-                            const html = el.innerHTML.toLowerCase();
-                            if (html.includes('send') || html.includes('paper-plane') || html.includes('arrow') || html.includes('submit')) return el;
-                        }
-                    }
-                    return null;
-                };
-
-                const sendBtn = findSendBtn();
-                if (sendBtn) {
-                    sendBtn.click();
-                } else {
-                    const enterDown = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                    inputEl.dispatchEvent(enterDown);
-                    const enterPress = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                    inputEl.dispatchEvent(enterPress);
-                    const enterUp = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
-                    inputEl.dispatchEvent(enterUp);
-                }
-                
-                // 발송 성공 검증부 (입력창 텍스트가 완전히 비워지거나 정지 버튼이 생길 때까지 최대 3.5초 폴링 대기)
-                let isDispatched = false;
-                for (let i = 0; i < 35; i++) {
-                    const currentVal = (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') ? inputEl.value : inputEl.innerText;
-                    const hasStopBtn = Array.from(document.querySelectorAll('button, div[role="button"]')).some(el => {
-                        const lbl = (el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
-                        return lbl.includes('중단') || lbl.includes('stop') || lbl.includes('cancel');
-                    });
-                    if (!currentVal.trim() || hasStopBtn) {
-                        isDispatched = true;
-                        break;
-                    }
-                    if (i === 10 || i === 20) {
-                        if (sendBtn) sendBtn.click();
-                    }
-                    await new Promise(r => setTimeout(r, 100));
-                }
-                if (!isDispatched) return "SEND_TIMEOUT";
                 
                 return "SUCCESS";
             })()
@@ -231,21 +161,71 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             if (status !== "SUCCESS") {
                 const toastLabel = document.getElementById('project-pct-label');
                 if (toastLabel) toastLabel.innerText = "Error: " + status;
-                setTimeout(cleanup, 3000);
+                setTimeout(() => { if (toast) toast.style.display = 'none'; }, 3000);
                 return reject("Input failed: " + status);
             }
 
             if (injLbl) injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">100% (${totalLines}/${totalLines})</span>`;
             if (injBar) injBar.style.width = "100%";
 
-            if (clickSend) {
-                // 전송 처리 확인 대기 및 종료
-                await new Promise(r => setTimeout(r, 1500));
+            if (!clickSend) {
+                if (toast) toast.style.display = 'none';
+                return resolve(true);
             }
-            cleanup();
+
+            // 3단계: 짧은 대기 후 전송 버튼 클릭
+            await new Promise(r => setTimeout(r, 200));
+            const clickScript = `
+                (() => {
+                    const findSendBtn = () => {
+                        const btns = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"]'));
+                        for (let el of btns) {
+                            const label = (el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                            if (label.includes('전송') || label.includes('send') || label.includes('submit')) return el;
+                        }
+                        const svgBtns = Array.from(document.querySelectorAll('button'));
+                        for (let el of svgBtns) {
+                            if (el.querySelector('svg')) {
+                                const html = el.innerHTML.toLowerCase();
+                                if (html.includes('send') || html.includes('paper-plane') || html.includes('arrow') || html.includes('submit')) return el;
+                            }
+                        }
+                        return null;
+                    };
+
+                    const sendBtn = findSendBtn();
+                    let clicked = false;
+                    if (sendBtn) {
+                        sendBtn.click();
+                        clicked = true;
+                    } else {
+                        const input = document.querySelector('textarea, input[type="text"], div[contenteditable="true"]');
+                        if (input) {
+                            const enterEvt = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13 });
+                            input.dispatchEvent(enterEvt);
+                            clicked = true;
+                        }
+                    }
+                    return clicked;
+                })()
+            `;
+
+            await wv.executeJavaScript(clickScript).catch(() => false);
+
+            // 4단계: 발송 완료 대기 (최대 3.5초 폴링)
+            for (let i = 0; i < 35; i++) {
+                const isCleared = await wv.executeJavaScript(`(() => { const i = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); return i ? (i.value === "" && i.innerText.trim() === "") : true; })()`).catch(() => false);
+                const hasStopBtn = await wv.executeJavaScript(`(() => { return Array.from(document.querySelectorAll('button, div[role="button"]')).some(el => { const lbl = (el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase(); return lbl.includes('중단') || lbl.includes('stop') || lbl.includes('cancel'); }); })()`).catch(() => false);
+                if (isCleared || hasStopBtn) {
+                    break;
+                }
+                await new Promise(r => setTimeout(r, 100));
+            }
+
+            if (toast) toast.style.display = 'none';
             resolve(true);
         }).catch(err => {
-            cleanup();
+            if (toast) toast.style.display = 'none';
             reject(err);
         });
     });

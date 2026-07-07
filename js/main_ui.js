@@ -425,11 +425,27 @@ function detectAndAskCommand(text) {
                 };
                 dropZone.ondrop = async (e) => {
                     e.preventDefault();
-                    dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
-                    dropZone.style.display = 'none';
                     
                     const files = Array.from(e.dataTransfer.files);
                     if (files.length > 0) {
+                        const droppedNames = files.map(f => f.name.toLowerCase());
+                        const requestedNames = readCmds.map(cmd => {
+                            const parts = cmd.path.split(/[\\/]/);
+                            return parts[parts.length - 1].toLowerCase();
+                        });
+                        
+                        const hasAnyMatch = requestedNames.some(reqName => droppedNames.includes(reqName));
+                        if (!hasAnyMatch) {
+                            dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
+                            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                                ChatUI.appendBubble('system', `⚠️ [Drop Warning] Dropped file(s) do not match requested file: ${fileNames}. Please drop the correct file.`);
+                            }
+                            return;
+                        }
+
+                        dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
+                        dropZone.style.display = 'none';
+
                         if (box) box.remove();
                         
                         const pathMap = {};
@@ -447,6 +463,9 @@ function detectAndAskCommand(text) {
                         });
                         
                         await runRead(overriddenCmds);
+                    } else {
+                        dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
+                        dropZone.style.display = 'none';
                     }
                 };
 

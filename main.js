@@ -325,9 +325,10 @@ ipcMain.on('ondragstart', (event, filePath) => {
     const { nativeImage } = require('electron');
     const resolvedPath = path.resolve(filePath);
     console.log("[MainDrag] Resolved path:", resolvedPath);
-    const iconPath = path.resolve(__dirname, 'png.png');
-    console.log("[MainDrag] Icon path:", iconPath);
-    const dragIcon = nativeImage.createFromPath(iconPath);
+    
+    // 16x16 red square PNG buffer
+    const redPngB64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAD0lEQVR42mP8z8BQDw4iAACl4f7x5cT2swAAAABJRU5ErkJggg==';
+    const dragIcon = nativeImage.createFromBuffer(Buffer.from(redPngB64, 'base64'));
     console.log("[MainDrag] Drag icon empty?", dragIcon.isEmpty());
     
     try {

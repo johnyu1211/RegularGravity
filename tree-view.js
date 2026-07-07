@@ -100,7 +100,7 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         item.className = `file-item ${isDir && !isParentEntry ? 'directory' : 'file'} ${window.currentFilePath === fullPath ? 'active' : ''}`;
         item.dataset.path = fullPath;
         if (!isDir) {
-            item.draggable = true;
+            item.setAttribute('draggable', 'true');
             item.ondragstart = (e) => {
                 console.log("[TreeDrag] dragstart fired for:", fullPath);
                 e.preventDefault();

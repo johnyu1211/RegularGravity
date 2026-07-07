@@ -119,6 +119,37 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                 if (!inputEl) return "INPUT_NOT_FOUND";
                 
                 inputEl.focus();
+
+                const setCursorToEnd = (el) => {
+                    el.focus();
+                    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                        el.selectionStart = el.selectionEnd = el.value.length;
+                    } else {
+                        const getLastTextNode = (node) => {
+                            if (node.nodeType === 3) return node;
+                            for (let i = node.childNodes.length - 1; i >= 0; i--) {
+                                const child = node.childNodes[i];
+                                const textNode = getLastTextNode(child);
+                                if (textNode) return textNode;
+                            }
+                            return null;
+                        };
+                        const lastTextNode = getLastTextNode(el);
+                        const range = document.createRange();
+                        const selection = window.getSelection();
+                        if (selection) {
+                            if (lastTextNode) {
+                                range.setStart(lastTextNode, lastTextNode.length);
+                                range.setEnd(lastTextNode, lastTextNode.length);
+                            } else {
+                                range.selectNodeContents(el);
+                                range.collapse(false);
+                            }
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
+                    }
+                };
                 
                 if (!${isAppend}) {
                     if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
@@ -127,18 +158,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                         inputEl.innerText = '';
                     }
                 } else {
-                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
-                        inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length;
-                    } else {
-                        const range = document.createRange();
-                        range.selectNodeContents(inputEl);
-                        range.collapse(false);
-                        const selection = window.getSelection();
-                        if (selection) {
-                            selection.removeAllRanges();
-                            selection.addRange(range);
-                        }
-                    }
+                    setCursorToEnd(inputEl);
                 }
                 
                 // Base64 디코딩 (안전성 100%)
@@ -170,18 +190,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                 for (let idx = 0; idx < chunks.length; idx++) {
                     const chunk = chunks[idx];
                     
-                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
-                        inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length;
-                    } else {
-                        const range = document.createRange();
-                        range.selectNodeContents(inputEl);
-                        range.collapse(false);
-                        const selection = window.getSelection();
-                        if (selection) {
-                            selection.removeAllRanges();
-                            selection.addRange(range);
-                        }
-                    }
+                    setCursorToEnd(inputEl);
 
                     document.execCommand('insertText', false, chunk);
                     inputEl.dispatchEvent(new Event('input', { bubbles: true }));

@@ -60,109 +60,157 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
         }
 
         // 2단계: 웹뷰 내부 단일 동기식 청크 주입 스크립트 실행 (중간 렌더러 스레드 양보가 없어 커서 튐/텍스트 깨짐 100% 차단)
+        const onConsole = (e) => {
+            if (e.message.startsWith('[INJECT_PCT]:')) {
+                const parts = e.message.split(':')[1].split(',');
+                const pct = parseInt(parts[0]);
+                const curLines = parseInt(parts[1] || '0');
+                const totLines = parseInt(parts[2] || '0');
+                
+                if (projLbl && projBar) {
+                    if (fileCount === -1) {
+                        const readCount = window.readFilesSet ? window.readFilesSet.size : 0;
+                        const projectPct = window.totalFilesCount ? Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100)) : 0;
+                        projLbl.innerHTML = `Project Context: <span style="color: var(--primary); font-weight: bold;">${projectPct}% (${readCount}/${window.totalFilesCount})</span> (Injecting ${pct}%)`;
+                        projBar.style.width = `${projectPct}%`;
+                    } else if (fileCount === 0) {
+                        projLbl.innerHTML = `System Status: <span style="color: var(--primary); font-weight: bold;">Sending message...</span>`;
+                        projBar.style.width = "100%";
+                    } else {
+                        projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${currentFileIndex}/${fileCount}</span>`;
+                        const filePct = Math.floor((currentFileIndex / fileCount) * 100);
+                        projBar.style.width = `${filePct}%`;
+                    }
+                }
+                
+                if (injLbl && injBar) {
+                    if (pct === 100) {
+                        injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">100% (${totLines}/${totLines})</span>`;
+                        injBar.style.width = "100%";
+                    } else {
+                        injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">${pct}% (${curLines}/${totLines})</span>`;
+                        injBar.style.width = `${pct}%`;
+                    }
+                }
+            }
+        };
+        wv.addEventListener('console-message', onConsole);
+
+        const cleanup = () => {
+            wv.removeEventListener('console-message', onConsole);
+            if (toast && !window.autoContinueOnRead) toast.style.display = 'none';
+        };
+
         const injectionScript = `
             (() => {
-                const inKeywords = ${JSON.stringify(inKeywords)};
-                
-                // Prioritize textareas and contenteditables over shallow text inputs
-                const findInput = () => {
-                    const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-                    const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
-                    for (let el of mainCandidates) {
-                        const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
-                        if (inKeywords.some(k => text.includes(k))) return el;
-                    }
-                    if (mainCandidates.length > 0) return mainCandidates[0];
+                try {
+                    const inKeywords = ${JSON.stringify(inKeywords)};
+                    const findInput = () => {
+                        const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                        const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
+                        for (let el of mainCandidates) {
+                            const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                            if (inKeywords.some(k => text.includes(k))) return el;
+                        }
+                        if (mainCandidates.length > 0) return mainCandidates[0];
 
-                    const fallbackCandidates = Array.from(document.querySelectorAll('input[type="text"]')).filter(el => isVisible(el));
-                    for (let el of fallbackCandidates) {
-                        const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
-                        if (inKeywords.some(k => text.includes(k))) return el;
-                    }
-                    return fallbackCandidates[0] || null;
-                };
-                
-                const inputEl = findInput();
-                if (!inputEl) return "INPUT_NOT_FOUND";
-                
-                inputEl.focus();
+                        const fallbackCandidates = Array.from(document.querySelectorAll('input[type="text"]')).filter(el => isVisible(el));
+                        for (let el of fallbackCandidates) {
+                            const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                            if (inKeywords.some(k => text.includes(k))) return el;
+                        }
+                        return fallbackCandidates[0] || null;
+                    };
+                    
+                    const inputEl = findInput();
+                    if (!inputEl) return "INPUT_NOT_FOUND";
+                    
+                    inputEl.focus();
 
-                const setCursorToEnd = (el) => {
-                    el.focus();
-                    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
-                        el.selectionStart = el.selectionEnd = el.value.length;
+                    const setCursorToEnd = (el) => {
+                        el.focus();
+                        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                            el.selectionStart = el.selectionEnd = el.value.length;
+                        } else {
+                            const getLastTextNode = (node) => {
+                                if (node.nodeType === 3) return node;
+                                for (let i = node.childNodes.length - 1; i >= 0; i--) {
+                                    const child = node.childNodes[i];
+                                    const textNode = getLastTextNode(child);
+                                    if (textNode) return textNode;
+                                }
+                                return null;
+                            };
+                            const lastTextNode = getLastTextNode(el);
+                            const range = document.createRange();
+                            const selection = window.getSelection();
+                            if (selection) {
+                                if (lastTextNode) {
+                                    range.setStart(lastTextNode, lastTextNode.length);
+                                    range.setEnd(lastTextNode, lastTextNode.length);
+                                } else {
+                                    range.selectNodeContents(el);
+                                    range.collapse(false);
+                                }
+                                selection.removeAllRanges();
+                                selection.addRange(range);
+                            }
+                        }
+                    };
+                    
+                    if (!${isAppend}) {
+                        if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                            inputEl.value = '';
+                        } else {
+                            inputEl.innerText = '';
+                        }
                     } else {
-                        const getLastTextNode = (node) => {
-                            if (node.nodeType === 3) return node;
-                            for (let i = node.childNodes.length - 1; i >= 0; i--) {
-                                const child = node.childNodes[i];
-                                const textNode = getLastTextNode(child);
-                                if (textNode) return textNode;
-                            }
-                            return null;
+                        setCursorToEnd(inputEl);
+                    }
+
+                    const decodedPayload = (() => {
+                        try {
+                            const bin = atob("${base64Payload}");
+                            const bytes = new Uint8Array(bin.length);
+                            for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+                            return new TextDecoder("utf-8").decode(bytes);
+                        } catch (e) {
+                            return "";
+                        }
+                    })();
+                    
+                    if (!decodedPayload) return "DECODE_ERROR";
+                    
+                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                        const proto = inputEl.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+                        const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+                        const newText = ${isAppend} ? inputEl.value + decodedPayload : decodedPayload;
+                        setter.call(inputEl, newText);
+                    } else {
+                        const escapeHtml = (text) => {
+                            return text
+                                .replace(/&/g, "&amp;")
+                                .replace(/</g, "&lt;")
+                                .replace(/>/g, "&gt;")
+                                .replace(/"/g, "&quot;")
+                                .replace(/'/g, "&#039;")
+                                .replace(/\\n/g, "<br>");
                         };
-                        const lastTextNode = getLastTextNode(el);
-                        const range = document.createRange();
-                        const selection = window.getSelection();
-                        if (selection) {
-                            if (lastTextNode) {
-                                range.setStart(lastTextNode, lastTextNode.length);
-                                range.setEnd(lastTextNode, lastTextNode.length);
-                            } else {
-                                range.selectNodeContents(el);
-                                range.collapse(false);
-                            }
-                            selection.removeAllRanges();
-                            selection.addRange(range);
+                        const htmlText = escapeHtml(decodedPayload);
+                        try {
+                            document.execCommand('insertHTML', false, htmlText);
+                        } catch (cmdErr) {
+                            inputEl.innerText = decodedPayload;
                         }
                     }
-                };
-                
-                if (!${isAppend}) {
-                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
-                        inputEl.value = '';
-                    } else {
-                        inputEl.innerText = '';
-                    }
-                } else {
-                    setCursorToEnd(inputEl);
+                    
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                    
+                    return "SUCCESS";
+                } catch (err) {
+                    return "ERROR: " + err.message + "\\n" + err.stack;
                 }
-                
-                // Base64 디코딩 (안전성 100%)
-                const decodedPayload = (() => {
-                    try {
-                        const bin = atob("${base64Payload}");
-                        const bytes = new Uint8Array(bin.length);
-                        for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
-                        return new TextDecoder("utf-8").decode(bytes);
-                    } catch (e) {
-                        return "";
-                    }
-                })();
-                
-                if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
-                    const proto = inputEl.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-                    const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
-                    const newText = ${isAppend} ? inputEl.value + decodedPayload : decodedPayload;
-                    setter.call(inputEl, newText);
-                } else {
-                    const escapeHtml = (text) => {
-                        return text
-                            .replace(/&/g, "&amp;")
-                            .replace(/</g, "&lt;")
-                            .replace(/>/g, "&gt;")
-                            .replace(/"/g, "&quot;")
-                            .replace(/'/g, "&#039;")
-                            .replace(/\\n/g, "<br>");
-                    };
-                    const htmlText = escapeHtml(decodedPayload);
-                    document.execCommand('insertHTML', false, htmlText);
-                }
-                
-                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                
-                return "SUCCESS";
             })()
         `;
 
@@ -171,7 +219,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             if (status !== "SUCCESS") {
                 const toastLabel = document.getElementById('project-pct-label');
                 if (toastLabel) toastLabel.innerText = "Error: " + status;
-                setTimeout(() => { if (toast) toast.style.display = 'none'; }, 3000);
+                setTimeout(cleanup, 3000);
                 return reject("Input failed: " + status);
             }
 
@@ -235,7 +283,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             if (toast) toast.style.display = 'none';
             resolve(true);
         }).catch(err => {
-            if (toast) toast.style.display = 'none';
+            cleanup();
             reject(err);
         });
     });

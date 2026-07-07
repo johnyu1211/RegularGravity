@@ -239,6 +239,14 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         }
     };
 
+    const hideGlobalUI = () => {
+        if (!window.autoContinueOnRead) {
+            const toast = document.getElementById('injection-toast');
+            if (toast) toast.style.display = 'none';
+        }
+        if (webBarCont) webBarCont.style.display = 'none';
+    };
+
     window.activeAiResponding = true;
     const initialText = cleanGarbage(await wv.executeJavaScript(extractScript).catch(() => ""));
     let isGenerating = false;

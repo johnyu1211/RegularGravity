@@ -283,6 +283,36 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
 
     for (let i = 0; i < 2400; i++) { // 최대 20분 대기 (2400 * 500ms)
         await new Promise(r => setTimeout(r, 500));
+
+        const errorVal = await wv.executeJavaScript(`(() => {
+            const bodyText = document.body ? document.body.innerText : "";
+            const errorKeywords = [
+                "사용량이 많을 때 문제가 있습니다",
+                "문제가 있습니다 1095",
+                "Too many requests",
+                "quota exceeded",
+                "quota limit",
+                "Please try again later",
+                "Something went wrong",
+                "일시적인 오류가 발생했습니다"
+            ];
+            for (const kw of errorKeywords) {
+                if (bodyText.includes(kw)) {
+                    return kw;
+                }
+            }
+            return null;
+        })()`).catch(() => null);
+
+        if (errorVal) {
+            hideGlobalUI();
+            window.activeAiResponding = false;
+            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                ChatUI.appendBubble('system', `⚠️ [WEB AI ERROR] ${errorVal}\nWeb AI has blocked the request or encountered a quota/usage limit. Please review the browser tab.`);
+            }
+            return null;
+        }
+
         if (manualAbort) { hideGlobalUI(); return await manualPromise; }
 
         let delta = await wv.executeJavaScript(extractScript).catch(() => "");

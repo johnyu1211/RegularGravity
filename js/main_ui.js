@@ -1201,20 +1201,25 @@ function setupUI() {
         const vBH = document.getElementById('inspector-browser-hub');
         if (!vLC || !vBH) return;
         
+        window.splitViewActive = !!enabled;
+        
         if (enabled) {
-            vLC.style.height = '45%';
+            vLC.style.position = 'relative';
+            vLC.style.height = '48%';
             vLC.style.opacity = '1';
             vLC.style.pointerEvents = 'auto';
+            vLC.style.zIndex = '10';
             
-            vBH.style.position = 'absolute';
-            vBH.style.top = '45%';
-            vBH.style.height = 'calc(55% - 44px)';
+            vBH.style.position = 'relative';
+            vBH.style.height = 'calc(52% - 44px)';
             vBH.style.width = '100%';
-            vBH.style.zIndex = '150';
+            vBH.style.zIndex = '10';
         } else {
+            vLC.style.position = 'absolute';
             vLC.style.height = 'calc(100% - 44px)';
-            vBH.style.position = '';
-            vBH.style.top = '';
+            vLC.style.zIndex = '100';
+            
+            vBH.style.position = 'relative';
             vBH.style.height = 'calc(100% - 44px)';
             vBH.style.width = '100%';
             vBH.style.zIndex = '1';
@@ -1233,6 +1238,7 @@ function setupUI() {
     const tLA = document.getElementById('tab-local-agent'), tBH = document.getElementById('tab-browser-hub');
     const vLC = document.getElementById('inspector-local-chat'), vBH = document.getElementById('inspector-browser-hub');
     const swi = (m) => {
+        if (window.splitViewActive) return;
         if (m === 'local') {
             vLC.style.opacity = '1';
             vLC.style.pointerEvents = 'auto';

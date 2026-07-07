@@ -238,14 +238,14 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                     const findSendBtn = () => {
                         const btns = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"]'));
                         for (let el of btns) {
-                            const label = (el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
-                            if (label.includes('전송') || label.includes('send') || label.includes('submit')) return el;
+                            const label = (el.getAttribute('aria-label') || el.title || el.innerText || el.className || '').toLowerCase();
+                            if (label.includes('전송') || label.includes('send') || label.includes('submit') || label.includes('보내기') || label.includes('입력')) return el;
                         }
                         const svgBtns = Array.from(document.querySelectorAll('button'));
                         for (let el of svgBtns) {
                             if (el.querySelector('svg')) {
                                 const html = el.innerHTML.toLowerCase();
-                                if (html.includes('send') || html.includes('paper-plane') || html.includes('arrow') || html.includes('submit')) return el;
+                                if (html.includes('send') || html.includes('paper-plane') || html.includes('arrow') || html.includes('submit') || html.includes('보내기') || html.includes('up-arrow')) return el;
                             }
                         }
                         return null;

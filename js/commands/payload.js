@@ -235,36 +235,42 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             await new Promise(r => setTimeout(r, 350));
             const clickScript = `
                 (() => {
-                    const findSendBtn = () => {
-                        const btns = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"]'));
-                        for (let el of btns) {
-                            const label = (el.getAttribute('aria-label') || el.title || el.innerText || el.className || '').toLowerCase();
-                            if (label.includes('전송') || label.includes('send') || label.includes('submit') || label.includes('보내기') || label.includes('입력')) return el;
+                    const findInput = () => {
+                        const inKeywords = ${JSON.stringify(inKeywords)};
+                        const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                        const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
+                        for (let el of mainCandidates) {
+                            const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                            if (inKeywords.some(k => text.includes(k))) return el;
                         }
-                        const svgBtns = Array.from(document.querySelectorAll('button'));
-                        for (let el of svgBtns) {
-                            if (el.querySelector('svg')) {
-                                const html = el.innerHTML.toLowerCase();
-                                if (html.includes('send') || html.includes('paper-plane') || html.includes('arrow') || html.includes('submit') || html.includes('보내기') || html.includes('up-arrow')) return el;
-                            }
+                        if (mainCandidates.length > 0) return mainCandidates[0];
+
+                        const fallbackCandidates = Array.from(document.querySelectorAll('input[type="text"]')).filter(el => isVisible(el));
+                        for (let el of fallbackCandidates) {
+                            const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                            if (inKeywords.some(k => text.includes(k))) return el;
                         }
-                        return null;
+                        return fallbackCandidates[0] || null;
                     };
 
-                    const sendBtn = findSendBtn();
-                    let clicked = false;
-                    if (sendBtn) {
-                        sendBtn.click();
-                        clicked = true;
-                    } else {
-                        const input = document.querySelector('textarea, input[type="text"], div[contenteditable="true"]');
-                        if (input) {
-                            const enterEvt = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13 });
-                            input.dispatchEvent(enterEvt);
-                            clicked = true;
-                        }
-                    }
-                    return clicked;
+                    const input = findInput();
+                    if (!input) return false;
+
+                    input.focus();
+
+                    // Dispatch Enter 1
+                    const down1 = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                    const up1 = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                    input.dispatchEvent(down1);
+                    input.dispatchEvent(up1);
+
+                    // Dispatch Enter 2
+                    const down2 = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                    const up2 = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+                    input.dispatchEvent(down2);
+                    input.dispatchEvent(up2);
+
+                    return true;
                 })()
             `;
 

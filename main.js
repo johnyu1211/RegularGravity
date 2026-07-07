@@ -320,6 +320,11 @@ ipcMain.on('reveal-in-explorer', (event, p) => {
     if (p) shell.showItemInFolder(path.resolve(p));
 });
 
+ipcMain.on('relaunch-app', () => {
+    app.relaunch();
+    app.exit(0);
+});
+
 ipcMain.on('ondragstart', (event, filePath) => {
     console.log("[MainDrag] Received ondragstart for:", filePath);
     const { nativeImage } = require('electron');

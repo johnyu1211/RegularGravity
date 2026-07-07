@@ -462,7 +462,7 @@
     <script>
         (() => {
             const ipc = require('electron').ipcRenderer;
-            document.getElementById('win-reload').onclick = () => location.reload();
+            document.getElementById('win-reload').onclick = () => ipc.send('relaunch-app');
             document.getElementById('win-min').onclick = () => ipc.send('window-minimize');
             document.getElementById('win-max').onclick = () => ipc.send('window-maximize');
             document.getElementById('win-close').onclick = () => ipc.send('window-close');

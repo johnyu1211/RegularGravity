@@ -389,127 +389,165 @@ function detectAndAskCommand(text) {
         if (window.autoContinueOnRead && !window.dragDropMode) {
             runRead();
         } else {
-            const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
-            const themeColor = "#468CF6"; 
-            const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-            content.innerHTML = `
-                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                    <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">📄</span>${displayCmd}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                </div>
-            `;
-            
-            content.querySelector('.cmd-run-btn').onclick = async () => {
-                box.remove();
+            if (window.dragDropMode) {
                 const dropZone = document.getElementById('local-drop-zone');
-                if (dropZone) dropZone.style.display = 'none';
-                if (window.dragDropMode && typeof window.setSplitView === 'function') {
-                    window.setSplitView(false);
-                }
-                await runRead();
-            };
-            content.querySelector('.cmd-cancel-btn').onclick = () => {
-                box.remove();
-                const dropZone = document.getElementById('local-drop-zone');
-                if (dropZone) dropZone.style.display = 'none';
-                if (window.dragDropMode && typeof window.setSplitView === 'function') {
-                    window.setSplitView(false);
-                }
-            };
-
-            const dropZone = document.getElementById('local-drop-zone');
-            const dropTargetText = document.getElementById('drop-target-filename');
-            if (window.dragDropMode && dropZone && dropTargetText) {
-                if (typeof window.setSplitView === 'function') {
-                    window.setSplitView(true);
-                }
-                
-                const fileNames = readCmds.map(f => {
-                    const parts = f.path.split(/[\\/]/);
-                    return parts[parts.length - 1];
-                }).join(', ');
-                
-                const dropZoneText = document.getElementById('local-drop-zone-text');
-                if (dropZoneText) {
-                    dropZoneText.innerHTML = `Drag <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> from sidebar tree-view and drop it onto the Web AI below, then click CONTINUE.`;
-                }
-                
-                dropTargetText.innerText = fileNames;
-                dropZone.style.display = 'flex';
-                
-                dropZone.ondragover = (e) => {
-                    e.preventDefault();
-                    dropZone.style.background = 'rgba(70, 140, 246, 0.12)';
-                };
-                dropZone.ondragleave = () => {
-                    dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
-                };
-                dropZone.ondrop = async (e) => {
-                    e.preventDefault();
-                    
-                    const files = Array.from(e.dataTransfer.files);
-                    if (files.length > 0) {
-                        const droppedNames = files.map(f => f.name.toLowerCase());
-                        const requestedNames = readCmds.map(cmd => {
-                            const parts = cmd.path.split(/[\\/]/);
-                            return parts[parts.length - 1].toLowerCase();
-                        });
-                        
-                        const hasAnyMatch = requestedNames.some(reqName => droppedNames.includes(reqName));
-                        if (!hasAnyMatch) {
-                            dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
-                            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                                ChatUI.appendBubble('system', `⚠️ [Drop Warning] Dropped file(s) do not match requested file: ${fileNames}. Please drop the correct file.`);
-                            }
-                            return;
-                        }
-
-                        dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
-                        dropZone.style.display = 'none';
-                        if (typeof window.setSplitView === 'function') {
-                            window.setSplitView(false);
-                        }
-
-                        if (box) box.remove();
-                        
-                        const pathMap = {};
-                        files.forEach(f => {
-                            pathMap[f.name.toLowerCase()] = f.path;
-                        });
-                        
-                        const overriddenCmds = readCmds.map(cmd => {
-                            const parts = cmd.path.split(/[\\/]/);
-                            const name = parts[parts.length - 1].toLowerCase();
-                            if (pathMap[name]) {
-                                return { ...cmd, overridePath: pathMap[name] };
-                            }
-                            return cmd;
-                        });
-                        
-                        await runRead(overriddenCmds);
-                    } else {
-                        dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
-                        dropZone.style.display = 'none';
-                        if (typeof window.setSplitView === 'function') {
-                            window.setSplitView(false);
-                        }
+                const dropTargetText = document.getElementById('drop-target-filename');
+                if (dropZone && dropTargetText) {
+                    if (typeof window.setSplitView === 'function') {
+                        window.setSplitView(true);
                     }
-                };
-
-                const closeDropZone = document.getElementById('close-local-drop-zone');
-                if (closeDropZone) {
-                    closeDropZone.onclick = () => {
+                    
+                    const fileNames = readCmds.map(f => {
+                        const parts = f.path.split(/[\\/]/);
+                        return parts[parts.length - 1];
+                    }).join(', ');
+                    
+                    dropZone.style.height = '120px';
+                    
+                    // Clear existing buttons container
+                    const oldBtnContainer = dropZone.querySelector('.drag-drop-buttons');
+                    if (oldBtnContainer) oldBtnContainer.remove();
+                    
+                    const dropZoneText = document.getElementById('local-drop-zone-text');
+                    if (dropZoneText) {
+                        dropZoneText.innerHTML = `Drag <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> from sidebar tree-view and drop it onto the Web AI below, then click CONTINUE.`;
+                    }
+                    
+                    const btnContainer = document.createElement('div');
+                    btnContainer.className = 'drag-drop-buttons';
+                    btnContainer.style.cssText = "display: flex; gap: 8px; margin-top: 8px; width: 100%; justify-content: center;";
+                    
+                    const themeColor = "#468CF6";
+                    const glowShadow = "rgba(70, 140, 246, 0.15)";
+                    
+                    btnContainer.innerHTML = `
+                        <button class="drag-continue-btn" style="background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 11px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                        <button class="drag-cancel-btn" style="background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 5px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">CANCEL</button>
+                    `;
+                    
+                    btnContainer.querySelector('.drag-continue-btn').onclick = async () => {
                         dropZone.style.display = 'none';
+                        dropZone.style.height = '90px';
+                        btnContainer.remove();
+                        if (typeof window.setSplitView === 'function') {
+                            window.setSplitView(false);
+                        }
+                        await runRead();
+                    };
+                    
+                    btnContainer.querySelector('.drag-cancel-btn').onclick = () => {
+                        dropZone.style.display = 'none';
+                        dropZone.style.height = '90px';
+                        btnContainer.remove();
                         if (typeof window.setSplitView === 'function') {
                             window.setSplitView(false);
                         }
                     };
+                    
+                    dropZone.appendChild(btnContainer);
+                    dropTargetText.innerText = fileNames;
+                    dropZone.style.display = 'flex';
+                    
+                    dropZone.ondragover = (e) => {
+                        e.preventDefault();
+                        dropZone.style.background = 'rgba(70, 140, 246, 0.12)';
+                    };
+                    dropZone.ondragleave = () => {
+                        dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
+                    };
+                    dropZone.ondrop = async (e) => {
+                        e.preventDefault();
+                        
+                        const files = Array.from(e.dataTransfer.files);
+                        if (files.length > 0) {
+                            const droppedNames = files.map(f => f.name.toLowerCase());
+                            const requestedNames = readCmds.map(cmd => {
+                                const parts = cmd.path.split(/[\\/]/);
+                                return parts[parts.length - 1].toLowerCase();
+                            });
+                            
+                            const hasAnyMatch = requestedNames.some(reqName => droppedNames.includes(reqName));
+                            if (!hasAnyMatch) {
+                                dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
+                                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                                    ChatUI.appendBubble('system', `⚠️ [Drop Warning] Dropped file(s) do not match requested file: ${fileNames}. Please drop the correct file.`);
+                                }
+                                return;
+                            }
+
+                            dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
+                            dropZone.style.display = 'none';
+                            dropZone.style.height = '90px';
+                            btnContainer.remove();
+                            if (typeof window.setSplitView === 'function') {
+                                window.setSplitView(false);
+                            }
+                            
+                            const pathMap = {};
+                            files.forEach(f => {
+                                pathMap[f.name.toLowerCase()] = f.path;
+                            });
+                            
+                            const overriddenCmds = readCmds.map(cmd => {
+                                const parts = cmd.path.split(/[\\/]/);
+                                const name = parts[parts.length - 1].toLowerCase();
+                                if (pathMap[name]) {
+                                    return { ...cmd, overridePath: pathMap[name] };
+                                }
+                                return cmd;
+                            });
+                            
+                            await runRead(overriddenCmds);
+                        } else {
+                            dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
+                            dropZone.style.display = 'none';
+                            dropZone.style.height = '90px';
+                            btnContainer.remove();
+                            if (typeof window.setSplitView === 'function') {
+                                window.setSplitView(false);
+                            }
+                        }
+                    };
+
+                    const closeDropZone = document.getElementById('close-local-drop-zone');
+                    if (closeDropZone) {
+                        closeDropZone.onclick = () => {
+                            dropZone.style.display = 'none';
+                            dropZone.style.height = '90px';
+                            btnContainer.remove();
+                            if (typeof window.setSplitView === 'function') {
+                                window.setSplitView(false);
+                            }
+                        };
+                    }
                 }
+            } else {
+                const box = ChatUI.appendBubble('system', '');
+                const content = box.querySelector('.bubble-content');
+                const themeColor = "#468CF6"; 
+                const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+                content.innerHTML = `
+                    <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                        <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">📄</span>${displayCmd}
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                        <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                    </div>
+                `;
+                
+                content.querySelector('.cmd-run-btn').onclick = async () => {
+                    box.remove();
+                    const dropZone = document.getElementById('local-drop-zone');
+                    if (dropZone) dropZone.style.display = 'none';
+                    await runRead();
+                };
+                content.querySelector('.cmd-cancel-btn').onclick = () => {
+                    box.remove();
+                    const dropZone = document.getElementById('local-drop-zone');
+                    if (dropZone) dropZone.style.display = 'none';
+                };
             }
         }
     }

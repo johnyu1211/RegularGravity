@@ -274,71 +274,81 @@ function detectAndAskCommand(text) {
                 
                 let combinedPayload = "";
 
-                for (let i = 0; i < activeCmds.length; i++) {
-                    const fileObj = activeCmds[i];
-                    const filePath = fileObj.path;
-                    window.readFilesSet.add(filePath);
+                if (window.dragDropMode) {
+                    const fileNames = activeCmds.map(f => {
+                        const parts = f.path.split(/[\\/]/);
+                        return parts[parts.length - 1];
+                    }).join(', ');
                     
-                    let fileContentPayload = "";
-                    const targetPath = fileObj.overridePath || path.resolve(window.currentPath, filePath);
-                    if (fs.existsSync(targetPath)) {
-                        const rawContent = fs.readFileSync(targetPath, 'utf-8');
-                        const allLines = rawContent.replace(/\r/g, '').split('\n');
+                    activeCmds.forEach(f => window.readFilesSet.add(f.path));
+                    combinedPayload = `I have uploaded the requested file contents: ${fileNames} as attachments. Proceed to analyze them.`;
+                } else {
+                    for (let i = 0; i < activeCmds.length; i++) {
+                        const fileObj = activeCmds[i];
+                        const filePath = fileObj.path;
+                        window.readFilesSet.add(filePath);
                         
-                        if (fileObj.range) {
-                            let startIdx = Math.max(0, fileObj.start - 1);
-                            let endIdx = Math.min(allLines.length, fileObj.end);
-                            let isTruncated = false;
+                        let fileContentPayload = "";
+                        const targetPath = fileObj.overridePath || path.resolve(window.currentPath, filePath);
+                        if (fs.existsSync(targetPath)) {
+                            const rawContent = fs.readFileSync(targetPath, 'utf-8');
+                            const allLines = rawContent.replace(/\r/g, '').split('\n');
                             
-                            if (endIdx - startIdx > 2000) {
-                                endIdx = startIdx + 2000;
-                                isTruncated = true;
+                            if (fileObj.range) {
+                                let startIdx = Math.max(0, fileObj.start - 1);
+                                let endIdx = Math.min(allLines.length, fileObj.end);
+                                let isTruncated = false;
+                                
+                                if (endIdx - startIdx > 2000) {
+                                    endIdx = startIdx + 2000;
+                                    isTruncated = true;
+                                }
+                                
+                                let slicedContent = allLines.slice(startIdx, endIdx).join('\n');
+                                if (isTruncated) {
+                                    const nextStart = endIdx + 1;
+                                    const nextEnd = nextStart + 1999;
+                                    slicedContent += `\n// ... [TRUNCATED: Max 2000 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range "${filePath}" ${nextStart}-${nextEnd}]]`;
+                                }
+                                fileContentPayload = `[FILE DATA (LINE RANGE ${fileObj.start}-${fileObj.start + (endIdx - startIdx) - 1}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
+                            } else if (fileObj.full) {
+                                let endIdx = allLines.length;
+                                let isTruncated = false;
+                                
+                                if (endIdx > 2000) {
+                                    endIdx = 2000;
+                                    isTruncated = true;
+                                }
+                                
+                                let slicedContent = allLines.slice(0, endIdx).join('\n');
+                                if (isTruncated) {
+                                    slicedContent += `\n// ... [TRUNCATED: Max 2000 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range "${filePath}" 2001-4000]]`;
+                                }
+                                fileContentPayload = `[FILE DATA (${isTruncated ? 'PARTIAL CONTENT' : 'FULL CONTENT'}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
+                            } else {
+                                const ext = filePath.split('.').pop().toLowerCase();
+                                const fileContent = extractCodeOutline(rawContent, ext);
+                                fileContentPayload = `[FILE DATA (OUTLINE ONLY): ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n`;
                             }
-                            
-                            let slicedContent = allLines.slice(startIdx, endIdx).join('\n');
-                            if (isTruncated) {
-                                const nextStart = endIdx + 1;
-                                const nextEnd = nextStart + 1999;
-                                slicedContent += `\n// ... [TRUNCATED: Max 2000 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range "${filePath}" ${nextStart}-${nextEnd}]]`;
-                            }
-                            fileContentPayload = `[FILE DATA (LINE RANGE ${fileObj.start}-${fileObj.start + (endIdx - startIdx) - 1}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
-                        } else if (fileObj.full) {
-                            let endIdx = allLines.length;
-                            let isTruncated = false;
-                            
-                            if (endIdx > 2000) {
-                                endIdx = 2000;
-                                isTruncated = true;
-                            }
-                            
-                            let slicedContent = allLines.slice(0, endIdx).join('\n');
-                            if (isTruncated) {
-                                slicedContent += `\n// ... [TRUNCATED: Max 2000 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range "${filePath}" 2001-4000]]`;
-                            }
-                            fileContentPayload = `[FILE DATA (${isTruncated ? 'PARTIAL CONTENT' : 'FULL CONTENT'}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
                         } else {
-                            const ext = filePath.split('.').pop().toLowerCase();
-                            const fileContent = extractCodeOutline(rawContent, ext);
-                            fileContentPayload = `[FILE DATA (OUTLINE ONLY): ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n`;
+                            fileContentPayload = `[FILE DATA ERROR: ${filePath} not found on the local machine]\n\n`;
                         }
-                    } else {
-                        fileContentPayload = `[FILE DATA ERROR: ${filePath} not found on the local machine]\n\n`;
+
+                        combinedPayload += fileContentPayload;
+                        
+                        if (typeof window.showInputLoading === 'function') {
+                            window.showInputLoading(`Reading files... (${i + 1}/${activeCmds.length})`);
+                        }
+                        if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${i + 1}/${activeCmds.length}</span>`;
+                        if (projBar) projBar.style.width = `${Math.floor(((i + 1) / activeCmds.length) * 100)}%`;
+                        ChatUI.appendBubble('system', `[SYSTEM] Prepared ${filePath} context (${i + 1}/${activeCmds.length}).`);
+                        
+                        await new Promise(r => setTimeout(r, 200));
                     }
 
-                    combinedPayload += fileContentPayload;
-                    
-                    if (typeof window.showInputLoading === 'function') {
-                        window.showInputLoading(`Reading files... (${i + 1}/${activeCmds.length})`);
-                    }
-                    if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${i + 1}/${activeCmds.length}</span>`;
-                    if (projBar) projBar.style.width = `${Math.floor(((i + 1) / activeCmds.length) * 100)}%`;
-                    ChatUI.appendBubble('system', `[SYSTEM] Prepared ${filePath} context (${i + 1}/${activeCmds.length}).`);
-                    
-                    await new Promise(r => setTimeout(r, 200));
+                    const finalPrompt = "Proceed to analyze the files above.";
+                    combinedPayload += finalPrompt;
                 }
-
-                const finalPrompt = "Proceed to analyze the files above.";
-                combinedPayload += finalPrompt;
 
                 if (typeof window.updateSendProgress === 'function') {
                     window.updateSendProgress(window.readFilesSet.size, window.totalFilesCount);
@@ -398,21 +408,37 @@ function detectAndAskCommand(text) {
                 box.remove();
                 const dropZone = document.getElementById('local-drop-zone');
                 if (dropZone) dropZone.style.display = 'none';
+                if (window.dragDropMode && typeof window.setSplitView === 'function') {
+                    window.setSplitView(false);
+                }
                 await runRead();
             };
             content.querySelector('.cmd-cancel-btn').onclick = () => {
                 box.remove();
                 const dropZone = document.getElementById('local-drop-zone');
                 if (dropZone) dropZone.style.display = 'none';
+                if (window.dragDropMode && typeof window.setSplitView === 'function') {
+                    window.setSplitView(false);
+                }
             };
 
             const dropZone = document.getElementById('local-drop-zone');
             const dropTargetText = document.getElementById('drop-target-filename');
             if (window.dragDropMode && dropZone && dropTargetText) {
+                if (typeof window.setSplitView === 'function') {
+                    window.setSplitView(true);
+                }
+                
                 const fileNames = readCmds.map(f => {
                     const parts = f.path.split(/[\\/]/);
                     return parts[parts.length - 1];
                 }).join(', ');
+                
+                const dropZoneText = document.getElementById('local-drop-zone-text');
+                if (dropZoneText) {
+                    dropZoneText.innerHTML = `Drag <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> from sidebar tree-view and drop it onto the Web AI below, then click CONTINUE.`;
+                }
+                
                 dropTargetText.innerText = fileNames;
                 dropZone.style.display = 'flex';
                 
@@ -445,6 +471,9 @@ function detectAndAskCommand(text) {
 
                         dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
                         dropZone.style.display = 'none';
+                        if (typeof window.setSplitView === 'function') {
+                            window.setSplitView(false);
+                        }
 
                         if (box) box.remove();
                         
@@ -466,6 +495,9 @@ function detectAndAskCommand(text) {
                     } else {
                         dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
                         dropZone.style.display = 'none';
+                        if (typeof window.setSplitView === 'function') {
+                            window.setSplitView(false);
+                        }
                     }
                 };
 
@@ -473,6 +505,9 @@ function detectAndAskCommand(text) {
                 if (closeDropZone) {
                     closeDropZone.onclick = () => {
                         dropZone.style.display = 'none';
+                        if (typeof window.setSplitView === 'function') {
+                            window.setSplitView(false);
+                        }
                     };
                 }
             }

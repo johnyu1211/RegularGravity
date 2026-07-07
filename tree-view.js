@@ -102,10 +102,16 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         if (!isDir) {
             item.draggable = true;
             item.ondragstart = (e) => {
-                const pathModule = require('path');
-                let relPath = pathModule.relative(window.currentPath || '', fullPath);
-                e.dataTransfer.setData('text/plain', relPath);
-                e.dataTransfer.effectAllowed = 'copy';
+                if (window.dragDropMode) {
+                    e.preventDefault();
+                    const { ipcRenderer } = require('electron');
+                    ipcRenderer.send('ondragstart', fullPath);
+                } else {
+                    const pathModule = require('path');
+                    let relPath = pathModule.relative(window.currentPath || '', fullPath);
+                    e.dataTransfer.setData('text/plain', relPath);
+                    e.dataTransfer.effectAllowed = 'copy';
+                }
             };
         }
         item.style.setProperty('--level', level);

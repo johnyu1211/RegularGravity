@@ -10,7 +10,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
         const base64Payload = Buffer.from(cleanPayload, 'utf-8').toString('base64');
         const totalLines = cleanPayload.split('\n').length; // 전체 라인수 산출
 
-        if (fileCount !== 0) {
+        if (fileCount !== 0 && fileCount !== -1) {
             if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
                 ChatUI.appendBubble('system-info', 'Sending Information to WebAI...');
             }

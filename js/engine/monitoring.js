@@ -152,6 +152,8 @@ const cleanGarbage = (t) => {
 };
 
 async function runExperimentalEngine(cmd, msg, statusBub) {
+    window.isNewResponse = true;
+    window.lastActiveAiBubble = null;
     let stableN = 0;
     let currentExtension = 0;
 

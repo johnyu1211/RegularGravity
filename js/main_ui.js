@@ -716,7 +716,7 @@ ${projectTree}
                 try {
                     const base64Data = e.message.split('[BACKGROUND_AI_RESP]:')[1];
                     const decodedText = decodeURIComponent(escape(atob(base64Data))).trim();
-                    if (!decodedText) return;
+                    if (!decodedText || decodedText === "[EXTRACT_FAIL]") return;
                     if (decodedText === lastReceivedMirrorText) return;
                     
                     const chatLog = document.getElementById('local-chat-messages');
@@ -728,23 +728,24 @@ ${projectTree}
                             return;
                         }
                         
-                        if (existingBubbles.length > 0) {
-                            const lastBubble = existingBubbles[existingBubbles.length - 1];
-                            const lastText = lastBubble.dataset.rawText || lastBubble.innerText.trim();
-                            if (lastText && decodedText.startsWith(lastText)) {
-                                lastBubble.dataset.rawText = decodedText;
-                                lastBubble.innerHTML = typeof marked !== 'undefined' ? marked.parse(decodedText).trim() : decodedText.trim();
+                        if (!window.isNewResponse && window.lastActiveAiBubble) {
+                            const contentEl = window.lastActiveAiBubble.querySelector('.bubble-content');
+                            if (contentEl) {
+                                contentEl.dataset.rawText = decodedText;
+                                contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(decodedText).trim() : decodedText.trim();
                                 if (typeof hljs !== 'undefined') {
-                                    lastBubble.parentElement.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                                    window.lastActiveAiBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
                                 }
                                 lastReceivedMirrorText = decodedText;
+                                chatLog.scrollTop = chatLog.scrollHeight;
                                 return;
                             }
                         }
                     }
                     
                     lastReceivedMirrorText = decodedText;
-                    ChatUI.appendBubble('ai', decodedText, false, getWebIcon(wv));
+                    window.isNewResponse = false;
+                    window.lastActiveAiBubble = ChatUI.appendBubble('ai', decodedText, false, getWebIcon(wv));
                 } catch (err) {
                     console.error("[ERROR] Background mirror parsing error:", err);
                 }

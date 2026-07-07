@@ -235,6 +235,29 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             await new Promise(r => setTimeout(r, 350));
             const clickScript = `
                 (async () => {
+                    const findSendBtn = () => {
+                        const btns = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"]'));
+                        for (let el of btns) {
+                            const label = (el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                            if (label.includes('전송') || label.includes('보내기') || label.includes('send') || label.includes('submit')) return el;
+                        }
+                        const svgBtns = Array.from(document.querySelectorAll('button'));
+                        for (let el of svgBtns) {
+                            if (el.querySelector('svg')) {
+                                const html = el.innerHTML.toLowerCase();
+                                if (html.includes('send') || html.includes('paper-plane') || html.includes('arrow') || html.includes('submit')) return el;
+                            }
+                        }
+                        return null;
+                    };
+
+                    const sendBtn = findSendBtn();
+                    if (sendBtn) {
+                        sendBtn.click();
+                        return true;
+                    }
+
+                    // Fallback to double Enter if send button not found
                     const findInput = () => {
                         const inKeywords = ${JSON.stringify(inKeywords)};
                         const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);

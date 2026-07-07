@@ -320,23 +320,16 @@ ipcMain.on('reveal-in-explorer', (event, p) => {
     if (p) shell.showItemInFolder(path.resolve(p));
 });
 
-ipcMain.on('ondragstart', async (event, filePath) => {
+ipcMain.on('ondragstart', (event, filePath) => {
+    const { nativeImage } = require('electron');
     const resolvedPath = path.resolve(filePath);
-    try {
-        const icon = await app.getFileIcon(resolvedPath, { size: 'normal' });
-        event.sender.startDrag({
-            file: resolvedPath,
-            icon: icon
-        });
-    } catch (err) {
-        console.error("Failed to get file icon for drag:", err);
-        const { nativeImage } = require('electron');
-        const dummyIcon = nativeImage.createFromBuffer(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'));
-        event.sender.startDrag({
-            file: resolvedPath,
-            icon: dummyIcon
-        });
-    }
+    const iconPath = path.resolve(__dirname, 'png.png');
+    const dragIcon = nativeImage.createFromPath(iconPath);
+    
+    event.sender.startDrag({
+        file: resolvedPath,
+        icon: dragIcon
+    });
 });// 3. TERMINAL ENGINE (UTF-8 SILVER BULLET - MULTI-TAB SESSION ISOLATED)
 const terminalProcesses = {};
 ipcMain.on('execute-cmd', (event, arg) => {

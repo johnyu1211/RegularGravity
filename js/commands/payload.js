@@ -140,8 +140,6 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                     }
                 })();
                 
-                if (!decodedPayload) return "DECODE_ERROR";
-                
                 if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
                     const proto = inputEl.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
                     const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
@@ -149,14 +147,10 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                     setter.call(inputEl, newText);
                 } else {
                     const lines = decodedPayload.split('\\n');
-                    for (let i = 0; i < lines.length; i++) {
-                        if (i > 0) {
-                            document.execCommand('insertLineBreak');
-                        }
-                        const line = lines[i];
-                        if (line) {
-                            document.execCommand('insertText', false, line);
-                        }
+                    const chunkSize = 30;
+                    for (let idx = 0; idx < lines.length; idx += chunkSize) {
+                        const chunk = lines.slice(idx, idx + chunkSize).join('\\n') + (idx + chunkSize < lines.length ? '\\n' : '');
+                        document.execCommand('insertText', false, chunk);
                     }
                 }
                 
@@ -185,7 +179,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             }
 
             // 3단계: 짧은 대기 후 전송 버튼 클릭
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise(r => setTimeout(r, 350));
             const clickScript = `
                 (() => {
                     const findSendBtn = () => {

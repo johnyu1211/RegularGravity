@@ -358,9 +358,11 @@ function detectAndAskCommand(text) {
                 // Start monitoring first to prevent timeouts
                 const enginePromise = runExperimentalEngine('/marktag', combinedPayload, null);
                 
+                // Append system bubble before injection starts to maintain order
+                ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${readCmds.length} files to Web AI.`);
+                
                 // Inject the entire combined payload and click Send!
                 await injectWebPayload(combinedPayload, readCmds.length, readCmds.length, false, true);
-                ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${readCmds.length} files to Web AI.`);
 
                 const response = await enginePromise;
 

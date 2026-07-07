@@ -483,24 +483,17 @@ function detectAndAskCommand(text) {
                         inputContainer.style.justifyContent = inputContainer.dataset.originalJustifyContent || '';
                         
                         if (vLC) {
-                            vLC.style.height = 'calc(100% - 44px)';
-                            vLC.style.zIndex = '100';
+                            vLC.style.height = 'calc(100% - 44px - 220px)';
+                            vLC.style.zIndex = '150';
                         }
                         if (vBH) {
-                            vBH.style.position = '';
-                            vBH.style.top = '';
+                            vBH.style.position = 'absolute';
+                            vBH.style.top = '0';
                             vBH.style.height = 'calc(100% - 44px)';
                             vBH.style.width = '100%';
-                            vBH.style.zIndex = '1';
-                            
-                            const isLocalActive = document.getElementById('tab-local-agent')?.classList.contains('active-tab');
-                            if (isLocalActive) {
-                                vBH.style.opacity = '0';
-                                vBH.style.pointerEvents = 'none';
-                            } else {
-                                vBH.style.opacity = '1';
-                                vBH.style.pointerEvents = 'auto';
-                            }
+                            vBH.style.zIndex = '100';
+                            vBH.style.opacity = '1';
+                            vBH.style.pointerEvents = 'auto';
                         }
                     };
 
@@ -1348,9 +1341,29 @@ function setupUI() {
         if (m === 'local') {
             vLC.style.opacity = '1';
             vLC.style.pointerEvents = 'auto';
+            vLC.style.zIndex = '150';
+            vLC.style.height = 'calc(100% - 44px - 220px)';
+            
+            vBH.style.position = 'absolute';
+            vBH.style.top = '0';
+            vBH.style.height = 'calc(100% - 44px)';
+            vBH.style.width = '100%';
+            vBH.style.zIndex = '100';
+            vBH.style.opacity = '1';
+            vBH.style.pointerEvents = 'auto';
         } else {
             vLC.style.opacity = '0';
             vLC.style.pointerEvents = 'none';
+            vLC.style.zIndex = '100';
+            vLC.style.height = 'calc(100% - 44px)';
+            
+            vBH.style.position = '';
+            vBH.style.top = '';
+            vBH.style.height = 'calc(100% - 44px)';
+            vBH.style.width = '100%';
+            vBH.style.zIndex = '150';
+            vBH.style.opacity = '1';
+            vBH.style.pointerEvents = 'auto';
         }
         tLA.classList.toggle('active-tab', (m === 'local')); tBH.classList.toggle('active-tab', (m !== 'local'));
         if (m === 'local') {
@@ -1686,6 +1699,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chatIn = document.getElementById('local-agent-input');
     if (chatIn) {
         setTimeout(() => {
+            swi('local');
             chatIn.focus();
             chatIn.click();
         }, 300);

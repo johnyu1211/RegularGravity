@@ -219,7 +219,8 @@ function detectAndAskCommand(text) {
             return `${f.full ? 'read-file-full' : 'read-file'} "${f.path}"`;
         }).join(', ');
         
-        const runRead = async () => {
+        const runRead = async (customCmds) => {
+            const activeCmds = customCmds || readCmds;
             const chatOverlay = document.getElementById('local-chat-overlay');
             const progressBox = document.getElementById('overlay-progress-box');
             const projBtn = document.getElementById('btn-send-project-info');
@@ -238,53 +239,11 @@ function detectAndAskCommand(text) {
             if (toast) {
                 toast.style.display = window.hideUIOverlay ? 'none' : 'flex';
                 if (injectContainer) injectContainer.style.display = 'none';
-                if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">0/${readCmds.length}</span>`;
+                if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">0/${activeCmds.length}</span>`;
                 if (projBar) projBar.style.width = "0%";
             }
 
-            if (window.dragDropMode) {
-                if (chatOverlay && progressBox && projBtn) {
-                    chatOverlay.style.display = 'none';
-                    progressBox.style.display = 'none';
-                    projBtn.style.display = 'flex';
-                }
-                if (toast) toast.style.display = 'none';
-                
-                window.setSplitView(true);
-                
-                const banner = document.getElementById('local-drag-drop-banner');
-                const filenameEl = document.getElementById('local-drag-drop-filename');
-                if (banner && filenameEl) {
-                    const displayFiles = readCmds.map(f => f.path).join(', ');
-                    filenameEl.innerText = displayFiles;
-                    banner.style.display = 'flex';
-                    
-                    document.getElementById('btn-drag-drop-continue').onclick = async () => {
-                        banner.style.display = 'none';
-                        window.setSplitView(false);
-                        
-                        const dragDropPrompt = `I have uploaded the requested file contents: ${displayFiles} as attachments. Proceed to analyze them.`;
-                        ChatUI.appendBubble('system', `[SYSTEM] Drag & drop confirmed. Sending prompt to Web AI.`);
-                        
-                        if (typeof window.showInputLoading === 'function') {
-                            window.showInputLoading("Sending prompt...");
-                        }
-                        
-                        await injectWebPayload(dragDropPrompt, 0, 0, false, true);
-                        
-                        if (typeof window.hideInputLoading === 'function') {
-                            window.hideInputLoading();
-                        }
-                    };
-                    document.getElementById('btn-drag-drop-cancel').onclick = () => {
-                        banner.style.display = 'none';
-                        window.setSplitView(false);
-                    };
-                }
-                return;
-            }
-
-            window.currentBatchFileCount = readCmds.length;
+            window.currentBatchFileCount = activeCmds.length;
 
             try {
                 const fs = require('fs');
@@ -292,13 +251,13 @@ function detectAndAskCommand(text) {
                 
                 let combinedPayload = "";
 
-                for (let i = 0; i < readCmds.length; i++) {
-                    const fileObj = readCmds[i];
+                for (let i = 0; i < activeCmds.length; i++) {
+                    const fileObj = activeCmds[i];
                     const filePath = fileObj.path;
                     window.readFilesSet.add(filePath);
                     
                     let fileContentPayload = "";
-                    const targetPath = path.resolve(window.currentPath, filePath);
+                    const targetPath = fileObj.overridePath || path.resolve(window.currentPath, filePath);
                     if (fs.existsSync(targetPath)) {
                         const rawContent = fs.readFileSync(targetPath, 'utf-8');
                         const allLines = rawContent.replace(/\r/g, '').split('\n');
@@ -346,11 +305,11 @@ function detectAndAskCommand(text) {
                     combinedPayload += fileContentPayload;
                     
                     if (typeof window.showInputLoading === 'function') {
-                        window.showInputLoading(`Reading files... (${i + 1}/${readCmds.length})`);
+                        window.showInputLoading(`Reading files... (${i + 1}/${activeCmds.length})`);
                     }
-                    if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${i + 1}/${readCmds.length}</span>`;
-                    if (projBar) projBar.style.width = `${Math.floor(((i + 1) / readCmds.length) * 100)}%`;
-                    ChatUI.appendBubble('system', `[SYSTEM] Prepared ${filePath} context (${i + 1}/${readCmds.length}).`);
+                    if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${i + 1}/${activeCmds.length}</span>`;
+                    if (projBar) projBar.style.width = `${Math.floor(((i + 1) / activeCmds.length) * 100)}%`;
+                    ChatUI.appendBubble('system', `[SYSTEM] Prepared ${filePath} context (${i + 1}/${activeCmds.length}).`);
                     
                     await new Promise(r => setTimeout(r, 200));
                 }
@@ -365,8 +324,8 @@ function detectAndAskCommand(text) {
                 if (injectContainer) injectContainer.style.display = 'flex';
                 
                 const enginePromise = runExperimentalEngine('/marktag', combinedPayload, null);
-                ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${readCmds.length} files to Web AI.`);
-                await injectWebPayload(combinedPayload, readCmds.length, readCmds.length, false, true);
+                ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${activeCmds.length} files to Web AI.`);
+                await injectWebPayload(combinedPayload, activeCmds.length, activeCmds.length, false, true);
 
                 const response = await enginePromise;
                 if (response) {
@@ -389,6 +348,8 @@ function detectAndAskCommand(text) {
                     progressBox.style.display = 'none';
                     projBtn.style.display = 'flex';
                 }
+                const dropZone = document.getElementById('local-drop-zone');
+                if (dropZone) dropZone.style.display = 'none';
             }
         };
 
@@ -410,11 +371,60 @@ function detectAndAskCommand(text) {
                 </div>
             `;
             
+            const dropZone = document.getElementById('local-drop-zone');
+            const dropTargetText = document.getElementById('drop-target-filename');
+            if (window.dragDropMode && dropZone && dropTargetText) {
+                const fileNames = readCmds.map(f => {
+                    const parts = f.path.split(/[\\/]/);
+                    return parts[parts.length - 1];
+                }).join(', ');
+                dropTargetText.innerText = fileNames;
+                dropZone.style.display = 'flex';
+                
+                dropZone.ondragover = (e) => {
+                    e.preventDefault();
+                    dropZone.style.background = 'rgba(70, 140, 246, 0.12)';
+                };
+                dropZone.ondragleave = () => {
+                    dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
+                };
+                dropZone.ondrop = async (e) => {
+                    e.preventDefault();
+                    dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
+                    dropZone.style.display = 'none';
+                    
+                    const files = Array.from(e.dataTransfer.files);
+                    if (files.length > 0) {
+                        if (box) box.remove();
+                        
+                        const pathMap = {};
+                        files.forEach(f => {
+                            pathMap[f.name.toLowerCase()] = f.path;
+                        });
+                        
+                        const overriddenCmds = readCmds.map(cmd => {
+                            const parts = cmd.path.split(/[\\/]/);
+                            const name = parts[parts.length - 1].toLowerCase();
+                            if (pathMap[name]) {
+                                return { ...cmd, overridePath: pathMap[name] };
+                            }
+                            return cmd;
+                        });
+                        
+                        await runRead(overriddenCmds);
+                    }
+                };
+            }
+
             content.querySelector('.cmd-run-btn').onclick = async () => {
                 box.remove();
+                if (dropZone) dropZone.style.display = 'none';
                 await runRead();
             };
-            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+            content.querySelector('.cmd-cancel-btn').onclick = () => {
+                box.remove();
+                if (dropZone) dropZone.style.display = 'none';
+            };
         }
     }
 
@@ -1193,56 +1203,13 @@ function setupUI() {
             if (dsInput) {
                 ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: dsInput.value.trim() });
             }
+            if (dsModal) dsModal.style.display = 'none';
         };
     }
-
-    window.setSplitView = function(enabled) {
-        const vLC = document.getElementById('inspector-local-chat');
-        const vBH = document.getElementById('inspector-browser-hub');
-        if (!vLC || !vBH) return;
-        
-        window.splitViewActive = !!enabled;
-        
-        if (enabled) {
-            vLC.style.position = 'absolute';
-            vLC.style.top = '0';
-            vLC.style.height = '45%';
-            vLC.style.opacity = '1';
-            vLC.style.pointerEvents = 'auto';
-            vLC.style.zIndex = '100';
-            
-            vBH.style.position = 'absolute';
-            vBH.style.top = '45%';
-            vBH.style.height = 'calc(55% - 44px)';
-            vBH.style.width = '100%';
-            vBH.style.zIndex = '150';
-        } else {
-            vLC.style.position = 'absolute';
-            vLC.style.top = '0';
-            vLC.style.height = 'calc(100% - 44px)';
-            vLC.style.zIndex = '100';
-            
-            vBH.style.position = 'relative';
-            vBH.style.top = '';
-            vBH.style.height = 'calc(100% - 44px)';
-            vBH.style.width = '100%';
-            vBH.style.zIndex = '1';
-            
-            const isLocalActive = document.getElementById('tab-local-agent')?.classList.contains('active-tab');
-            if (isLocalActive) {
-                vLC.style.opacity = '1';
-                vLC.style.pointerEvents = 'auto';
-            } else {
-                vLC.style.opacity = '0';
-                vLC.style.pointerEvents = 'none';
-            }
-        }
-    };
 
     const tLA = document.getElementById('tab-local-agent'), tBH = document.getElementById('tab-browser-hub');
     const vLC = document.getElementById('inspector-local-chat'), vBH = document.getElementById('inspector-browser-hub');
     const swi = (m) => {
-        if (window.splitViewActive) return;
         if (m === 'local') {
             vLC.style.opacity = '1';
             vLC.style.pointerEvents = 'auto';

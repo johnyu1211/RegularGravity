@@ -1827,14 +1827,28 @@ function detectAndAskCommand(text) {
         return;
     }
 
-    // 1. read-file 명령어 추출 및 분리
+    // 1. read-file, write-file 및 search 명령어 추출 및 분리
     const readCmds = [];
+    const writeCmds = [];
+    const searchCmds = [];
     const otherCmds = [];
 
-    foundCmds.forEach(cmd => {
-        const fileMatch = cmd.match(/^read-file\s+["']?([^"']+)["']?$/i);
-        const fileFullMatch = cmd.match(/^read-file-full\s+["']?([^"']+)["']?$/i);
-        const rangeMatch = cmd.match(/^read-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
+    foundCmds.forEach(rawCmd => {
+        let cmd = rawCmd.replace(/\\"/g, '"')
+                        .replace(/\\'/g, "'")
+                        .replace(/&quot;/gi, '"')
+                        .replace(/&apos;/gi, "'")
+                        .replace(/[“”]/g, '"')
+                        .replace(/[‘’]/g, "'")
+                        .trim();
+
+        const fileMatch = cmd.match(/^read-file\s+["']?([^"'\s]+)["']?$/i);
+        const fileFullMatch = cmd.match(/^read-file-full\s+["']?([^"'\s]+)["']?$/i);
+        const rangeMatch = cmd.match(/^read-file-range\s+["']?([^"'\s]+)["']?\s+(\d+)-(\d+)$/i);
+        const writeMatch = cmd.match(/^write-file\s+["']?([^"'\s]+)["']?$/i);
+        const searchFileMatch = cmd.match(/^search-file\s+["']?([^"'\s]+)["']?\s+["']?([^"']+)["']?$/i);
+        const searchAllMatch = cmd.match(/^search-all\s+["']?([^"']+)["']?$/i);
+
         if (rangeMatch) {
             const filePath = rangeMatch[1].trim();
             readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]) });
@@ -1844,15 +1858,31 @@ function detectAndAskCommand(text) {
         } else if (fileMatch) {
             const filePath = fileMatch[1].trim();
             readCmds.push({ path: filePath, full: false });
+        } else if (writeMatch) {
+            const filePath = writeMatch[1].trim();
+            const cmdIdx = text.indexOf(rawCmd);
+            let codeVal = "";
+            if (cmdIdx !== -1) {
+                const subText = text.substring(cmdIdx);
+                const codeBlockMatch = subText.match(/```[a-zA-Z]*\n([\s\S]*?)\n```/);
+                if (codeBlockMatch) codeVal = codeBlockMatch[1];
+            }
+            writeCmds.push({ path: filePath, code: codeVal });
+        } else if (searchFileMatch) {
+            searchCmds.push({ type: 'file', path: searchFileMatch[1].trim(), query: searchFileMatch[2].trim() });
+        } else if (searchAllMatch) {
+            searchCmds.push({ type: 'all', query: searchAllMatch[1].trim() });
         } else {
             otherCmds.push(cmd);
         }
     });
 
     const hasReadFile = (readCmds.length > 0);
+    const hasWriteFile = (writeCmds.length > 0);
+    const hasSearchFile = (searchCmds.length > 0);
 
-    // autoContinueOnRead 켜져있고 read-file 없으면 복귀
-    if (!hasReadFile && window.autoContinueOnRead) {
+    // autoContinueOnRead 켜져있고 read/write/search가 하나도 없으면 복귀
+    if (!hasReadFile && !hasWriteFile && !hasSearchFile && window.autoContinueOnRead) {
         const toast = document.getElementById('injection-toast');
         if (toast) toast.style.display = 'none';
         document.getElementById('tab-local-agent')?.click();
@@ -2008,6 +2038,103 @@ function detectAndAskCommand(text) {
             } catch (err) {
                 ChatUI.appendBubble('system', `[ERROR] Failed to read files batch: ${err.message}`);
             }
+        };
+
+        content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+    }
+
+    // 2-2. 파일 쓰기 명령어 병합 제안 생성
+    if (hasWriteFile) {
+        const displayCmd = writeCmds.map(f => `write-file "${f.path}"`).join(', ');
+        const box = ChatUI.appendBubble('system', '');
+        const content = box.querySelector('.bubble-content');
+        const themeColor = "#468CF6"; 
+        const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+        content.innerHTML = `
+            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">✏️</span>${displayCmd}
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+            </div>
+        `;
+
+        const runBtn = content.querySelector('.cmd-run-btn');
+        const cancelBtn = content.querySelector('.cmd-cancel-btn');
+        if (runBtn) {
+            runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(70, 140, 246, 0.3)"; };
+            runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
+        }
+        if (cancelBtn) {
+            cancelBtn.onmouseenter = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.08)"; cancelBtn.style.color = "var(--text-main)"; cancelBtn.style.borderColor = "rgba(255,255,255,0.15)"; };
+            cancelBtn.onmouseleave = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.04)"; cancelBtn.style.color = "var(--text-muted)"; cancelBtn.style.borderColor = "var(--border-color)"; };
+        }
+
+        if (window.autoContinueOnRead) {
+            setTimeout(() => {
+                const btn = content.querySelector('.cmd-run-btn');
+                if (btn) {
+                    ChatUI.appendBubble('system', `[SYSTEM] Auto-continuing batch write for ${writeCmds.length} files...`);
+                    btn.click();
+                }
+            }, 800);
+        }
+
+        content.querySelector('.cmd-run-btn').onclick = async () => {
+            box.remove();
+            await executeWriteFileBatch(writeCmds);
+        };
+
+        content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+    }
+
+    // 2-3. 파일 검색 명령어 병합 제안 생성
+    if (hasSearchFile) {
+        const displayCmd = searchCmds.map(s => {
+            if (s.type === 'file') return `search-file "${s.path}" "${s.query}"`;
+            return `search-all "${s.query}"`;
+        }).join(', ');
+        const box = ChatUI.appendBubble('system', '');
+        const content = box.querySelector('.bubble-content');
+        const themeColor = "#468CF6"; 
+        const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+        content.innerHTML = `
+            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">🔍</span>${displayCmd}
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+            </div>
+        `;
+
+        const runBtn = content.querySelector('.cmd-run-btn');
+        const cancelBtn = content.querySelector('.cmd-cancel-btn');
+        if (runBtn) {
+            runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(70, 140, 246, 0.3)"; };
+            runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
+        }
+        if (cancelBtn) {
+            cancelBtn.onmouseenter = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.08)"; cancelBtn.style.color = "var(--text-main)"; cancelBtn.style.borderColor = "rgba(255,255,255,0.15)"; };
+            cancelBtn.onmouseleave = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.04)"; cancelBtn.style.color = "var(--text-muted)"; cancelBtn.style.borderColor = "var(--border-color)"; };
+        }
+
+        if (window.autoContinueOnRead) {
+            setTimeout(() => {
+                const btn = content.querySelector('.cmd-run-btn');
+                if (btn) {
+                    ChatUI.appendBubble('system', `[SYSTEM] Auto-continuing search...`);
+                    btn.click();
+                }
+            }, 800);
+        }
+
+        content.querySelector('.cmd-run-btn').onclick = async () => {
+            box.remove();
+            await executeSearchBatch(searchCmds);
         };
 
         content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
@@ -2716,3 +2843,183 @@ document.addEventListener('DOMContentLoaded', async () => {
     GravityVault.init();
 });
 ipcRenderer.on('refresh-explorer', () => { window.loadDirectory(window.currentPath); });
+
+async function executeWriteFileBatch(writeCmds) {
+    try {
+        window.lastInjectedBubble = null;
+        window.lastReceivedMirrorText = "";
+
+        const fs = require('fs');
+        const path = require('path');
+
+        let feedbackContent = "";
+        writeCmds.forEach(fileObj => {
+            const filePath = fileObj.path;
+            const targetPath = path.resolve(window.currentPath, filePath);
+            
+            try {
+                const parentDir = path.dirname(targetPath);
+                if (!fs.existsSync(parentDir)) {
+                    fs.mkdirSync(parentDir, { recursive: true });
+                }
+                fs.writeFileSync(targetPath, fileObj.code, 'utf-8');
+                feedbackContent += `[FILE WRITE SUCCESS: ${filePath}]\n`;
+                ChatUI.appendBubble('system', `[SUCCESS] Wrote ${filePath} content.`);
+            } catch (err) {
+                feedbackContent += `[FILE WRITE ERROR: ${filePath} - ${err.message}]\n`;
+                ChatUI.appendBubble('system', `[ERROR] Failed to write ${filePath}: ${err.message}`);
+            }
+        });
+
+        const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
+        
+        await injectWebPayload(finalMessage, 0);
+        
+        window.currentBatchFileCount = 0;
+        const response = await runExperimentalEngine('/marktag', finalMessage, null);
+        if (!window.autoContinueOnRead) {
+            document.getElementById('tab-local-agent')?.click();
+        }
+        if (response) {
+            detectAndAskCommand(response);
+        }
+    } catch (err) {
+        ChatUI.appendBubble('system', `[ERROR] Write batch processing failed: ${err.message}`);
+    }
+}
+
+function searchProjectFiles(query) {
+    const fs = require('fs');
+    const path = require('path');
+    const results = [];
+    const rootPath = window.currentPath;
+
+    function searchDir(dirPath) {
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry.name);
+            const relPath = path.relative(rootPath, fullPath);
+            
+            if (entry.isDirectory()) {
+                if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist' || entry.name === 'out') {
+                    continue;
+                }
+                searchDir(fullPath);
+            } else if (entry.isFile()) {
+                const ext = path.extname(entry.name).toLowerCase();
+                if (['.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', '.db', '.sqlite', '.log'].includes(ext)) {
+                    continue;
+                }
+                
+                try {
+                    const content = fs.readFileSync(fullPath, 'utf-8');
+                    const lines = content.replace(/\r/g, '').split('\n');
+                    lines.forEach((line, index) => {
+                        if (line.toLowerCase().includes(query.toLowerCase())) {
+                            results.push({
+                                path: relPath,
+                                lineNum: index + 1,
+                                content: line.trim()
+                            });
+                        }
+                    });
+                } catch (e) {
+                    // Ignore
+                }
+            }
+        }
+    }
+    
+    try {
+        searchDir(rootPath);
+    } catch (e) {
+        console.error("Search failed:", e);
+    }
+    
+    return results;
+}
+
+function searchFileContent(filePath, query) {
+    const fs = require('fs');
+    const path = require('path');
+    const results = [];
+    const targetPath = path.resolve(window.currentPath, filePath);
+    
+    try {
+        if (!fs.existsSync(targetPath)) {
+            return null;
+        }
+        const content = fs.readFileSync(targetPath, 'utf-8');
+        const lines = content.replace(/\r/g, '').split('\n');
+        lines.forEach((line, index) => {
+            if (line.toLowerCase().includes(query.toLowerCase())) {
+                results.push({
+                    lineNum: index + 1,
+                    content: line.trim()
+                });
+            }
+        });
+        return results;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function executeSearchBatch(searchCmds) {
+    try {
+        window.lastInjectedBubble = null;
+        window.lastReceivedMirrorText = "";
+
+        let searchPayload = "";
+        searchCmds.forEach(cmdObj => {
+            if (cmdObj.type === 'all') {
+                const results = searchProjectFiles(cmdObj.query);
+                searchPayload += `[SEARCH RESULTS FOR "${cmdObj.query}" IN ALL FILES]:\n`;
+                if (results.length === 0) {
+                    searchPayload += `No matches found.\n\n`;
+                } else {
+                    results.slice(0, 100).forEach(r => {
+                        searchPayload += `${r.path}:${r.lineNum}: ${r.content}\n`;
+                    });
+                    if (results.length > 100) {
+                        searchPayload += `... and ${results.length - 100} more matches.\n`;
+                    }
+                    searchPayload += `\n`;
+                }
+            } else if (cmdObj.type === 'file') {
+                const results = searchFileContent(cmdObj.path, cmdObj.query);
+                if (results === null) {
+                    searchPayload += `[SEARCH ERROR: File "${cmdObj.path}" not found]\n\n`;
+                } else {
+                    searchPayload += `[SEARCH RESULTS FOR "${cmdObj.query}" IN FILE "${cmdObj.path}"]:\n`;
+                    if (results.length === 0) {
+                        searchPayload += `No matches found.\n\n`;
+                    } else {
+                        results.slice(0, 100).forEach(r => {
+                            searchPayload += `Line ${r.lineNum}: ${r.content}\n`;
+                        });
+                        if (results.length > 100) {
+                            searchPayload += `... and ${results.length - 100} more matches.\n`;
+                        }
+                        searchPayload += `\n`;
+                    }
+                }
+            }
+        });
+
+        const finalMessage = `${searchPayload}Proceed to analyze the search results.`;
+        
+        await injectWebPayload(finalMessage, 0);
+        
+        window.currentBatchFileCount = 0;
+        const response = await runExperimentalEngine('/marktag', finalMessage, null);
+        if (!window.autoContinueOnRead) {
+            document.getElementById('tab-local-agent')?.click();
+        }
+        if (response) {
+            detectAndAskCommand(response);
+        }
+    } catch (err) {
+        ChatUI.appendBubble('system', `[ERROR] Search batch processing failed: ${err.message}`);
+    }
+}

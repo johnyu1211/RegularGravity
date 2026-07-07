@@ -787,7 +787,14 @@ ${projectTree}
                             window.briefingInProgress = false;
                             window.hideInputLoading();
                             document.getElementById('tab-local-agent').click();
-                            if (briefResponse) { detectAndAskCommand(briefResponse); }
+                            if (briefResponse) {
+                                if (!window.autoContinueOnRead) {
+                                    if (typeof window.finalizeAiBubble === 'function') {
+                                        window.finalizeAiBubble(briefResponse);
+                                    }
+                                }
+                                detectAndAskCommand(briefResponse);
+                            }
                         } catch (err) {
                             window.sessionBriefed = true;
                             window.briefingInProgress = false;
@@ -872,7 +879,7 @@ ${projectTree}
         wv.addEventListener('console-message', (e) => {
             if (e.message.startsWith('[BACKGROUND_AI_RESP]:')) {
                 if (!window.activeAiResponding) return;
-                if (window.currentBatchFileCount === -1) return;
+                if (window.currentBatchFileCount === -1 && window.autoContinueOnRead) return;
                 try {
                     const base64Data = e.message.split('[BACKGROUND_AI_RESP]:')[1];
                     const decodedText = decodeURIComponent(escape(atob(base64Data))).trim();
@@ -1430,6 +1437,11 @@ ${startPrompt}`.trim();
             try {
                 const response = await enginePromise;
                 if (response) {
+                    if (!window.autoContinueOnRead) {
+                        if (typeof window.finalizeAiBubble === 'function') {
+                            window.finalizeAiBubble(response);
+                        }
+                    }
                     detectAndAskCommand(response);
                 }
             } catch (err) {

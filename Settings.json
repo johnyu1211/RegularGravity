@@ -1,4 +1,6 @@
 {
   "autoContinueOnRead": true,
-  "hideUIOverlay": true
+  "hideUIOverlay": true,
+  "debugMode": false,
+  "dragDropMode": true
 }

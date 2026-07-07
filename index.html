@@ -201,7 +201,20 @@
                                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                             </svg>
                         </button>
-                    </div>
+                </div>
+                <!-- Drag & Drop Interactive Banner Container -->
+                <div id="local-drag-drop-banner" style="display: none; padding: 12px; background: rgba(70, 140, 246, 0.08); border-bottom: 1px solid var(--border-color); flex-direction: column; gap: 8px; font-family: 'DM Sans', sans-serif;">
+                     <div style="font-size: 12px; color: #fff; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                          <span style="color: var(--primary); font-size: 14px;">📂</span>
+                          <span>Please Drag & Drop the requested file below:</span>
+                     </div>
+                     <div id="local-drag-drop-filename" style="font-size: 12px; color: var(--primary); font-family: 'JetBrains Mono', monospace; font-weight: 700; word-break: break-all; background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 6px; border: 1px dashed rgba(70, 140, 246, 0.3);">
+                          filename.js
+                     </div>
+                     <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
+                          <button id="btn-drag-drop-continue" style="background: var(--primary); border: none; color: #fff; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.2s;">CONTINUE</button>
+                          <button id="btn-drag-drop-cancel" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;">CANCEL</button>
+                     </div>
                 </div>
                 <!-- 검색 입력 창 컨테이너 -->
                 <div id="local-chat-search-container" style="display:none; padding: 8px 14px; background: var(--surface-low); border-bottom: 1px solid var(--border-color); align-items: center; justify-content: space-between; gap: 10px;">

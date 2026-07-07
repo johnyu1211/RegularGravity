@@ -318,6 +318,15 @@ ipcMain.handle('get-directory-content', async (event, dirPath) => {
 
 ipcMain.on('reveal-in-explorer', (event, p) => {
     if (p) shell.showItemInFolder(path.resolve(p));
+});
+
+ipcMain.on('ondragstart', (event, filePath) => {
+    const { nativeImage } = require('electron');
+    const dummyIcon = nativeImage.createFromBuffer(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'));
+    event.sender.startDrag({
+        file: path.resolve(filePath),
+        icon: dummyIcon
+    });
 });// 3. TERMINAL ENGINE (UTF-8 SILVER BULLET - MULTI-TAB SESSION ISOLATED)
 const terminalProcesses = {};
 ipcMain.on('execute-cmd', (event, arg) => {

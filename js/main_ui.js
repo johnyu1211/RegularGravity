@@ -242,6 +242,48 @@ function detectAndAskCommand(text) {
                 if (projBar) projBar.style.width = "0%";
             }
 
+            if (window.dragDropMode) {
+                if (chatOverlay && progressBox && projBtn) {
+                    chatOverlay.style.display = 'none';
+                    progressBox.style.display = 'none';
+                    projBtn.style.display = 'flex';
+                }
+                if (toast) toast.style.display = 'none';
+                
+                window.setSplitView(true);
+                
+                const banner = document.getElementById('local-drag-drop-banner');
+                const filenameEl = document.getElementById('local-drag-drop-filename');
+                if (banner && filenameEl) {
+                    const displayFiles = readCmds.map(f => f.path).join(', ');
+                    filenameEl.innerText = displayFiles;
+                    banner.style.display = 'flex';
+                    
+                    document.getElementById('btn-drag-drop-continue').onclick = async () => {
+                        banner.style.display = 'none';
+                        window.setSplitView(false);
+                        
+                        const dragDropPrompt = `I have uploaded the requested file contents: ${displayFiles} as attachments. Proceed to analyze them.`;
+                        ChatUI.appendBubble('system', `[SYSTEM] Drag & drop confirmed. Sending prompt to Web AI.`);
+                        
+                        if (typeof window.showInputLoading === 'function') {
+                            window.showInputLoading("Sending prompt...");
+                        }
+                        
+                        await injectWebPayload(dragDropPrompt, 0, 0, false, true);
+                        
+                        if (typeof window.hideInputLoading === 'function') {
+                            window.hideInputLoading();
+                        }
+                    };
+                    document.getElementById('btn-drag-drop-cancel').onclick = () => {
+                        banner.style.display = 'none';
+                        window.setSplitView(false);
+                    };
+                }
+                return;
+            }
+
             window.currentBatchFileCount = readCmds.length;
 
             try {
@@ -1151,9 +1193,42 @@ function setupUI() {
             if (dsInput) {
                 ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: dsInput.value.trim() });
             }
-            if (dsModal) dsModal.style.display = 'none';
         };
     }
+
+    window.setSplitView = function(enabled) {
+        const vLC = document.getElementById('inspector-local-chat');
+        const vBH = document.getElementById('inspector-browser-hub');
+        if (!vLC || !vBH) return;
+        
+        if (enabled) {
+            vLC.style.height = '45%';
+            vLC.style.opacity = '1';
+            vLC.style.pointerEvents = 'auto';
+            
+            vBH.style.position = 'absolute';
+            vBH.style.top = '45%';
+            vBH.style.height = 'calc(55% - 44px)';
+            vBH.style.width = '100%';
+            vBH.style.zIndex = '150';
+        } else {
+            vLC.style.height = 'calc(100% - 44px)';
+            vBH.style.position = '';
+            vBH.style.top = '';
+            vBH.style.height = 'calc(100% - 44px)';
+            vBH.style.width = '100%';
+            vBH.style.zIndex = '1';
+            
+            const isLocalActive = document.getElementById('tab-local-agent')?.classList.contains('active-tab');
+            if (isLocalActive) {
+                vLC.style.opacity = '1';
+                vLC.style.pointerEvents = 'auto';
+            } else {
+                vLC.style.opacity = '0';
+                vLC.style.pointerEvents = 'none';
+            }
+        }
+    };
 
     const tLA = document.getElementById('tab-local-agent'), tBH = document.getElementById('tab-browser-hub');
     const vLC = document.getElementById('inspector-local-chat'), vBH = document.getElementById('inspector-browser-hub');

@@ -391,135 +391,94 @@ function detectAndAskCommand(text) {
         } else {
             if (window.dragDropMode) {
                 const dropZone = document.getElementById('local-drop-zone');
-                const dropTargetText = document.getElementById('drop-target-filename');
-                if (dropZone && dropTargetText) {
-                    if (typeof window.setSplitView === 'function') {
-                        window.setSplitView(true);
-                    }
+                if (dropZone) dropZone.style.display = 'none';
+
+                const localInput = document.getElementById('local-agent-input');
+                const sendBtn = document.getElementById('send-to-local');
+                const inputContainer = document.getElementById('local-input-container');
+
+                if (localInput && inputContainer) {
+                    const vLC = document.getElementById('inspector-local-chat');
+                    const vBH = document.getElementById('inspector-browser-hub');
+                    if (vLC) vLC.style.height = 'calc(100% - 44px - 160px)';
                     
+                    if (vBH) {
+                        vBH.style.position = 'absolute';
+                        vBH.style.top = '0';
+                        vBH.style.height = 'calc(100% - 44px)';
+                        vBH.style.width = '100%';
+                        vBH.style.zIndex = '100';
+                        vBH.style.opacity = '1';
+                        vBH.style.pointerEvents = 'auto';
+                    }
+
+                    localInput.disabled = true;
+                    localInput.placeholder = "File upload requested. Drag & drop files onto Web AI below.";
+                    localInput.value = "";
+                    localInput.style.background = 'rgba(0, 0, 0, 0.2)';
+                    if (sendBtn) sendBtn.style.display = 'none';
+
                     const fileNames = readCmds.map(f => {
                         const parts = f.path.split(/[\\/]/);
                         return parts[parts.length - 1];
                     }).join(', ');
-                    
-                    dropZone.style.height = '120px';
-                    
-                    // Clear existing buttons container
-                    const oldBtnContainer = dropZone.querySelector('.drag-drop-buttons');
-                    if (oldBtnContainer) oldBtnContainer.remove();
-                    
-                    const dropZoneText = document.getElementById('local-drop-zone-text');
-                    if (dropZoneText) {
-                        dropZoneText.innerHTML = `Drag <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> from sidebar tree-view and drop it onto the Web AI below, then click CONTINUE.`;
-                    }
-                    
-                    const btnContainer = document.createElement('div');
-                    btnContainer.className = 'drag-drop-buttons';
-                    btnContainer.style.cssText = "display: flex; gap: 8px; margin-top: 8px; width: 100%; justify-content: center;";
-                    
-                    const themeColor = "#468CF6";
-                    const glowShadow = "rgba(70, 140, 246, 0.15)";
-                    
-                    btnContainer.innerHTML = `
-                        <button class="drag-continue-btn" style="background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 11px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                        <button class="drag-cancel-btn" style="background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 5px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">CANCEL</button>
+
+                    const oldOverlay = document.getElementById('drag-drop-input-overlay');
+                    if (oldOverlay) oldOverlay.remove();
+
+                    const overlay = document.createElement('div');
+                    overlay.id = 'drag-drop-input-overlay';
+                    overlay.style.cssText = "position: absolute; left: 12px; right: 12px; top: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.95); border-radius: 8px; border: 1px dashed var(--primary); z-index: 100; font-family: 'DM Sans', sans-serif; padding: 8px; box-sizing: border-box;";
+
+                    overlay.innerHTML = `
+                        <div style="font-size: 11px; color: #fff; font-weight: 500; text-align: center; line-height: 1.4;">
+                            Drag <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> from tree-view & drop onto Web AI below.
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 4px;">
+                            <button class="drag-continue-btn" style="background: var(--primary); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 10px; letter-spacing: 0.04em;">CONTINUE</button>
+                            <button class="drag-cancel-btn" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 10px;">CANCEL</button>
+                        </div>
                     `;
-                    
-                    btnContainer.querySelector('.drag-continue-btn').onclick = async () => {
-                        dropZone.style.display = 'none';
-                        dropZone.style.height = '90px';
-                        btnContainer.remove();
-                        if (typeof window.setSplitView === 'function') {
-                            window.setSplitView(false);
+
+                    const cleanupDragDrop = () => {
+                        overlay.remove();
+                        if (localInput) {
+                            localInput.disabled = false;
+                            localInput.placeholder = "Ask to WebAI...";
+                            localInput.value = "";
+                            localInput.style.background = '';
                         }
+                        if (sendBtn) sendBtn.style.display = 'flex';
+                        
+                        if (vLC) vLC.style.height = 'calc(100% - 44px)';
+                        if (vBH) {
+                            vBH.style.position = '';
+                            vBH.style.top = '';
+                            vBH.style.height = 'calc(100% - 44px)';
+                            vBH.style.width = '100%';
+                            vBH.style.zIndex = '1';
+                            
+                            const isLocalActive = document.getElementById('tab-local-agent')?.classList.contains('active-tab');
+                            if (isLocalActive) {
+                                vBH.style.opacity = '0';
+                                vBH.style.pointerEvents = 'none';
+                            } else {
+                                vBH.style.opacity = '1';
+                                vBH.style.pointerEvents = 'auto';
+                            }
+                        }
+                    };
+
+                    overlay.querySelector('.drag-continue-btn').onclick = async () => {
+                        cleanupDragDrop();
                         await runRead();
                     };
-                    
-                    btnContainer.querySelector('.drag-cancel-btn').onclick = () => {
-                        dropZone.style.display = 'none';
-                        dropZone.style.height = '90px';
-                        btnContainer.remove();
-                        if (typeof window.setSplitView === 'function') {
-                            window.setSplitView(false);
-                        }
-                    };
-                    
-                    dropZone.appendChild(btnContainer);
-                    dropTargetText.innerText = fileNames;
-                    dropZone.style.display = 'flex';
-                    
-                    dropZone.ondragover = (e) => {
-                        e.preventDefault();
-                        dropZone.style.background = 'rgba(70, 140, 246, 0.12)';
-                    };
-                    dropZone.ondragleave = () => {
-                        dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
-                    };
-                    dropZone.ondrop = async (e) => {
-                        e.preventDefault();
-                        
-                        const files = Array.from(e.dataTransfer.files);
-                        if (files.length > 0) {
-                            const droppedNames = files.map(f => f.name.toLowerCase());
-                            const requestedNames = readCmds.map(cmd => {
-                                const parts = cmd.path.split(/[\\/]/);
-                                return parts[parts.length - 1].toLowerCase();
-                            });
-                            
-                            const hasAnyMatch = requestedNames.some(reqName => droppedNames.includes(reqName));
-                            if (!hasAnyMatch) {
-                                dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
-                                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                                    ChatUI.appendBubble('system', `⚠️ [Drop Warning] Dropped file(s) do not match requested file: ${fileNames}. Please drop the correct file.`);
-                                }
-                                return;
-                            }
 
-                            dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
-                            dropZone.style.display = 'none';
-                            dropZone.style.height = '90px';
-                            btnContainer.remove();
-                            if (typeof window.setSplitView === 'function') {
-                                window.setSplitView(false);
-                            }
-                            
-                            const pathMap = {};
-                            files.forEach(f => {
-                                pathMap[f.name.toLowerCase()] = f.path;
-                            });
-                            
-                            const overriddenCmds = readCmds.map(cmd => {
-                                const parts = cmd.path.split(/[\\/]/);
-                                const name = parts[parts.length - 1].toLowerCase();
-                                if (pathMap[name]) {
-                                    return { ...cmd, overridePath: pathMap[name] };
-                                }
-                                return cmd;
-                            });
-                            
-                            await runRead(overriddenCmds);
-                        } else {
-                            dropZone.style.background = 'rgba(70, 140, 246, 0.05)';
-                            dropZone.style.display = 'none';
-                            dropZone.style.height = '90px';
-                            btnContainer.remove();
-                            if (typeof window.setSplitView === 'function') {
-                                window.setSplitView(false);
-                            }
-                        }
+                    overlay.querySelector('.drag-cancel-btn').onclick = () => {
+                        cleanupDragDrop();
                     };
 
-                    const closeDropZone = document.getElementById('close-local-drop-zone');
-                    if (closeDropZone) {
-                        closeDropZone.onclick = () => {
-                            dropZone.style.display = 'none';
-                            dropZone.style.height = '90px';
-                            btnContainer.remove();
-                            if (typeof window.setSplitView === 'function') {
-                                window.setSplitView(false);
-                            }
-                        };
-                    }
+                    inputContainer.appendChild(overlay);
                 }
             } else {
                 const box = ChatUI.appendBubble('system', '');

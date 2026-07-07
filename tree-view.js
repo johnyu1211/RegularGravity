@@ -102,6 +102,7 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         if (!isDir) {
             item.draggable = true;
             item.ondragstart = (e) => {
+                console.log("[TreeDrag] dragstart fired for:", fullPath);
                 e.preventDefault();
                 const { ipcRenderer } = require('electron');
                 ipcRenderer.send('ondragstart', fullPath);

@@ -195,6 +195,7 @@ body {
     white-space: nowrap;
     border-radius: 6px;
     margin: 2px 4px;
+    -webkit-user-drag: element !important;
 }
 
 .file-item.directory {

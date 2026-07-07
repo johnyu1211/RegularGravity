@@ -321,15 +321,24 @@ ipcMain.on('reveal-in-explorer', (event, p) => {
 });
 
 ipcMain.on('ondragstart', (event, filePath) => {
+    console.log("[MainDrag] Received ondragstart for:", filePath);
     const { nativeImage } = require('electron');
     const resolvedPath = path.resolve(filePath);
+    console.log("[MainDrag] Resolved path:", resolvedPath);
     const iconPath = path.resolve(__dirname, 'png.png');
+    console.log("[MainDrag] Icon path:", iconPath);
     const dragIcon = nativeImage.createFromPath(iconPath);
+    console.log("[MainDrag] Drag icon empty?", dragIcon.isEmpty());
     
-    event.sender.startDrag({
-        file: resolvedPath,
-        icon: dragIcon
-    });
+    try {
+        event.sender.startDrag({
+            file: resolvedPath,
+            icon: dragIcon
+        });
+        console.log("[MainDrag] startDrag called successfully");
+    } catch (err) {
+        console.error("[MainDrag] Error calling startDrag:", err);
+    }
 });// 3. TERMINAL ENGINE (UTF-8 SILVER BULLET - MULTI-TAB SESSION ISOLATED)
 const terminalProcesses = {};
 ipcMain.on('execute-cmd', (event, arg) => {

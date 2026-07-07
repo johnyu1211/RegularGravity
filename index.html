@@ -50,6 +50,9 @@
             <span class="titlebar-logo-text">POORMAN'S GRAVITY</span>
         </div>
         <div class="titlebar-controls">
+            <button class="titlebar-btn" id="win-reload" title="Reload App">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"/></svg>
+            </button>
             <button class="titlebar-btn" id="win-min" title="Minimize">
                 <svg width="10" height="10" viewBox="0 0 12 12"><rect x="1" y="5" width="10" height="1.5" fill="#9aa0a6"/></svg>
             </button>
@@ -167,9 +170,9 @@
         </main>
 
         <div class="resizer-v" id="resizer-inspector"></div>
-        <aside class="inspector" id="inspector-right" style="width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--surface-lowest); border-left: none;">
+        <aside class="inspector" id="inspector-right" style="width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--surface-lowest); border-left: none; position: relative;">
             <!-- LOCAL Chat View (For logs & execution proposals) -->
-            <div id="inspector-local-chat" class="agent-hub-view" style="display: flex; height: calc(100% - 38px); flex-direction: column; background: var(--bg-color); overflow: hidden; position: relative;">
+            <div id="inspector-local-chat" class="agent-hub-view" style="display: flex; position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 44px); z-index: 100; flex-direction: column; background: var(--bg-color); overflow: hidden; transition: opacity 0.2s ease;">
                 <div id="active-project-header" style="height: 38px; min-height: 38px; padding: 0 12px; background: var(--surface-lowest); box-sizing: border-box; display: flex; align-items: center; justify-content: space-between;">
                     <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif;">LOCAL AGENT CONSOLE</span>
                     <div style="display: flex; align-items: center; gap: 10px;">
@@ -211,7 +214,7 @@
             </div>
 
             <!-- Agent Hub -->
-            <div id="inspector-browser-hub" class="agent-hub-view" style="display: none; height: calc(100% - 38px); flex-direction: column; background: var(--bg-color); position: relative;">
+            <div id="inspector-browser-hub" class="agent-hub-view" style="display: flex; height: calc(100% - 44px); width: 100%; flex-direction: column; background: var(--bg-color); position: relative; z-index: 1;">
                 <div id="agent-hub-home" style="display: flex; flex-direction: column; height: 100%; position: relative;">
                     <div id="agent-hub-grid" style="padding: 30px; display: flex; flex-wrap: wrap; gap: 25px; justify-content: center; align-content: flex-start; overflow-y: auto; flex: 1;">
                         <!-- Agent Cards will be injected here -->
@@ -283,7 +286,7 @@
                             </div>
                             
                             <!-- 3. Context Injecting & Progress Bar -->
-                            <div style="display: flex; flex-direction: column; gap: 6px; width: 100%;">
+                            <div id="toast-inject-container" style="display: none; flex-direction: column; gap: 6px; width: 100%;">
                                 <div id="inject-pct-label" style="font-size: 11.5px; color: var(--text-muted); font-family: 'DM Sans', sans-serif; font-weight: 600;">
                                     Context Injecting: <span style="color: var(--primary); font-weight: bold;">0% (0/0)</span>
                                 </div>
@@ -424,6 +427,7 @@
     <script>
         (() => {
             const ipc = require('electron').ipcRenderer;
+            document.getElementById('win-reload').onclick = () => location.reload();
             document.getElementById('win-min').onclick = () => ipc.send('window-minimize');
             document.getElementById('win-max').onclick = () => ipc.send('window-maximize');
             document.getElementById('win-close').onclick = () => ipc.send('window-close');

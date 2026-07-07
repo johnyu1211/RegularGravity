@@ -255,10 +255,24 @@ function detectAndAskCommand(text) {
             const chatOverlay = document.getElementById('local-chat-overlay');
             const progressBox = document.getElementById('overlay-progress-box');
             const projBtn = document.getElementById('btn-send-project-info');
+            
+            // Get toast progress bar elements
+            const toast = document.getElementById('injection-toast');
+            const projLbl = document.getElementById('project-pct-label');
+            const projBar = document.getElementById('toast-project-progress-bar');
+            const injectContainer = document.getElementById('toast-inject-container');
+            
             if (!window.autoContinueOnRead && chatOverlay && progressBox && projBtn) {
                 chatOverlay.style.display = 'flex';
                 projBtn.style.display = 'none';
                 progressBox.style.display = 'flex';
+            }
+            
+            if (toast) {
+                toast.style.display = window.hideUIOverlay ? 'none' : 'flex';
+                if (injectContainer) injectContainer.style.display = 'none'; // Hide inject bar during reading phase
+                if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">0/${readCmds.length}</span>`;
+                if (projBar) projBar.style.width = "0%";
             }
 
             window.currentBatchFileCount = readCmds.length;
@@ -324,9 +338,12 @@ function detectAndAskCommand(text) {
 
                     combinedPayload += fileContentPayload;
                     
-                    // Inject this file context sequentially, do not click Send yet
-                    await injectWebPayload(fileContentPayload, readCmds.length, i + 1, i > 0, false);
-                    ChatUI.appendBubble('system', `[SYSTEM] Prepared and injected ${filePath} context (${i + 1}/${readCmds.length}).`);
+                    // Update read progress smoothly
+                    if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${i + 1}/${readCmds.length}</span>`;
+                    if (projBar) projBar.style.width = `${Math.floor(((i + 1) / readCmds.length) * 100)}%`;
+                    ChatUI.appendBubble('system', `[SYSTEM] Prepared ${filePath} context (${i + 1}/${readCmds.length}).`);
+                    
+                    await new Promise(r => setTimeout(r, 200)); // Delay for visual feedback
                 }
 
                 const finalPrompt = "Proceed to analyze the files above.";
@@ -336,14 +353,16 @@ function detectAndAskCommand(text) {
                     window.updateSendProgress(window.readFilesSet.size, window.totalFilesCount);
                 }
 
-                // Inject final prompt and click Send!
-                await injectWebPayload(`\n${finalPrompt}`, readCmds.length, readCmds.length, true, true);
+                if (injectContainer) injectContainer.style.display = 'flex'; // Show inject progress bar
+                
+                // Inject the entire combined payload and click Send!
+                await injectWebPayload(combinedPayload, readCmds.length, readCmds.length, false, true);
                 ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${readCmds.length} files to Web AI.`);
 
                 const response = await runExperimentalEngine('/marktag', combinedPayload, null);
 
                 if (response) {
-                    // Handled by mirror
+                    detectAndAskCommand(response);
                 }
             } catch (err) {
                 ChatUI.appendBubble('system', `[ERROR] Failed to read files batch: ${err.message}`);
@@ -713,7 +732,6 @@ ${projectTree}
                                     lastBubble.parentElement.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
                                 }
                                 lastReceivedMirrorText = decodedText;
-                                detectAndAskCommand(decodedText);
                                 return;
                             }
                         }
@@ -721,7 +739,6 @@ ${projectTree}
                     
                     lastReceivedMirrorText = decodedText;
                     ChatUI.appendBubble('ai', decodedText, false, getWebIcon(wv));
-                    detectAndAskCommand(decodedText);
                 } catch (err) {
                     console.error("[ERROR] Background mirror parsing error:", err);
                 }

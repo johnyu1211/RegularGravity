@@ -281,6 +281,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     let lastText = "";
     let stableCount = 0;
     let errorTicks = 0;
+    let delta = "";
 
     for (let i = 0; i < 2400; i++) { // 최대 20분 대기 (2400 * 500ms)
         await new Promise(r => setTimeout(r, 500));
@@ -368,7 +369,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
 
         if (manualAbort) { hideGlobalUI(); return await manualPromise; }
 
-        let delta = await wv.executeJavaScript(extractScript).catch(() => "");
+        delta = await wv.executeJavaScript(extractScript).catch(() => "");
         
         if (delta === "[EXTRACT_FAIL]") {
             delta = ""; 

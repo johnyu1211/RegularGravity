@@ -268,6 +268,8 @@ function detectAndAskCommand(text) {
             try {
                 const fs = require('fs');
                 const path = require('path');
+                
+                let combinedPayload = "";
 
                 for (let i = 0; i < readCmds.length; i++) {
                     const fileObj = readCmds[i];
@@ -320,21 +322,20 @@ function detectAndAskCommand(text) {
                         fileContentPayload = `[FILE DATA ERROR: ${filePath} not found on the local machine]\n\n`;
                     }
 
-                    const isLastFile = (i === readCmds.length - 1);
-                    if (isLastFile) {
-                        fileContentPayload += "Proceed to analyze the files above.";
-                    }
-
-                    await injectWebPayload(fileContentPayload, readCmds.length, i + 1, (i > 0), isLastFile);
-                    ChatUI.appendBubble('system', `[SYSTEM] (${i + 1}/${readCmds.length}) Sent ${filePath} to Web AI.`);
-                    
-                    if (typeof window.updateSendProgress === 'function') {
-                        window.updateSendProgress(window.readFilesSet.size, window.totalFilesCount);
-                    }
+                    combinedPayload += fileContentPayload;
+                    ChatUI.appendBubble('system', `[SYSTEM] Prepared ${filePath} context.`);
                 }
 
-                const finalDummyMessage = "Proceed to analyze the files above.";
-                const response = await runExperimentalEngine('/marktag', finalDummyMessage, null);
+                combinedPayload += "Proceed to analyze the files above.";
+
+                if (typeof window.updateSendProgress === 'function') {
+                    window.updateSendProgress(window.readFilesSet.size, window.totalFilesCount);
+                }
+
+                await injectWebPayload(combinedPayload, readCmds.length, readCmds.length, false, true);
+                ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${readCmds.length} files to Web AI.`);
+
+                const response = await runExperimentalEngine('/marktag', combinedPayload, null);
 
                 if (response) {
                     // Handled by mirror

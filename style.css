@@ -722,21 +722,8 @@ input:checked + .slider:before {
     40% { transform: scale(1.1); opacity: 1; }
 }
 
-/* WebAI Process Overlay */
 #web-process-overlay {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 320px;
-    background: rgba(10, 10, 10, 0.95);
-    border: 1px solid #222;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.8), 0 0 20px rgba(0,120,212,0.1);
-    z-index: 1000;
-    display: none;
-    backdrop-filter: blur(10px);
-    pointer-events: none; /* 클릭 차단 방지 */
+    display: none !important;
 }
 
 .process-header {

@@ -78,7 +78,7 @@ const extractScript = `(function(){
     if (!targetNode) return "[EXTRACT_FAIL]"; // 못 찾으면 에러 플래그 반환
     
     const clone = targetNode.cloneNode(true);
-    clone.querySelectorAll('script, style, button, a[role="link"], [role="button"], .carousel, .suggestions-container, [aria-label*="추천"]').forEach(el => el.remove());
+    clone.querySelectorAll('script, style, button, a[role="link"], [role="button"], .carousel, .suggestions-container, [aria-label*="추천"], .code-block-header, .code-header, [class*="code-header"]').forEach(el => el.remove());
     
     // HTML to Markdown 재귀 파서
     const toMarkdown = (node) => {
@@ -107,11 +107,26 @@ const extractScript = `(function(){
             case 'em':
             case 'i': return "*" + childrenMarkdown.trim() + "*";
             case 'code': {
-                const isBlock = node.parentNode && node.parentNode.tagName.toLowerCase() === 'pre';
-                return isBlock ? childrenMarkdown : "\`" + childrenMarkdown.trim() + "\`";
+                const text = node.textContent || "";
+                const isBlock = (node.parentNode && (
+                    node.parentNode.tagName.toLowerCase() === 'pre' || 
+                    node.parentNode.tagName.toLowerCase() === 'code-block' ||
+                    node.parentNode.classList.contains('code-block') ||
+                    node.parentNode.classList.contains('code-code')
+                )) || text.trim().includes('\\n');
+                return isBlock ? "\\n\`\`\`\\n" + childrenMarkdown.trim() + "\\n\`\`\`\\n" : "\`" + childrenMarkdown.trim() + "\`";
             }
-            case 'pre': return "\\n\`\`\`\\n" + childrenMarkdown.trim() + "\\n\`\`\`\\n";
-            case 'li': return "\\n- " + childrenMarkdown.trim();
+            case 'pre':
+            case 'code-block': return "\\n" + childrenMarkdown.trim() + "\\n";
+            case 'li': {
+                const isOrdered = node.parentNode && node.parentNode.tagName.toLowerCase() === 'ol';
+                if (isOrdered) {
+                    const siblings = Array.from(node.parentNode.children);
+                    const idx = siblings.indexOf(node) + 1;
+                    return "\\n" + idx + ". " + childrenMarkdown.trim();
+                }
+                return "\\n- " + childrenMarkdown.trim();
+            }
             case 'ul': return "\\n" + childrenMarkdown + "\\n";
             case 'ol': return "\\n" + childrenMarkdown + "\\n";
             case 'blockquote': return "\\n> " + childrenMarkdown.trim().split("\\n").join("\\n> ") + "\\n";

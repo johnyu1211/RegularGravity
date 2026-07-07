@@ -897,14 +897,12 @@ function setupUI() {
     const closeLocalSettings = document.getElementById('close-local-settings');
     const saveLocalSettings = document.getElementById('save-local-settings');
     const chkAutoRead = document.getElementById('chk-auto-read');
-    const chkHideOverlay = document.getElementById('chk-hide-overlay');
     const chkDebugMode = document.getElementById('chk-debug-mode');
 
     if (localSettingsBtn && localSettingsModal) {
         localSettingsBtn.onclick = () => {
             window.reloadAgentSettings(); 
             if (chkAutoRead) chkAutoRead.checked = window.autoContinueOnRead;
-            if (chkHideOverlay) chkHideOverlay.checked = window.hideUIOverlay;
             if (chkDebugMode) chkDebugMode.checked = window.debugMode;
             localSettingsModal.style.display = 'flex';
         };
@@ -916,10 +914,10 @@ function setupUI() {
     }
     if (saveLocalSettings && localSettingsModal) {
         saveLocalSettings.onclick = () => {
-            if (chkAutoRead || chkHideOverlay || chkDebugMode) {
+            if (chkAutoRead || chkDebugMode) {
                 const current = loadSettings();
                 if (chkAutoRead) current.autoContinueOnRead = chkAutoRead.checked;
-                if (chkHideOverlay) current.hideUIOverlay = chkHideOverlay.checked;
+                current.hideUIOverlay = true;
                 if (chkDebugMode) current.debugMode = chkDebugMode.checked;
                 saveSettings(current);
                 window.reloadAgentSettings(); 

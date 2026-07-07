@@ -722,7 +722,7 @@ ${projectTree}
                     const chatLog = document.getElementById('local-chat-messages');
                     if (chatLog) {
                         const existingBubbles = Array.from(chatLog.querySelectorAll('.chat-bubble.ai .bubble-content'));
-                        const isDuplicate = existingBubbles.some(bubble => bubble.innerText.trim() === decodedText);
+                        const isDuplicate = existingBubbles.some(bubble => (bubble.dataset.rawText || bubble.innerText.trim()) === decodedText);
                         if (isDuplicate) {
                             lastReceivedMirrorText = decodedText;
                             return;
@@ -730,8 +730,9 @@ ${projectTree}
                         
                         if (existingBubbles.length > 0) {
                             const lastBubble = existingBubbles[existingBubbles.length - 1];
-                            const lastText = lastBubble.innerText.trim();
+                            const lastText = lastBubble.dataset.rawText || lastBubble.innerText.trim();
                             if (lastText && decodedText.startsWith(lastText)) {
+                                lastBubble.dataset.rawText = decodedText;
                                 lastBubble.innerHTML = typeof marked !== 'undefined' ? marked.parse(decodedText).trim() : decodedText.trim();
                                 if (typeof hljs !== 'undefined') {
                                     lastBubble.parentElement.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));

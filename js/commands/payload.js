@@ -142,15 +142,26 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                 
                 if (!decodedPayload) return "DECODE_ERROR";
                 
-                // 메시지 라인 분할 및 30라인 단위 동기 루프 실행 (동기적 실행으로 중간 리렌더링 및 커서 튐 완벽 방지)
-                const lines = decodedPayload.split('\\n');
-                const chunkSize = 30;
-                for (let idx = 0; idx < lines.length; idx += chunkSize) {
-                    const chunk = lines.slice(idx, idx + chunkSize).join('\\n') + (idx + chunkSize < lines.length ? '\\n' : '');
-                    document.execCommand('insertText', false, chunk);
-                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                    const proto = inputEl.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+                    const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+                    const newText = ${isAppend} ? inputEl.value + decodedPayload : decodedPayload;
+                    setter.call(inputEl, newText);
+                } else {
+                    const lines = decodedPayload.split('\\n');
+                    for (let i = 0; i < lines.length; i++) {
+                        if (i > 0) {
+                            document.execCommand('insertLineBreak');
+                        }
+                        const line = lines[i];
+                        if (line) {
+                            document.execCommand('insertText', false, line);
+                        }
+                    }
                 }
+                
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
                 
                 return "SUCCESS";
             })()

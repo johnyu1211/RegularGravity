@@ -355,11 +355,14 @@ function detectAndAskCommand(text) {
 
                 if (injectContainer) injectContainer.style.display = 'flex'; // Show inject progress bar
                 
+                // Start monitoring first to prevent timeouts
+                const enginePromise = runExperimentalEngine('/marktag', combinedPayload, null);
+                
                 // Inject the entire combined payload and click Send!
                 await injectWebPayload(combinedPayload, readCmds.length, readCmds.length, false, true);
                 ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${readCmds.length} files to Web AI.`);
 
-                const response = await runExperimentalEngine('/marktag', combinedPayload, null);
+                const response = await enginePromise;
 
                 if (response) {
                     detectAndAskCommand(response);

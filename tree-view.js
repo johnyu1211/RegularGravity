@@ -86,7 +86,8 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         if (parentPath === 'DRIVES') {
             fullPath = name;
         } else {
-            const base = parentPath.endsWith('\\') ? parentPath : parentPath + '\\';
+            const pPath = parentPath || '';
+            const base = pPath.endsWith('\\') ? pPath : pPath + '\\';
             fullPath = base + name;
         }
         

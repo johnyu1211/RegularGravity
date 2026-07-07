@@ -1,6 +1,20 @@
 window.projectRoot = null;
 
+window.selectProject = async (folderPath) => {
+    if (!folderPath) return;
+    window.projectRoot = folderPath;
+    window.currentPath = folderPath;
+    ipcRenderer.send('save-recent-project', folderPath);
+    window.reloadAgentSettings();
+
+    const modal = document.getElementById('project-picker-modal');
+    if (modal) modal.style.display = 'none';
+
+    await window.loadDirectory(folderPath);
+};
+
 async function openProjectModal() {
+    window.openProjectModal = openProjectModal; // self export
     const modal = document.getElementById('project-picker-modal');
     if (!modal) return;
     modal.style.display = 'flex';

@@ -4,6 +4,7 @@ if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electro
 window.totalFilesCount = 0;
 window.readFilesSet = new Set();
 window.currentBatchFileCount = 0;
+window.currentPath = process.cwd();
 
 window.reloadAgentSettings = function() {
     const _path = require('path');
@@ -1267,6 +1268,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     await GravityVault.init();
     await setupBoot();
     setupUI();
+    
+    if (typeof openProjectModal === 'function') {
+        openProjectModal();
+    }
+    document.getElementById('tab-browser-hub')?.click();
     
     if (typeof bindDragAndDrop === 'function') {
         bindDragAndDrop();

@@ -416,7 +416,7 @@ function detectAndAskCommand(text) {
                     }
 
                     localInput.disabled = true;
-                    localInput.placeholder = "File upload requested. Drag & drop files onto Web AI below.";
+                    localInput.placeholder = "File upload requested. Please drag & drop files onto Web AI.";
                     localInput.value = "";
                     localInput.style.background = 'rgba(0, 0, 0, 0.2)';
                     if (sendBtn) sendBtn.style.display = 'none';
@@ -426,18 +426,44 @@ function detectAndAskCommand(text) {
                         return parts[parts.length - 1];
                     }).join(', ');
 
+                    let fileBox = null;
+                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                        fileBox = ChatUI.appendBubble('system', '');
+                        const fileBoxContent = fileBox.querySelector('.bubble-content');
+                        if (fileBoxContent) {
+                            fileBoxContent.innerHTML = `
+                                <div style="background: var(--surface-low); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-main); display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                    <span style="color: var(--primary); font-size: 14px;">📂</span>
+                                    <span>Requested: <strong style="color: var(--primary);">${fileNames}</strong></span>
+                                </div>
+                            `;
+                        }
+                    }
+
                     const oldOverlay = document.getElementById('drag-drop-input-overlay');
                     if (oldOverlay) oldOverlay.remove();
 
+                    if (!document.getElementById('bounce-arrow-style')) {
+                        const styleNode = document.createElement('style');
+                        styleNode.id = 'bounce-arrow-style';
+                        styleNode.innerHTML = `
+                            @keyframes bounce-arrow {
+                                0%, 100% { transform: translateY(0); }
+                                50% { transform: translateY(6px); }
+                            }
+                        `;
+                        document.head.appendChild(styleNode);
+                    }
+
                     const overlay = document.createElement('div');
                     overlay.id = 'drag-drop-input-overlay';
-                    overlay.style.cssText = "position: absolute; left: 12px; right: 12px; top: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.95); border-radius: 8px; border: 1px dashed var(--primary); z-index: 100; font-family: 'DM Sans', sans-serif; padding: 8px; box-sizing: border-box;";
+                    overlay.style.cssText = "position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.95); z-index: 100; font-family: 'DM Sans', sans-serif; padding: 6px; box-sizing: border-box;";
 
                     overlay.innerHTML = `
-                        <div style="font-size: 11px; color: #fff; font-weight: 500; text-align: center; line-height: 1.4;">
-                            Drag <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> from tree-view & drop onto Web AI below.
+                        <div style="font-size: 18px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; margin-bottom: 2px;">
+                            ⬇️
                         </div>
-                        <div style="display: flex; gap: 8px; margin-top: 4px;">
+                        <div style="display: flex; gap: 8px;">
                             <button class="drag-continue-btn" style="background: var(--primary); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 10px; letter-spacing: 0.04em;">CONTINUE</button>
                             <button class="drag-cancel-btn" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 10px;">CANCEL</button>
                         </div>
@@ -445,6 +471,8 @@ function detectAndAskCommand(text) {
 
                     const cleanupDragDrop = () => {
                         overlay.remove();
+                        if (fileBox) fileBox.remove();
+                        
                         if (localInput) {
                             localInput.disabled = false;
                             localInput.placeholder = "Ask to WebAI...";

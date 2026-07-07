@@ -154,10 +154,16 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
         };
 
         try {
-            const webPayload = promptText.trim();
+            window.userMessageCount = (window.userMessageCount || 0) + 1;
+            let webPayload = promptText.trim();
+            
+            if (window.userMessageCount % 5 === 0) {
+                const systemRulePrompt = `\n\n[SYSTEM INSTRUCTION / REMINDER]\n1. 프로젝트 파악을 위해 코드를 분석하십시오. 모든 파일을 다 읽으려 하지 말고, package.json이나 핵심 엔트리 포인트(예: main.js, index.html 등)의 아키텍처를 파악하십시오.\n2. 분석할 첫 번째 핵심 소스코드를 읽으려면 반드시 다음 형식의 대괄호 명령어를 본문 답변에 정확히 써서 요청하십시오. 자연어로만 말하면 시스템이 감지하지 못합니다:\n- [CMD: read-file "파일명"]\n3. 만약 한 번에 여러 소스 파일을 동시에 읽어 분석하고 싶다면, [CMD: read-file "파일명1"] [CMD: read-file "파일명2"] 형태로 여러 개의 명령어를 나열하여 요청하십시오. 시스템이 병합하여 1턴 만에 전송해 줄 것입니다.\n\n[CRITICAL RULE]\n1. 아직 전체 프로젝트가 파악되지 않았다면, 읽은 파일에 대해 설명하지 말고 빠르게 다음 탐색할 [CMD: ...] 명령어만 단답형으로 제출하십시오.\n2. 파일의 구조나 함수 목록만 파악할 때는 [CMD: read-file "파일명"] 을 사용하십시오.\n3. 세부 로직을 정밀 분석/수정할 때는 [CMD: read-file-full "파일명"] 을 사용하십시오. (단, 한 턴에 최대 200줄 제한으로 잘려서 전송됩니다.)\n4. 특정 라인 범위(최대 200줄 한도)만 지정해서 읽고 싶다면 [CMD: read-file-range "파일명" 시작줄-끝줄] (예: [CMD: read-file-range "main.js" 1-200] 또는 [CMD: read-file-range "main.js" 201-400]) 을 적극적으로 사용하십시오.\n5. 파일 탐색 및 파악이 최종적으로 완료되었다면 자의적인 향후 작업 계획 수립이나 임의의 대안 작성을 일절 중단하십시오. 오직 파악된 현재 프로젝트 구조 및 핵심 기능에 대해서만 간결히 설명한 후, 유저의 구체적인 지시(Wait for user instructions)를 대기하십시오.`;
+                webPayload += systemRulePrompt;
+            }
             window.sessionBriefed = true;
 
-            const enginePromise = runExperimentalEngine('/marktag', promptText, null);
+            const enginePromise = runExperimentalEngine('/marktag', webPayload, null);
             await new Promise(r => setTimeout(r, 300));
             await injectWebPayload(webPayload, 0);
 

@@ -232,6 +232,8 @@ function createWindow() {
         }
     });
 
+    mainWindow.maximize();
+
     // 기본 상단 메뉴 제거
     Menu.setApplicationMenu(null);
 

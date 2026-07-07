@@ -333,19 +333,18 @@ ipcMain.on('ondragstart', (event, filePath) => {
     const resolvedPath = path.resolve(filePath);
     console.log("[MainDrag] Resolved path:", resolvedPath);
     
-    // 16x16 red square PNG buffer
-    const redPngB64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAD0lEQVR42mP8z8BQDw4iAACl4f7x5cT2swAAAABJRU5ErkJggg==';
-    const dragIcon = nativeImage.createFromBuffer(Buffer.from(redPngB64, 'base64'));
-    console.log("[MainDrag] Drag icon empty?", dragIcon.isEmpty());
+    const iconPath = path.join(__dirname, 'png.png');
+    const dragIcon = nativeImage.createFromPath(iconPath);
+    console.log("[MainDrag] Physical drag icon loaded?", !dragIcon.isEmpty());
     
     try {
         event.sender.startDrag({
             file: resolvedPath,
             icon: dragIcon
         });
-        console.log("[MainDrag] startDrag called successfully");
+        console.log("[MainDrag] startDrag successfully executed");
     } catch (err) {
-        console.error("[MainDrag] Error calling startDrag:", err);
+        console.error("[MainDrag] Error in startDrag:", err);
     }
 });// 3. TERMINAL ENGINE (UTF-8 SILVER BULLET - MULTI-TAB SESSION ISOLATED)
 const terminalProcesses = {};

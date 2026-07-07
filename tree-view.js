@@ -102,9 +102,10 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         if (!isDir) {
             item.setAttribute('draggable', 'true');
             item.ondragstart = (e) => {
-                console.log("[TreeDrag] HTML5 dragstart fired for:", fullPath);
-                e.dataTransfer.setData('text/plain', fullPath);
-                e.dataTransfer.effectAllowed = 'copy';
+                e.preventDefault();
+                console.log("[TreeDrag] Native dragstart initiated for:", fullPath);
+                const { ipcRenderer } = require('electron');
+                ipcRenderer.send('ondragstart', fullPath);
             };
         }
         item.style.setProperty('--level', level);

@@ -279,8 +279,6 @@ function detectAndAskCommand(text) {
 
             window.currentBatchFileCount = readCmds.length;
 
-            if (!window.autoContinueOnRead) document.getElementById('tab-browser-hub')?.click();
-
             try {
                 const fs = require('fs');
                 const path = require('path');
@@ -562,16 +560,12 @@ function detectAndAskCommand(text) {
             }
             
             ChatUI.appendBubble('system', `[EXECUTED] ${cleanCmd}`);
-            document.getElementById('tab-browser-hub')?.click();
             const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${CRITICAL_RULE_SUFFIX}`;
             
             try {
                 const enginePromise = runExperimentalEngine('/marktag', payload, null);
                 await injectWebPayload(payload);
                 const response = await enginePromise;
-                if (!window.autoContinueOnRead) {
-                    document.getElementById('tab-local-agent')?.click();
-                }
                 if (response) {
                     ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
                     detectAndAskCommand(response);
@@ -1334,7 +1328,6 @@ function setupUI() {
             if (window.sessionBriefed || window.briefingInProgress) return;
             window.briefingInProgress = true;
             projBtn.style.display = 'none';
-            document.getElementById('tab-browser-hub')?.click();
             
             const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
             const fileMatches = tree.match(/\[FILE\]/g);
@@ -1513,7 +1506,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof openProjectModal === 'function') {
         openProjectModal();
     }
-    document.getElementById('tab-browser-hub')?.click();
     
     if (typeof bindDragAndDrop === 'function') {
         bindDragAndDrop();

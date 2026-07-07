@@ -108,8 +108,6 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
     if (matchedCmd) {
         const isTest = (matchedCmd === '/test'); const cmd = matchedCmd; const displayCmd = msg ? `${cmd} ${msg}` : cmd;
         ChatUI.appendBubble('user', displayCmd); if (chatIn) chatIn.value = '';
-        document.getElementById('tab-browser-hub').click();
-
         try {
             if (isTest) { await injectWebPayload(msg); } 
             else {
@@ -120,7 +118,6 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
                 await injectWebPayload(msg);
                 const response = await enginePromise;
                 if (statusBub) statusBub.remove();
-                if (!window.autoContinueOnRead) document.getElementById('tab-local-agent').click();
 
                 if (response) { ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview'))); detectAndAskCommand(response); } 
                 else {

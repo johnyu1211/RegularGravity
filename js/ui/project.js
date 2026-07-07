@@ -13,19 +13,12 @@ window.selectProject = async (folderPath) => {
 
     await window.loadDirectory(folderPath);
 
-    // 1. 브라우저 탭으로 전환
-    const browserTab = document.getElementById('tab-browser-hub');
-    if (browserTab) browserTab.click();
-
-    // 2. 0.5초 후 로컬 탭(채팅) 활성화 + 입력창 포커스
-    setTimeout(() => {
-        const localTab = document.getElementById('tab-local-agent');
-        if (localTab) {
-            localTab.click();
-            const chatIn = document.getElementById('local-agent-input');
-            if (chatIn) chatIn.focus();
-        }
-    }, 500);
+    const localTab = document.getElementById('tab-local-agent');
+    if (localTab) {
+        localTab.click();
+        const chatIn = document.getElementById('local-agent-input');
+        if (chatIn) chatIn.focus();
+    }
 };
 
 async function openProjectModal() {

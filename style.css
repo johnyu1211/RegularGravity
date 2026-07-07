@@ -922,19 +922,7 @@ input:checked + .slider:before {
 
 /* Injection Status Toast */
 .injection-toast-overlay {
-    position: absolute;
-    inset: 0;
-    height: 100%;
-    z-index: 160;
-    pointer-events: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 12px;
-    box-sizing: border-box;
-    background: rgba(10, 10, 12, 0.85);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    display: none !important;
 }
 
 .toast-content {

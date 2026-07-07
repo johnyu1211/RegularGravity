@@ -1372,6 +1372,7 @@ function setupUI() {
             if (document.hasFocus()) { const ci = document.getElementById('local-agent-input'); if (ci) setTimeout(() => ci.focus(), 100); }
         }
     };
+    window.swi = swi;
     if (tLA) tLA.onclick = () => swi('local'); if (tBH) tBH.onclick = () => swi('browser');
 
     const searchBtn = document.getElementById('btn-local-search');
@@ -1699,7 +1700,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chatIn = document.getElementById('local-agent-input');
     if (chatIn) {
         setTimeout(() => {
-            swi('local');
+            if (typeof window.swi === 'function') window.swi('local');
             chatIn.focus();
             chatIn.click();
         }, 300);

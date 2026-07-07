@@ -157,12 +157,13 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
             const webPayload = promptText.trim();
             window.sessionBriefed = true;
 
-            await new Promise(r => setTimeout(r, 500));
+            const enginePromise = runExperimentalEngine('/marktag', promptText, null);
+            await new Promise(r => setTimeout(r, 300));
             await injectWebPayload(webPayload, 0);
 
             updateProcess('extract', 90);
 
-            const response = await runExperimentalEngine('/marktag', promptText, null);
+            const response = await enginePromise;
             progBar.style.width = '100%'; await new Promise(r => setTimeout(r, 500));
             overlay.style.display = 'none'; overlay.style.pointerEvents = 'none';
 

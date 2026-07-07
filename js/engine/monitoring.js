@@ -280,6 +280,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     let isGenerating = false;
     let lastText = "";
     let stableCount = 0;
+    let errorTicks = 0;
 
     for (let i = 0; i < 2400; i++) { // 최대 20분 대기 (2400 * 500ms)
         await new Promise(r => setTimeout(r, 500));
@@ -324,13 +325,45 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                 window.activeAiResponding = false;
                 return cleanGarbage(delta);
             } else {
-                hideGlobalUI();
-                window.activeAiResponding = false;
-                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    ChatUI.appendBubble('system', `⚠️ [WEB AI ERROR] ${errorVal}\nWeb AI has blocked the request or encountered a quota/usage limit. Please review the browser tab.`);
+                errorTicks++;
+                if (errorTicks >= 10) {
+                    errorTicks = 0;
+                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                        ChatUI.appendBubble('system-info', `⚠️ [Resending] Error detected (${errorVal}). Resending message in Web AI (Enter)...`);
+                    }
+                    await wv.executeJavaScript(`(() => {
+                        const inKeywords = ["ask", "write", "chat", "입력", "질문", "프롬프트", "prompt", "message"];
+                        const findInput = () => {
+                            const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                            const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
+                            for (let el of mainCandidates) {
+                                const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                                if (inKeywords.some(k => text.includes(k))) return el;
+                            }
+                            if (mainCandidates.length > 0) return mainCandidates[0];
+                            return null;
+                        };
+
+                        const input = findInput();
+                        if (!input) return;
+
+                        input.focus();
+                        const createEvent = (type) => {
+                            const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter' });
+                            Object.defineProperty(ev, 'keyCode', { get: () => 13 });
+                            Object.defineProperty(ev, 'which', { get: () => 13 });
+                            Object.defineProperty(ev, 'charCode', { get: () => 13 });
+                            return ev;
+                        };
+                        input.dispatchEvent(createEvent('keydown'));
+                        input.dispatchEvent(createEvent('keypress'));
+                        input.dispatchEvent(createEvent('keyup'));
+                    })()`).catch(() => null);
                 }
-                return null;
+                updateUI(`Error detected (${errorVal}). Retrying in 5s...`, 0, false);
             }
+        } else {
+            errorTicks = 0; // Reset if error cleared
         }
 
         if (manualAbort) { hideGlobalUI(); return await manualPromise; }

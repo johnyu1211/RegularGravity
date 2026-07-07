@@ -242,7 +242,8 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
         wv.focus();
         wv.executeJavaScript(injectionScript).then(async (status) => {
             if (status !== "SUCCESS") {
-                if (toastText) toastText.innerText = "Error: " + status;
+                const toastLabel = document.getElementById('project-pct-label');
+                if (toastLabel) toastLabel.innerText = "Error: " + status;
                 setTimeout(cleanup, 3000);
                 return reject("Input failed: " + status);
             }

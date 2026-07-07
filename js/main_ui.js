@@ -252,22 +252,22 @@ function detectAndAskCommand(text) {
         content.querySelector('.cmd-run-btn').onclick = async () => {
             box.remove();
             
+            const chatOverlay = document.getElementById('local-chat-overlay');
+            const progressBox = document.getElementById('overlay-progress-box');
+            const projBtn = document.getElementById('btn-send-project-info');
+            if (!window.autoContinueOnRead && chatOverlay && progressBox && projBtn) {
+                chatOverlay.style.display = 'flex';
+                projBtn.style.display = 'none';
+                progressBox.style.display = 'flex';
+            }
+
+            window.currentBatchFileCount = readCmds.length;
+
+            if (!window.autoContinueOnRead) document.getElementById('tab-browser-hub')?.click();
+
             try {
                 const fs = require('fs');
                 const path = require('path');
-
-                const chatOverlay = document.getElementById('local-chat-overlay');
-                const progressBox = document.getElementById('overlay-progress-box');
-                const projBtn = document.getElementById('btn-send-project-info');
-                if (!window.autoContinueOnRead && chatOverlay && progressBox && projBtn) {
-                    chatOverlay.style.display = 'flex';
-                    projBtn.style.display = 'none';
-                    progressBox.style.display = 'flex';
-                }
-
-                window.currentBatchFileCount = readCmds.length;
-
-                if (!window.autoContinueOnRead) document.getElementById('tab-browser-hub')?.click();
 
                 for (let i = 0; i < readCmds.length; i++) {
                     const fileObj = readCmds[i];
@@ -335,6 +335,13 @@ function detectAndAskCommand(text) {
 
                 const finalDummyMessage = "Proceed to analyze the files above.";
                 const response = await runExperimentalEngine('/marktag', finalDummyMessage, null);
+
+                if (response) {
+                    // Handled by mirror
+                }
+            } catch (err) {
+                ChatUI.appendBubble('system', `[ERROR] Failed to read files batch: ${err.message}`);
+            } finally {
                 if (!window.autoContinueOnRead) {
                     document.getElementById('tab-local-agent')?.click();
                 }
@@ -344,12 +351,6 @@ function detectAndAskCommand(text) {
                     progressBox.style.display = 'none';
                     projBtn.style.display = 'flex';
                 }
-
-                if (response) {
-                    // Handled by mirror
-                }
-            } catch (err) {
-                ChatUI.appendBubble('system', `[ERROR] Failed to read files batch: ${err.message}`);
             }
         };
 
@@ -1179,18 +1180,27 @@ ${tree}
             
             window.currentBatchFileCount = -1;
             const enginePromise = runExperimentalEngine('/marktag', webPayload, null);
-            await injectWebPayload(webPayload, -1);
+            try {
+                await injectWebPayload(webPayload, -1);
+            } catch (err) {
+                console.error("Failed to inject project info payload:", err);
+            }
             
             chatOverlay.style.display = 'none';
             projBtn.style.display = 'flex';
             
             if (chatIn) chatIn.focus();
             
-            const response = await enginePromise;
-            if (!window.autoContinueOnRead) document.getElementById('tab-local-agent')?.click();
-            if (response) {
-                ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
-                detectAndAskCommand(response);
+            try {
+                const response = await enginePromise;
+                if (response) {
+                    ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
+                    detectAndAskCommand(response);
+                }
+            } catch (err) {
+                console.error("Failed to run experimental engine:", err);
+            } finally {
+                if (!window.autoContinueOnRead) document.getElementById('tab-local-agent')?.click();
             }
         };
 

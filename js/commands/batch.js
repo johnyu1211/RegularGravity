@@ -132,11 +132,23 @@ async function executeSearchBatch(searchCmds) {
                 if (results.length === 0) {
                     searchPayload += `No matches found.\n\n`;
                 } else {
-                    results.slice(0, 100).forEach(r => {
-                        searchPayload += `${r.path}:${r.lineNum}: ${r.content}\n`;
+                    const groups = {};
+                    results.forEach(r => {
+                        if (!groups[r.path]) groups[r.path] = [];
+                        groups[r.path].push(r);
                     });
-                    if (results.length > 100) {
-                        searchPayload += `... and ${results.length - 100} more matches.\n`;
+                    
+                    const filePaths = Object.keys(groups);
+                    if (filePaths.length > 3 || results.length > 15) {
+                        searchPayload += `Found matches in ${filePaths.length} files. Showing file summary list:\n`;
+                        filePaths.forEach(p => {
+                            searchPayload += `- ${p} (${groups[p].length} matches)\n`;
+                        });
+                        searchPayload += `\nUse [CMD: search-file "파일명" "${cmdObj.query}"] or [CMD: read-file] on the target files to inspect matching lines.\n`;
+                    } else {
+                        results.forEach(r => {
+                            searchPayload += `${r.path}:${r.lineNum}: ${r.content}\n`;
+                        });
                     }
                     searchPayload += `\n`;
                 }

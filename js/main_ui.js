@@ -401,7 +401,7 @@ function detectAndAskCommand(text) {
                     const vLC = document.getElementById('inspector-local-chat');
                     const vBH = document.getElementById('inspector-browser-hub');
                     if (vLC) {
-                        vLC.style.height = 'calc(100% - 44px - 160px)';
+                        vLC.style.height = 'calc(100% - 44px - 220px)';
                         vLC.style.zIndex = '150';
                     }
                     

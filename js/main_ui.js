@@ -400,7 +400,10 @@ function detectAndAskCommand(text) {
                 if (localInput && inputContainer) {
                     const vLC = document.getElementById('inspector-local-chat');
                     const vBH = document.getElementById('inspector-browser-hub');
-                    if (vLC) vLC.style.height = 'calc(100% - 44px - 160px)';
+                    if (vLC) {
+                        vLC.style.height = 'calc(100% - 44px - 160px)';
+                        vLC.style.zIndex = '150';
+                    }
                     
                     if (vBH) {
                         vBH.style.position = 'absolute';
@@ -450,7 +453,10 @@ function detectAndAskCommand(text) {
                         }
                         if (sendBtn) sendBtn.style.display = 'flex';
                         
-                        if (vLC) vLC.style.height = 'calc(100% - 44px)';
+                        if (vLC) {
+                            vLC.style.height = 'calc(100% - 44px)';
+                            vLC.style.zIndex = '100';
+                        }
                         if (vBH) {
                             vBH.style.position = '';
                             vBH.style.top = '';

@@ -178,9 +178,9 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                 // 100ms 포커스 대기
                 await new Promise(r => setTimeout(r, 100));
                 
-                // 메시지 라인 분할 및 30라인 단위의 고속 청크 쪼개기 (React 버퍼 오버헤드 차단)
+                // 메시지 라인 분할 및 100라인 단위의 고속 청크 쪼개기 (React 버퍼 오버헤드 차단)
                 const lines = decodedPayload.split('\\n');
-                const chunkSize = 30;
+                const chunkSize = 100;
                 const chunks = [];
                 for (let idx = 0; idx < lines.length; idx += chunkSize) {
                     chunks.push(lines.slice(idx, idx + chunkSize).join('\\n') + (idx + chunkSize < lines.length ? '\\n' : ''));
@@ -201,8 +201,8 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                     const pct = Math.floor(((idx + 1) / chunks.length) * 100);
                     console.log("[INJECT_PCT]:" + pct + "," + currentLine + ",${totalLines}");
                     
-                    // 15ms 미세 딜레이를 주어 브라우저가 버퍼를 렌더링하고 렌더러가 실시간 게이지를 갱신할 틈을 줌
-                    await new Promise(r => setTimeout(r, 15));
+                    // 80ms 딜레이를 주어 브라우저가 버퍼를 렌더링하고 React 상태 동기화가 이루어지도록 함
+                    await new Promise(r => setTimeout(r, 80));
                 }
                 
                 if (!${clickSend}) {

@@ -676,20 +676,18 @@ async function setupBoot() {
                             const briefPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
 ${projectTree}
 
-[SYSTEM INSTRUCTION]
-1. 프로젝트 파악을 위해 코드를 분석하십시오. 모든 파일을 다 읽으려 하지 말고, package.json이나 핵심 엔트리 포인트(예: main.js, index.html 등)의 아키텍처를 파악하십시오.
-2. 분석할 첫 번째 핵심 소스코드를 읽으려면 반드시 다음 형식의 대괄호 명령어를 본문 답변에 정확히 써서 요청하십시오. 자연어로만 말하면 시스템이 감지하지 못합니다:
-- [CMD: read-file "파일명"]
-3. 만약 한 번에 여러 소스 파일을 동시에 읽어 분석하고 싶다면, [CMD: read-file "파일명1"] [CMD: read-file "파일명2"] 형태로 여러 개의 명령어를 나열하여 요청하십시오. 시스템이 병합하여 1턴 만에 전송해 줄 것입니다.
-
-이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.
-
-[CRITICAL RULE]
-1. 아직 전체 프로젝트가 파악되지 않았다면, 읽은 파일에 대해 설명하지 말고 빠르게 다음 탐색할 [CMD: ...] 명령어만 단답형으로 제출하십시오.
-2. 파일의 구조나 함수 목록만 파악할 때는 [CMD: read-file "파일명"] 을 사용하십시오.
-3. 세부 로직을 정밀 분석/수정할 때는 [CMD: read-file-full "파일명"] 을 사용하십시오. (단, 한 턴에 최대 200줄 제한으로 잘려서 전송됩니다.)
-4. 특정 라인 범위(최대 200줄 한도)만 지정해서 읽고 싶다면 [CMD: read-file-range "파일명" 시작줄-끝줄] (예: [CMD: read-file-range "main.js" 1-200] 또는 [CMD: read-file-range "main.js" 201-400]) 을 적극적으로 사용하십시오.
-5. 파일 탐색 및 파악이 최종적으로 완료되었다면 자의적인 향후 작업 계획 수립이나 임의의 대안 작성을 일절 중단하십시오. 오직 파악된 현재 프로젝트 구조 및 핵심 기능에 대해서만 간결히 설명한 후, 유저의 구체적인 지시(Wait for user instructions)를 대기하십시오.`.trim();
+[SYSTEM RULES]
+1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 [CMD: ...] 명령어만 단답형 제출.
+2. 명령 규격:
+   - [CMD: read-file "경로"] (개요 파악)
+   - [CMD: read-file-full "경로"] (전체 정밀 분석)
+   - [CMD: read-file-range "경로" 시작줄-끝줄] (범위 분석, 최대 200줄 제한)
+   - [CMD: search-file "경로" "검색어"] (파일 내 검색)
+   - [CMD: search-all "검색어"] (전역 검색)
+3. 탐색 강제: 유저 질문/요청 시 짐작 금지. 트리 확인 및 검색 후 대상 소스 본문을 [CMD: read-file...]로 직접 읽어본 뒤 답할 것. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
+4. 문구 제한: 명령어 제출 시 '코드를 읽어보는게 정확하겠습니다' 등 사족 절대 금지. 오직 '읽어보겠습니다.' 등 짧은 단답 직후 명령어만 표시.
+5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).
+이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.`.trim();
 
                             window.currentBatchFileCount = -1;
                             const briefPromise = runExperimentalEngine('/marktag', briefPayload, null);
@@ -1316,28 +1314,25 @@ function setupUI() {
             projBtn.style.display = 'none';
             
             const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
-            const fileMatches = tree.match(/\[FILE\]/g);
-            window.totalFilesCount = fileMatches ? fileMatches.length : 0;
+            window.totalFilesCount = tree.split('\n').filter(line => line.startsWith('- ')).length;
             window.readFilesSet.clear();
             window.userMessageCount = 0;
             
             const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
 ${tree}
 
-[SYSTEM INSTRUCTION]
-1. 프로젝트 파악을 위해 코드를 분석하십시오. 모든 파일을 다 읽으려 하지 말고, package.json이나 핵심 엔트리 포인트(예: main.js, index.html 등)의 아키텍처를 파악하십시오.
-2. 분석할 첫 번째 핵심 소스코드를 읽으려면 반드시 다음 형식의 대괄호 명령어를 본문 답변에 정확히 써서 요청하십시오. 자연어로만 말하면 시스템이 감지하지 못합니다:
-- [CMD: read-file "파일명"]
-3. 만약 한 번에 여러 소스 파일을 동시에 읽어 분석하고 싶다면, [CMD: read-file "파일명1"] [CMD: read-file "파일명2"] 형태로 여러 개의 명령어를 나열하여 요청하십시오. 시스템이 병합하여 1턴 만에 전송해 줄 것입니다.
-
-이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.
-
-[CRITICAL RULE]
-1. 아직 전체 프로젝트가 파악되지 않았다면, 읽은 파일에 대해 설명하지 말고 빠르게 다음 탐색할 [CMD: ...] 명령어만 단답형으로 제출하십시오.
-2. 파일의 구조나 함수 목록만 파악할 때는 [CMD: read-file "파일명"] 을 사용하십시오.
-3. 세부 로직을 정밀 분석/수정할 때는 [CMD: read-file-full "파일명"] 을 사용하십시오. (단, 한 턴에 최대 200줄 제한으로 잘려서 전송됩니다.)
-4. 특정 라인 범위(최대 200줄 한도)만 지정해서 읽고 싶다면 [CMD: read-file-range "파일명" 시작줄-끝줄] (예: [CMD: read-file-range "main.js" 1-200] 또는 [CMD: read-file-range "main.js" 201-400]) 을 적극적으로 사용하십시오.
-5. 파일 탐색 및 파악이 최종적으로 완료되었다면 자의적인 향후 작업 계획 수립이나 임의의 대안 작성을 일절 중단하십시오. 오직 파악된 현재 프로젝트 구조 및 핵심 기능에 대해서만 간결히 설명한 후, 유저의 구체적인 지시(Wait for user instructions)를 대기하십시오.`.trim();
+[SYSTEM RULES]
+1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 [CMD: ...] 명령어만 단답형 제출.
+2. 명령 규격:
+   - [CMD: read-file "경로"] (개요 파악)
+   - [CMD: read-file-full "경로"] (전체 정밀 분석)
+   - [CMD: read-file-range "경로" 시작줄-끝줄] (범위 분석, 최대 200줄 제한)
+   - [CMD: search-file "경로" "검색어"] (파일 내 검색)
+   - [CMD: search-all "검색어"] (전역 검색)
+3. 탐색 강제: 유저 질문/요청 시 짐작 금지. 트리 확인 및 검색 후 대상 소스 본문을 [CMD: read-file...]로 직접 읽어본 뒤 답할 것. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
+4. 문구 제한: 명령어 제출 시 '코드를 읽어보는게 정확하겠습니다' 등 사족 절대 금지. 오직 '읽어보겠습니다.' 등 짧은 단답 직후 명령어만 표시.
+5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).
+이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.`.trim();
             
             window.currentBatchFileCount = -1;
             const enginePromise = runExperimentalEngine('/marktag', webPayload, null);

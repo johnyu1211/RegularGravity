@@ -94,41 +94,38 @@ ipcMain.on('vault-reset-session', (event, { logPath }) => {
 
 ipcMain.handle('vault-get-tree', async (event, projectPath) => {
     const root = projectPath || process.cwd();
-    const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch'];
+    const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch', 'out', '.vs', '.idea'];
+    const results = [];
     
-    function buildTree(dir, prefix = '', depth = 0) {
-        if (depth > 10) return ''; // 최대 10단계 깊이 제한
-        let result = '';
+    function traverse(dir, depth = 0) {
+        if (depth > 10) return; // 최대 10단계 제한
         let items = [];
         try {
             items = fs.readdirSync(dir);
         } catch (e) {
-            console.error(`[Tree] Cannot read dir ${dir}:`, e.message);
-            return `[ERROR: Cannot read dir ${dir} - ${e.message}]\n`;
+            return;
         }
-        
         items.forEach(item => {
             if (ignore.includes(item)) return;
             const fullPath = path.join(dir, item);
             try {
                 const stats = fs.statSync(fullPath);
-                const isDir = stats.isDirectory();
-                result += `${prefix}${isDir ? '[DIR]' : '[FILE]'} ${item}\n`;
-                if (isDir) {
-                    result += buildTree(fullPath, prefix + '  ', depth + 1);
+                if (stats.isDirectory()) {
+                    traverse(fullPath, depth + 1);
+                } else if (stats.isFile()) {
+                    results.push(path.relative(root, fullPath).replace(/\\/g, '/'));
                 }
             } catch (err) {
-                console.error(`[Tree] Skip error item ${item}:`, err.message);
+                // skip
             }
         });
-        return result;
     }
     
-    const treeResult = buildTree(root);
-    if (!treeResult) {
+    traverse(root);
+    if (results.length === 0) {
         return `[WARNING: No files found in target root path: ${root}]`;
     }
-    return treeResult;
+    return results.map(p => `- ${p}`).join('\n');
 });
 
 ipcMain.handle('vault-search', async (event, { query }) => {

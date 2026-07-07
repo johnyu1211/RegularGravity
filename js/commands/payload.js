@@ -1,3 +1,5 @@
+if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
+
 async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0, isAppend = false, clickSend = true) {
     const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
     const inKeywords = savedKeywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);

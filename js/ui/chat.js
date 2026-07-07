@@ -1,3 +1,4 @@
+if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 window.generating = false;
 
 const ChatUI = {

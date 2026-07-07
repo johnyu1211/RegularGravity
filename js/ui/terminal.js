@@ -1,3 +1,4 @@
+if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 window.terminalCount = 0;
 window.activeSubTabId = null;
 window.terminalSessions = {};

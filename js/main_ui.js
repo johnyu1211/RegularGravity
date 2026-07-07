@@ -379,35 +379,32 @@ function detectAndAskCommand(text) {
         if (window.autoContinueOnRead) {
             runRead();
         } else {
-            let box = null;
-            if (!window.dragDropMode) {
-                box = ChatUI.appendBubble('system', '');
-                const content = box.querySelector('.bubble-content');
-                const themeColor = "#468CF6"; 
-                const glowShadow = "rgba(70, 140, 246, 0.15)";
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#468CF6"; 
+            const glowShadow = "rgba(70, 140, 246, 0.15)";
 
-                content.innerHTML = `
-                    <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                        <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">📄</span>${displayCmd}
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                        <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                    </div>
-                `;
-                
-                content.querySelector('.cmd-run-btn').onclick = async () => {
-                    box.remove();
-                    const dropZone = document.getElementById('local-drop-zone');
-                    if (dropZone) dropZone.style.display = 'none';
-                    await runRead();
-                };
-                content.querySelector('.cmd-cancel-btn').onclick = () => {
-                    box.remove();
-                    const dropZone = document.getElementById('local-drop-zone');
-                    if (dropZone) dropZone.style.display = 'none';
-                };
-            }
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">📄</span>${displayCmd}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                </div>
+            `;
+            
+            content.querySelector('.cmd-run-btn').onclick = async () => {
+                box.remove();
+                const dropZone = document.getElementById('local-drop-zone');
+                if (dropZone) dropZone.style.display = 'none';
+                await runRead();
+            };
+            content.querySelector('.cmd-cancel-btn').onclick = () => {
+                box.remove();
+                const dropZone = document.getElementById('local-drop-zone');
+                if (dropZone) dropZone.style.display = 'none';
+            };
 
             const dropZone = document.getElementById('local-drop-zone');
             const dropTargetText = document.getElementById('drop-target-filename');

@@ -2,5 +2,5 @@
   "autoContinueOnRead": false,
   "hideUIOverlay": true,
   "debugMode": false,
-  "dragDropMode": true
+  "dragDropMode": false
 }

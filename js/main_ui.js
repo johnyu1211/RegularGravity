@@ -215,50 +215,11 @@ function detectAndAskCommand(text) {
             return `${f.full ? 'read-file-full' : 'read-file'} "${f.path}"`;
         }).join(', ');
         
-        const box = ChatUI.appendBubble('system', '');
-        const content = box.querySelector('.bubble-content');
-        const themeColor = "#468CF6"; 
-        const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-        content.innerHTML = `
-            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">📄</span>${displayCmd}
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-            </div>
-        `;
-
-        const runBtn = content.querySelector('.cmd-run-btn');
-        const cancelBtn = content.querySelector('.cmd-cancel-btn');
-        if (runBtn) {
-            runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(70, 140, 246, 0.3)"; };
-            runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
-        }
-        if (cancelBtn) {
-            cancelBtn.onmouseenter = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.08)"; cancelBtn.style.color = "var(--text-main)"; cancelBtn.style.borderColor = "rgba(255,255,255,0.15)"; };
-            cancelBtn.onmouseleave = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.04)"; cancelBtn.style.color = "var(--text-muted)"; cancelBtn.style.borderColor = "var(--border-color)"; };
-        }
-
-        if (window.autoContinueOnRead) {
-            setTimeout(() => {
-                const btn = content.querySelector('.cmd-run-btn');
-                if (btn) {
-                    ChatUI.appendBubble('system', `[SYSTEM] Auto-continuing batch read for ${readCmds.length} files...`);
-                    btn.click();
-                }
-            }, 800);
-        }
-
-        content.querySelector('.cmd-run-btn').onclick = async () => {
-            box.remove();
-            
+        const runRead = async () => {
             const chatOverlay = document.getElementById('local-chat-overlay');
             const progressBox = document.getElementById('overlay-progress-box');
             const projBtn = document.getElementById('btn-send-project-info');
             
-            // Get toast progress bar elements
             const toast = document.getElementById('injection-toast');
             const projLbl = document.getElementById('project-pct-label');
             const projBar = document.getElementById('toast-project-progress-bar');
@@ -272,7 +233,7 @@ function detectAndAskCommand(text) {
             
             if (toast) {
                 toast.style.display = window.hideUIOverlay ? 'none' : 'flex';
-                if (injectContainer) injectContainer.style.display = 'none'; // Hide inject bar during reading phase
+                if (injectContainer) injectContainer.style.display = 'none';
                 if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">0/${readCmds.length}</span>`;
                 if (projBar) projBar.style.width = "0%";
             }
@@ -345,7 +306,7 @@ function detectAndAskCommand(text) {
                     if (projBar) projBar.style.width = `${Math.floor(((i + 1) / readCmds.length) * 100)}%`;
                     ChatUI.appendBubble('system', `[SYSTEM] Prepared ${filePath} context (${i + 1}/${readCmds.length}).`);
                     
-                    await new Promise(r => setTimeout(r, 200)); // Delay for visual feedback
+                    await new Promise(r => setTimeout(r, 200));
                 }
 
                 const finalPrompt = "Proceed to analyze the files above.";
@@ -355,19 +316,13 @@ function detectAndAskCommand(text) {
                     window.updateSendProgress(window.readFilesSet.size, window.totalFilesCount);
                 }
 
-                if (injectContainer) injectContainer.style.display = 'flex'; // Show inject progress bar
+                if (injectContainer) injectContainer.style.display = 'flex';
                 
-                // Start monitoring first to prevent timeouts
                 const enginePromise = runExperimentalEngine('/marktag', combinedPayload, null);
-                
-                // Append system bubble before injection starts to maintain order
                 ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${readCmds.length} files to Web AI.`);
-                
-                // Inject the entire combined payload and click Send!
                 await injectWebPayload(combinedPayload, readCmds.length, readCmds.length, false, true);
 
                 const response = await enginePromise;
-
                 if (response) {
                     if (typeof window.finalizeAiBubble === 'function') {
                         window.finalizeAiBubble(response);
@@ -383,7 +338,6 @@ function detectAndAskCommand(text) {
                 if (!window.autoContinueOnRead) {
                     document.getElementById('tab-local-agent')?.click();
                 }
-
                 if (!window.autoContinueOnRead && chatOverlay && progressBox && projBtn) {
                     chatOverlay.style.display = 'none';
                     progressBox.style.display = 'none';
@@ -392,53 +346,63 @@ function detectAndAskCommand(text) {
             }
         };
 
-        content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        if (window.autoContinueOnRead) {
+            runRead();
+        } else {
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#468CF6"; 
+            const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">📄</span>${displayCmd}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                </div>
+            `;
+            
+            content.querySelector('.cmd-run-btn').onclick = async () => {
+                box.remove();
+                await runRead();
+            };
+            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        }
     }
 
     if (hasWriteFile) {
         const displayCmd = writeCmds.map(f => `write-file "${f.path}"`).join(', ');
-        const box = ChatUI.appendBubble('system', '');
-        const content = box.querySelector('.bubble-content');
-        const themeColor = "#468CF6"; 
-        const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-        content.innerHTML = `
-            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">✏️</span>${displayCmd}
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-            </div>
-        `;
-
-        const runBtn = content.querySelector('.cmd-run-btn');
-        const cancelBtn = content.querySelector('.cmd-cancel-btn');
-        if (runBtn) {
-            runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(70, 140, 246, 0.3)"; };
-            runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
-        }
-        if (cancelBtn) {
-            cancelBtn.onmouseenter = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.08)"; cancelBtn.style.color = "var(--text-main)"; cancelBtn.style.borderColor = "rgba(255,255,255,0.15)"; };
-            cancelBtn.onmouseleave = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.04)"; cancelBtn.style.color = "var(--text-muted)"; cancelBtn.style.borderColor = "var(--border-color)"; };
-        }
-
-        if (window.autoContinueOnRead) {
-            setTimeout(() => {
-                const btn = content.querySelector('.cmd-run-btn');
-                if (btn) {
-                    ChatUI.appendBubble('system', `[SYSTEM] Auto-continuing batch write for ${writeCmds.length} files...`);
-                    btn.click();
-                }
-            }, 800);
-        }
-
-        content.querySelector('.cmd-run-btn').onclick = async () => {
-            box.remove();
+        
+        const runWrite = async () => {
             await executeWriteFileBatch(writeCmds);
         };
 
-        content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        if (window.autoContinueOnRead) {
+            runWrite();
+        } else {
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#468CF6"; 
+            const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">✏️</span>${displayCmd}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                </div>
+            `;
+
+            content.querySelector('.cmd-run-btn').onclick = async () => {
+                box.remove();
+                await runWrite();
+            };
+            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        }
     }
 
     if (hasSearchFile) {
@@ -446,48 +410,35 @@ function detectAndAskCommand(text) {
             if (s.type === 'file') return `search-file "${s.path}" "${s.query}"`;
             return `search-all "${s.query}"`;
         }).join(', ');
-        const box = ChatUI.appendBubble('system', '');
-        const content = box.querySelector('.bubble-content');
-        const themeColor = "#468CF6"; 
-        const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-        content.innerHTML = `
-            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">🔍</span>${displayCmd}
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-            </div>
-        `;
-
-        const runBtn = content.querySelector('.cmd-run-btn');
-        const cancelBtn = content.querySelector('.cmd-cancel-btn');
-        if (runBtn) {
-            runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(70, 140, 246, 0.3)"; };
-            runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
-        }
-        if (cancelBtn) {
-            cancelBtn.onmouseenter = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.08)"; cancelBtn.style.color = "var(--text-main)"; cancelBtn.style.borderColor = "rgba(255,255,255,0.15)"; };
-            cancelBtn.onmouseleave = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.04)"; cancelBtn.style.color = "var(--text-muted)"; cancelBtn.style.borderColor = "var(--border-color)"; };
-        }
-
-        if (window.autoContinueOnRead) {
-            setTimeout(() => {
-                const btn = content.querySelector('.cmd-run-btn');
-                if (btn) {
-                    ChatUI.appendBubble('system', `[SYSTEM] Auto-continuing search...`);
-                    btn.click();
-                }
-            }, 800);
-        }
-
-        content.querySelector('.cmd-run-btn').onclick = async () => {
-            box.remove();
+        
+        const runSearch = async () => {
             await executeSearchBatch(searchCmds);
         };
 
-        content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        if (window.autoContinueOnRead) {
+            runSearch();
+        } else {
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#468CF6"; 
+            const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">🔍</span>${displayCmd}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                </div>
+            `;
+
+            content.querySelector('.cmd-run-btn').onclick = async () => {
+                box.remove();
+                await runSearch();
+            };
+            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        }
     }
 
     otherCmds.forEach(cleanCmd => {

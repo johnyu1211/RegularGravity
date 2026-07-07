@@ -333,10 +333,10 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             }
         } else {
             updateUI("Waiting for AI to start...", 0, false);
-            if (i >= 30) {
+            if (i >= 120) { // 60s timeout for heavy thinking
                 hideGlobalUI();
                 window.activeAiResponding = false;
-                ChatUI.appendBubble('system', '[SYSTEM] Web AI response start timeout (15s). Releasing lock.');
+                ChatUI.appendBubble('system', '[SYSTEM] Web AI response start timeout (60s). Releasing lock.');
                 return null;
             }
         }

@@ -60,6 +60,8 @@ async function showManualInputUI(statusBub) {
 
 const extractScript = `(function(){
     const selectors = [
+        'message-content',
+        'model-response',
         'model-response .markdown', 
         'message-content .markdown-prose', 
         '[data-testid="message-content"]', 

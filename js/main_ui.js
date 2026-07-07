@@ -369,6 +369,9 @@ function detectAndAskCommand(text) {
                 const response = await enginePromise;
 
                 if (response) {
+                    if (typeof window.finalizeAiBubble === 'function') {
+                        window.finalizeAiBubble(response);
+                    }
                     detectAndAskCommand(response);
                 }
             } catch (err) {
@@ -627,27 +630,78 @@ async function setupBoot() {
                 (() => {
                     let lastSentText = "";
                     let stableTimer = null;
+                    
+                    const toMarkdown = (node) => {
+                        if (node.nodeType === 3) return node.nodeValue;
+                        if (node.nodeType !== 1) return "";
+                        const tag = node.tagName.toLowerCase();
+                        let html = "";
+                        node.childNodes.forEach(c => { html += toMarkdown(c); });
+                        switch(tag) {
+                            case 'h1': return "\\n# " + html.trim() + "\\n";
+                            case 'h2': return "\\n## " + html.trim() + "\\n";
+                            case 'h3': return "\\n### " + html.trim() + "\\n";
+                            case 'h4': return "\\n#### " + html.trim() + "\\n";
+                            case 'p': return "\\n" + html.trim() + "\\n";
+                            case 'br': return "\\n";
+                            case 'strong':
+                            case 'b': return "**" + html.trim() + "**";
+                            case 'em':
+                            case 'i': return "*" + html.trim() + "*";
+                            case 'code': {
+                                const text = node.textContent || "";
+                                const parentTag = (node.parentNode && node.parentNode.tagName) ? node.parentNode.tagName.toLowerCase() : "";
+                                const parentClassList = (node.parentNode && node.parentNode.classList) ? node.parentNode.classList : null;
+                                const isBlock = parentTag === 'pre' || parentTag === 'code-block' || (parentClassList && parentClassList.contains('code-block')) || text.includes('\\n');
+                                return isBlock ? "\\n\`\`\`\\n" + html.trim() + "\\n\`\`\`\\n" : "\`" + html.trim() + "\`";
+                            }
+                            case 'pre':
+                            case 'code-block': return "\\n" + html.trim() + "\\n";
+                            case 'li': {
+                                const parentTag = (node.parentNode && node.parentNode.tagName) ? node.parentNode.tagName.toLowerCase() : "";
+                                if (parentTag === 'ol') {
+                                    const siblings = Array.from(node.parentNode.children || []);
+                                    const idx = siblings.indexOf(node) + 1;
+                                    return "\\n" + idx + ". " + html.trim();
+                                }
+                                return "\\n- " + html.trim();
+                            }
+                            case 'ul':
+                            case 'ol': return "\\n" + html + "\\n";
+                            default: return html;
+                        }
+                    };
+
                     const checkAndSend = () => {
-                        const bubbles = document.querySelectorAll('message-content, div.message-content, .markdown, .message, div[data-message-author-role="assistant"]');
-                        if (bubbles.length === 0) return;
+                        const selectors = [
+                            'message-content',
+                            'model-response',
+                            'model-response .markdown', 
+                            'message-content .markdown-prose', 
+                            '[data-testid="message-content"]', 
+                            '.response-content'
+                        ];
                         let lastAiBubble = null;
-                        for (let i = bubbles.length - 1; i >= 0; i--) {
-                            const b = bubbles[i];
-                            const text = (b.innerText || b.textContent || "").trim();
-                            if (text && !b.closest('rich-textarea, div[contenteditable="true"], textarea')) {
-                                lastAiBubble = b;
+                        for (let sel of selectors) {
+                            const nodes = document.querySelectorAll(sel);
+                            if (nodes.length > 0) {
+                                lastAiBubble = nodes[nodes.length - 1];
                                 break;
                             }
                         }
                         if (!lastAiBubble) return;
-                        const currentText = (lastAiBubble.innerText || lastAiBubble.textContent || "").trim();
+                        
+                        const clone = lastAiBubble.cloneNode(true);
+                        clone.querySelectorAll('script, style, button, a[role="link"], [role="button"], .carousel, .suggestions-container, [aria-label*="추천"], .code-block-header, .code-header, [class*="code-header"]').forEach(el => el.remove());
+                        
+                        const currentText = toMarkdown(clone).replace(/\\n{3,}/g, "\\n\\n").trim();
                         if (!currentText || currentText === lastSentText) return;
                         clearTimeout(stableTimer);
                         stableTimer = setTimeout(() => {
                             lastSentText = currentText;
                             const encoded = btoa(unescape(encodeURIComponent(currentText)));
                             console.log("[BACKGROUND_AI_RESP]:" + encoded);
-                        }, 1200);
+                        }, 200);
                     };
                     const observer = new MutationObserver(() => { checkAndSend(); });
                     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
@@ -698,7 +752,7 @@ ${projectTree}
                             const chatOverlay = document.getElementById('local-chat-overlay');
                             if (chatOverlay) chatOverlay.style.display = 'none';
                             document.getElementById('tab-local-agent').click();
-                            if (briefResponse) { ChatUI.appendBubble('ai', briefResponse, false, getWebIcon(wv)); detectAndAskCommand(briefResponse); }
+                            if (briefResponse) { window.finalizeAiBubble(briefResponse); detectAndAskCommand(briefResponse); }
                         } catch (err) {
                             window.sessionBriefed = true;
                             window.briefingInProgress = false;
@@ -711,6 +765,24 @@ ${projectTree}
                 }
             }, { once: true });
         }
+
+        window.finalizeAiBubble = (response) => {
+            if (!response) return;
+            const chatLog = document.getElementById('local-chat-messages');
+            if (window.lastActiveAiBubble && window.lastActiveAiBubble.parentNode === chatLog) {
+                const contentEl = window.lastActiveAiBubble.querySelector('.bubble-content');
+                if (contentEl) {
+                    contentEl.dataset.rawText = response;
+                    contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(response).trim() : response.trim();
+                    if (typeof hljs !== 'undefined') {
+                        window.lastActiveAiBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                    }
+                    if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+                    return;
+                }
+            }
+            window.lastActiveAiBubble = ChatUI.appendBubble('ai', response, false, getWebIcon(wv));
+        };
 
         let lastReceivedMirrorText = "";
         wv.addEventListener('console-message', (e) => {

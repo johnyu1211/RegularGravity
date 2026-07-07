@@ -168,6 +168,9 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
 
             if (response) {
                 // Background mirror will append bubble
+                if (typeof window.finalizeAiBubble === 'function') {
+                    window.finalizeAiBubble(response);
+                }
                 if (typeof detectAndAskCommand === 'function') {
                     detectAndAskCommand(response);
                 }

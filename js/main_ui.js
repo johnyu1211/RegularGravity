@@ -1275,6 +1275,7 @@ ${tree}
                 GravityVault.init();
             };
         }
+    }
     const bailoutZone = document.getElementById('toast-bailout-zone');
     if (bailoutZone) {
         bailoutZone.onclick = (e) => {

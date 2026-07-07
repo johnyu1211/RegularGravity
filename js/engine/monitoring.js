@@ -298,9 +298,17 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         }
 
         if (isGenerating) {
+            const isStillResponding = await wv.executeJavaScript(`(() => {
+                const stopBtn = Array.from(document.querySelectorAll('button')).find(b => b.querySelector('svg rect') || (b.getAttribute('aria-label') && (b.getAttribute('aria-label').includes('Stop') || b.getAttribute('aria-label').includes('중지'))));
+                if (stopBtn && stopBtn.offsetHeight > 0) return true;
+                const typing = document.querySelector('.typing, .loading, .generating, [class*="typing"], [class*="generating"]');
+                if (typing && typing.offsetHeight > 0) return true;
+                return false;
+            })()`).catch(() => false);
+
             const isTextStopped = (delta === lastText);
             
-            if (isTextStopped && delta.length > 0) {
+            if (isTextStopped && delta.length > 0 && !isStillResponding) {
                 stableCount++; 
             } else {
                 stableCount = 0;

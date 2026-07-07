@@ -1541,7 +1541,7 @@ const CRITICAL_RULE_SUFFIX = `
 4. 특정 라인 범위(최대 200줄 한도)만 지정해서 읽고 싶다면 [CMD: read-file-range "파일명" 시작줄-끝줄] (예: [CMD: read-file-range "main.js" 1-200] 또는 [CMD: read-file-range "main.js" 201-400]) 을 적극적으로 사용하십시오.
 5. 파일 탐색 및 파악이 최종적으로 완료되었다면 자의적인 향후 작업 계획 수립이나 임의의 대안 작성을 일절 중단하십시오. 오직 파악된 현재 프로젝트 구조 및 핵심 기능에 대해서만 간결히 설명한 후, 유저의 구체적인 지시(Wait for user instructions)를 대기하십시오.`;
 
-async function injectWebPayload(webPayload, fileCount = 1) {
+async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0, isAppend = false, clickSend = true) {
     const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
     const inKeywords = savedKeywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
 
@@ -1563,14 +1563,38 @@ async function injectWebPayload(webPayload, fileCount = 1) {
             toast.style.background = 'transparent';
             toast.style.border = 'none';
             
-            if (projLbl) {
-                if (fileCount === 0) {
-                    projLbl.innerHTML = `System Status: <span style="color: var(--primary); font-weight: bold;">Sending message...</span>`;
+            const injectContainer = document.getElementById('toast-inject-container');
+            if (injectContainer) {
+                if (fileCount === -1 || fileCount > 0) {
+                    injectContainer.style.display = 'flex';
                 } else {
-                    projLbl.innerHTML = `Project Context: <span style="color: var(--primary); font-weight: bold;">100% (${fileCount}/${fileCount})</span>`;
+                    injectContainer.style.display = 'none';
                 }
             }
-            if (projBar) projBar.style.width = "100%";
+            
+            if (projLbl) {
+                if (fileCount === -1) {
+                    const readCount = window.readFilesSet.size;
+                    const projectPct = window.totalFilesCount ? Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100)) : 0;
+                    projLbl.innerHTML = `Project Context: <span style="color: var(--primary); font-weight: bold;">${projectPct}% (${readCount}/${window.totalFilesCount})</span>`;
+                } else if (fileCount === 0) {
+                    projLbl.innerHTML = `System Status: <span style="color: var(--primary); font-weight: bold;">Sending message...</span>`;
+                } else {
+                    projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${currentFileIndex}/${fileCount}</span>`;
+                }
+            }
+            if (projBar) {
+                if (fileCount === -1) {
+                    const readCount = window.readFilesSet.size;
+                    const projectPct = window.totalFilesCount ? Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100)) : 0;
+                    projBar.style.width = `${projectPct}%`;
+                } else if (fileCount === 0) {
+                    projBar.style.width = "100%";
+                } else {
+                    const filePct = Math.floor((currentFileIndex / fileCount) * 100);
+                    projBar.style.width = `${filePct}%`;
+                }
+            }
             
             if (injLbl) injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">0% (0/${totalLines})</span>`;
             if (injBar) injBar.style.width = "0%";
@@ -1585,12 +1609,19 @@ async function injectWebPayload(webPayload, fileCount = 1) {
                 const totLines = parseInt(parts[2] || '0');
                 
                 if (projLbl && projBar) {
-                    if (fileCount === 0) {
+                    if (fileCount === -1) {
+                        const readCount = window.readFilesSet.size;
+                        const projectPct = window.totalFilesCount ? Math.min(100, Math.floor((readCount / window.totalFilesCount) * 100)) : 0;
+                        projLbl.innerHTML = `Project Context: <span style="color: var(--primary); font-weight: bold;">${projectPct}% (${readCount}/${window.totalFilesCount})</span> (Injecting ${pct}%)`;
+                        projBar.style.width = `${projectPct}%`;
+                    } else if (fileCount === 0) {
                         projLbl.innerHTML = `System Status: <span style="color: var(--primary); font-weight: bold;">Sending message...</span>`;
+                        projBar.style.width = "100%";
                     } else {
-                        projLbl.innerHTML = `Project Context: <span style="color: var(--primary); font-weight: bold;">100% (${fileCount}/${fileCount})</span>`;
+                        projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${currentFileIndex}/${fileCount}</span>`;
+                        const filePct = Math.floor((currentFileIndex / fileCount) * 100);
+                        projBar.style.width = `${filePct}%`;
                     }
-                    projBar.style.width = "100%";
                 }
                 
                 if (injLbl && injBar) {
@@ -1630,10 +1661,25 @@ async function injectWebPayload(webPayload, fileCount = 1) {
                 
                 inputEl.focus();
                 
-                if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
-                    inputEl.value = '';
+                if (!${isAppend}) {
+                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                        inputEl.value = '';
+                    } else {
+                        inputEl.innerText = '';
+                    }
                 } else {
-                    inputEl.innerText = '';
+                    if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                        inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length;
+                    } else {
+                        const range = document.createRange();
+                        range.selectNodeContents(inputEl);
+                        range.collapse(false);
+                        const selection = window.getSelection();
+                        if (selection) {
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
+                    }
                 }
                 
                 // Base64 디코딩 (안전성 100%)
@@ -1677,6 +1723,10 @@ async function injectWebPayload(webPayload, fileCount = 1) {
                     await new Promise(r => setTimeout(r, 15));
                 }
                 
+                if (!${clickSend}) {
+                    return "SUCCESS";
+                }
+
                 // 주입 후 짧은 텀을 주고 엔터 전송 및 전송 버튼 강제 클릭 시도
                 await new Promise(r => setTimeout(r, 150));
                 
@@ -1743,8 +1793,10 @@ async function injectWebPayload(webPayload, fileCount = 1) {
             if (injLbl) injLbl.innerHTML = `Injecting: <span style="color: var(--primary); font-weight: bold;">100% (${totalLines}/${totalLines})</span>`;
             if (injBar) injBar.style.width = "100%";
 
-            // 전송 처리 확인 대기 및 종료
-            await new Promise(r => setTimeout(r, 1500));
+            if (clickSend) {
+                // 전송 처리 확인 대기 및 종료
+                await new Promise(r => setTimeout(r, 1500));
+            }
             cleanup();
             resolve(true);
         }).catch(err => {
@@ -1866,15 +1918,22 @@ function detectAndAskCommand(text) {
                     progressBox.style.display = 'flex';
                 }
 
-                // 묶음 파일 정보 생성
-                let mergedContent = "";
-                readCmds.forEach(fileObj => {
+                window.currentBatchFileCount = readCmds.length;
+
+                if (!window.autoContinueOnRead) document.getElementById('tab-browser-hub')?.click();
+
+                // 파일 개별적으로 주입하고, 마지막 파일에서만 전송을 진행하도록 구현
+                for (let i = 0; i < readCmds.length; i++) {
+                    const fileObj = readCmds[i];
                     const filePath = fileObj.path;
                     window.readFilesSet.add(filePath);
+                    
+                    let fileContentPayload = "";
                     const targetPath = path.resolve(window.currentPath, filePath);
                     if (fs.existsSync(targetPath)) {
                         const rawContent = fs.readFileSync(targetPath, 'utf-8');
                         const allLines = rawContent.replace(/\r/g, '').split('\n');
+                        
                         if (fileObj.range) {
                             let startIdx = Math.max(0, fileObj.start - 1);
                             let endIdx = Math.min(allLines.length, fileObj.end);
@@ -1891,7 +1950,7 @@ function detectAndAskCommand(text) {
                                 const nextEnd = nextStart + 199;
                                 slicedContent += `\n// ... [TRUNCATED: Max 200 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range "${filePath}" ${nextStart}-${nextEnd}]]`;
                             }
-                            mergedContent += `[FILE DATA (LINE RANGE ${fileObj.start}-${fileObj.start + (endIdx - startIdx) - 1}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
+                            fileContentPayload = `[FILE DATA (LINE RANGE ${fileObj.start}-${fileObj.start + (endIdx - startIdx) - 1}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
                         } else if (fileObj.full) {
                             let endIdx = allLines.length;
                             let isTruncated = false;
@@ -1905,32 +1964,33 @@ function detectAndAskCommand(text) {
                             if (isTruncated) {
                                 slicedContent += `\n// ... [TRUNCATED: Max 200 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range "${filePath}" 201-400]]`;
                             }
-                            mergedContent += `[FILE DATA (${isTruncated ? 'PARTIAL CONTENT' : 'FULL CONTENT'}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
+                            fileContentPayload = `[FILE DATA (${isTruncated ? 'PARTIAL CONTENT' : 'FULL CONTENT'}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
                         } else {
                             const ext = filePath.split('.').pop().toLowerCase();
                             const fileContent = extractCodeOutline(rawContent, ext);
-                            mergedContent += `[FILE DATA (OUTLINE ONLY): ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n`;
+                            fileContentPayload = `[FILE DATA (OUTLINE ONLY): ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n`;
                         }
                     } else {
-                        mergedContent += `[FILE DATA ERROR: ${filePath} not found on the local machine]\n\n`;
+                        fileContentPayload = `[FILE DATA ERROR: ${filePath} not found on the local machine]\n\n`;
                     }
-                });
 
-                if (typeof window.updateSendProgress === 'function') {
-                    window.updateSendProgress(window.readFilesSet.size, window.totalFilesCount);
+                    const isLastFile = (i === readCmds.length - 1);
+                    if (isLastFile) {
+                        fileContentPayload += "Proceed to analyze the files above.";
+                    }
+
+                    // 개별 파일 주입 (마지막 파일에서만 전송을 진행)
+                    await injectWebPayload(fileContentPayload, readCmds.length, i + 1, (i > 0), isLastFile);
+                    ChatUI.appendBubble('system', `[SYSTEM] (${i + 1}/${readCmds.length}) Sent ${filePath} to Web AI.`);
+                    
+                    if (typeof window.updateSendProgress === 'function') {
+                        window.updateSendProgress(window.readFilesSet.size, window.totalFilesCount);
+                    }
                 }
 
-                // AI가 소스코드를 온전히 읽을 수 있도록 마크다운 코드 블록 주입
-                const finalMessage = `${mergedContent}Proceed to analyze the files above.`;
-
-                if (!window.autoContinueOnRead) document.getElementById('tab-browser-hub')?.click();
-
-                // 1단계: 텍스트 주입 먼저 온전히 완료 (진행률 게이지 방해 요소 제거)
-                await injectWebPayload(finalMessage, readCmds.length);
-                ChatUI.appendBubble('system', `[SYSTEM] Sent ${readCmds.length} files content outline to Web AI.`);
-
-                // 2단계: 주입 완결 및 전송 버튼 클릭 직후에 감시 엔진을 가동하여 대기 루프 개시
-                const response = await runExperimentalEngine('/marktag', finalMessage, null);
+                // 묶음의 마지막 파일 전송 클릭 후 감시 엔진 시작
+                const finalDummyMessage = "Proceed to analyze the files above.";
+                const response = await runExperimentalEngine('/marktag', finalDummyMessage, null);
                 if (!window.autoContinueOnRead) {
                     document.getElementById('tab-local-agent')?.click();
                 }

@@ -433,7 +433,6 @@ function detectAndAskCommand(text) {
                         if (fileBoxContent) {
                             fileBoxContent.innerHTML = `
                                 <div style="background: var(--surface-low); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-main); display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                                    <span style="color: var(--primary); font-size: 14px;">📂</span>
                                     <span>Requested: <strong style="color: var(--primary);">${fileNames}</strong></span>
                                 </div>
                             `;
@@ -460,11 +459,10 @@ function detectAndAskCommand(text) {
                     overlay.style.cssText = "position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.95); z-index: 100; font-family: 'DM Sans', sans-serif; padding: 6px; box-sizing: border-box;";
 
                     overlay.innerHTML = `
-                        <div style="font-size: 18px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; margin-bottom: 2px;">
-                            ⬇️
+                        <div style="font-size: 24px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; margin-bottom: 2px;">
+                            ↓
                         </div>
                         <div style="display: flex; gap: 8px;">
-                            <button class="drag-continue-btn" style="background: var(--primary); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 10px; letter-spacing: 0.04em;">CONTINUE</button>
                             <button class="drag-cancel-btn" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 10px;">CANCEL</button>
                         </div>
                     `;
@@ -472,6 +470,8 @@ function detectAndAskCommand(text) {
                     const cleanupDragDrop = () => {
                         overlay.remove();
                         if (fileBox) fileBox.remove();
+                        window.activeDragDropCleanup = null;
+                        window.activeDragDropContinue = null;
                         
                         if (localInput) {
                             localInput.disabled = false;
@@ -503,14 +503,26 @@ function detectAndAskCommand(text) {
                         }
                     };
 
-                    overlay.querySelector('.drag-continue-btn').onclick = async () => {
-                        cleanupDragDrop();
+                    window.activeDragDropCleanup = cleanupDragDrop;
+                    window.activeDragDropContinue = async () => {
                         await runRead();
                     };
 
                     overlay.querySelector('.drag-cancel-btn').onclick = () => {
                         cleanupDragDrop();
                     };
+
+                    const wv = document.getElementById('active-agent-webview');
+                    if (wv) {
+                        wv.executeJavaScript(`
+                            if (!window.hasDropListener) {
+                                window.hasDropListener = true;
+                                document.addEventListener('drop', (e) => {
+                                    console.log('[WEBVIEW_DROP_DETECTED]');
+                                }, true);
+                            }
+                        `).catch(err => console.error("Failed to inject drop listener", err));
+                    }
 
                     inputContainer.appendChild(overlay);
                 }
@@ -956,6 +968,14 @@ ${startPrompt}`.trim();
 
         let lastReceivedMirrorText = "";
         wv.addEventListener('console-message', (e) => {
+            if (e.message === '[WEBVIEW_DROP_DETECTED]') {
+                if (typeof window.activeDragDropCleanup === 'function' && typeof window.activeDragDropContinue === 'function') {
+                    const runCont = window.activeDragDropContinue;
+                    window.activeDragDropCleanup();
+                    runCont();
+                }
+                return;
+            }
             if (e.message.startsWith('[BACKGROUND_AI_RESP]:')) {
                 if (!window.activeAiResponding) return;
                 if (window.currentBatchFileCount === -1 && window.autoContinueOnRead) return;

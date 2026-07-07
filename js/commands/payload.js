@@ -89,8 +89,15 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                 
                 if (!decodedPayload) return "DECODE_ERROR";
                 
-                // 단 1회의 동기적 insertText 호출로 입력 완료! (중간 리렌더링 경합 완전 차단)
-                document.execCommand('insertText', false, decodedPayload);
+                if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
+                    const proto = inputEl.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+                    const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+                    const newText = ${isAppend} ? inputEl.value + decodedPayload : decodedPayload;
+                    setter.call(inputEl, newText);
+                } else {
+                    document.execCommand('insertText', false, decodedPayload);
+                }
+                
                 inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
                 

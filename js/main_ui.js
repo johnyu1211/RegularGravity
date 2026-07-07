@@ -752,6 +752,28 @@ async function setupBoot() {
                 }, true);
             `);
             wv.executeJavaScript(`
+                if (!window.hasGuestDropInterceptor) {
+                    window.hasGuestDropInterceptor = true;
+                    
+                    window.addEventListener('dragover', (e) => {
+                        const isFiles = e.dataTransfer.types.includes('Files');
+                        if (!isFiles) {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'copy';
+                        }
+                    }, true);
+                    
+                    window.addEventListener('drop', (e) => {
+                        const isFiles = e.dataTransfer.files && e.dataTransfer.files.length > 0;
+                        const textData = e.dataTransfer.getData('text/plain');
+                        if (textData && !isFiles) {
+                            e.preventDefault();
+                            console.log('[GUEST_HTML5_DROP]:' + textData);
+                        }
+                    }, true);
+                }
+            `).catch(err => console.error("Failed to inject guest drop interceptor:", err));
+            wv.executeJavaScript(`
                 (() => {
                     let lastSentText = "";
                     let stableTimer = null;
@@ -958,6 +980,82 @@ ${startPrompt}`.trim();
 
         let lastReceivedMirrorText = "";
         wv.addEventListener('console-message', (e) => {
+            if (e.message.startsWith('[GUEST_HTML5_DROP]:')) {
+                const filePath = e.message.substring(19);
+                console.log("[HostDrop] Intercepted guest HTML5 drop path:", filePath);
+                
+                if (window.dragDropMode && window.activeDragDropContinue) {
+                    const pathModule = require('path');
+                    const droppedName = pathModule.basename(filePath).toLowerCase();
+                    
+                    const requestedNames = readCmds.map(f => {
+                        const parts = f.path.split(/[\\/]/);
+                        return parts[parts.length - 1].toLowerCase();
+                    });
+                    
+                    if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
+                        const { showAlert } = require('./ui/dialogs.js');
+                        if (typeof showAlert === 'function') {
+                            showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                        } else {
+                            alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                        }
+                        return;
+                    }
+                    
+                    if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+                    if (window.activeDragDropContinue) window.activeDragDropContinue();
+                } else {
+                    const fs = require('fs');
+                    const pathModule = require('path');
+                    try {
+                        const contentBuffer = fs.readFileSync(filePath);
+                        const filename = pathModule.basename(filePath);
+                        const base64Content = contentBuffer.toString('base64');
+                        
+                        const ext = filename.split('.').pop().toLowerCase();
+                        const mimeMap = {
+                            'js': 'text/javascript', 'json': 'application/json',
+                            'html': 'text/html', 'css': 'text/css',
+                            'txt': 'text/plain', 'md': 'text/markdown',
+                            'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                            'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
+                        };
+                        const mimeType = mimeMap[ext] || 'application/octet-stream';
+                        
+                        wv.executeJavaScript(`
+                            (() => {
+                                const b64 = "${base64Content}";
+                                const name = "${filename}";
+                                const mime = "${mimeType}";
+                                
+                                const binary = atob(b64);
+                                const array = new Uint8Array(binary.length);
+                                for (let i = 0; i < binary.length; i++) {
+                                    array[i] = binary.charCodeAt(i);
+                                }
+                                const blob = new Blob([array], { type: mime });
+                                const file = new File([blob], name, { type: mime });
+                                
+                                const dt = new DataTransfer();
+                                dt.items.add(file);
+                                
+                                let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
+                                
+                                const options = { bubbles: true, cancelable: true, dataTransfer: dt };
+                                target.dispatchEvent(new DragEvent('dragenter', options));
+                                target.dispatchEvent(new DragEvent('dragover', options));
+                                target.dispatchEvent(new DragEvent('drop', options));
+                                
+                                console.log("[GuestDrop] Dispatched drop event for file:", name);
+                            })();
+                        `).catch(err => console.error("Failed to execute drop injection script:", err));
+                    } catch (err) {
+                        console.error("Failed to process drop upload:", err);
+                    }
+                }
+                return;
+            }
             if (e.message === '[WEBVIEW_DROP_DETECTED]') {
                 if (typeof window.activeDragDropCleanup === 'function' && typeof window.activeDragDropContinue === 'function') {
                     const runCont = window.activeDragDropContinue;

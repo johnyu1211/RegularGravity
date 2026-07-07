@@ -7,20 +7,16 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
     return new Promise((resolve, reject) => {
         const wv = document.getElementById('active-agent-webview'); if (!wv) return reject("Webview not found");
         const cleanPayload = webPayload.trim();
+        const base64Payload = Buffer.from(cleanPayload, 'utf-8').toString('base64');
 
-        // 1단계: 클립보드 백업 및 주입 데이터 복사 (줄바꿈/이스케이프 깨짐 완전 우회)
-        const { clipboard } = require('electron');
-        const oldClipboardText = clipboard.readText();
-        clipboard.writeText(cleanPayload);
-
-        // 2단계: 토스트 UI 켜기
+        // 1단계: 토스트 UI 켜기
         const toast = document.getElementById('injection-toast');
         if (toast) {
             toast.style.display = window.hideUIOverlay ? 'none' : 'flex';
         }
 
-        // 3단계: 웹뷰 내부 입력 포커싱 및 초기화
-        const focusScript = `
+        // 2단계: 웹뷰 내부 단일 동기식 주입 스크립트 실행
+        const injectionScript = `
             (() => {
                 const inKeywords = ${JSON.stringify(inKeywords)};
                 const findInput = () => {
@@ -78,33 +74,43 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                 } else {
                     setCursorToEnd(inputEl);
                 }
+
+                // Base64 디코딩 (안전성 100%)
+                const decodedPayload = (() => {
+                    try {
+                        const bin = atob("${base64Payload}");
+                        const bytes = new Uint8Array(bin.length);
+                        for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+                        return new TextDecoder("utf-8").decode(bytes);
+                    } catch (e) {
+                        return "";
+                    }
+                })();
+                
+                if (!decodedPayload) return "DECODE_ERROR";
+                
+                // 단 1회의 동기적 insertText 호출로 입력 완료! (중간 리렌더링 경합 완전 차단)
+                document.execCommand('insertText', false, decodedPayload);
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                
                 return "SUCCESS";
             })()
         `;
 
         wv.focus();
-        wv.executeJavaScript(focusScript).then(async (status) => {
+        wv.executeJavaScript(injectionScript).then(async (status) => {
             if (status !== "SUCCESS") {
-                clipboard.writeText(oldClipboardText);
                 if (toast) toast.style.display = 'none';
-                return reject("Input field not found: " + status);
+                return reject("Input failed: " + status);
             }
-
-            // 4단계: 딜레이 후 클립보드 붙여넣기 (Paste) 실행 (가장 안전하고 빠름)
-            await new Promise(r => setTimeout(r, 150));
-            wv.focus();
-            wv.paste();
-
-            // 사용자의 원래 클립보드 내용 원상복구
-            await new Promise(r => setTimeout(r, 100));
-            clipboard.writeText(oldClipboardText);
 
             if (!clickSend) {
                 if (toast) toast.style.display = 'none';
                 return resolve(true);
             }
 
-            // 5단계: 짧은 대기 후 전송 버튼 클릭
+            // 3단계: 짧은 대기 후 전송 버튼 클릭
             await new Promise(r => setTimeout(r, 200));
             const clickScript = `
                 (() => {
@@ -143,7 +149,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
 
             await wv.executeJavaScript(clickScript).catch(() => false);
 
-            // 6단계: 발송 완료 대기 (최대 3.5초 폴링)
+            // 4단계: 발송 완료 대기 (최대 3.5초 폴링)
             for (let i = 0; i < 35; i++) {
                 const isCleared = await wv.executeJavaScript(`(() => { const i = document.querySelector('textarea, input[type="text"], [contenteditable="true"]'); return i ? (i.value === "" && i.innerText.trim() === "") : true; })()`).catch(() => false);
                 const hasStopBtn = await wv.executeJavaScript(`(() => { return Array.from(document.querySelectorAll('button, div[role="button"]')).some(el => { const lbl = (el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase(); return lbl.includes('중단') || lbl.includes('stop') || lbl.includes('cancel'); }); })()`).catch(() => false);
@@ -156,7 +162,6 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             if (toast) toast.style.display = 'none';
             resolve(true);
         }).catch(err => {
-            clipboard.writeText(oldClipboardText);
             if (toast) toast.style.display = 'none';
             reject(err);
         });

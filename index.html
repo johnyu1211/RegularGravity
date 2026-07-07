@@ -8,27 +8,21 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <script>
-        if (typeof module === 'object') {
-            window.tempModule = module;
-            window.tempExports = exports;
-            window.tempRequire = require;
-            delete module;
-            delete exports;
-            delete require;
-        }
+        var _module = typeof module !== 'undefined' ? module : undefined;
+        var _exports = typeof exports !== 'undefined' ? exports : undefined;
+        var _require = typeof require !== 'undefined' ? require : undefined;
+        
+        if (typeof module !== 'undefined') module = undefined;
+        if (typeof exports !== 'undefined') exports = undefined;
+        if (typeof require !== 'undefined') require = undefined;
     </script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script>
-        if (window.tempModule) {
-            module = window.tempModule;
-            exports = window.tempExports;
-            require = window.tempRequire;
-            delete window.tempModule;
-            delete window.tempExports;
-            delete window.tempRequire;
-        }
+        if (typeof _module !== 'undefined') module = _module;
+        if (typeof _exports !== 'undefined') exports = _exports;
+        if (typeof _require !== 'undefined') require = _require;
     </script>
     <script src="file-utils.js"></script>
     <script src="tree-view.js"></script>

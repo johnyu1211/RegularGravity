@@ -102,44 +102,9 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         if (!isDir) {
             item.setAttribute('draggable', 'true');
             item.ondragstart = (e) => {
-                console.log("[TreeDrag] dragstart fired for:", fullPath);
-                
-                let feedback = document.getElementById('drag-feedback-card');
-                if (!feedback) {
-                    feedback = document.createElement('div');
-                    feedback.id = 'drag-feedback-card';
-                    feedback.style.cssText = "position: fixed; pointer-events: none; z-index: 9999; padding: 6px 12px; background: var(--surface-color); border: 1px solid var(--primary); border-radius: 6px; color: var(--text-main); font-family: 'DM Sans', sans-serif; font-size: 12px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); opacity: 0.95; transform: translate(12px, 12px); line-height: 1.2;";
-                    document.body.appendChild(feedback);
-                }
-                
-                const parts = fullPath.split(/[\\/]/);
-                const filename = parts[parts.length - 1];
-                feedback.innerHTML = `<span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--primary); font-weight: bold; border: 1px solid var(--primary); padding: 1px 4px; border-radius: 4px; line-height: 1;">FILE</span><span style="font-weight: 500;">${filename}</span>`;
-                
-                feedback.style.left = e.clientX + 'px';
-                feedback.style.top = e.clientY + 'px';
-
-                const updatePos = (ev) => {
-                    if (feedback && ev.clientX !== 0 && ev.clientY !== 0) {
-                        feedback.style.left = ev.clientX + 'px';
-                        feedback.style.top = ev.clientY + 'px';
-                    }
-                };
-                
-                const cleanup = () => {
-                    if (feedback) feedback.remove();
-                    document.removeEventListener('dragover', updatePos);
-                    item.removeEventListener('dragend', cleanup);
-                    document.removeEventListener('drop', cleanup);
-                };
-                
-                document.addEventListener('dragover', updatePos);
-                item.addEventListener('dragend', cleanup);
-                document.addEventListener('drop', cleanup);
-                
-                e.preventDefault();
-                const { ipcRenderer } = require('electron');
-                ipcRenderer.send('ondragstart', fullPath);
+                console.log("[TreeDrag] HTML5 dragstart fired for:", fullPath);
+                e.dataTransfer.setData('text/plain', fullPath);
+                e.dataTransfer.effectAllowed = 'copy';
             };
         }
         item.style.setProperty('--level', level);

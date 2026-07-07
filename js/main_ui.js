@@ -1632,6 +1632,63 @@ ${startPrompt}`.trim();
             ChatUI.appendBubble('system', '[SYSTEM] Emergency bailout: Force closed loading overlays.');
         };
     }
+    const dock = document.getElementById('agent-view-dock');
+    if (dock) {
+        dock.addEventListener('dragover', (e) => {
+            const isText = e.dataTransfer.types.includes('text/plain');
+            const isFiles = e.dataTransfer.types.includes('Files');
+            if (isText && !isFiles) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            }
+        });
+        
+        dock.addEventListener('drop', async (e) => {
+            const isFiles = e.dataTransfer.files.length > 0;
+            const filePath = e.dataTransfer.getData('text/plain');
+            if (filePath && !isFiles) {
+                e.preventDefault();
+                console.log("[DockDrop] HTML5 Dropped internal sidebar file path:", filePath);
+                
+                if (window.dragDropMode && window.activeDragDropContinue) {
+                    const pathModule = require('path');
+                    const droppedName = pathModule.basename(filePath).toLowerCase();
+                    
+                    const requestedNames = readCmds.map(f => {
+                        const parts = f.path.split(/[\\/]/);
+                        return parts[parts.length - 1].toLowerCase();
+                    });
+                    
+                    if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
+                        const { showAlert } = require('./ui/dialogs.js');
+                        if (typeof showAlert === 'function') {
+                            showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                        } else {
+                            alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                        }
+                        return;
+                    }
+                    
+                    if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+                    if (window.activeDragDropContinue) window.activeDragDropContinue();
+                } else {
+                    const fs = require('fs');
+                    const pathModule = require('path');
+                    try {
+                        const content = fs.readFileSync(filePath, 'utf8');
+                        const filename = pathModule.basename(filePath);
+                        const injectText = `Below is the content of file "${filename}":\n\n\`\`\`\n${content}\n\`\`\``;
+                        if (typeof injectWebPayload === 'function') {
+                            await injectWebPayload(injectText, 1, 1, false, true);
+                        }
+                    } catch (err) {
+                        console.error("Failed to read dropped file content:", err);
+                    }
+                }
+            }
+        });
+    }
+
     updateAgentBadge();
 }
 

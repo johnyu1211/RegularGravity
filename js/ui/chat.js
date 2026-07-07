@@ -18,11 +18,27 @@ const ChatUI = {
         }
         const content = document.createElement('div'); content.className = 'bubble-content';
         content.dataset.rawText = text;
-        if (typeof marked !== 'undefined') content.innerHTML = marked.parse(text).trim(); else content.innerText = text.trim();
+        
         box.appendChild(content);
         if (sourceIcon) { const badge = document.createElement('div'); badge.className = 'source-badge'; badge.innerHTML = `<img src="${sourceIcon}" title="Source: Web AI">`; box.appendChild(badge); }
         chatLog.appendChild(box); chatLog.scrollTop = chatLog.scrollHeight;
-        if (typeof hljs !== 'undefined') box.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+        
+        if (role === 'ai') {
+            if (typeof window.typewriterHTML === 'function') {
+                window.typewriterHTML(content, text, () => {
+                    if (typeof hljs !== 'undefined') box.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                    chatLog.scrollTop = chatLog.scrollHeight;
+                });
+            } else {
+                const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(text) : text;
+                if (typeof marked !== 'undefined') content.innerHTML = marked.parse(formatted).trim(); else content.innerText = formatted.trim();
+                if (typeof hljs !== 'undefined') box.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+            }
+        } else {
+            const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(text) : text;
+            if (typeof marked !== 'undefined') content.innerHTML = marked.parse(formatted).trim(); else content.innerText = formatted.trim();
+            if (typeof hljs !== 'undefined') box.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+        }
         return box;
     },
     delete(box) { box.remove(); },

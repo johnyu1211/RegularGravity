@@ -782,18 +782,49 @@ ${projectTree}
             }
         };
 
+        window.formatChatText = (text) => {
+            if (!text) return "";
+            return text.replace(/\[CMD:\s*([^\]]+)\]/gi, (match, cmdContent) => {
+                return `<span class="chat-cmd-badge">CMD: ${cmdContent}</span>`;
+            });
+        };
+
+        window.typewriterHTML = (element, markdownText, callback) => {
+            if (!element) return;
+            if (element.typewriterInterval) clearInterval(element.typewriterInterval);
+            
+            const formatted = window.formatChatText(markdownText);
+            const totalLength = formatted.length;
+            let currentLength = 0;
+            const stepSize = Math.max(2, Math.ceil(totalLength / 35)); // Fast 35-step animation
+            
+            element.typewriterInterval = setInterval(() => {
+                currentLength += stepSize;
+                if (currentLength >= totalLength) {
+                    clearInterval(element.typewriterInterval);
+                    element.innerHTML = typeof marked !== 'undefined' ? marked.parse(formatted).trim() : formatted.trim();
+                    if (callback) callback();
+                } else {
+                    const sliced = formatted.substring(0, currentLength);
+                    element.innerHTML = typeof marked !== 'undefined' ? marked.parse(sliced).trim() : sliced.trim();
+                }
+            }, 12);
+        };
+
         window.finalizeAiBubble = (response) => {
             if (!response) return;
             const chatLog = document.getElementById('local-chat-messages');
             if (window.lastActiveAiBubble && window.lastActiveAiBubble.parentNode === chatLog) {
                 const contentEl = window.lastActiveAiBubble.querySelector('.bubble-content');
                 if (contentEl) {
-                    contentEl.dataset.rawText = response;
-                    contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(response).trim() : response.trim();
-                    if (typeof hljs !== 'undefined') {
-                        window.lastActiveAiBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
-                    }
-                    if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+                    window.activeAiResponding = false; // Turn off stream overwrites
+                    window.typewriterHTML(contentEl, response, () => {
+                        contentEl.dataset.rawText = response;
+                        if (typeof hljs !== 'undefined') {
+                            window.lastActiveAiBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                        }
+                        if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+                    });
                     return;
                 }
             }
@@ -817,7 +848,8 @@ ${projectTree}
                             const contentEl = window.lastActiveAiBubble.querySelector('.bubble-content');
                             if (contentEl) {
                                 contentEl.dataset.rawText = decodedText;
-                                contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(decodedText).trim() : decodedText.trim();
+                                const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(decodedText) : decodedText;
+                                contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(formatted).trim() : formatted.trim();
                                 if (typeof hljs !== 'undefined') {
                                     window.lastActiveAiBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
                                 }

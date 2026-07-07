@@ -715,6 +715,7 @@ ${projectTree}
         let lastReceivedMirrorText = "";
         wv.addEventListener('console-message', (e) => {
             if (e.message.startsWith('[BACKGROUND_AI_RESP]:')) {
+                if (!window.activeAiResponding) return;
                 try {
                     const base64Data = e.message.split('[BACKGROUND_AI_RESP]:')[1];
                     const decodedText = decodeURIComponent(escape(atob(base64Data))).trim();

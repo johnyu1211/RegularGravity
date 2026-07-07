@@ -234,7 +234,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             // 3단계: 짧은 대기 후 전송 버튼 클릭
             await new Promise(r => setTimeout(r, 350));
             const clickScript = `
-                (() => {
+                (async () => {
                     const findInput = () => {
                         const inKeywords = ${JSON.stringify(inKeywords)};
                         const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
@@ -263,6 +263,9 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                     const up1 = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
                     input.dispatchEvent(down1);
                     input.dispatchEvent(up1);
+
+                    // Wait 500ms
+                    await new Promise(r => setTimeout(r, 500));
 
                     // Dispatch Enter 2
                     const down2 = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });

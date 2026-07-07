@@ -8,10 +8,9 @@ const ChatUI = {
         
         // Safe hide for system logs if debug mode is off
         if (!window.debugMode) {
-            if (role === 'system') box.style.display = 'none';
             if (typeof text === 'string') {
                 const cleanText = text.trim();
-                if (cleanText.startsWith('[SYSTEM]') || cleanText.startsWith('[ERROR]') || cleanText.startsWith('[EXECUTED]')) {
+                if (cleanText.startsWith('[SYSTEM]') || cleanText.startsWith('[ERROR]') || cleanText.startsWith('[EXECUTED]') || cleanText.startsWith('[BACKGROUND')) {
                     box.style.display = 'none';
                 }
             }

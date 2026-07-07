@@ -551,6 +551,8 @@ async function setupBoot() {
     if (!grid || !addA) return;
 
     window.launchWebAgent = async (appData, isSilentBoot = false) => {
+        window.sessionBriefed = false;
+        window.briefingInProgress = false;
         let u = typeof appData === 'string' ? appData : appData.url;
         let inSel = typeof appData === 'object' ? appData.input : ''; let btnSel = typeof appData === 'object' ? appData.send : ''; let resSel = typeof appData === 'object' ? appData.response : '';
 
@@ -624,6 +626,9 @@ async function setupBoot() {
 
         if (!isSilentBoot) {
             wv.addEventListener('did-finish-load', async () => {
+                if (window.sessionBriefed || window.briefingInProgress) return;
+                window.briefingInProgress = true;
+                
                 const projectTree = await ipcRenderer.invoke('vault-get-tree');
                 if (projectTree) {
                     setTimeout(async () => {
@@ -657,9 +662,16 @@ ${projectTree}
                                 briefPromise,
                                 new Promise((_, reject) => setTimeout(() => reject(new Error('Briefing response timeout')), 120000))
                             ]);
-                            window.sessionBriefed = true; document.getElementById('tab-local-agent').click();
+                            window.sessionBriefed = true;
+                            window.briefingInProgress = false;
+                            document.getElementById('tab-local-agent').click();
                             if (briefResponse) { ChatUI.appendBubble('ai', briefResponse, false, getWebIcon(wv)); detectAndAskCommand(briefResponse); }
-                        } catch (err) { window.sessionBriefed = true; document.getElementById('tab-local-agent').click(); ChatUI.appendBubble('system', '[ERROR] INITIALIZATION FAILED.'); }
+                        } catch (err) {
+                            window.sessionBriefed = true;
+                            window.briefingInProgress = false;
+                            document.getElementById('tab-local-agent').click();
+                            ChatUI.appendBubble('system', '[ERROR] INITIALIZATION FAILED.');
+                        }
                     }, 2500);
                 }
             }, { once: true });

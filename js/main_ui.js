@@ -129,7 +129,6 @@ const CRITICAL_RULE_SUFFIX = `
 8. 파일 탐색 및 파악이 최종적으로 완료되었다면 자의적인 향후 작업 계획 수립이나 임의의 대안 작성을 일절 중단하십시오. 오직 파악된 현재 프로젝트 구조 및 핵심 기능에 대해서만 간결히 설명한 후, 유저의 구체적인 지시(Wait for user instructions)를 대기하십시오.`;
 
 function detectAndAskCommand(text) {
-    return; // Temporarily disabled per user request
     if (!text) return;
 
     const cmdRegex = /\[CMD:\s*([^\]]+)\]/gi;
@@ -324,16 +323,21 @@ function detectAndAskCommand(text) {
                     }
 
                     combinedPayload += fileContentPayload;
-                    ChatUI.appendBubble('system', `[SYSTEM] Prepared ${filePath} context.`);
+                    
+                    // Inject this file context sequentially, do not click Send yet
+                    await injectWebPayload(fileContentPayload, readCmds.length, i + 1, i > 0, false);
+                    ChatUI.appendBubble('system', `[SYSTEM] Prepared and injected ${filePath} context (${i + 1}/${readCmds.length}).`);
                 }
 
-                combinedPayload += "Proceed to analyze the files above.";
+                const finalPrompt = "Proceed to analyze the files above.";
+                combinedPayload += finalPrompt;
 
                 if (typeof window.updateSendProgress === 'function') {
                     window.updateSendProgress(window.readFilesSet.size, window.totalFilesCount);
                 }
 
-                await injectWebPayload(combinedPayload, readCmds.length, readCmds.length, false, true);
+                // Inject final prompt and click Send!
+                await injectWebPayload(`\n${finalPrompt}`, readCmds.length, readCmds.length, true, true);
                 ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${readCmds.length} files to Web AI.`);
 
                 const response = await runExperimentalEngine('/marktag', combinedPayload, null);

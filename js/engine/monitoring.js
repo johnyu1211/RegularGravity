@@ -108,20 +108,22 @@ const extractScript = `(function(){
             case 'i': return "*" + childrenMarkdown.trim() + "*";
             case 'code': {
                 const text = node.textContent || "";
-                const isBlock = (node.parentNode && (
-                    node.parentNode.tagName.toLowerCase() === 'pre' || 
-                    node.parentNode.tagName.toLowerCase() === 'code-block' ||
-                    node.parentNode.classList.contains('code-block') ||
-                    node.parentNode.classList.contains('code-code')
-                )) || text.trim().includes('\\n');
+                const parentTag = (node.parentNode && node.parentNode.tagName) ? node.parentNode.tagName.toLowerCase() : "";
+                const parentClassList = (node.parentNode && node.parentNode.classList) ? node.parentNode.classList : null;
+                const isBlock = parentTag === 'pre' || 
+                                parentTag === 'code-block' ||
+                                (parentClassList && parentClassList.contains('code-block')) ||
+                                (parentClassList && parentClassList.contains('code-code')) ||
+                                text.trim().includes('\\n');
                 return isBlock ? "\\n\`\`\`\\n" + childrenMarkdown.trim() + "\\n\`\`\`\\n" : "\`" + childrenMarkdown.trim() + "\`";
             }
             case 'pre':
             case 'code-block': return "\\n" + childrenMarkdown.trim() + "\\n";
             case 'li': {
-                const isOrdered = node.parentNode && node.parentNode.tagName.toLowerCase() === 'ol';
+                const parentTag = (node.parentNode && node.parentNode.tagName) ? node.parentNode.tagName.toLowerCase() : "";
+                const isOrdered = parentTag === 'ol';
                 if (isOrdered) {
-                    const siblings = Array.from(node.parentNode.children);
+                    const siblings = Array.from(node.parentNode.children || []);
                     const idx = siblings.indexOf(node) + 1;
                     return "\\n" + idx + ". " + childrenMarkdown.trim();
                 }

@@ -287,6 +287,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         const errorVal = await wv.executeJavaScript(`(() => {
             const bodyText = document.body ? document.body.innerText : "";
             const errorKeywords = [
+                "1095",
                 "사용량이 많을 때 문제가 있습니다",
                 "문제가 있습니다 1095",
                 "Too many requests",

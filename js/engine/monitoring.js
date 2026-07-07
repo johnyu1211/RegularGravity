@@ -317,12 +317,20 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         })()`).catch(() => null);
 
         if (errorVal) {
-            hideGlobalUI();
-            window.activeAiResponding = false;
-            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                ChatUI.appendBubble('system', `⚠️ [WEB AI ERROR] ${errorVal}\nWeb AI has blocked the request or encountered a quota/usage limit. Please review the browser tab.`);
+            const hasCmd = /\[(CMD|REQUEST):\s*([^\]]+)\]/gi.test(delta);
+            if (hasCmd) {
+                updateUI("Generation complete (with warning)! Fetching...", 100);
+                hideGlobalUI();
+                window.activeAiResponding = false;
+                return cleanGarbage(delta);
+            } else {
+                hideGlobalUI();
+                window.activeAiResponding = false;
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    ChatUI.appendBubble('system', `⚠️ [WEB AI ERROR] ${errorVal}\nWeb AI has blocked the request or encountered a quota/usage limit. Please review the browser tab.`);
+                }
+                return null;
             }
-            return null;
         }
 
         if (manualAbort) { hideGlobalUI(); return await manualPromise; }

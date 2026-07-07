@@ -5,6 +5,17 @@ const ChatUI = {
     appendBubble(role, text, isThinking = false, sourceIcon = null) {
         const chatLog = document.getElementById('local-chat-messages'); if (!chatLog) return;
         const box = document.createElement('div'); box.className = `chat-bubble ${role}`; box.dataset.role = role;
+        
+        // Safe hide for system logs if debug mode is off
+        if (!window.debugMode) {
+            if (role === 'system') box.style.display = 'none';
+            if (typeof text === 'string') {
+                const cleanText = text.trim();
+                if (cleanText.startsWith('[SYSTEM]') || cleanText.startsWith('[ERROR]') || cleanText.startsWith('[EXECUTED]')) {
+                    box.style.display = 'none';
+                }
+            }
+        }
         const content = document.createElement('div'); content.className = 'bubble-content';
         content.dataset.rawText = text;
         if (typeof marked !== 'undefined') content.innerHTML = marked.parse(text).trim(); else content.innerText = text.trim();

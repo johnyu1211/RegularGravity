@@ -15,11 +15,13 @@ window.reloadAgentSettings = function() {
             const settings = JSON.parse(_fs.readFileSync(p, 'utf-8'));
             window.autoContinueOnRead = !!settings.autoContinueOnRead;
             window.hideUIOverlay = !!settings.hideUIOverlay;
+            window.debugMode = !!settings.debugMode;
             return;
         }
     } catch(e) {}
     window.autoContinueOnRead = false;
     window.hideUIOverlay = false;
+    window.debugMode = false;
 };
 
 window.fetchDirContent = async (p) => await ipcRenderer.invoke('get-directory-content', p);
@@ -829,12 +831,14 @@ function setupUI() {
     const saveLocalSettings = document.getElementById('save-local-settings');
     const chkAutoRead = document.getElementById('chk-auto-read');
     const chkHideOverlay = document.getElementById('chk-hide-overlay');
+    const chkDebugMode = document.getElementById('chk-debug-mode');
 
     if (localSettingsBtn && localSettingsModal) {
         localSettingsBtn.onclick = () => {
             window.reloadAgentSettings(); 
             if (chkAutoRead) chkAutoRead.checked = window.autoContinueOnRead;
             if (chkHideOverlay) chkHideOverlay.checked = window.hideUIOverlay;
+            if (chkDebugMode) chkDebugMode.checked = window.debugMode;
             localSettingsModal.style.display = 'flex';
         };
     }
@@ -845,10 +849,11 @@ function setupUI() {
     }
     if (saveLocalSettings && localSettingsModal) {
         saveLocalSettings.onclick = () => {
-            if (chkAutoRead || chkHideOverlay) {
+            if (chkAutoRead || chkHideOverlay || chkDebugMode) {
                 const current = loadSettings();
                 if (chkAutoRead) current.autoContinueOnRead = chkAutoRead.checked;
                 if (chkHideOverlay) current.hideUIOverlay = chkHideOverlay.checked;
+                if (chkDebugMode) current.debugMode = chkDebugMode.checked;
                 saveSettings(current);
                 window.reloadAgentSettings(); 
             }

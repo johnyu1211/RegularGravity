@@ -246,7 +246,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             }
 
             // 3단계: 짧은 대기 후 전송 버튼 클릭
-            await new Promise(r => setTimeout(r, 350));
+            await new Promise(r => setTimeout(r, 1200));
             const clickScript = `
                 (async () => {
                     const findInput = () => {
@@ -288,8 +288,8 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                     // Dispatch Enter 1
                     dispatchEnter(input);
 
-                    // Wait 500ms
-                    await new Promise(r => setTimeout(r, 500));
+                    // Wait 1000ms
+                    await new Promise(r => setTimeout(r, 1000));
 
                     // Dispatch Enter 2
                     dispatchEnter(input);

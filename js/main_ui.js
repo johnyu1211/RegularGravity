@@ -1088,7 +1088,13 @@ function setupUI() {
     const tLA = document.getElementById('tab-local-agent'), tBH = document.getElementById('tab-browser-hub');
     const vLC = document.getElementById('inspector-local-chat'), vBH = document.getElementById('inspector-browser-hub');
     const swi = (m) => {
-        vLC.style.display = (m === 'local') ? 'flex' : 'none'; vBH.style.display = (m !== 'local') ? 'flex' : 'none';
+        if (m === 'local') {
+            vLC.style.opacity = '1';
+            vLC.style.pointerEvents = 'auto';
+        } else {
+            vLC.style.opacity = '0';
+            vLC.style.pointerEvents = 'none';
+        }
         tLA.classList.toggle('active-tab', (m === 'local')); tBH.classList.toggle('active-tab', (m !== 'local'));
         if (m === 'local') {
             const chatLog = document.getElementById('local-chat-messages');

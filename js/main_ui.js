@@ -120,8 +120,24 @@ const syncBrowserView = (() => {
     };
 })();
 
-const CRITICAL_RULE_SUFFIX = `
-
+window.getSystemRulesPrompt = function() {
+    if (window.dragDropMode) {
+        return `
+[SYSTEM RULES]
+1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 요구 사항만 단답형 제출.
+2. 요구/명령 규격 (Drag & Drop Mode 활성 상태):
+   - 중요: 파일 읽기는 [CMD: ...] 명령을 절대 사용하지 마십시오. 대신 유저에게 파일 드래그앤드롭을 정중히 요청하고, 문장 끝에 반드시 다음 태그를 포함하십시오:
+     * [REQUEST: read-file "경로"] (개요 파악)
+     * [REQUEST: read-file-full "경로"] (전체 분석)
+     * [REQUEST: read-file-range "경로" 시작줄-끝줄] (범위 분석, 최대 2000줄 제한)
+   - 검색 명령은 기존 [CMD: ...] 방식을 그대로 유지하십시오:
+     * [CMD: search-file "경로" "검색어"] (파일 내 검색)
+     * [CMD: search-all "검색어"] (전역 검색)
+3. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 핵심 키워드로 [CMD: search-all "검색어"]를 최우선 실행하여 위치를 파악한 뒤, 대상 소스 본문을 파일 드롭 요청([REQUEST: read-file...])을 통해 직접 읽고 검증하여 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
+4. 문구 제한: 단답형으로 요청 직후 태그만 표시. 사족 절대 금지.
+5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
+    } else {
+        return `
 [SYSTEM RULES]
 1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 [CMD: ...] 명령어만 단답형 제출.
 2. 명령 규격:
@@ -133,16 +149,23 @@ const CRITICAL_RULE_SUFFIX = `
 3. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 핵심 키워드로 [CMD: search-all "검색어"]를 최우선 실행하여 위치를 파악한 뒤, 대상 소스 본문을 [CMD: read-file...]로 직접 읽고 검증하여 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
 4. 문구 제한: 명령어 제출 시 '코드를 읽어보는게 정확하겠습니다' 등 사족 절대 금지. 오직 '읽어보겠습니다.' 등 짧은 단답 직후 명령어만 표시.
 5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
+    }
+};
 
 function detectAndAskCommand(text) {
     if (!text) return;
 
-    const cmdRegex = /\[CMD:\s*([^\]]+)\]/gi;
+    const cmdRegex = /\[(CMD|REQUEST):\s*([^\]]+)\]/gi;
     let match;
     const foundCmds = [];
     while ((match = cmdRegex.exec(text)) !== null) {
-        const cleanCmd = match[1].trim();
-        if (cleanCmd) foundCmds.push(cleanCmd);
+        const type = match[1].toUpperCase();
+        const cleanCmd = match[2].trim();
+        if (cleanCmd) {
+            // Filter REQUEST: read-file if dragDropMode is OFF
+            if (type === 'REQUEST' && !window.dragDropMode) continue;
+            foundCmds.push(cleanCmd);
+        }
     }
 
     if (foundCmds.length === 0) {
@@ -356,21 +379,36 @@ function detectAndAskCommand(text) {
         if (window.autoContinueOnRead) {
             runRead();
         } else {
-            const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
-            const themeColor = "#468CF6"; 
-            const glowShadow = "rgba(70, 140, 246, 0.15)";
+            let box = null;
+            if (!window.dragDropMode) {
+                box = ChatUI.appendBubble('system', '');
+                const content = box.querySelector('.bubble-content');
+                const themeColor = "#468CF6"; 
+                const glowShadow = "rgba(70, 140, 246, 0.15)";
 
-            content.innerHTML = `
-                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                    <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">📄</span>${displayCmd}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                </div>
-            `;
-            
+                content.innerHTML = `
+                    <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                        <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">📄</span>${displayCmd}
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                        <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                    </div>
+                `;
+                
+                content.querySelector('.cmd-run-btn').onclick = async () => {
+                    box.remove();
+                    const dropZone = document.getElementById('local-drop-zone');
+                    if (dropZone) dropZone.style.display = 'none';
+                    await runRead();
+                };
+                content.querySelector('.cmd-cancel-btn').onclick = () => {
+                    box.remove();
+                    const dropZone = document.getElementById('local-drop-zone');
+                    if (dropZone) dropZone.style.display = 'none';
+                };
+            }
+
             const dropZone = document.getElementById('local-drop-zone');
             const dropTargetText = document.getElementById('drop-target-filename');
             if (window.dragDropMode && dropZone && dropTargetText) {
@@ -414,17 +452,14 @@ function detectAndAskCommand(text) {
                         await runRead(overriddenCmds);
                     }
                 };
-            }
 
-            content.querySelector('.cmd-run-btn').onclick = async () => {
-                box.remove();
-                if (dropZone) dropZone.style.display = 'none';
-                await runRead();
-            };
-            content.querySelector('.cmd-cancel-btn').onclick = () => {
-                box.remove();
-                if (dropZone) dropZone.style.display = 'none';
-            };
+                const closeDropZone = document.getElementById('close-local-drop-zone');
+                if (closeDropZone) {
+                    closeDropZone.onclick = () => {
+                        dropZone.style.display = 'none';
+                    };
+                }
+            }
         }
     }
 
@@ -567,7 +602,7 @@ function detectAndAskCommand(text) {
             }
             
             ChatUI.appendBubble('system-info', `Executed: ${cleanCmd}`);
-            const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${CRITICAL_RULE_SUFFIX}`;
+            const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${window.getSystemRulesPrompt()}`;
             
             try {
                 const enginePromise = runExperimentalEngine('/marktag', payload, null);
@@ -1373,21 +1408,14 @@ function setupUI() {
             window.readFilesSet.clear();
             window.userMessageCount = 0;
             
+            const startPrompt = window.dragDropMode 
+                ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "파일명"] 형태로 즉시 답변하십시오.` 
+                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.`;
+            
             const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
 ${tree}
-
-[SYSTEM RULES]
-1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 [CMD: ...] 명령어만 단답형 제출.
-2. 명령 규격:
-   - [CMD: read-file "경로"] (개요 파악)
-   - [CMD: read-file-full "경로"] (전체 정밀 분석)
-   - [CMD: read-file-range "경로" 시작줄-끝줄] (범위 분석, 최대 2000줄 제한)
-   - [CMD: search-file "경로" "검색어"] (파일 내 검색)
-   - [CMD: search-all "검색어"] (전역 검색)
-3. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 핵심 키워드로 [CMD: search-all "검색어"]를 최우선 실행하여 위치를 파악한 뒤, 대상 소스 본문을 [CMD: read-file...]로 직접 읽고 검증하여 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
-4. 문구 제한: 명령어 제출 시 '코드를 읽어보는게 정확하겠습니다' 등 사족 절대 금지. 오직 '읽어보겠습니다.' 등 짧은 단답 직후 명령어만 표시.
-5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).
-이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.`.trim();
+${window.getSystemRulesPrompt()}
+${startPrompt}`.trim();
             
             window.currentBatchFileCount = -1;
             const enginePromise = runExperimentalEngine('/marktag', webPayload, null);

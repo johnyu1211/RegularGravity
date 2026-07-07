@@ -12,7 +12,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
 
         if (fileCount !== 0) {
             if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                ChatUI.appendBubble('system-info', '⚡ Sending Information to WebAI...');
+                ChatUI.appendBubble('system-info', 'Sending Information to WebAI...');
             }
         }
 

@@ -559,7 +559,7 @@ function detectAndAskCommand(text) {
                 }
             }
             
-            ChatUI.appendBubble('system-info', `⚙️ Executed: ${cleanCmd}`);
+            ChatUI.appendBubble('system-info', `Executed: ${cleanCmd}`);
             const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${CRITICAL_RULE_SUFFIX}`;
             
             try {

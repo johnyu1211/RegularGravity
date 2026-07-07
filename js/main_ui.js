@@ -127,9 +127,9 @@ window.getSystemRulesPrompt = function() {
 1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 요구 사항만 단답형 제출.
 2. 요구/명령 규격 (Drag & Drop Mode 활성 상태):
    - 중요: 파일 읽기는 [CMD: ...] 명령을 절대 사용하지 마십시오. 대신 유저에게 파일 드래그앤드롭을 정중히 요청하고, 문장 끝에 반드시 다음 태그를 포함하십시오:
-     * [REQUEST: read-file "경로"] (개요 파악)
-     * [REQUEST: read-file-full "경로"] (전체 분석)
-     * [REQUEST: read-file-range "경로" 시작줄-끝줄] (범위 분석, 최대 2000줄 제한)
+     * [REQUEST: read-file "경로"] (파일의 개요/아웃라인(함수/클래스명, JSON 키 목록 등)만 축소 파악)
+     * [REQUEST: read-file-full "경로"] (파일의 실제 전체 본문 코드 및 구체적인 설정값 파악)
+     * [REQUEST: read-file-range "경로" 시작줄-끝줄] (파일 본문의 특정 줄 범위 분석, 최대 2000줄 제한)
    - 검색 명령은 기존 [CMD: ...] 방식을 그대로 유지하십시오:
      * [CMD: search-file "경로" "검색어"] (파일 내 검색)
      * [CMD: search-all "검색어"] (전역 검색)
@@ -141,9 +141,9 @@ window.getSystemRulesPrompt = function() {
 [SYSTEM RULES]
 1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 [CMD: ...] 명령어만 단답형 제출.
 2. 명령 규격:
-   - [CMD: read-file "경로"] (개요 파악)
-   - [CMD: read-file-full "경로"] (전체 정밀 분석)
-   - [CMD: read-file-range "경로" 시작줄-끝줄] (범위 분석, 최대 2000줄 제한)
+   - [CMD: read-file "경로"] (파일의 개요/아웃라인(함수/클래스명, JSON 키 목록 등)만 축소 파악)
+   - [CMD: read-file-full "경로"] (파일의 실제 전체 본문 코드 및 구체적인 설정값 파악)
+   - [CMD: read-file-range "경로" 시작줄-끝줄] (파일 본문의 특정 줄 범위 분석, 최대 2000줄 제한)
    - [CMD: search-file "경로" "검색어"] (파일 내 검색)
    - [CMD: search-all "검색어"] (전역 검색)
 3. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 핵심 키워드로 [CMD: search-all "검색어"]를 최우선 실행하여 위치를 파악한 뒤, 대상 소스 본문을 [CMD: read-file...]로 직접 읽고 검증하여 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.

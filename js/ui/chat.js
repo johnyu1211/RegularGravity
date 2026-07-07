@@ -177,7 +177,7 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
 2. 명령 규격:
    - [CMD: read-file "경로"] (개요 파악)
    - [CMD: read-file-full "경로"] (전체 정밀 분석)
-   - [CMD: read-file-range "경로" 시작줄-끝줄] (범위 분석, 최대 200줄 제한)
+   - [CMD: read-file-range "경로" 시작줄-끝줄] (범위 분석, 최대 2000줄 제한)
    - [CMD: search-file "경로" "검색어"] (파일 내 검색)
    - [CMD: search-all "검색어"] (전역 검색)
 3. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 핵심 키워드로 [CMD: search-all "검색어"]를 최우선 실행하여 위치를 파악한 뒤, 대상 소스 본문을 [CMD: read-file...]로 직접 읽고 검증하여 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.

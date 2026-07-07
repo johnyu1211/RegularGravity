@@ -97,7 +97,7 @@ ipcMain.handle('vault-get-tree', async (event, projectPath) => {
     const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch'];
     
     function buildTree(dir, prefix = '', depth = 0) {
-        if (depth > 4) return ''; // 최대 4단계 깊이 제한
+        if (depth > 10) return ''; // 최대 10단계 깊이 제한
         let result = '';
         let items = [];
         try {

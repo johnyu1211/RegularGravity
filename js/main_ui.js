@@ -664,11 +664,15 @@ ${projectTree}
                             ]);
                             window.sessionBriefed = true;
                             window.briefingInProgress = false;
+                            const chatOverlay = document.getElementById('local-chat-overlay');
+                            if (chatOverlay) chatOverlay.style.display = 'none';
                             document.getElementById('tab-local-agent').click();
                             if (briefResponse) { ChatUI.appendBubble('ai', briefResponse, false, getWebIcon(wv)); detectAndAskCommand(briefResponse); }
                         } catch (err) {
                             window.sessionBriefed = true;
                             window.briefingInProgress = false;
+                            const chatOverlay = document.getElementById('local-chat-overlay');
+                            if (chatOverlay) chatOverlay.style.display = 'none';
                             document.getElementById('tab-local-agent').click();
                             ChatUI.appendBubble('system', '[ERROR] INITIALIZATION FAILED.');
                         }
@@ -1198,6 +1202,8 @@ function setupUI() {
         projBtn.onmouseleave = () => { projBtn.style.filter = 'none'; projBtn.style.boxShadow = '0 4px 12px rgba(70, 140, 246, 0.2)'; };
 
         projBtn.onclick = async () => {
+            if (window.sessionBriefed || window.briefingInProgress) return;
+            window.briefingInProgress = true;
             projBtn.style.display = 'none';
             document.getElementById('tab-browser-hub')?.click();
             
@@ -1247,6 +1253,8 @@ ${tree}
             } catch (err) {
                 console.error("Failed to run experimental engine:", err);
             } finally {
+                window.sessionBriefed = true;
+                window.briefingInProgress = false;
                 if (!window.autoContinueOnRead) document.getElementById('tab-local-agent')?.click();
             }
         };

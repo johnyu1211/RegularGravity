@@ -10,6 +10,12 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
         const base64Payload = Buffer.from(cleanPayload, 'utf-8').toString('base64');
         const totalLines = cleanPayload.split('\n').length; // 전체 라인수 산출
 
+        if (fileCount !== 0) {
+            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                ChatUI.appendBubble('system-info', '⚡ Sending Information to WebAI...');
+            }
+        }
+
         // 1단계: 토스트 UI 켜기 및 진행바를 테마색으로 설정
         const toast = document.getElementById('injection-toast');
         const projLbl = document.getElementById('project-pct-label');

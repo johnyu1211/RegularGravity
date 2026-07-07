@@ -116,8 +116,11 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
                 const filename = parts[parts.length - 1];
                 feedback.innerHTML = `<span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--primary); font-weight: bold; border: 1px solid var(--primary); padding: 1px 4px; border-radius: 4px; line-height: 1;">FILE</span><span style="font-weight: 500;">${filename}</span>`;
                 
+                feedback.style.left = e.clientX + 'px';
+                feedback.style.top = e.clientY + 'px';
+
                 const updatePos = (ev) => {
-                    if (feedback) {
+                    if (feedback && ev.clientX !== 0 && ev.clientY !== 0) {
                         feedback.style.left = ev.clientX + 'px';
                         feedback.style.top = ev.clientY + 'px';
                     }
@@ -125,13 +128,11 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
                 
                 const cleanup = () => {
                     if (feedback) feedback.remove();
-                    item.removeEventListener('drag', updatePos);
                     document.removeEventListener('dragover', updatePos);
                     item.removeEventListener('dragend', cleanup);
                     document.removeEventListener('drop', cleanup);
                 };
                 
-                item.addEventListener('drag', updatePos);
                 document.addEventListener('dragover', updatePos);
                 item.addEventListener('dragend', cleanup);
                 document.addEventListener('drop', cleanup);

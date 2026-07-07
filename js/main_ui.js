@@ -415,11 +415,22 @@ function detectAndAskCommand(text) {
                         vBH.style.pointerEvents = 'auto';
                     }
 
-                    localInput.disabled = true;
-                    localInput.placeholder = "File upload requested. Please drag & drop files onto Web AI.";
-                    localInput.value = "";
-                    localInput.style.background = 'rgba(0, 0, 0, 0.2)';
-                    if (sendBtn) sendBtn.style.display = 'none';
+                    const wrapper = inputContainer.firstElementChild;
+                    if (wrapper) wrapper.style.display = 'none';
+
+                    inputContainer.dataset.originalHeight = inputContainer.style.height || '';
+                    inputContainer.dataset.originalPadding = inputContainer.style.padding || '';
+                    inputContainer.dataset.originalBackground = inputContainer.style.background || '';
+                    inputContainer.dataset.originalDisplay = inputContainer.style.display || '';
+                    inputContainer.dataset.originalAlignItems = inputContainer.style.alignItems || '';
+                    inputContainer.dataset.originalJustifyContent = inputContainer.style.justifyContent || '';
+
+                    inputContainer.style.height = '30px';
+                    inputContainer.style.padding = '0';
+                    inputContainer.style.display = 'flex';
+                    inputContainer.style.alignItems = 'center';
+                    inputContainer.style.justifyContent = 'center';
+                    inputContainer.style.background = 'var(--surface-low)';
 
                     const fileNames = readCmds.map(f => {
                         const parts = f.path.split(/[\\/]/);
@@ -439,44 +450,37 @@ function detectAndAskCommand(text) {
                         }
                     }
 
-                    const oldOverlay = document.getElementById('drag-drop-input-overlay');
-                    if (oldOverlay) oldOverlay.remove();
-
                     if (!document.getElementById('bounce-arrow-style')) {
                         const styleNode = document.createElement('style');
                         styleNode.id = 'bounce-arrow-style';
                         styleNode.innerHTML = `
                             @keyframes bounce-arrow {
                                 0%, 100% { transform: translateY(0); }
-                                50% { transform: translateY(6px); }
+                                50% { transform: translateY(5px); }
                             }
                         `;
                         document.head.appendChild(styleNode);
                     }
 
-                    const overlay = document.createElement('div');
-                    overlay.id = 'drag-drop-input-overlay';
-                    overlay.style.cssText = "position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 100; pointer-events: none; display: flex; align-items: center; justify-content: center;";
-
-                    overlay.innerHTML = `
-                        <div style="font-size: 24px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; line-height: 1;">
-                            ↓
-                        </div>
-                    `;
+                    const arrowIndicator = document.createElement('div');
+                    arrowIndicator.id = 'drag-drop-arrow-indicator';
+                    arrowIndicator.style.cssText = "font-size: 20px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; line-height: 1; pointer-events: none;";
+                    arrowIndicator.innerText = "↓";
 
                     const cleanupDragDrop = () => {
-                        overlay.remove();
+                        arrowIndicator.remove();
                         if (fileBox) fileBox.remove();
                         window.activeDragDropCleanup = null;
                         window.activeDragDropContinue = null;
                         
-                        if (localInput) {
-                            localInput.disabled = false;
-                            localInput.placeholder = "Ask to WebAI...";
-                            localInput.value = "";
-                            localInput.style.background = '';
-                        }
-                        if (sendBtn) sendBtn.style.display = 'flex';
+                        if (wrapper) wrapper.style.display = '';
+                        
+                        inputContainer.style.height = inputContainer.dataset.originalHeight || '';
+                        inputContainer.style.padding = inputContainer.dataset.originalPadding || '';
+                        inputContainer.style.background = inputContainer.dataset.originalBackground || '';
+                        inputContainer.style.display = inputContainer.dataset.originalDisplay || '';
+                        inputContainer.style.alignItems = inputContainer.dataset.originalAlignItems || '';
+                        inputContainer.style.justifyContent = inputContainer.dataset.originalJustifyContent || '';
                         
                         if (vLC) {
                             vLC.style.height = 'calc(100% - 44px)';
@@ -517,7 +521,7 @@ function detectAndAskCommand(text) {
                         `).catch(err => console.error("Failed to inject drop listener", err));
                     }
 
-                    inputContainer.appendChild(overlay);
+                    inputContainer.appendChild(arrowIndicator);
                 }
             } else {
                 const box = ChatUI.appendBubble('system', '');

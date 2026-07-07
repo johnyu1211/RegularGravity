@@ -738,7 +738,8 @@ ${projectTree}
     }
     apps.forEach(appData => create(appData)); if (geminiApp) window.launchWebAgent(geminiApp, true);
 
-    document.getElementById('add-terminal').onclick = () => addSubTerminal();
+    const addTermBtn = document.getElementById('add-terminal');
+    if (addTermBtn) addTermBtn.onclick = () => addSubTerminal();
     window.loadDirectory(window.currentPath);
 }
 
@@ -922,28 +923,32 @@ function setupUI() {
 
     const addA = document.getElementById('add-agent-app-card'), mo = document.getElementById('app-reg-modal');
     if (addA && mo) addA.onclick = () => { mo.style.display = 'flex'; document.getElementById('reg-app-url')?.focus(); };
-    document.getElementById('cancel-reg').onclick = () => { mo.style.display = 'none'; };
-    document.getElementById('confirm-reg').onclick = async () => {
-        let u = document.getElementById('reg-app-url').value.trim(); if (!u) return;
-        if (!u.startsWith('http')) u = 'https://' + u;
-        let inSel = document.getElementById('reg-input-selector')?.value.trim() || '';
-        let btnSel = document.getElementById('reg-send-selector')?.value.trim() || '';
-        let resSel = document.getElementById('reg-response-selector')?.value.trim() || '';
-        
-        const s = await ipcRenderer.invoke('vault-read-global', 'registry.json');
-        const apps = s ? JSON.parse(s) : [];
-        const editingUrl = mo.dataset.editingUrl;
+    const cancelReg = document.getElementById('cancel-reg');
+    if (cancelReg) cancelReg.onclick = () => { if (mo) mo.style.display = 'none'; };
+    const confirmReg = document.getElementById('confirm-reg');
+    if (confirmReg) {
+        confirmReg.onclick = async () => {
+            let u = document.getElementById('reg-app-url').value.trim(); if (!u) return;
+            if (!u.startsWith('http')) u = 'https://' + u;
+            let inSel = document.getElementById('reg-input-selector')?.value.trim() || '';
+            let btnSel = document.getElementById('reg-send-selector')?.value.trim() || '';
+            let resSel = document.getElementById('reg-response-selector')?.value.trim() || '';
+            
+            const s = await ipcRenderer.invoke('vault-read-global', 'registry.json');
+            const apps = s ? JSON.parse(s) : [];
+            const editingUrl = mo ? mo.dataset.editingUrl : '';
 
-        if (editingUrl) {
-            const idx = apps.findIndex(a => (typeof a === 'string' ? a : a.url) === editingUrl);
-            if (idx > -1) apps[idx] = { url: u, input: inSel, send: btnSel, response: resSel };
-            delete mo.dataset.editingUrl;
-        } else {
-            apps.push({ url: u, input: inSel, send: btnSel, response: resSel });
-        }
-        ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: JSON.stringify(apps) });
-        location.reload();
-    };
+            if (mo && editingUrl) {
+                const idx = apps.findIndex(a => (typeof a === 'string' ? a : a.url) === editingUrl);
+                if (idx > -1) apps[idx] = { url: u, input: inSel, send: btnSel, response: resSel };
+                delete mo.dataset.editingUrl;
+            } else {
+                apps.push({ url: u, input: inSel, send: btnSel, response: resSel });
+            }
+            ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: JSON.stringify(apps) });
+            location.reload();
+        };
+    }
 
     const urlIn = document.getElementById('agent-url-input'); if (urlIn) {
         urlIn.onkeydown = (e) => {
@@ -955,7 +960,10 @@ function setupUI() {
             }
         };
     }
-    document.getElementById('refresh-agent').onclick = () => { const u = urlIn.value.trim(); if (u) { const wv = document.getElementById('active-agent-webview'); if (wv) wv.reload(); } };
+    const refreshAgentBtn = document.getElementById('refresh-agent');
+    if (refreshAgentBtn) {
+        refreshAgentBtn.onclick = () => { const u = urlIn ? urlIn.value.trim() : ''; if (u) { const wv = document.getElementById('active-agent-webview'); if (wv) wv.reload(); } };
+    }
 
     const settingsBtn = document.getElementById('agent-settings-btn');
     const settingsMenu = document.getElementById('agent-settings-menu');
@@ -990,15 +998,25 @@ function setupUI() {
     const dsInput = document.getElementById('discovery-keywords-input');
     const defaultKeywords = 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
 
-    document.getElementById('open-discovery-settings').onclick = async () => {
-        const saved = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || defaultKeywords;
-        dsInput.value = saved; dsModal.style.display = 'flex';
-    };
-    document.getElementById('close-discovery-settings').onclick = () => { dsModal.style.display = 'none'; };
-    document.getElementById('save-discovery-settings').onclick = () => {
-        ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: dsInput.value.trim() });
-        dsModal.style.display = 'none';
-    };
+    const openDiscoveryBtn = document.getElementById('open-discovery-settings');
+    if (openDiscoveryBtn) {
+        openDiscoveryBtn.onclick = async () => {
+            const saved = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || defaultKeywords;
+            if (dsInput) dsInput.value = saved;
+            if (dsModal) dsModal.style.display = 'flex';
+        };
+    }
+    const closeDiscoveryBtn = document.getElementById('close-discovery-settings');
+    if (closeDiscoveryBtn) closeDiscoveryBtn.onclick = () => { if (dsModal) dsModal.style.display = 'none'; };
+    const saveDiscoveryBtn = document.getElementById('save-discovery-settings');
+    if (saveDiscoveryBtn) {
+        saveDiscoveryBtn.onclick = () => {
+            if (dsInput) {
+                ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: dsInput.value.trim() });
+            }
+            if (dsModal) dsModal.style.display = 'none';
+        };
+    }
 
     const tLA = document.getElementById('tab-local-agent'), tBH = document.getElementById('tab-browser-hub');
     const vLC = document.getElementById('inspector-local-chat'), vBH = document.getElementById('inspector-browser-hub');
@@ -1242,12 +1260,21 @@ ${tree}
                 document.getElementById('ps-speech').value = lines[3]?.replace('SPEECH: ', '') || '';
             }
         };
-        document.getElementById('cancel-persona').onclick = () => pMo.style.display = 'none';
-        document.getElementById('save-persona').onclick = () => {
-            const content = `NAME: ${document.getElementById('ps-name').value}\nPERSONALITY: ${document.getElementById('ps-personality').value}\nINFO: ${document.getElementById('ps-info').value}\nSPEECH: ${document.getElementById('ps-speech').value}`;
-            ipcRenderer.send('vault-update-global', { fileName: 'traits.md', content });
-            pMo.style.display = 'none'; GravityVault.init();
-        };
+        const cancelPersonaBtn = document.getElementById('cancel-persona');
+        if (cancelPersonaBtn) cancelPersonaBtn.onclick = () => { if (pMo) pMo.style.display = 'none'; };
+        const savePersonaBtn = document.getElementById('save-persona');
+        if (savePersonaBtn) {
+            savePersonaBtn.onclick = () => {
+                const nameEl = document.getElementById('ps-name');
+                const personalityEl = document.getElementById('ps-personality');
+                const infoEl = document.getElementById('ps-info');
+                const speechEl = document.getElementById('ps-speech');
+                const content = `NAME: ${nameEl ? nameEl.value : ''}\nPERSONALITY: ${personalityEl ? personalityEl.value : ''}\nINFO: ${infoEl ? infoEl.value : ''}\nSPEECH: ${speechEl ? speechEl.value : ''}`;
+                ipcRenderer.send('vault-update-global', { fileName: 'traits.md', content });
+                if (pMo) pMo.style.display = 'none';
+                GravityVault.init();
+            };
+        }
     }
     updateAgentBadge();
 }
@@ -1269,22 +1296,49 @@ async function migrateToVault() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await migrateToVault();
+    try {
+        await migrateToVault();
+    } catch (e) {
+        console.error("migrateToVault failed:", e);
+    }
     
     const selectBox = document.getElementById('terminal-sub-tabs');
     if (selectBox) setupHorizontalScroll(selectBox);
     
-    addSubTerminal(true);
-    await GravityVault.init();
-    await setupBoot();
-    setupUI();
+    try {
+        addSubTerminal(true);
+    } catch (e) {
+        console.error("addSubTerminal failed:", e);
+    }
+
+    try {
+        await GravityVault.init();
+    } catch (e) {
+        console.error("GravityVault init failed:", e);
+    }
+
+    try {
+        await setupBoot();
+    } catch (e) {
+        console.error("setupBoot failed:", e);
+    }
+
+    try {
+        setupUI();
+    } catch (e) {
+        console.error("setupUI failed:", e);
+    }
     
     if (typeof openProjectModal === 'function') {
         const savedPath = localStorage.getItem('pormsg_current_path');
         if (savedPath && fs.existsSync(savedPath)) {
             window.projectRoot = savedPath;
             window.currentPath = savedPath;
-            await window.loadDirectory(savedPath);
+            try {
+                await window.loadDirectory(savedPath);
+            } catch (e) {
+                console.error("loadDirectory failed:", e);
+            }
             const modal = document.getElementById('project-picker-modal');
             if (modal) modal.style.display = 'none';
         } else {

@@ -1204,22 +1204,26 @@ function setupUI() {
         window.splitViewActive = !!enabled;
         
         if (enabled) {
-            vLC.style.position = 'relative';
-            vLC.style.height = '48%';
+            vLC.style.position = 'absolute';
+            vLC.style.top = '0';
+            vLC.style.height = '45%';
             vLC.style.opacity = '1';
             vLC.style.pointerEvents = 'auto';
-            vLC.style.zIndex = '10';
+            vLC.style.zIndex = '100';
             
-            vBH.style.position = 'relative';
-            vBH.style.height = 'calc(52% - 44px)';
+            vBH.style.position = 'absolute';
+            vBH.style.top = '45%';
+            vBH.style.height = 'calc(55% - 44px)';
             vBH.style.width = '100%';
-            vBH.style.zIndex = '10';
+            vBH.style.zIndex = '150';
         } else {
             vLC.style.position = 'absolute';
+            vLC.style.top = '0';
             vLC.style.height = 'calc(100% - 44px)';
             vLC.style.zIndex = '100';
             
             vBH.style.position = 'relative';
+            vBH.style.top = '';
             vBH.style.height = 'calc(100% - 44px)';
             vBH.style.width = '100%';
             vBH.style.zIndex = '1';

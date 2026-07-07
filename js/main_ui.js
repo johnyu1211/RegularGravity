@@ -4,7 +4,7 @@ if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electro
 window.totalFilesCount = 0;
 window.readFilesSet = new Set();
 window.currentBatchFileCount = 0;
-window.currentPath = localStorage.getItem('pormsg_current_path') || process.cwd();
+window.currentPath = process.cwd();
 
 window.reloadAgentSettings = function() {
     const _path = require('path');
@@ -1330,20 +1330,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     if (typeof openProjectModal === 'function') {
-        const savedPath = localStorage.getItem('pormsg_current_path');
-        if (savedPath && fs.existsSync(savedPath)) {
-            window.projectRoot = savedPath;
-            window.currentPath = savedPath;
-            try {
-                await window.loadDirectory(savedPath);
-            } catch (e) {
-                console.error("loadDirectory failed:", e);
-            }
-            const modal = document.getElementById('project-picker-modal');
-            if (modal) modal.style.display = 'none';
-        } else {
-            openProjectModal();
-        }
+        openProjectModal();
     }
     document.getElementById('tab-browser-hub')?.click();
     

@@ -4,7 +4,7 @@ if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electro
 window.totalFilesCount = 0;
 window.readFilesSet = new Set();
 window.currentBatchFileCount = 0;
-window.currentPath = process.cwd();
+window.currentPath = localStorage.getItem('pormsg_current_path') || process.cwd();
 
 window.reloadAgentSettings = function() {
     const _path = require('path');
@@ -1280,7 +1280,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupUI();
     
     if (typeof openProjectModal === 'function') {
-        openProjectModal();
+        const savedPath = localStorage.getItem('pormsg_current_path');
+        if (savedPath && fs.existsSync(savedPath)) {
+            window.projectRoot = savedPath;
+            window.currentPath = savedPath;
+            await window.loadDirectory(savedPath);
+            const modal = document.getElementById('project-picker-modal');
+            if (modal) modal.style.display = 'none';
+        } else {
+            openProjectModal();
+        }
     }
     document.getElementById('tab-browser-hub')?.click();
     

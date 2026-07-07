@@ -5,6 +5,7 @@ window.selectProject = async (folderPath) => {
     if (!folderPath) return;
     window.projectRoot = folderPath;
     window.currentPath = folderPath;
+    localStorage.setItem('pormsg_current_path', folderPath);
     ipcRenderer.send('save-recent-project', folderPath);
     window.reloadAgentSettings();
 

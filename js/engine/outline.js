@@ -28,6 +28,9 @@ function extractHtmlOutline(htmlContent) {
         
         lineOut = lineOut.replace(/>[^<]+</g, '><');
         
+        // Convert childless HTML tags to self-closing format
+        lineOut = lineOut.replace(/<([a-zA-Z0-9:-]+)([^>]*?)><\/\1>/g, '<$1$2 />');
+        
         if (lineOut.trim() === '') continue;
         outlineLines.push(lineOut);
     }

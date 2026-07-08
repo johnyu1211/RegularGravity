@@ -1471,3 +1471,32 @@ input:checked + .slider:before {
     background: rgba(30, 30, 38, 0.9) !important;
     border-color: rgba(255, 255, 255, 0.25);
 }
+
+/* Dynamic Web Popover Resizers */
+.web-popover-resizer-l {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: w-resize;
+    z-index: 10;
+}
+.web-popover-resizer-t {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 6px;
+    cursor: n-resize;
+    z-index: 10;
+}
+.web-popover-resizer-tl {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 10px;
+    height: 10px;
+    cursor: nw-resize;
+    z-index: 11;
+}

@@ -1286,6 +1286,26 @@ function detectAndAskCommand(text) {
                         vBH.style.opacity = '1';
                         vBH.style.pointerEvents = 'auto';
                     }
+                    
+                    // Clean up temporary files on cleanup
+                    try {
+                        const fs = require('fs');
+                        const path = require('path');
+                        const dir = window.projectRoot || window.currentPath;
+                        if (dir && fs.existsSync(dir)) {
+                            const files = fs.readdirSync(dir);
+                            files.forEach(file => {
+                                if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
+                                    try {
+                                        fs.unlinkSync(path.join(dir, file));
+                                    } catch(e) {}
+                                }
+                            });
+                            if (typeof window.refreshTree === 'function') {
+                                window.refreshTree();
+                            }
+                        }
+                    } catch(e) {}
                 };
 
                 window.activeDragDropCleanup = cleanupDragDrop;
@@ -2283,7 +2303,7 @@ ${startPrompt}`.trim();
                                         if (dir && fs.existsSync(dir)) {
                                             const files = fs.readdirSync(dir);
                                             files.forEach(file => {
-                                                if (file.startsWith('_project_rules_') && file.endsWith('.md')) {
+                                                if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
                                                     try {
                                                         fs.unlinkSync(path.join(dir, file));
                                                     } catch(e) {}
@@ -4027,21 +4047,27 @@ function setupUI() {
                                 window.triggerGuestSend();
                             }
                             
-                            // Delay deletion of temp rules file to guarantee upload completes
+                            // Delay deletion of temp files to guarantee upload completes
                             setTimeout(() => {
                                 try {
                                     const fs = require('fs');
                                     const path = require('path');
-                                    const tPath = path.join(window.currentPath || process.cwd(), window.tempRulesFileName || '_project_rules.md');
-                                    if (fs.existsSync(tPath)) {
-                                        fs.unlinkSync(tPath);
-                                        console.log("[ProjectInfo] Successfully deleted temporary rules file after send.");
+                                    const dir = window.projectRoot || window.currentPath;
+                                    if (dir && fs.existsSync(dir)) {
+                                        const files = fs.readdirSync(dir);
+                                        files.forEach(file => {
+                                            if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
+                                                try {
+                                                    fs.unlinkSync(path.join(dir, file));
+                                                } catch(e) {}
+                                            }
+                                        });
                                         if (typeof window.refreshTree === 'function') {
                                             window.refreshTree();
                                         }
                                     }
                                 } catch (err) {
-                                    console.error("[ProjectInfo] Failed to delete temporary rules file after send:", err);
+                                    console.error("[ProjectInfo] Failed to delete temporary files after send:", err);
                                 }
                             }, 3000);
 

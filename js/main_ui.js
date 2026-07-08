@@ -2685,6 +2685,10 @@ function setupUI() {
                 status: 'PENDING'
             }];
 
+            if (typeof window.injectGuestDropInterceptor === 'function') {
+                window.injectGuestDropInterceptor();
+            }
+
             const cleanupDragDrop = () => {
                 if (window.activeDragDropCleanup === cleanupDragDrop) {
                     window.activeDragDropCleanup = null;

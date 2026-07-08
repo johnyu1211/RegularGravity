@@ -3630,10 +3630,8 @@ function setupUI() {
             window.readFilesSet.clear();
             window.userMessageCount = 0;
             
-            const startPrompt = window.dragDropMode 
-                ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(예: package.json, index.html 등 진입점 파일)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
-                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오.`;
-            
+            const startPrompt = `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 진입점 파일들(예: package.json, main.js, index.html 등 분석이 필요한 모든 진입점 파일들)을 대화 턴을 아끼기 위해 한 번에 모아서 [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"] 형태로 한 줄에 즉시 나열하여 답변하십시오. (사족 일절 금지)`;
+
             const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${tree}\n\n${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim();
             
             const randSuffix = Math.floor(100000 + Math.random() * 900000);

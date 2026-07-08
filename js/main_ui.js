@@ -335,8 +335,7 @@ window.updateDragDropQueueUI = function() {
                     
                     // 4. Run C# drag_sim.exe to drag file from startX, startY to endX, endY!
                     const { execFile } = require('child_process');
-                    const os = require('os');
-                    const exePath = pathModule.join(os.homedir(), '.gemini', 'antigravity', 'brain', 'ba2ac7e2-3bd2-490c-ac39-3fe6fcf2ecd1', 'scratch', 'drag_sim.exe');
+                    const exePath = pathModule.join(process.cwd(), 'js', 'drag_sim.exe');
                     
                     execFile(exePath, [startX.toString(), startY.toString(), endX.toString(), endY.toString()], (err) => {
                         if (err) {

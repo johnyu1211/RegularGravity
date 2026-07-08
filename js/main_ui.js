@@ -760,29 +760,42 @@ function detectAndAskCommand(text) {
             const filePath = writeMatch[1].trim();
             const cmdIdx = text.indexOf(rawCmd);
             let codeVal = "";
+            let hasCodeBlock = false;
             if (cmdIdx !== -1) {
                 const subText = text.substring(cmdIdx);
                 const codeBlockMatch = subText.match(/```[a-zA-Z]*\n([\s\S]*?)\n```/);
-                if (codeBlockMatch) codeVal = codeBlockMatch[1];
+                if (codeBlockMatch) {
+                    codeVal = codeBlockMatch[1];
+                    hasCodeBlock = true;
+                }
             }
-            writeCmds.push({ path: filePath, code: codeVal });
+            if (hasCodeBlock) {
+                writeCmds.push({ path: filePath, code: codeVal });
+            }
         } else if (editRangeMatch) {
             const filePath = editRangeMatch[1].trim();
             const startLine = parseInt(editRangeMatch[2]);
             const endLine = parseInt(editRangeMatch[3]);
             const cmdIdx = text.indexOf(rawCmd);
             let codeVal = "";
+            let hasCodeBlock = false;
             if (cmdIdx !== -1) {
                 const subText = text.substring(cmdIdx);
                 const codeBlockMatch = subText.match(/```[a-zA-Z]*\n([\s\S]*?)\n```/);
-                if (codeBlockMatch) codeVal = codeBlockMatch[1];
+                if (codeBlockMatch) {
+                    codeVal = codeBlockMatch[1];
+                    hasCodeBlock = true;
+                }
             }
-            editCmds.push({ type: 'range', path: filePath, start: startLine, end: endLine, code: codeVal });
+            if (hasCodeBlock) {
+                editCmds.push({ type: 'range', path: filePath, start: startLine, end: endLine, code: codeVal });
+            }
         } else if (editMatch) {
             const filePath = editMatch[1].trim();
             const cmdIdx = text.indexOf(rawCmd);
             let searchVal = "";
             let replaceVal = "";
+            let hasValidMarkers = false;
             if (cmdIdx !== -1) {
                 const subText = text.substring(cmdIdx);
                 const sMarker = "<<<<<<< SEARCH";
@@ -798,9 +811,12 @@ function detectAndAskCommand(text) {
                     const rawReplace = subText.substring(mIdx + mMarker.length, rIdx);
                     searchVal = rawSearch.replace(/^\r?\n|\r?\n$/g, '');
                     replaceVal = rawReplace.replace(/^\r?\n|\r?\n$/g, '');
+                    hasValidMarkers = true;
                 }
             }
-            editCmds.push({ type: 'block', path: filePath, search: searchVal, replace: replaceVal });
+            if (hasValidMarkers) {
+                editCmds.push({ type: 'block', path: filePath, search: searchVal, replace: replaceVal });
+            }
         } else {
             otherCmds.push(cmd);
         }

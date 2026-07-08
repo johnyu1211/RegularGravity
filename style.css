@@ -314,7 +314,7 @@ body {
     padding: 12px 16px;
     border-radius: 8px;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.55;
     position: relative;
     word-break: break-word;
     user-select: text !important;
@@ -335,7 +335,7 @@ body {
     color: var(--text-main);
     border: none !important;
     box-shadow: none !important;
-    font-size: 17px !important;
+    font-size: 13.5px !important;
 }
 
 .chat-bubble.system-info {
@@ -461,14 +461,14 @@ body {
 }
 
 .chat-bubble.ai p { margin: 0; }
-.chat-bubble.ai p + p { margin-top: 8px; }
-.chat-bubble.ai ul, .chat-bubble.ai ol { padding-left: 20px; margin: 8px 0; }
-.chat-bubble.ai li { margin-bottom: 4px; }
-.bubble-content p { margin: 0; line-height: 1.6; word-break: break-word; }
-.bubble-content p + p { margin-top: 8px; }
-.bubble-content ul, .bubble-content ol { margin: 8px 0; padding-left: 24px; line-height: 1.6; }
-.bubble-content li { margin: 5px 0; }
-.bubble-content h1, .bubble-content h2, .bubble-content h3 { margin: 16px 0 8px 0; color: #fff; font-weight: 600; }
+.chat-bubble.ai p + p { margin-top: 10px; }
+.chat-bubble.ai ul, .chat-bubble.ai ol { padding-left: 20px; margin: 10px 0; }
+.chat-bubble.ai li { margin-bottom: 5px; }
+.bubble-content p { margin: 0; line-height: 1.55; word-break: break-word; }
+.bubble-content p + p { margin-top: 10px; }
+.bubble-content ul, .bubble-content ol { margin: 10px 0; padding-left: 24px; line-height: 1.55; }
+.bubble-content li { margin: 6px 0; }
+.bubble-content h1, .bubble-content h2, .bubble-content h3 { margin: 18px 0 10px 0; color: #fff; font-weight: 600; line-height: 1.4; }
 
 .bubble-content pre { 
     background: #09090b !important; 

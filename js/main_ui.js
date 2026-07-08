@@ -708,7 +708,8 @@ window.getSystemRulesPrompt = function(forceFull = false) {
     const fullRules = `
 [SYSTEM RULES]
 1. 탐색 단계: 설명 일절 금지, 오직 다음 탐색용 파일 요청 태그만 출력하십시오.
-   - 중요: 파일 내용 분석이 필요하면 문장 끝에 반드시 다음 태그를 포함하십시오:
+   - 중요: 분석 대상이 되는 관련 파일이 여러 개일 경우, 대화 턴을 아끼기 위해 반드시 관련 파일들을 한 번에 모아서 한 줄에 여러 태그로 동시에 요청하십시오. 예: [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"]
+   - 파일 내용 분석이 필요하면 문장 끝에 반드시 다음 태그를 포함하십시오:
      * [REQUEST: read-file "경로"] (분석할 파일)
    - 특정 폴더 내부의 파일 목록 구조만 조회해야 할 때는 다음 태그를 사용하십시오:
      * [CMD: list-dir "폴더경로"] (폴더 리스트 조회)

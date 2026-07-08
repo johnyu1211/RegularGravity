@@ -1178,6 +1178,7 @@ function detectAndAskCommand(text) {
                 
                 const enginePromise = runExperimentalEngine('/marktag', combinedPayload, null);
                 ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${activeCmds.length} files to Web AI.`);
+                await new Promise(r => setTimeout(r, 800)); // Give Web AI input box time to stabilize
                 await injectWebPayload(combinedPayload, activeCmds.length, activeCmds.length, false, true);
 
                 const response = await enginePromise;

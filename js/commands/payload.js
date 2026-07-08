@@ -185,9 +185,8 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                         } else {
                             inputEl.innerText = '';
                         }
-                    } else {
-                        setCursorToEnd(inputEl);
                     }
+                    setCursorToEnd(inputEl);
 
                     const decodedPayload = (() => {
                         try {

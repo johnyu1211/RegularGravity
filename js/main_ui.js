@@ -1344,6 +1344,24 @@ ${startPrompt}`.trim();
                                 if (typeof window.triggerGuestSend === 'function') {
                                     window.triggerGuestSend();
                                 }
+                                
+                                if (typeof runExperimentalEngine === 'function') {
+                                    runExperimentalEngine('/marktag', "", null).then(response => {
+                                        if (response) {
+                                            if (typeof window.finalizeAiBubble === 'function') {
+                                                window.finalizeAiBubble(response);
+                                            }
+                                            if (typeof detectAndAskCommand === 'function') {
+                                                detectAndAskCommand(response);
+                                            }
+                                        }
+                                    }).catch(err => console.error("Error in response monitoring:", err));
+                                }
+                                
+                                window.requestedFilesQueue = [];
+                                if (typeof window.updateDragDropQueueUI === 'function') {
+                                    window.updateDragDropQueueUI();
+                                }
                             }, 500);
                         }
                     } else {
@@ -2137,6 +2155,24 @@ ${startPrompt}`.trim();
                         setTimeout(() => {
                             if (typeof window.triggerGuestSend === 'function') {
                                 window.triggerGuestSend();
+                            }
+                            
+                            if (typeof runExperimentalEngine === 'function') {
+                                runExperimentalEngine('/marktag', "", null).then(response => {
+                                    if (response) {
+                                        if (typeof window.finalizeAiBubble === 'function') {
+                                            window.finalizeAiBubble(response);
+                                        }
+                                        if (typeof detectAndAskCommand === 'function') {
+                                            detectAndAskCommand(response);
+                                        }
+                                    }
+                                }).catch(err => console.error("Error in response monitoring:", err));
+                            }
+                            
+                            window.requestedFilesQueue = [];
+                            if (typeof window.updateDragDropQueueUI === 'function') {
+                                window.updateDragDropQueueUI();
                             }
                         }, 500);
                     }

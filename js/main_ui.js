@@ -1980,6 +1980,24 @@ ${startPrompt}`.trim();
                                 if (typeof window.triggerGuestSend === 'function') {
                                     window.triggerGuestSend();
                                 }
+
+                                // Delay deletion of _project_rules.md to guarantee upload completes
+                                setTimeout(() => {
+                                    try {
+                                        const fs = require('fs');
+                                        const path = require('path');
+                                        const tPath = path.join(window.currentPath || process.cwd(), '_project_rules.md');
+                                        if (fs.existsSync(tPath)) {
+                                            fs.unlinkSync(tPath);
+                                            console.log("[ProjectInfo] Successfully deleted temporary _project_rules.md file after send.");
+                                            if (typeof window.refreshTree === 'function') {
+                                                window.refreshTree();
+                                            }
+                                        }
+                                    } catch (err) {
+                                        console.error("[ProjectInfo] Failed to delete temporary rules file after send:", err);
+                                    }
+                                }, 3000);
                                 
                                 if (typeof runExperimentalEngine === 'function') {
                                     runExperimentalEngine('/marktag', "", null).then(response => {
@@ -2694,19 +2712,6 @@ function setupUI() {
                     window.activeDragDropCleanup = null;
                     window.activeDragDropContinue = null;
                 }
-                
-                try {
-                    const tPath = path.join(window.currentPath, '_project_rules.md');
-                    if (fs.existsSync(tPath)) {
-                        fs.unlinkSync(tPath);
-                        console.log("[ProjectInfo] Successfully deleted temporary _project_rules.md file.");
-                        if (typeof window.refreshTree === 'function') {
-                            window.refreshTree();
-                        }
-                    }
-                } catch (err) {
-                    console.error("[ProjectInfo] Failed to delete temporary rules file:", err);
-                }
 
                 const vLC = document.getElementById('inspector-local-chat');
                 if (vLC) {
@@ -2739,6 +2744,7 @@ function setupUI() {
             };
 
             window.activeDragDropCleanup = cleanupDragDrop;
+            window.activeDragDropContinue = async () => {};
             
             chatOverlay.style.display = 'none';
             projBtn.style.display = 'flex';
@@ -2870,6 +2876,24 @@ function setupUI() {
                                 window.triggerGuestSend();
                             }
                             
+                            // Delay deletion of _project_rules.md to guarantee upload completes
+                            setTimeout(() => {
+                                try {
+                                    const fs = require('fs');
+                                    const path = require('path');
+                                    const tPath = path.join(window.currentPath || process.cwd(), '_project_rules.md');
+                                    if (fs.existsSync(tPath)) {
+                                        fs.unlinkSync(tPath);
+                                        console.log("[ProjectInfo] Successfully deleted temporary _project_rules.md file after send.");
+                                        if (typeof window.refreshTree === 'function') {
+                                            window.refreshTree();
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.error("[ProjectInfo] Failed to delete temporary rules file after send:", err);
+                                }
+                            }, 3000);
+
                             if (typeof runExperimentalEngine === 'function') {
                                 runExperimentalEngine('/marktag', "", null).then(response => {
                                     if (response) {
@@ -2885,7 +2909,7 @@ function setupUI() {
                             
                             window.requestedFilesQueue = [];
                             if (typeof window.updateDragDropQueueUI === 'function') {
-                                window.updateDragDropQueueUI();
+                                    window.updateDragDropQueueUI();
                             }
                         }, 500);
                     }

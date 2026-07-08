@@ -416,6 +416,8 @@ window.updateDragDropQueueUI = function() {
                     const endX = Math.round(bounds.x + wvRect.left + wvRect.width / 2);
                     const endY = Math.round(bounds.y + wvRect.top + wvRect.height - 110);
                     
+                    console.log("[DragSim] Coordinates:", { startX, startY, endX, endY, bounds, rect, wvRect });
+                    
                     ChatUI.appendBubble('system', `[SYSTEM] Dragging and dropping ${filename}...`);
                     
                     // 4. Run C# drag_sim.exe to drag file from startX, startY to endX, endY!

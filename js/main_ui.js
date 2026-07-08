@@ -1718,7 +1718,9 @@ ${startPrompt}`.trim();
                 }
                 const userMsg = e.message.substring(21).trim();
                 if (userMsg && typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    ChatUI.appendBubble('user', userMsg);
+                    if (userMsg !== "[File Attachment]") {
+                        ChatUI.appendBubble('user', userMsg);
+                    }
                     
                     if (typeof runExperimentalEngine === 'function') {
                         setTimeout(() => {

@@ -362,6 +362,53 @@ window.updateDragDropQueueUI = function() {
         
         listEl.appendChild(itemEl);
     });
+    
+    if (window.dragDropMode && window.requestedFilesQueue.filter(item => item.status === 'PENDING').length > 0) {
+        if (!window.autoClickingQueue) {
+            setTimeout(() => {
+                window.autoClickPendingQueueItems();
+            }, 600);
+        }
+    }
+};
+
+window.autoClickingQueue = false;
+window.autoClickPendingQueueItems = async function() {
+    if (window.autoClickingQueue) return;
+    window.autoClickingQueue = true;
+    
+    try {
+        let pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+        while (pendingItems.length > 0) {
+            const item = pendingItems[0];
+            const listEl = document.getElementById('drag-drop-queue-list');
+            if (!listEl) break;
+            
+            const itemEls = listEl.querySelectorAll('.queue-item');
+            let targetEl = null;
+            for (const el of itemEls) {
+                if (el.getAttribute('data-filepath') === item.absolutePath) {
+                    targetEl = el;
+                    break;
+                }
+            }
+            
+            if (targetEl && targetEl.onclick) {
+                console.log("[AutoClick] Clicking queue item:", item.relativePath);
+                await targetEl.onclick();
+                // Wait for C# drag simulation to fully complete
+                await new Promise(resolve => setTimeout(resolve, 1400));
+            } else {
+                break;
+            }
+            
+            pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+        }
+    } catch (err) {
+        console.error("[AutoClick] Error in queue auto-clicker:", err);
+    } finally {
+        window.autoClickingQueue = false;
+    }
 };
 
 window.updateSplitLayoutHeight = function(newHeight) {

@@ -1,4 +1,28 @@
 const fs = require('fs');
+const logPath = require('path').join(process.cwd(), 'renderer.log');
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+function writeToLogFile(type, args) {
+    try {
+        const msg = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+        require('fs').appendFileSync(logPath, `[${new Date().toISOString()}] [${type}] ${msg}\n`, 'utf-8');
+    } catch(e) {}
+}
+
+console.log = function(...args) {
+    originalConsoleLog.apply(console, args);
+    writeToLogFile('LOG', args);
+};
+console.error = function(...args) {
+    originalConsoleError.apply(console, args);
+    writeToLogFile('ERROR', args);
+};
+console.warn = function(...args) {
+    originalConsoleWarn.apply(console, args);
+    writeToLogFile('WARN', args);
+};
 if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 
 window.totalFilesCount = 0;

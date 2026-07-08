@@ -773,22 +773,25 @@ function detectAndAskCommand(text) {
         if (rangeMatch) {
             const filePath = rangeMatch[1].trim();
             const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-            if (fs.existsSync(targetPath)) {
-                readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]) });
+            const exists = fs.existsSync(targetPath);
+            readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]), exists: exists });
+            if (exists) {
                 if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
             }
         } else if (fileFullMatch) {
             const filePath = fileFullMatch[1].trim();
             const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-            if (fs.existsSync(targetPath)) {
-                readCmds.push({ path: filePath, full: true });
+            const exists = fs.existsSync(targetPath);
+            readCmds.push({ path: filePath, full: true, exists: exists });
+            if (exists) {
                 if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
             }
         } else if (fileMatch) {
             const filePath = fileMatch[1].trim();
             const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-            if (fs.existsSync(targetPath)) {
-                readCmds.push({ path: filePath, full: false });
+            const exists = fs.existsSync(targetPath);
+            readCmds.push({ path: filePath, full: false, exists: exists });
+            if (exists) {
                 if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
             }
         } else if (writeMatch) {
@@ -939,13 +942,23 @@ function detectAndAskCommand(text) {
                 let combinedPayload = "";
 
                 if (window.dragDropMode) {
-                    const fileNames = activeCmds.map(f => {
-                        const parts = f.path.split(/[\\/]/);
-                        return parts[parts.length - 1];
-                    }).join(', ');
-                    
-                    activeCmds.forEach(f => window.readFilesSet.add(f.path));
-                    combinedPayload = `I have uploaded the requested file contents: ${fileNames} as attachments. Proceed to analyze them.`;
+                    const existingFiles = activeCmds.filter(f => f.exists !== false);
+                    const missingFiles = activeCmds.filter(f => f.exists === false);
+                    let parts = [];
+                    if (existingFiles.length > 0) {
+                        const fileNames = existingFiles.map(f => {
+                            const p = f.path.split(/[\\/]/);
+                            return p[p.length - 1];
+                        }).join(', ');
+                        existingFiles.forEach(f => window.readFilesSet.add(f.path));
+                        parts.push(`I have uploaded the requested file contents: ${fileNames} as attachments.`);
+                    }
+                    if (missingFiles.length > 0) {
+                        missingFiles.forEach(f => {
+                            parts.push(`[FILE DATA ERROR: ${f.path} not found on the local machine (does not exist)]`);
+                        });
+                    }
+                    combinedPayload = parts.join('\n') + "\nProceed to analyze the files.";
                 } else {
                     for (let i = 0; i < activeCmds.length; i++) {
                         const fileObj = activeCmds[i];
@@ -1050,7 +1063,8 @@ function detectAndAskCommand(text) {
             }
         };
 
-        if (window.autoContinueOnRead && !window.dragDropMode) {
+        const existingReadCount = readCmds.filter(f => f.exists !== false).length;
+        if ((window.autoContinueOnRead && !window.dragDropMode) || (window.dragDropMode && existingReadCount === 0)) {
             runRead();
         } else {
             if (window.dragDropMode) {

@@ -709,6 +709,7 @@ window.getSystemRulesPrompt = function(forceFull = false) {
 [SYSTEM RULES]
 1. 탐색 단계 (추측 금지, 무조건 선행 검색 우선):
    - 중요: 관련 파일 이름이나 역할을 절대 임의로 짐작하지 마십시오. 반드시 먼저 [CMD: search-keyword "검색어"] 또는 [CMD: list-dir "경로"]를 통해 실재 유무를 확인한 후에 읽어야 합니다.
+   - 검색 실패 시: 만약 다른 유추 검색어로 2~3회 [CMD: search-keyword]를 반복했음에도 원하는 대상을 찾지 못했다면, 짐작으로 파일명을 추측해 읽지 말고, 시도한 검색어 목록을 밝히며 유저에게 정확한 위치를 직접 질문하십시오.
    - 대화 턴을 아끼기 위해 분석할 파일 여러 개를 한 줄에 한 번에 동시에 요청하십시오. 예: [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"]
    - 파일 내용 분석: [REQUEST: read-file "경로"]
    - 폴더 내부 구조 조회: [CMD: list-dir "폴더경로"]
@@ -740,7 +741,7 @@ window.getSystemRulesPrompt = function(forceFull = false) {
     if (forceFull) {
         return fullRules;
     }
-    return "\n[REMINDER] Follow SystemRules.md. Use [CMD: search-keyword] first to locate code. Never guess. Always read-file before editing. Output ONLY commands, NO explanations.";
+    return "\n[REMINDER] Follow SystemRules.md. Use [CMD: search-keyword] first. Never guess. If not found after search, ask user with tried keywords. Always read-file before editing. Output ONLY commands, NO explanations.";
 };
 
 function detectAndAskCommand(text) {

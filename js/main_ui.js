@@ -66,6 +66,7 @@ window.markFileAsCompleted = function(filePath) {
 };
 
 window.addFileToRequestedQueue = function(filePath) {
+    window.dragDropAbortMessage = null;
     const path = require('path');
     const absolutePath = path.resolve(window.currentPath || process.cwd(), filePath);
     const normalizedPath = absolutePath.replace(/\//g, '\\').toLowerCase();
@@ -307,8 +308,13 @@ window.updateDragDropQueueUI = function() {
     
     const warningEl = document.getElementById('drag-drop-queue-warning');
     if (warningEl) {
-        warningEl.innerHTML = `⚠️ 자동 업로드 진행 중에는 마우스를 움직이지 마세요.`;
-        warningEl.style.color = `var(--error)`;
+        if (window.dragDropAbortMessage) {
+            warningEl.innerHTML = window.dragDropAbortMessage;
+            warningEl.style.color = '#ff4444';
+        } else {
+            warningEl.innerHTML = `⚠️ 자동 업로드 진행 중에는 마우스를 움직이지 마세요.`;
+            warningEl.style.color = `var(--error)`;
+        }
     }
     
     // Toggle container display based on dragDropMode and presence of items in the queue
@@ -514,6 +520,7 @@ window.autoClickPendingQueueItems = async function() {
             if (window.dragDropAttemptCounts[key] > 3) {
                 console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 3 consecutive upload attempts.`);
                 window.autoDragging = false;
+                window.dragDropAbortMessage = `❌ 실패 3회 초과로 자동 드래그 중단: ${item.relativePath}`;
                 try {
                     const sPath = require('path').join(window.currentPath || process.cwd(), 'Settings.json');
                     const settingsData = {
@@ -527,10 +534,6 @@ window.autoClickPendingQueueItems = async function() {
                 const chkAutoDrag = document.getElementById('chk-auto-drag');
                 if (chkAutoDrag) chkAutoDrag.checked = false;
                 
-                if (warningEl) {
-                    warningEl.innerHTML = `❌ 실패 3회 초과로 자동 드래그 중단: ${item.relativePath}`;
-                    warningEl.style.color = '#ff4444';
-                }
                 window.autoClickingQueue = false;
                 if (typeof window.updateDragDropQueueUI === 'function') {
                     window.updateDragDropQueueUI();

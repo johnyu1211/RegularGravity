@@ -5,14 +5,18 @@ window.totalFilesCount = 0;
 window.readFilesSet = new Set();
 window.currentBatchFileCount = 0;
 window.currentPath = process.cwd();
-window.currentSplitHeight = 220;
+window.currentSplitHeight = 0;
+window.pendingSplitHeight = 220;
 
 window.updateSplitLayoutHeight = function(newHeight) {
     if (newHeight < 40 || newHeight > 500) return;
-    window.currentSplitHeight = newHeight;
-    const vLC = document.getElementById('inspector-local-chat');
-    if (vLC && (window.activeSubTabId === 'local' || !window.activeSubTabId || vLC.style.zIndex === '150')) {
-        vLC.style.height = `calc(100% - 44px - ${newHeight}px)`;
+    window.pendingSplitHeight = newHeight;
+    if (window.sessionBriefed || window.briefingInProgress) {
+        window.currentSplitHeight = newHeight;
+        const vLC = document.getElementById('inspector-local-chat');
+        if (vLC && (window.activeSubTabId === 'local' || !window.activeSubTabId || vLC.style.zIndex === '150')) {
+            vLC.style.height = `calc(100% - 44px - ${newHeight}px)`;
+        }
     }
 };
 
@@ -1715,6 +1719,9 @@ function setupUI() {
         projBtn.onclick = async () => {
             if (window.sessionBriefed || window.briefingInProgress) return;
             window.briefingInProgress = true;
+            if (typeof window.updateSplitLayoutHeight === 'function') {
+                window.updateSplitLayoutHeight(window.pendingSplitHeight || 220);
+            }
             projBtn.style.display = 'none';
             
             const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);

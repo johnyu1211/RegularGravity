@@ -1803,7 +1803,28 @@ ${startPrompt}`.trim();
 
         window.formatChatText = (text) => {
             if (!text) return "";
-            return text.replace(/\[CMD:\s*([^\]]+)\]/gi, (match, cmdContent) => {
+            
+            const escapeHtml = (str) => {
+                return str.replace(/&/g, '&amp;')
+                          .replace(/</g, '&lt;')
+                          .replace(/>/g, '&gt;');
+            };
+
+            let formatted = text.replace(/<<<<<<< SEARCH([\s\S]*?)=======\r?\n?([\s\S]*?)(>>>>>>> REPLACE|REPLACE|>>>>>>>)/gi, (match, searchVal, replaceVal) => {
+                return `<div class="search-replace-block" style="border: 1px solid var(--border-color); background: #0c0c0e; border-radius: 6px; overflow: hidden; margin: 12px 0; font-family: 'DM Sans', sans-serif;">
+    <div style="padding: 6px 12px; background: rgba(239, 68, 68, 0.08); border-bottom: 1px solid rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 10px; font-weight: 700; color: #ef4444; letter-spacing: 0.08em; text-transform: uppercase;">Original (Search)</span>
+    </div>
+    <pre style="margin: 0; padding: 12px; background: #09090b !important; border: none !important; border-radius: 0 !important; color: #f87171 !important; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(searchVal.trim())}</pre>
+    
+    <div style="padding: 6px 12px; background: rgba(16, 185, 129, 0.08); border-top: 1px solid rgba(16, 185, 129, 0.15); border-bottom: 1px solid rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.08em; text-transform: uppercase;">Replacement (Replace)</span>
+    </div>
+    <pre style="margin: 0; padding: 12px; background: #09090b !important; border: none !important; border-radius: 0 !important; color: #34d399 !important; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(replaceVal.trim())}</pre>
+</div>`;
+            });
+
+            return formatted.replace(/\[CMD:\s*([^\]]+)\]/gi, (match, cmdContent) => {
                 return `<span class="chat-cmd-badge">&gt;_ ${cmdContent}</span>`;
             });
         };

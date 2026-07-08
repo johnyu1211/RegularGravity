@@ -389,6 +389,36 @@ body {
     vertical-align: middle;
     word-break: break-all;
     box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+}
+.chat-cmd-badge:hover {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+.chat-cmd-badge::after {
+    content: 'Copy';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translate(-50%, -4px);
+    background: #000;
+    color: #fff;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    white-space: nowrap;
+    border: 1px solid #333;
+}
+.chat-cmd-badge:hover::after {
+    opacity: 1;
+}
+.chat-cmd-badge[data-tooltip]::after {
+    content: attr(data-tooltip);
 }
 
 .chat-bubble p {

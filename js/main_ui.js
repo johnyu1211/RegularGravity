@@ -2494,6 +2494,132 @@ ${startPrompt}`.trim();
 }
 
 function setupUI() {
+    // 1. Setup Click-to-copy for .chat-cmd-badge
+    document.addEventListener('click', (e) => {
+        const badge = e.target.closest('.chat-cmd-badge');
+        if (badge) {
+            let cmdText = badge.innerText.trim();
+            if (cmdText.startsWith('>_ ')) {
+                cmdText = cmdText.substring(3).trim();
+            }
+            const match = cmdText.match(/^run-command\s+["'](.+)["']$/i);
+            const toCopy = match ? match[1] : cmdText;
+            navigator.clipboard.writeText(toCopy).then(() => {
+                badge.setAttribute('data-tooltip', 'Copied!');
+                setTimeout(() => {
+                    badge.removeAttribute('data-tooltip');
+                }, 1000);
+            }).catch(err => {
+                console.error("Clipboard copy failed:", err);
+            });
+        }
+    });
+
+    // 2. Setup Terminal Toggle Button Click Handler
+    const toggleBtn = document.getElementById('terminal-toggle-btn');
+    const popover = document.getElementById('terminal-popover');
+    if (toggleBtn && popover) {
+        toggleBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (popover.style.display === 'none' || !popover.style.display) {
+                popover.style.display = 'flex';
+                toggleBtn.style.color = '#fff';
+                toggleBtn.style.background = 'var(--primary)';
+                toggleBtn.style.boxShadow = '0 0 15px var(--primary)';
+                
+                if (window.terminalCount === 0) {
+                    addSubTerminal(true);
+                } else if (window.activeSubTabId) {
+                    switchSubTerminal(window.activeSubTabId);
+                }
+            } else {
+                popover.style.display = 'none';
+                toggleBtn.style.color = '';
+                toggleBtn.style.background = '';
+                toggleBtn.style.boxShadow = '';
+            }
+        };
+        
+        popover.onclick = (e) => { e.stopPropagation(); };
+        
+        document.addEventListener('click', () => {
+            popover.style.display = 'none';
+            toggleBtn.style.color = '';
+            toggleBtn.style.background = '';
+            toggleBtn.style.boxShadow = '';
+        });
+    }
+
+    // 3. Setup Popover Resizers
+    const setupPopoverResizers = () => {
+        const rResizer = popover ? popover.querySelector('.popover-resizer-r') : null;
+        const tResizer = popover ? popover.querySelector('.popover-resizer-t') : null;
+        const trResizer = popover ? popover.querySelector('.popover-resizer-tr') : null;
+        if (!popover) return;
+        
+        let startWidth, startHeight, startX, startY;
+        
+        const onMouseMoveR = (e) => {
+            const newWidth = Math.max(300, startWidth + (e.clientX - startX));
+            popover.style.width = `${newWidth}px`;
+        };
+        
+        const onMouseMoveT = (e) => {
+            const newHeight = Math.max(200, startHeight - (e.clientY - startY));
+            popover.style.height = `${newHeight}px`;
+        };
+        
+        const onMouseMoveTR = (e) => {
+            const newWidth = Math.max(300, startWidth + (e.clientX - startX));
+            const newHeight = Math.max(200, startHeight - (e.clientY - startY));
+            popover.style.width = `${newWidth}px`;
+            popover.style.height = `${newHeight}px`;
+        };
+        
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMoveR);
+            document.removeEventListener('mousemove', onMouseMoveT);
+            document.removeEventListener('mousemove', onMouseMoveTR);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+        
+        if (rResizer) {
+            rResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startX = e.clientX;
+                startWidth = parseInt(document.defaultView.getComputedStyle(popover).width, 10);
+                document.addEventListener('mousemove', onMouseMoveR);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
+        
+        if (tResizer) {
+            tResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startY = e.clientY;
+                startHeight = parseInt(document.defaultView.getComputedStyle(popover).height, 10);
+                document.addEventListener('mousemove', onMouseMoveT);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
+        
+        if (trResizer) {
+            trResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = parseInt(document.defaultView.getComputedStyle(popover).width, 10);
+                startHeight = parseInt(document.defaultView.getComputedStyle(popover).height, 10);
+                document.addEventListener('mousemove', onMouseMoveTR);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
+    };
+    if (popover) setupPopoverResizers();
+
     const _path = require('path');
     function getSettingsPath() {
         return _path.join(window.currentPath || process.cwd(), 'Settings.json');

@@ -2521,34 +2521,142 @@ function setupUI() {
     
     // GitHub remote browser opener setup
     const gitToggleBtn = document.getElementById('git-toggle-btn');
-    if (gitToggleBtn) {
+    const gitPopover = document.getElementById('git-popover');
+    const gitWebview = document.getElementById('git-webview');
+    
+    if (gitToggleBtn && gitPopover && gitWebview) {
         gitToggleBtn.onclick = (e) => {
             e.stopPropagation();
-            const { exec } = require('child_process');
-            const cwd = window.currentPath || process.cwd();
-            
-            exec('git config --get remote.origin.url', { cwd }, (err, stdout) => {
-                let targetUrl = 'https://github.com';
-                if (!err && stdout.trim()) {
-                    let rawUrl = stdout.trim();
-                    // Convert ssh git@github.com:user/repo.git to https://github.com/user/repo
-                    if (rawUrl.startsWith('git@')) {
-                        rawUrl = rawUrl.replace(':', '/').replace('git@', 'https://').replace(/.git$/, '');
-                    } else if (rawUrl.endsWith('.git')) {
-                        rawUrl = rawUrl.replace(/.git$/, '');
+            if (gitPopover.style.display === 'none' || !gitPopover.style.display) {
+                // Close terminal popover
+                const termPopover = document.getElementById('terminal-popover');
+                if (termPopover) {
+                    termPopover.style.display = 'none';
+                    if (toggleBtn) {
+                        toggleBtn.style.color = '';
+                        toggleBtn.style.background = '';
+                        toggleBtn.style.boxShadow = '';
                     }
-                    targetUrl = rawUrl;
                 }
                 
-                // Open inside the Electron app's Browser tab
-                if (typeof window.launchWebAgent === 'function') {
-                    window.launchWebAgent(targetUrl, true);
-                    if (typeof window.swi === 'function') {
-                        window.swi('browser');
-                    }
+                gitPopover.style.display = 'flex';
+                gitToggleBtn.style.color = '#fff';
+                gitToggleBtn.style.background = 'var(--primary)';
+                
+                // Load URL if it's blank or not loaded yet
+                if (gitWebview.src === 'about:blank') {
+                    const { exec } = require('child_process');
+                    const cwd = window.currentPath || process.cwd();
+                    exec('git config --get remote.origin.url', { cwd }, (err, stdout) => {
+                        let targetUrl = 'https://github.com';
+                        if (!err && stdout.trim()) {
+                            let rawUrl = stdout.trim();
+                            if (rawUrl.startsWith('git@')) {
+                                rawUrl = rawUrl.replace(':', '/').replace('git@', 'https://').replace(/.git$/, '');
+                            } else if (rawUrl.endsWith('.git')) {
+                                rawUrl = rawUrl.replace(/.git$/, '');
+                            }
+                            targetUrl = rawUrl;
+                        }
+                        gitWebview.src = targetUrl;
+                    });
                 }
-            });
+            } else {
+                gitPopover.style.display = 'none';
+                gitToggleBtn.style.color = '';
+                gitToggleBtn.style.background = '';
+            }
         };
+        
+        gitPopover.onclick = (e) => { e.stopPropagation(); };
+        
+        // Navigation controls
+        document.getElementById('git-wv-back').onclick = (e) => {
+            e.stopPropagation();
+            if (gitWebview.canGoBack()) gitWebview.goBack();
+        };
+        document.getElementById('git-wv-forward').onclick = (e) => {
+            e.stopPropagation();
+            if (gitWebview.canGoForward()) gitWebview.goForward();
+        };
+        document.getElementById('git-wv-reload').onclick = (e) => {
+            e.stopPropagation();
+            gitWebview.reload();
+        };
+        document.getElementById('git-wv-external').onclick = (e) => {
+            e.stopPropagation();
+            const currentUrl = gitWebview.getURL();
+            if (currentUrl && currentUrl !== 'about:blank') {
+                const { shell } = require('electron');
+                shell.openExternal(currentUrl);
+            }
+        };
+        
+        // Resizers for GitHub popover
+        const lResizer = gitPopover.querySelector('.git-popover-resizer-l');
+        const tResizer = gitPopover.querySelector('.git-popover-resizer-t');
+        const tlResizer = gitPopover.querySelector('.git-popover-resizer-tl');
+        
+        let startWidth, startHeight, startX, startY;
+        
+        const onMouseMoveL = (e) => {
+            const newWidth = Math.max(300, startWidth - (e.clientX - startX));
+            gitPopover.style.width = `${newWidth}px`;
+        };
+        
+        const onMouseMoveT = (e) => {
+            const newHeight = Math.max(200, startHeight - (e.clientY - startY));
+            gitPopover.style.height = `${newHeight}px`;
+        };
+        
+        const onMouseMoveTL = (e) => {
+            const newWidth = Math.max(300, startWidth - (e.clientX - startX));
+            const newHeight = Math.max(200, startHeight - (e.clientY - startY));
+            gitPopover.style.width = `${newWidth}px`;
+            gitPopover.style.height = `${newHeight}px`;
+        };
+        
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMoveL);
+            document.removeEventListener('mousemove', onMouseMoveT);
+            document.removeEventListener('mousemove', onMouseMoveTL);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+        
+        if (lResizer) {
+            lResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startX = e.clientX;
+                startWidth = parseInt(document.defaultView.getComputedStyle(gitPopover).width, 10);
+                document.addEventListener('mousemove', onMouseMoveL);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
+        
+        if (tResizer) {
+            tResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startY = e.clientY;
+                startHeight = parseInt(document.defaultView.getComputedStyle(gitPopover).height, 10);
+                document.addEventListener('mousemove', onMouseMoveT);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
+        
+        if (tlResizer) {
+            tlResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = parseInt(document.defaultView.getComputedStyle(gitPopover).width, 10);
+                startHeight = parseInt(document.defaultView.getComputedStyle(gitPopover).height, 10);
+                document.addEventListener('mousemove', onMouseMoveTL);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
     }
     if (toggleBtn && popover) {
         toggleBtn.onclick = (e) => {

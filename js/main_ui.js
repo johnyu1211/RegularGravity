@@ -1529,14 +1529,23 @@ ${startPrompt}`.trim();
                             const baseName = pathModule.basename(filePath);
                             
                             if (chatLog) {
-                                const bubbles = chatLog.querySelectorAll('.chat-bubble');
+                                const bubbles = Array.from(chatLog.querySelectorAll('.chat-bubble'));
                                 if (bubbles.length > 0) {
-                                    const lastBub = bubbles[bubbles.length - 1];
-                                    if (lastBub.classList.contains('user')) {
-                                        const contentEl = lastBub.querySelector('.bubble-content');
-                                        if (contentEl && contentEl.dataset.rawText && contentEl.dataset.rawText.startsWith('Attached:')) {
-                                            lastUserBubble = lastBub;
+                                    let lastAiIdx = -1;
+                                    let lastUserIdx = -1;
+                                    for (let i = 0; i < bubbles.length; i++) {
+                                        const b = bubbles[i];
+                                        if (b.classList.contains('ai')) {
+                                            lastAiIdx = i;
+                                        } else if (b.classList.contains('user')) {
+                                            const contentEl = b.querySelector('.bubble-content');
+                                            if (contentEl && contentEl.dataset.rawText && contentEl.dataset.rawText.startsWith('Attached:')) {
+                                                lastUserIdx = i;
+                                            }
                                         }
+                                    }
+                                    if (lastUserIdx !== -1 && lastUserIdx > lastAiIdx) {
+                                        lastUserBubble = bubbles[lastUserIdx];
                                     }
                                 }
                             }

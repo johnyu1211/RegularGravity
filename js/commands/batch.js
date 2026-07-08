@@ -40,7 +40,7 @@ async function executeWriteFileBatch(writeCmds) {
             if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
         }
 
-        const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
+        const finalMessage = `${feedbackContent}\nProceed to verify the changes.${window.getSystemRulesPrompt()}`;
         
         await injectWebPayload(finalMessage, 0);
         
@@ -317,7 +317,7 @@ async function executeEditFileBatch(editCmds) {
             if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
         }
 
-        const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
+        const finalMessage = `${feedbackContent}\nProceed to verify the changes.${window.getSystemRulesPrompt()}`;
         
         await injectWebPayload(finalMessage, 0);
         
@@ -388,7 +388,7 @@ async function executeEditFileRangeBatch(editCmds) {
             if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
         }
 
-        const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
+        const finalMessage = `${feedbackContent}\nProceed to verify the changes.${window.getSystemRulesPrompt()}`;
         
         await injectWebPayload(finalMessage, 0);
         
@@ -452,7 +452,7 @@ async function executeDeleteFileBatch(deleteCmds) {
             window.refreshTree();
         }
 
-        const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
+        const finalMessage = `${feedbackContent}\nProceed to verify the changes.${window.getSystemRulesPrompt()}`;
         
         await injectWebPayload(finalMessage, 0);
         

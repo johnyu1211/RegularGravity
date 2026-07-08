@@ -1912,7 +1912,7 @@ ${startPrompt}`.trim();
                         const pathModule = require('path');
                         const droppedName = pathModule.basename(filePath).toLowerCase();
                         
-                        const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+                        const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                         const requestedNames = pendingItems.map(item => item.relativePath.split(/[\\/]/).pop().toLowerCase());
                         
                         if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
@@ -1973,7 +1973,7 @@ ${startPrompt}`.trim();
                             }
                         }
                         
-                        const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+                        const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                         if (stillPending.length === 0) {
                             if (window.activeDragDropCleanup) window.activeDragDropCleanup();
                             setTimeout(() => {
@@ -2843,7 +2843,7 @@ function setupUI() {
                     const pathModule = require('path');
                     const droppedName = pathModule.basename(filePath).toLowerCase();
                     
-                    const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+                    const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                     const requestedNames = pendingItems.map(item => item.relativePath.split(/[\\/]/).pop().toLowerCase());
                     
                     if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
@@ -2858,7 +2858,7 @@ function setupUI() {
                     
                     window.readFilesSet.add(filePath);
                     
-                    const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+                    const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                     if (stillPending.length === 0) {
                         if (window.activeDragDropCleanup) window.activeDragDropCleanup();
                         setTimeout(() => {

@@ -785,6 +785,21 @@ async function setupBoot() {
             `).catch(err => console.error("Failed to inject guest drop interceptor:", err));
             wv.executeJavaScript(`
                 (() => {
+                    const styleId = 'poormansgravity-guest-style';
+                    let style = document.getElementById(styleId);
+                    if (!style) {
+                        style = document.createElement('style');
+                        style.id = styleId;
+                        style.textContent = \`
+                            .input-area-container, [class*="composer-parent"], [class*="PromptTextarea"], [class*="input-container"], [class*="input_container"] {
+                                padding-top: 0px !important;
+                                margin-top: 0px !important;
+                                padding-bottom: 8px !important;
+                            }
+                        \`;
+                        document.head.appendChild(style);
+                    }
+
                     const getInputAreaHeight = () => {
                         let input = document.querySelector('textarea, [contenteditable="true"]');
                         if (!input) return 220;
@@ -808,7 +823,7 @@ async function setupBoot() {
                         }
                         
                         const rect = container.getBoundingClientRect();
-                        return Math.ceil(rect.height) + 16;
+                        return Math.ceil(rect.height) + 4;
                     };
                     
                     let lastHeight = 0;

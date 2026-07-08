@@ -1786,14 +1786,16 @@ async function setupBoot() {
                             await injectWebPayload("dont think simply answer me 'A'"); await runExperimentalEngine('/marktag', "dont think simply answer me 'A'", null);
                             ChatUI.appendBubble('system', '[SYSTEM] INITIALIZATION COMPLETE.');
                             
-                            const startPrompt = window.dragDropMode 
-                                ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(예: package.json, index.html 등 진입점 파일)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
-                                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오.`;
+                            const isEmpty = !projectTree || projectTree.trim() === '' || !projectTree.includes('- ');
+                            const startPrompt = isEmpty
+                                ? `이 폴더는 완전히 비어있는 새 프로젝트입니다. 지침을 숙지했다면 유저에게 어떤 프로젝트를 만들지 간단히 물어보십시오. (파일 요청 금지, 사족 금지)`
+                                : window.dragDropMode 
+                                    ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(예: package.json, index.html 등 진입점 파일)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
+                                    : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오.`;
 
-                            const briefPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
-${projectTree}
-${window.getSystemRulesPrompt()}
-${startPrompt}`.trim();
+                            const briefPayload = isEmpty
+                                ? `${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim()
+                                : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${projectTree}\n${window.getSystemRulesPrompt()}\n${startPrompt}`.trim();
 
                             window.currentBatchFileCount = -1;
                             const briefPromise = runExperimentalEngine('/marktag', briefPayload, null);
@@ -3842,95 +3844,131 @@ function setupUI() {
             window.readFilesSet.clear();
             window.userMessageCount = 0;
             
-            const startPrompt = `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 진입점 파일들(예: package.json, main.js, index.html 등 분석이 필요한 모든 진입점 파일들)을 대화 턴을 아끼기 위해 한 번에 모아서 [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"] 형태로 한 줄에 즉시 나열하여 답변하십시오. (사족 일절 금지)`;
+            const isEmpty = !tree || tree.trim() === '' || !tree.includes('- ');
+            const startPrompt = isEmpty
+                ? `이 폴더는 완전히 비어있는 새 프로젝트입니다. 지침을 숙지했다면 유저에게 어떤 프로젝트를 만들지 간단히 물어보십시오. (파일 요청 금지, 사족 금지)`
+                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 진입점 파일들(예: package.json, main.js, index.html 등 분석이 필요한 모든 진입점 파일들)을 대화 턴을 아끼기 위해 한 번에 모아서 [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"] 형태로 한 줄에 즉시 나열하여 답변하십시오. (사족 일절 금지)`;
 
-            const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${tree}\n\n${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim();
+            const webPayload = isEmpty
+                ? `${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim()
+                : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${tree}\n\n${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim();
             
-            const randSuffix = Math.floor(100000 + Math.random() * 900000);
-            window.tempRulesFileName = `_project_rules_${randSuffix}.md`;
-            const tempRulesPath = path.join(window.currentPath, window.tempRulesFileName);
-            try {
-                fs.writeFileSync(tempRulesPath, webPayload, 'utf-8');
-                if (typeof window.refreshTree === 'function') {
-                    window.refreshTree();
-                }
-            } catch (err) {
-                console.error("Failed to write temporary rules file:", err);
-            }
+            if (isEmpty) {
+                // Empty folder: inject text directly without file attachment
+                window.requestedFilesQueue = [];
+                window.activeDragDropCleanup = null;
+                window.activeDragDropContinue = async () => {};
 
-            window.requestedFilesQueue = [{
-                absolutePath: tempRulesPath,
-                relativePath: window.tempRulesFileName,
-                status: 'PENDING'
-            }];
+                chatOverlay.style.display = 'none';
+                projBtn.style.display = 'flex';
+                if (chatIn) chatIn.focus();
 
-            if (typeof window.injectGuestDropInterceptor === 'function') {
-                window.injectGuestDropInterceptor();
-            }
+                window.sessionBriefed = true;
+                window.briefingInProgress = false;
+                window.currentBatchFileCount = -1;
+                window.isBriefingResponsePending = true;
 
-            const cleanupDragDrop = () => {
-                if (window.activeDragDropCleanup === cleanupDragDrop) {
-                    window.activeDragDropCleanup = null;
-                    window.activeDragDropContinue = null;
+                if (typeof window.updateSplitLayoutHeight === 'function') {
+                    window.updateSplitLayoutHeight(window.pendingSplitHeight || 220);
                 }
 
-                const vLC = document.getElementById('inspector-local-chat');
-                const vBH = document.getElementById('inspector-browser-hub');
-                const arrowIndicator = document.getElementById('drag-drop-arrow-indicator');
-                if (arrowIndicator) arrowIndicator.remove();
-                
-                const inputContainer = document.getElementById('local-input-container');
-                if (inputContainer) {
-                    inputContainer.style.background = '';
-                    inputContainer.style.display = '';
-                    inputContainer.style.height = '';
+                const briefPromise = runExperimentalEngine('/marktag', webPayload, null);
+                await injectWebPayload(webPayload, -1);
+                const briefResponse = await Promise.race([
+                    briefPromise,
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Briefing timeout')), 120000))
+                ]).catch(() => null);
+                window.currentBatchFileCount = 0;
+                if (briefResponse && typeof detectAndAskCommand === 'function') {
+                    detectAndAskCommand(briefResponse);
                 }
-                
-                if (vLC) {
-                    vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight || 220}px)`;
-                    vLC.style.zIndex = '150';
+            } else {
+                const randSuffix = Math.floor(100000 + Math.random() * 900000);
+                window.tempRulesFileName = `_project_rules_${randSuffix}.md`;
+                const tempRulesPath = path.join(window.currentPath, window.tempRulesFileName);
+                try {
+                    fs.writeFileSync(tempRulesPath, webPayload, 'utf-8');
+                    if (typeof window.refreshTree === 'function') {
+                        window.refreshTree();
+                    }
+                } catch (err) {
+                    console.error("Failed to write temporary rules file:", err);
                 }
-                if (vBH) {
-                    vBH.style.position = 'absolute';
-                    vBH.style.top = '0';
-                    vBH.style.height = 'calc(100% - 44px)';
-                    vBH.style.width = '100%';
-                    vBH.style.zIndex = '100';
-                    vBH.style.opacity = '1';
-                    vBH.style.pointerEvents = 'auto';
+
+                window.requestedFilesQueue = [{
+                    absolutePath: tempRulesPath,
+                    relativePath: window.tempRulesFileName,
+                    status: 'PENDING'
+                }];
+
+                if (typeof window.injectGuestDropInterceptor === 'function') {
+                    window.injectGuestDropInterceptor();
                 }
-                
-                // Clean up temporary rules file after a 10 seconds delay
-                setTimeout(() => {
-                    try {
-                        if (fs.existsSync(tempRulesPath)) {
-                            fs.unlinkSync(tempRulesPath);
-                            if (typeof window.refreshTree === 'function') {
-                                window.refreshTree();
+
+                const cleanupDragDrop = () => {
+                    if (window.activeDragDropCleanup === cleanupDragDrop) {
+                        window.activeDragDropCleanup = null;
+                        window.activeDragDropContinue = null;
+                    }
+
+                    const vLC = document.getElementById('inspector-local-chat');
+                    const vBH = document.getElementById('inspector-browser-hub');
+                    const arrowIndicator = document.getElementById('drag-drop-arrow-indicator');
+                    if (arrowIndicator) arrowIndicator.remove();
+                    
+                    const inputContainer = document.getElementById('local-input-container');
+                    if (inputContainer) {
+                        inputContainer.style.background = '';
+                        inputContainer.style.display = '';
+                        inputContainer.style.height = '';
+                    }
+                    
+                    if (vLC) {
+                        vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight || 220}px)`;
+                        vLC.style.zIndex = '150';
+                    }
+                    if (vBH) {
+                        vBH.style.position = 'absolute';
+                        vBH.style.top = '0';
+                        vBH.style.height = 'calc(100% - 44px)';
+                        vBH.style.width = '100%';
+                        vBH.style.zIndex = '100';
+                        vBH.style.opacity = '1';
+                        vBH.style.pointerEvents = 'auto';
+                    }
+                    
+                    // Clean up temporary rules file after a 10 seconds delay
+                    setTimeout(() => {
+                        try {
+                            if (fs.existsSync(tempRulesPath)) {
+                                fs.unlinkSync(tempRulesPath);
+                                if (typeof window.refreshTree === 'function') {
+                                    window.refreshTree();
+                                }
                             }
-                        }
-                    } catch (e) {}
-                }, 10000);
-            };
+                        } catch (e) {}
+                    }, 10000);
+                };
 
-            window.activeDragDropCleanup = cleanupDragDrop;
-            window.activeDragDropContinue = async () => {};
-            
-            chatOverlay.style.display = 'none';
-            projBtn.style.display = 'flex';
-            
-            if (chatIn) chatIn.focus();
-            
-            window.sessionBriefed = true;
-            window.briefingInProgress = false;
-            window.currentBatchFileCount = 0;
-            window.isBriefingResponsePending = true;
+                window.activeDragDropCleanup = cleanupDragDrop;
+                window.activeDragDropContinue = async () => {};
+                
+                chatOverlay.style.display = 'none';
+                projBtn.style.display = 'flex';
+                
+                if (chatIn) chatIn.focus();
+                
+                window.sessionBriefed = true;
+                window.briefingInProgress = false;
+                window.currentBatchFileCount = 0;
+                window.isBriefingResponsePending = true;
 
-            setTimeout(() => {
-                if (typeof window.updateDragDropQueueUI === 'function') {
-                    window.updateDragDropQueueUI();
-                }
-            }, 600);
+                setTimeout(() => {
+                    if (typeof window.updateDragDropQueueUI === 'function') {
+                        window.updateDragDropQueueUI();
+                    }
+                }, 600);
+            }
         };
 
         chatOverlay.appendChild(projBtn);

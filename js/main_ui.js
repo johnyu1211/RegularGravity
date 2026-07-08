@@ -51,16 +51,61 @@ window.addFileToRequestedQueue = function(filePath) {
     }
 };
 
+window.triggerGuestSend = function() {
+    const wv = document.getElementById('active-agent-webview');
+    if (!wv) return;
+    
+    const clickScript = `
+        (async () => {
+            const findInput = () => {
+                const inKeywords = ["prompt", "chat", "message", "write", "ask", "질문", "메시지"];
+                const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
+                for (let el of mainCandidates) {
+                    const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                    if (inKeywords.some(k => text.includes(k))) return el;
+                }
+                if (mainCandidates.length > 0) return mainCandidates[0];
+                return null;
+            };
+
+            const input = findInput();
+            if (!input) return false;
+
+            input.focus();
+
+            const dispatchEnter = (el) => {
+                const createEvent = (type) => {
+                    const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter' });
+                    Object.defineProperty(ev, 'keyCode', { get: () => 13 });
+                    Object.defineProperty(ev, 'which', { get: () => 13 });
+                    Object.defineProperty(ev, 'charCode', { get: () => 13 });
+                    return ev;
+                };
+                el.dispatchEvent(createEvent('keydown'));
+                el.dispatchEvent(createEvent('keypress'));
+                el.dispatchEvent(createEvent('keyup'));
+            };
+
+            dispatchEnter(input);
+            await new Promise(r => setTimeout(r, 1000));
+            dispatchEnter(input);
+            return true;
+        })()
+    `;
+    wv.executeJavaScript(clickScript).catch(err => console.error("Failed to trigger guest send:", err));
+};
+
 window.updateDragDropQueueUI = function() {
     const containerEl = document.getElementById('drag-drop-queue-container');
     const listEl = document.getElementById('drag-drop-queue-list');
     const countEl = document.getElementById('requested-files-count');
     if (!listEl) return;
     
-    // Only show pending items in the queue list!
-    const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+    // Toggle container display based on dragDropMode and presence of items in the queue
+    const hasItems = window.requestedFilesQueue.length > 0;
     if (containerEl) {
-        if (window.dragDropMode && pendingItems.length > 0) {
+        if (window.dragDropMode && hasItems) {
             containerEl.style.display = 'flex';
         } else {
             containerEl.style.display = 'none';
@@ -69,46 +114,51 @@ window.updateDragDropQueueUI = function() {
     
     listEl.innerHTML = '';
     
-    if (countEl) countEl.innerText = pendingItems.length;
+    if (countEl) countEl.innerText = window.requestedFilesQueue.filter(item => item.status === 'PENDING').length;
     
-    if (pendingItems.length === 0) {
+    if (window.requestedFilesQueue.length === 0) {
         listEl.innerHTML = `<div style="font-size: 11px; color: var(--text-dark); text-align: center; margin-top: 50px; font-family: 'DM Sans', sans-serif;">No requested files</div>`;
         return;
     }
     
-    pendingItems.forEach(item => {
+    window.requestedFilesQueue.forEach(item => {
         const itemEl = document.createElement('div');
         itemEl.className = 'queue-item';
-        itemEl.draggable = true;
+        itemEl.draggable = item.status === 'PENDING';
         itemEl.setAttribute('data-filepath', item.absolutePath);
+        
+        const isCompleted = item.status === 'COMPLETED';
         
         itemEl.style = `
             display: flex;
             align-items: center;
             padding: 6px 10px;
-            background: var(--surface-color);
-            border: 1px solid var(--border-color);
+            background: ${isCompleted ? 'rgba(255, 255, 255, 0.02)' : 'var(--surface-color)'};
+            border: 1px solid ${isCompleted ? 'rgba(255, 255, 255, 0.05)' : 'var(--border-color)'};
             border-radius: 6px;
-            cursor: grab;
+            cursor: ${isCompleted ? 'default' : 'grab'};
             user-select: none;
             transition: all 0.2s;
+            opacity: ${isCompleted ? '0.35' : '1'};
         `;
         
-        itemEl.onmouseenter = () => {
-            itemEl.style.background = 'var(--surface-high)';
-            itemEl.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-        };
-        itemEl.onmouseleave = () => {
-            itemEl.style.background = 'var(--surface-color)';
-            itemEl.style.borderColor = 'var(--border-color)';
-        };
-        itemEl.ondragstart = (e) => {
-            e.preventDefault();
-            ipcRenderer.send('ondragstart', item.absolutePath);
-        };
+        if (!isCompleted) {
+            itemEl.onmouseenter = () => {
+                itemEl.style.background = 'var(--surface-high)';
+                itemEl.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            };
+            itemEl.onmouseleave = () => {
+                itemEl.style.background = 'var(--surface-color)';
+                itemEl.style.borderColor = 'var(--border-color)';
+            };
+            itemEl.ondragstart = (e) => {
+                e.preventDefault();
+                ipcRenderer.send('ondragstart', item.absolutePath);
+            };
+        }
         
         itemEl.innerHTML = `
-            <span class="queue-file-name" style="font-size: 11px; color: var(--text-main); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px;" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
+            <span class="queue-file-name" style="font-size: 11px; color: ${isCompleted ? 'var(--text-muted)' : 'var(--text-main)'}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px; ${isCompleted ? 'text-decoration: line-through;' : ''}" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
         `;
         
         listEl.appendChild(itemEl);
@@ -1225,6 +1275,11 @@ ${startPrompt}`.trim();
                     const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
                     if (stillPending.length === 0) {
                         if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+                        setTimeout(() => {
+                            if (typeof window.triggerGuestSend === 'function') {
+                                window.triggerGuestSend();
+                            }
+                        }, 500);
                     }
                 } else {
                     const fs = require('fs');
@@ -2013,6 +2068,11 @@ ${startPrompt}`.trim();
                     const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
                     if (stillPending.length === 0) {
                         if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+                        setTimeout(() => {
+                            if (typeof window.triggerGuestSend === 'function') {
+                                window.triggerGuestSend();
+                            }
+                        }, 500);
                     }
                 } else {
                     const fs = require('fs');

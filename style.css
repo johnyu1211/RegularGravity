@@ -1447,18 +1447,14 @@ input:checked + .slider:before {
 .status-shortcut-pill {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 4px 10px;
-    height: 24px;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    font-size: 11px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 500;
-    color: var(--text-muted);
     user-select: none;
     flex-shrink: 0;
 }

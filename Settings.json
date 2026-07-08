@@ -3,6 +3,6 @@
   "debugMode": false,
   "dragDropMode": true,
   "autoDragging": true,
-  "autoRefreshSession": true,
+  "autoRefreshSession": false,
   "refreshTurnCount": 35
 }

@@ -2755,7 +2755,7 @@ function setupUI() {
         list.forEach((item, index) => {
             const pill = document.createElement('div');
             pill.className = 'status-shortcut-pill';
-            pill.title = `Left click: Open. Right click: Delete "${item.title}".`;
+            pill.title = `${item.title}\n\nLeft click: Open\nRight click: Delete`;
             
             let domain = 'github.com';
             try {
@@ -2763,8 +2763,7 @@ function setupUI() {
             } catch(e){}
             
             pill.innerHTML = `
-                <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 12px; height: 12px; border-radius: 2px;" onerror="this.style.display='none';">
-                <span>${item.title}</span>
+                <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 14px; height: 14px; border-radius: 2px;" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'14\' height=\'14\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23888\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><circle cx=\'12\' cy=\'12\' r=\'10\'></circle><line x1=\'2\' y1=\'12\' x2=\'22\' y2=\'12\'></line><path d=\'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z\'></path></svg>';">
             `;
             
             // Left click: Open inside GITHUB HUB popover

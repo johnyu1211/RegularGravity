@@ -103,7 +103,7 @@ window.openFileInEditor = (filePath) => {
                     toggleCollapseBtn.title = 'Collapse All';
                     if (editorCollapseIcon) {
                         editorCollapseIcon.innerHTML = `<polyline points="17 4 12 9 7 4"></polyline><polyline points="7 20 12 15 17 20"></polyline>`;
-                        editorCollapseIcon.classList.add('rotate-left');
+                        editorCollapseIcon.classList.remove('rotate-left');
                     }
                 }
                 setTimeout(() => { if (typeof window.updateMinimapThumb === 'function') window.updateMinimapThumb(); }, 80);
@@ -112,7 +112,7 @@ window.openFileInEditor = (filePath) => {
             toggleCollapseBtn.title = 'Expand All';
             if (editorCollapseIcon) {
                 editorCollapseIcon.innerHTML = `<polyline points="17 4 12 9 7 4"></polyline><polyline points="7 20 12 15 17 20"></polyline>`;
-                editorCollapseIcon.classList.add('rotate-left');
+                editorCollapseIcon.classList.remove('rotate-left');
             }
             setTimeout(() => { if (typeof window.updateMinimapThumb === 'function') window.updateMinimapThumb(); }, 120);
         }
@@ -204,7 +204,7 @@ window.openFileInEditor = (filePath) => {
                         .box-paste-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; flex-shrink: 0; }
                         .pormsg-header:hover .box-paste-btn { opacity: 1; } .box-paste-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
                         
-                        .caret { color: #0078d4; font-size: 10px; margin-right: 8px; transition: 0.2s; flex-shrink: 0; } details[open] > .pormsg-header .caret { transform: rotate(90deg); }
+                        .caret { display: inline-block; color: #0078d4; font-size: 10px; margin-right: 8px; transition: transform 0.2s ease; flex-shrink: 0; } details[open] > .pormsg-header .caret { transform: rotate(90deg); }
                         
                         .pormsg-body { padding: 0; border-top: 1px solid #222; overflow-x: auto; overflow-y: hidden; width: 100%; box-sizing: border-box; }
                         .pormsg-body::-webkit-scrollbar { height: 6px; } .pormsg-body::-webkit-scrollbar-track { background: transparent; }

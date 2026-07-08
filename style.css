@@ -722,7 +722,9 @@ body {
 
 /* Inspector Tabs */
 .inspector-tabs {
-    background: var(--surface-lowest);
+    background: rgba(12, 12, 14, 0.85) !important;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     padding: 6px 10px;
     gap: 8px;
     box-sizing: border-box;

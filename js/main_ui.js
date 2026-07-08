@@ -898,58 +898,47 @@ function detectAndAskCommand(text) {
         } else if (editMatch) {
             const filePath = editMatch[1].trim();
             const cmdIdx = text.indexOf(rawCmd);
-            let searchVal = "";
-            let replaceVal = "";
-            let hasValidMarkers = false;
             if (cmdIdx !== -1) {
                 const subText = text.substring(cmdIdx);
                 const parsedBlocks = window.parseSearchReplaceBlocks(subText, filePath);
                 if (parsedBlocks.length > 0) {
-                    const block = parsedBlocks[0];
-                    if (block.hasDivider) {
-                        searchVal = block.search;
-                        replaceVal = block.replace;
-                        hasValidMarkers = true;
-                    } else if (block.search && block.replace) {
-                        searchVal = block.search;
-                        replaceVal = block.replace;
-                        hasValidMarkers = true;
-                    } else {
-                        const sMarker = "<<<<<<<";
-                        const rMarker = ">>>>>>>";
-                        const sIdx = subText.indexOf(sMarker);
-                        const rIdx = subText.indexOf(rMarker);
-                        if (sIdx !== -1 && rIdx !== -1 && sIdx < rIdx) {
-                            const rawBlock = subText.substring(sIdx + sMarker.length, rIdx).trim();
-                            try {
-                                const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-                                if (fs.existsSync(targetPath)) {
-                                    const fileContent = fs.readFileSync(targetPath, 'utf-8').replace(/\r/g, '');
-                                    const fileContentNorm = fileContent.replace(/\s+/g, '');
+                    parsedBlocks.forEach(block => {
+                        if (block.hasDivider) {
+                            editCmds.push({ type: 'block', path: filePath, search: block.search, replace: block.replace });
+                        } else if (block.search && block.replace) {
+                            editCmds.push({ type: 'block', path: filePath, search: block.search, replace: block.replace });
+                        }
+                    });
+                } else {
+                    const sMarker = "<<<<<<<";
+                    const rMarker = ">>>>>>>";
+                    const sIdx = subText.indexOf(sMarker);
+                    const rIdx = subText.indexOf(rMarker);
+                    if (sIdx !== -1 && rIdx !== -1 && sIdx < rIdx) {
+                        const rawBlock = subText.substring(sIdx + sMarker.length, rIdx).trim();
+                        try {
+                            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+                            if (fs.existsSync(targetPath)) {
+                                const fileContent = fs.readFileSync(targetPath, 'utf-8').replace(/\r/g, '');
+                                const fileContentNorm = fileContent.replace(/\s+/g, '');
+                                
+                                const lines = rawBlock.split(/\r?\n/);
+                                for (let k = lines.length - 1; k >= 1; k--) {
+                                    const searchCand = lines.slice(0, k).join('\n').trim();
+                                    const replaceCand = lines.slice(k).join('\n').trim();
                                     
-                                    const lines = rawBlock.split(/\r?\n/);
-                                    for (let k = lines.length - 1; k >= 1; k--) {
-                                        const searchCand = lines.slice(0, k).join('\n').trim();
-                                        const replaceCand = lines.slice(k).join('\n').trim();
-                                        
-                                        const searchCandNorm = searchCand.replace(/\s+/g, '');
-                                        if (searchCandNorm && fileContentNorm.includes(searchCandNorm)) {
-                                            searchVal = searchCand;
-                                            replaceVal = replaceCand;
-                                            hasValidMarkers = true;
-                                            break;
-                                        }
+                                    const searchCandNorm = searchCand.replace(/\s+/g, '');
+                                    if (searchCandNorm && fileContentNorm.includes(searchCandNorm)) {
+                                        editCmds.push({ type: 'block', path: filePath, search: searchCand, replace: replaceCand });
+                                        break;
                                     }
                                 }
-                            } catch (err) {
-                                console.error("Resilient parser error:", err);
                             }
+                        } catch (err) {
+                            console.error("Resilient parser error:", err);
                         }
                     }
                 }
-            }
-            if (hasValidMarkers) {
-                editCmds.push({ type: 'block', path: filePath, search: searchVal, replace: replaceVal });
             }
         } else if (deleteMatch) {
             const filePath = deleteMatch[1].trim();

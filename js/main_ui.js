@@ -1368,6 +1368,10 @@ ${startPrompt}`.trim();
             if (!window.isNewResponse && window.lastActiveAiBubble) {
                 const contentEl = window.lastActiveAiBubble.querySelector('.bubble-content');
                 if (contentEl) {
+                    if (contentEl.typewriterInterval) {
+                        clearInterval(contentEl.typewriterInterval);
+                        contentEl.typewriterInterval = null;
+                    }
                     contentEl.dataset.rawText = text;
                     const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(text) : text;
                     contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(formatted).trim() : formatted.trim();
@@ -1561,39 +1565,8 @@ ${startPrompt}`.trim();
             }
 
             if (e.message.startsWith('[BACKGROUND_AI_RESP]:')) {
-                if (!window.activeAiResponding) return;
-                if (window.currentBatchFileCount === -1 && window.autoContinueOnRead) return;
-                try {
-                    const base64Data = e.message.split('[BACKGROUND_AI_RESP]:')[1];
-                    const decodedText = decodeURIComponent(escape(atob(base64Data))).trim();
-                    if (!decodedText || decodedText === "[EXTRACT_FAIL]") return;
-                    if (decodedText === lastReceivedMirrorText) return;
-                    
-                    const chatLog = document.getElementById('local-chat-messages');
-                    if (chatLog) {
-                        
-                        if (!window.isNewResponse && window.lastActiveAiBubble) {
-                            const contentEl = window.lastActiveAiBubble.querySelector('.bubble-content');
-                            if (contentEl) {
-                                contentEl.dataset.rawText = decodedText;
-                                const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(decodedText) : decodedText;
-                                contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(formatted).trim() : formatted.trim();
-                                if (typeof hljs !== 'undefined') {
-                                    window.lastActiveAiBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
-                                }
-                                lastReceivedMirrorText = decodedText;
-                                chatLog.scrollTop = chatLog.scrollHeight;
-                                return;
-                            }
-                        }
-                    }
-                    
-                    lastReceivedMirrorText = decodedText;
-                    window.isNewResponse = false;
-                    window.lastActiveAiBubble = ChatUI.appendBubble('ai', decodedText, false, getWebIcon(wv));
-                } catch (err) {
-                    console.error("[ERROR] Background mirror parsing error:", err);
-                }
+                // Redirected to direct in-process polling updates via updateAiStreamBubble in monitoring.js to eliminate Electron console latency.
+                return;
             }
         });
 
@@ -2175,6 +2148,7 @@ ${startPrompt}`.trim();
             } finally {
                 window.sessionBriefed = true;
                 window.briefingInProgress = false;
+                window.currentBatchFileCount = 0;
                 if (!window.autoContinueOnRead) document.getElementById('tab-local-agent')?.click();
             }
         };

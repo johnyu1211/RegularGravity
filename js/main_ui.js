@@ -1444,6 +1444,9 @@ async function setupBoot() {
                 if (window.sessionBriefed || window.briefingInProgress) return;
                 window.briefingInProgress = true;
                 
+                if (typeof window.writeProjectRulesFile === 'function') {
+                    window.writeProjectRulesFile(window.currentPath || process.cwd());
+                }
                 const projectTree = await ipcRenderer.invoke('vault-get-tree');
                 if (projectTree) {
                     setTimeout(async () => {
@@ -2386,6 +2389,9 @@ function setupUI() {
             }
             projBtn.style.display = 'none';
             
+            if (typeof window.writeProjectRulesFile === 'function') {
+                window.writeProjectRulesFile(window.currentPath || process.cwd());
+            }
             const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
             window.totalFilesCount = tree.split('\n').filter(line => line.startsWith('- ')).length;
             window.readFilesSet.clear();

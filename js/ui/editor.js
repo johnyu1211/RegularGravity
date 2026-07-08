@@ -1,3 +1,56 @@
+window.updateStatusBar = (filePath, lineCount, language) => {
+    const modeEl = document.getElementById('status-bar-mode');
+    const pathEl = document.getElementById('status-bar-path');
+    const sizeEl = document.getElementById('status-bar-size');
+    const langEl = document.getElementById('status-bar-language');
+    const linesEl = document.getElementById('status-bar-lines');
+    const div1 = document.getElementById('status-bar-divider-1');
+    const posEl = document.getElementById('status-bar-position');
+
+    if (filePath) {
+        const pathModule = require('path');
+        const root = window.projectRoot || '';
+        const relPath = pathModule.relative(root, filePath).replace(/\\/g, '/');
+        if (pathEl) {
+            pathEl.innerText = relPath;
+            pathEl.title = filePath;
+        }
+
+        try {
+            const fs = require('fs');
+            const stats = fs.statSync(filePath);
+            const sizeKB = (stats.size / 1024).toFixed(1);
+            if (sizeEl) {
+                sizeEl.innerText = `${sizeKB} KB`;
+                sizeEl.style.display = '';
+            }
+            if (div1) div1.style.display = '';
+        } catch (e) {
+            if (sizeEl) sizeEl.style.display = 'none';
+            if (div1) div1.style.display = 'none';
+        }
+
+        if (langEl) langEl.innerText = language || 'PLAIN TEXT';
+        if (linesEl) linesEl.innerText = `${lineCount} lines`;
+        if (posEl) posEl.innerText = `Ln 1, Col 1`;
+        if (modeEl) {
+            modeEl.innerText = 'VIEWING';
+            modeEl.style.color = '#3b82f6';
+        }
+    } else {
+        if (pathEl) pathEl.innerText = 'No File Open';
+        if (sizeEl) sizeEl.style.display = 'none';
+        if (div1) div1.style.display = 'none';
+        if (langEl) langEl.innerText = 'PLAIN TEXT';
+        if (linesEl) linesEl.innerText = '-- lines';
+        if (posEl) posEl.innerText = 'Ln --, Col --';
+        if (modeEl) {
+            modeEl.innerText = 'READY';
+            modeEl.style.color = '#10b981';
+        }
+    }
+};
+
 window.editorHistory = window.editorHistory || [];
 window.historyIndex = window.editorHistory.length > 0 ? window.editorHistory.length - 1 : -1;
 

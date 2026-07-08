@@ -146,13 +146,35 @@
             </div>
             <div id="editor-content" style="flex: 1; height: 100%; position: relative; overflow: hidden;"></div>
 
+            <!-- Editor Bottom Status Bar (Taskbar-like) -->
+            <div id="editor-status-bar" style="height: 38px; min-height: 38px; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding-left: 58px; padding-right: 15px; font-family: 'DM Sans', 'Outfit', sans-serif; font-size: 11px; color: var(--text-muted); z-index: 100; box-sizing: border-box; user-select: none;">
+                <!-- Left: Ready Status & Open File Path -->
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span id="status-bar-mode" style="font-weight: 700; color: #10b981; letter-spacing: 0.05em; text-transform: uppercase;">READY</span>
+                    <span style="width: 1px; height: 12px; background: var(--border-color);"></span>
+                    <span id="status-bar-path" style="font-family: 'JetBrains Mono', monospace; opacity: 0.85; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">No File Open</span>
+                </div>
+                <!-- Right: File Details, Line/Col, Encoding -->
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <span id="status-bar-size" style="opacity: 0.75;"></span>
+                    <span style="width: 1px; height: 12px; background: var(--border-color); display: none;" id="status-bar-divider-1"></span>
+                    <span id="status-bar-language" style="text-transform: uppercase; font-weight: 600;">PLAIN TEXT</span>
+                    <span style="width: 1px; height: 12px; background: var(--border-color);"></span>
+                    <span id="status-bar-position">Ln --, Col --</span>
+                    <span style="width: 1px; height: 12px; background: var(--border-color);"></span>
+                    <span id="status-bar-lines">-- lines</span>
+                    <span style="width: 1px; height: 12px; background: var(--border-color);"></span>
+                    <span>UTF-8</span>
+                </div>
+            </div>
+
             <!-- Floating Terminal Popover Trigger (Bottom-Left of Editor) -->
             <div id="terminal-toggle-btn" title="Toggle Terminal Popover">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
             </div>
 
             <!-- Floating Terminal Popover Window -->
-            <div id="terminal-popover" style="position: absolute; left: 15px; bottom: 58px; width: 500px; height: 350px; display: none; flex-direction: column; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.75); z-index: 1000; overflow: hidden; transition: opacity 0.2s, transform 0.2s;">
+            <div id="terminal-popover" style="position: absolute; left: 15px; bottom: 44px; width: 500px; height: 350px; display: none; flex-direction: column; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.75); z-index: 1000; overflow: hidden; transition: opacity 0.2s, transform 0.2s;">
                 <div class="terminal-view-header" style="height:38px; min-height:38px; border-bottom: none; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #000;">
                     <div id="terminal-sub-tabs" style="flex:1; height:100%; display:flex; overflow:hidden; padding:0 2px; gap: 4px;">
                          <!-- Dynamic Sub-tabs now live here -->

@@ -1227,7 +1227,7 @@ input:checked + .slider:before {
 #terminal-toggle-btn {
     position: absolute;
     left: 15px;
-    bottom: 15px;
+    bottom: 2px;
     z-index: 1001;
     width: 34px;
     height: 34px;

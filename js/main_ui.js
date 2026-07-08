@@ -1477,7 +1477,44 @@ ${startPrompt}`.trim();
                         
                         window.markFileAsCompleted(filePath);
                         if (typeof ChatUI !== 'undefined' && ChatUI.appendBubble) {
-                            ChatUI.appendBubble('user', `📁 Attached: ${pathModule.basename(filePath)}`);
+                            const chatLog = document.getElementById('local-chat-messages');
+                            let lastUserBubble = null;
+                            const baseName = pathModule.basename(filePath);
+                            
+                            if (chatLog) {
+                                const userBubbles = chatLog.querySelectorAll('.chat-bubble.user');
+                                if (userBubbles.length > 0) {
+                                    const lastBub = userBubbles[userBubbles.length - 1];
+                                    const contentEl = lastBub.querySelector('.bubble-content');
+                                    if (contentEl && contentEl.dataset.rawText && contentEl.dataset.rawText.startsWith('Attached:')) {
+                                        lastUserBubble = lastBub;
+                                    }
+                                }
+                            }
+                            
+                            if (lastUserBubble) {
+                                const contentEl = lastUserBubble.querySelector('.bubble-content');
+                                const oldText = contentEl.dataset.rawText;
+                                let newText = oldText;
+                                if (oldText.includes('\n | ')) {
+                                    newText = oldText + ' | ' + baseName;
+                                } else {
+                                    newText = oldText + '\n | ' + baseName;
+                                }
+                                contentEl.dataset.rawText = newText;
+                                const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(newText) : newText;
+                                if (typeof marked !== 'undefined') {
+                                    contentEl.innerHTML = marked.parse(formatted).trim();
+                                } else {
+                                    contentEl.innerText = formatted.trim();
+                                }
+                                if (typeof hljs !== 'undefined') {
+                                    lastUserBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                                }
+                                chatLog.scrollTop = chatLog.scrollHeight;
+                            } else {
+                                ChatUI.appendBubble('user', `Attached: ${baseName}`);
+                            }
                         }
                         
                         const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING');

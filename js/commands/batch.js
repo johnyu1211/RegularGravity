@@ -25,6 +25,10 @@ async function executeWriteFileBatch(writeCmds) {
             }
         });
 
+        if (typeof window.loadDirectory === 'function' && window.currentPath) {
+            window.loadDirectory(window.currentPath);
+        }
+
         const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
         
         await injectWebPayload(finalMessage, 0);

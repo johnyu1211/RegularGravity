@@ -1396,6 +1396,103 @@ async function setupBoot() {
                     }, 1000);
                 })();
             `).catch(err => console.error("Failed to inject guest height observer:", err));
+            
+            const guestInterceptorScript = `
+                (() => {
+                    const inKeywords = ["message", "ask", "prompt", "type", "question", "conversation", "input", "chat", "command", "send", "help you today", "search", "write", "say"];
+                    
+                    const findInput = () => {
+                        const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                        const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
+                        for (let el of mainCandidates) {
+                            const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                            if (inKeywords.some(k => text.includes(k))) return el;
+                        }
+                        if (mainCandidates.length > 0) return mainCandidates[0];
+                        return null;
+                    };
+                    
+                    const interceptAndPrepend = (input) => {
+                        if (window.isHostSending) return;
+                        
+                        let textVal = "";
+                        if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
+                            textVal = input.value;
+                        } else {
+                            textVal = input.innerText;
+                        }
+                        
+                        if (!textVal.trim()) return;
+                        if (textVal.includes("[SYSTEM RULES]")) return;
+                        
+                        console.log("[HOST_GUEST_INTERCEPTOR] Prepending system prompt.");
+                        
+                        const systemPrompt = ${JSON.stringify(window.getSystemRulesPrompt())};
+                        const fullText = systemPrompt + "\\n\\n[USER MESSAGE]\\n" + textVal;
+                        
+                        if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
+                            const proto = input.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+                            const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+                            setter.call(input, fullText);
+                        } else {
+                            const escapeHtml = (t) => {
+                                return t
+                                    .replace(/&/g, "&amp;")
+                                    .replace(/</g, "&lt;")
+                                    .replace(/>/g, "&gt;")
+                                    .replace(/"/g, "&quot;")
+                                    .replace(/'/g, "&#039;")
+                                    .replace(/\\n/g, "<br>");
+                            };
+                            input.innerHTML = escapeHtml(fullText);
+                        }
+                        
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    };
+                    
+                    setInterval(() => {
+                        const input = findInput();
+                        if (!input) return;
+                        
+                        if (input.dataset.gravityHooked) return;
+                        input.dataset.gravityHooked = "true";
+                        
+                        input.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                interceptAndPrepend(input);
+                            }
+                        }, { capture: true });
+                        
+                        const findSendBtn = () => {
+                            const btns = Array.from(document.querySelectorAll('button, div[role="button"], svg'));
+                            for (let btn of btns) {
+                                const text = (btn.getAttribute('aria-label') || btn.title || btn.innerText || '').toLowerCase();
+                                if (text.includes('send') || text.includes('전송') || text.includes('입력') || text.includes('submit')) {
+                                    let cur = btn;
+                                    while (cur && cur.tagName !== 'BUTTON' && cur.getAttribute('role') !== 'button') {
+                                        cur = cur.parentElement;
+                                    }
+                                    return cur || btn;
+                                }
+                            }
+                            return null;
+                        };
+                        
+                        const sendBtn = findSendBtn();
+                        if (sendBtn) {
+                            sendBtn.addEventListener('click', (e) => {
+                                interceptAndPrepend(input);
+                            }, { capture: true });
+                            sendBtn.addEventListener('mousedown', (e) => {
+                                interceptAndPrepend(input);
+                            }, { capture: true });
+                        }
+                    }, 1000);
+                })();
+            `;
+            wv.executeJavaScript(guestInterceptorScript).catch(err => console.error("Failed to inject guest interceptor:", err));
+
             wv.executeJavaScript(`
                 (() => {
                     let lastSentText = "";

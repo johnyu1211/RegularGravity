@@ -3627,6 +3627,18 @@ function setupUI() {
                     vBH.style.opacity = '1';
                     vBH.style.pointerEvents = 'auto';
                 }
+                
+                // Clean up temporary rules file after a 10 seconds delay
+                setTimeout(() => {
+                    try {
+                        if (fs.existsSync(tempRulesPath)) {
+                            fs.unlinkSync(tempRulesPath);
+                            if (typeof window.refreshTree === 'function') {
+                                window.refreshTree();
+                            }
+                        }
+                    } catch (e) {}
+                }, 10000);
             };
 
             window.activeDragDropCleanup = cleanupDragDrop;

@@ -3,6 +3,19 @@ window.projectRoot = null;
 
 window.selectProject = async (folderPath) => {
     if (!folderPath) return;
+    
+    // Clean up any remaining _project_rules_ files in the target directory
+    const fs = require('fs');
+    const path = require('path');
+    try {
+        const files = fs.readdirSync(folderPath);
+        files.forEach(file => {
+            if (file.startsWith('_project_rules_') && file.endsWith('.md')) {
+                fs.unlinkSync(path.join(folderPath, file));
+            }
+        });
+    } catch(e) {}
+
     window.projectRoot = folderPath;
     window.currentPath = folderPath;
     ipcRenderer.send('save-recent-project', folderPath);

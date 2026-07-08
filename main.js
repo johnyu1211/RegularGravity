@@ -106,7 +106,7 @@ ipcMain.handle('vault-get-tree', async (event, projectPath) => {
             return;
         }
         items.forEach(item => {
-            if (ignore.includes(item)) return;
+            if (ignore.includes(item) || item.startsWith('_project_rules_')) return;
             const fullPath = path.join(dir, item);
             try {
                 const stats = fs.statSync(fullPath);

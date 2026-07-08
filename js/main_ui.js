@@ -27,14 +27,14 @@ window.reloadAgentSettings = function() {
     try {
         if (_fs.existsSync(p)) {
             const settings = JSON.parse(_fs.readFileSync(p, 'utf-8'));
-            window.autoContinueOnRead = !!settings.autoContinueOnRead;
+            window.autoContinueOnRead = true;
             window.hideUIOverlay = !!settings.hideUIOverlay;
             window.debugMode = !!settings.debugMode;
             window.dragDropMode = !!settings.dragDropMode;
             return;
         }
     } catch(e) {}
-    window.autoContinueOnRead = false;
+    window.autoContinueOnRead = true;
     window.hideUIOverlay = false;
     window.debugMode = false;
     window.dragDropMode = false;
@@ -1292,14 +1292,12 @@ function setupUI() {
     const localSettingsModal = document.getElementById('local-settings-modal');
     const closeLocalSettings = document.getElementById('close-local-settings');
     const saveLocalSettings = document.getElementById('save-local-settings');
-    const chkAutoRead = document.getElementById('chk-auto-read');
     const chkDebugMode = document.getElementById('chk-debug-mode');
     const chkDragDropMode = document.getElementById('chk-drag-drop-mode');
 
     if (localSettingsBtn && localSettingsModal) {
         localSettingsBtn.onclick = () => {
             window.reloadAgentSettings(); 
-            if (chkAutoRead) chkAutoRead.checked = window.autoContinueOnRead;
             if (chkDebugMode) chkDebugMode.checked = window.debugMode;
             if (chkDragDropMode) chkDragDropMode.checked = window.dragDropMode;
             localSettingsModal.style.display = 'flex';
@@ -1312,9 +1310,9 @@ function setupUI() {
     }
     if (saveLocalSettings && localSettingsModal) {
         saveLocalSettings.onclick = () => {
-            if (chkAutoRead || chkDebugMode || chkDragDropMode) {
+            if (chkDebugMode || chkDragDropMode) {
                 const current = loadSettings();
-                if (chkAutoRead) current.autoContinueOnRead = chkAutoRead.checked;
+                current.autoContinueOnRead = true;
                 current.hideUIOverlay = true;
                 if (chkDebugMode) current.debugMode = chkDebugMode.checked;
                 if (chkDragDropMode) current.dragDropMode = chkDragDropMode.checked;

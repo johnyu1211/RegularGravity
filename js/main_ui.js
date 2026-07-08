@@ -2641,6 +2641,9 @@ function setupUI() {
             }
             projBtn.style.display = 'none';
             
+            const fs = require('fs');
+            const path = require('path');
+            
             const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
             window.totalFilesCount = tree.split('\n').filter(line => line.startsWith('- ')).length;
             window.readFilesSet.clear();
@@ -2650,42 +2653,86 @@ function setupUI() {
                 ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(예: package.json, index.html 등 진입점 파일)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
                 : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오.`;
             
-            const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
-${tree}
-${window.getSystemRulesPrompt()}
-${startPrompt}`.trim();
+            const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${tree}\n\n${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim();
             
-            window.currentBatchFileCount = -1;
-            const enginePromise = runExperimentalEngine('/marktag', webPayload, null);
+            const tempRulesPath = path.join(window.currentPath, '_project_rules.md');
             try {
-                await injectWebPayload(webPayload, -1);
+                fs.writeFileSync(tempRulesPath, webPayload, 'utf-8');
+                if (typeof window.refreshTree === 'function') {
+                    window.refreshTree();
+                }
             } catch (err) {
-                console.error("Failed to inject project info payload:", err);
+                console.error("Failed to write temporary rules file:", err);
             }
+
+            window.requestedFilesQueue = [{
+                absolutePath: tempRulesPath,
+                relativePath: '_project_rules.md',
+                status: 'PENDING'
+            }];
+            if (typeof window.updateDragDropQueueUI === 'function') {
+                window.updateDragDropQueueUI();
+            }
+
+            const cleanupDragDrop = () => {
+                if (window.activeDragDropCleanup === cleanupDragDrop) {
+                    window.activeDragDropCleanup = null;
+                    window.activeDragDropContinue = null;
+                }
+                
+                try {
+                    const tPath = path.join(window.currentPath, '_project_rules.md');
+                    if (fs.existsSync(tPath)) {
+                        fs.unlinkSync(tPath);
+                        console.log("[ProjectInfo] Successfully deleted temporary _project_rules.md file.");
+                        if (typeof window.refreshTree === 'function') {
+                            window.refreshTree();
+                        }
+                    }
+                } catch (err) {
+                    console.error("[ProjectInfo] Failed to delete temporary rules file:", err);
+                }
+
+                const vLC = document.getElementById('inspector-local-chat');
+                if (vLC) {
+                    vLC.style.height = 'calc(100% - 44px)';
+                    vLC.style.zIndex = '';
+                }
+                const vT = document.getElementById('inspector-terminal');
+                if (vT) vT.style.zIndex = '';
+                
+                const arrowIndicator = document.getElementById('drag-drop-arrow-indicator');
+                if (arrowIndicator) arrowIndicator.remove();
+                
+                const inputContainer = document.getElementById('local-input-container');
+                if (inputContainer) {
+                    inputContainer.style.background = '';
+                    inputContainer.style.display = '';
+                    inputContainer.style.height = '';
+                }
+                
+                const vBH = document.getElementById('inspector-browser-hub');
+                if (vBH) {
+                    vBH.style.position = '';
+                    vBH.style.top = '';
+                    vBH.style.height = '';
+                    vBH.style.width = '';
+                    vBH.style.zIndex = '';
+                    vBH.style.opacity = '';
+                    vBH.style.pointerEvents = '';
+                }
+            };
+
+            window.activeDragDropCleanup = cleanupDragDrop;
             
             chatOverlay.style.display = 'none';
             projBtn.style.display = 'flex';
             
             if (chatIn) chatIn.focus();
             
-            try {
-                const response = await enginePromise;
-                if (response) {
-                    if (!window.autoContinueOnRead) {
-                        if (typeof window.finalizeAiBubble === 'function') {
-                            window.finalizeAiBubble(response);
-                        }
-                    }
-                    detectAndAskCommand(response);
-                }
-            } catch (err) {
-                console.error("Failed to run experimental engine:", err);
-            } finally {
-                window.sessionBriefed = true;
-                window.briefingInProgress = false;
-                window.currentBatchFileCount = 0;
-                if (!window.autoContinueOnRead) document.getElementById('tab-local-agent')?.click();
-            }
+            window.sessionBriefed = true;
+            window.briefingInProgress = false;
+            window.currentBatchFileCount = 0;
         };
 
         chatOverlay.appendChild(projBtn);

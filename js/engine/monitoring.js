@@ -288,17 +288,20 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
 
         const errorVal = await wv.executeJavaScript(`(() => {
             const bodyText = document.body ? document.body.innerText : "";
+            const isGemini = window.location.href.includes("gemini.google.com");
             
-            // Match error codes like 1095, 1097 (1090-1099 range)
-            const codeMatch = bodyText.match(/\\b(109\\d)\\b/);
-            if (codeMatch) {
-                return "Error " + codeMatch[0];
-            }
-            
-            // Match pattern "문제가 있습니다 [숫자]"
-            const patternMatch = bodyText.match(/문제가 있습니다\\s*\\d+/);
-            if (patternMatch) {
-                return patternMatch[0];
+            if (isGemini) {
+                // Match error codes like 1095, 1097 (1090-1099 range)
+                const codeMatch = bodyText.match(/\\b(109\\d)\\b/);
+                if (codeMatch) {
+                    return "Error " + codeMatch[0];
+                }
+                
+                // Match pattern "문제가 있습니다 [숫자]"
+                const patternMatch = bodyText.match(/문제가 있습니다\\s*\\d+/);
+                if (patternMatch) {
+                    return patternMatch[0];
+                }
             }
 
             const errorKeywords = [

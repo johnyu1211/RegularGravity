@@ -2519,124 +2519,30 @@ function setupUI() {
     const toggleBtn = document.getElementById('terminal-toggle-btn');
     const popover = document.getElementById('terminal-popover');
     
-    // GitHub Git Integration Setup
+    // GitHub remote browser opener setup
     const gitToggleBtn = document.getElementById('git-toggle-btn');
-    const gitPopover = document.getElementById('git-popover');
-    
-    const refreshGitStatus = async () => {
-        if (!gitPopover) return;
-        const { exec } = require('child_process');
-        const cwd = window.currentPath || process.cwd();
-        
-        exec('git rev-parse --abbrev-ref HEAD', { cwd }, (err, stdout) => {
-            const branchEl = document.getElementById('git-branch-name');
-            if (branchEl) {
-                branchEl.innerText = err ? 'none' : stdout.trim();
-            }
-        });
-        
-        exec('git status --porcelain', { cwd }, (err, stdout) => {
-            const badgeEl = document.getElementById('git-status-badge');
-            if (badgeEl) {
-                const changes = stdout.trim();
-                if (changes) {
-                    const lines = changes.split('\n').length;
-                    badgeEl.innerText = `${lines} CHANGED`;
-                    badgeEl.style.background = 'rgba(239, 68, 68, 0.15)';
-                    badgeEl.style.color = '#ef4444';
-                    badgeEl.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                } else {
-                    badgeEl.innerText = 'CLEAN';
-                    badgeEl.style.background = 'rgba(16, 185, 129, 0.15)';
-                    badgeEl.style.color = '#10b981';
-                    badgeEl.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-                }
-            }
-        });
-        
-        exec('git log -n 5 --oneline', { cwd }, (err, stdout) => {
-            const logEl = document.getElementById('git-commit-log-list');
-            if (logEl) {
-                if (err) {
-                    logEl.innerText = 'Not a git repository (or no commits yet).';
-                } else {
-                    const logs = stdout.trim().split('\n').map(line => {
-                        const firstSpace = line.indexOf(' ');
-                        if (firstSpace === -1) return '';
-                        const sha = line.substring(0, firstSpace);
-                        const msg = line.substring(firstSpace + 1);
-                        return `<div style="margin-bottom:6px; display:flex; gap:6px;"><span style="color:#3b82f6;">${sha}</span><span style="color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;">${msg}</span></div>`;
-                    }).join('');
-                    logEl.innerHTML = logs || 'No commits yet.';
-                }
-            }
-        });
-    };
-
-    if (gitToggleBtn && gitPopover) {
+    if (gitToggleBtn) {
         gitToggleBtn.onclick = (e) => {
             e.stopPropagation();
-            if (gitPopover.style.display === 'none' || !gitPopover.style.display) {
-                const termPopover = document.getElementById('terminal-popover');
-                if (termPopover) {
-                    termPopover.style.display = 'none';
-                    if (toggleBtn) {
-                        toggleBtn.style.color = '';
-                        toggleBtn.style.background = '';
-                        toggleBtn.style.boxShadow = '';
+            const { exec } = require('child_process');
+            const cwd = window.currentPath || process.cwd();
+            
+            exec('git config --get remote.origin.url', { cwd }, (err, stdout) => {
+                let targetUrl = 'https://github.com';
+                if (!err && stdout.trim()) {
+                    let rawUrl = stdout.trim();
+                    // Convert ssh git@github.com:user/repo.git to https://github.com/user/repo
+                    if (rawUrl.startsWith('git@')) {
+                        rawUrl = rawUrl.replace(':', '/').replace('git@', 'https://').replace(/.git$/, '');
+                    } else if (rawUrl.endsWith('.git')) {
+                        rawUrl = rawUrl.replace(/.git$/, '');
                     }
+                    targetUrl = rawUrl;
                 }
-                
-                gitPopover.style.display = 'flex';
-                gitToggleBtn.style.color = '#fff';
-                gitToggleBtn.style.background = 'var(--primary)';
-                refreshGitStatus();
-            } else {
-                gitPopover.style.display = 'none';
-                gitToggleBtn.style.color = '';
-                gitToggleBtn.style.background = '';
-            }
+                const { shell } = require('electron');
+                shell.openExternal(targetUrl);
+            });
         };
-        
-        gitPopover.onclick = (e) => { e.stopPropagation(); };
-        
-        const refreshBtn = document.getElementById('git-refresh-btn');
-        if (refreshBtn) {
-            refreshBtn.onclick = (e) => {
-                e.stopPropagation();
-                refreshGitStatus();
-            };
-        }
-        
-        const commitSubmitBtn = document.getElementById('git-commit-submit-btn');
-        const commitInput = document.getElementById('git-commit-msg-input');
-        if (commitSubmitBtn && commitInput) {
-            commitSubmitBtn.onclick = async (e) => {
-                e.stopPropagation();
-                const msg = commitInput.value.trim();
-                if (!msg) {
-                    alert('Please enter a commit message!');
-                    return;
-                }
-                const { exec } = require('child_process');
-                const cwd = window.currentPath || process.cwd();
-                
-                commitSubmitBtn.disabled = true;
-                commitSubmitBtn.innerText = 'COMMITTING...';
-                
-                exec(`git add -A && git commit -m "${msg.replace(/"/g, '\\"')}"`, { cwd }, (err, stdout, stderr) => {
-                    commitSubmitBtn.disabled = false;
-                    commitSubmitBtn.innerText = 'COMMIT CHANGES';
-                    if (err) {
-                        alert('Commit failed: ' + (stderr || stdout || err.message));
-                    } else {
-                        commitInput.value = '';
-                        refreshGitStatus();
-                        if (typeof window.loadDirectory === 'function') window.loadDirectory(cwd);
-                    }
-                });
-            };
-        }
     }
     if (toggleBtn && popover) {
         toggleBtn.onclick = (e) => {
@@ -2668,11 +2574,7 @@ function setupUI() {
             toggleBtn.style.background = '';
             toggleBtn.style.boxShadow = '';
             
-            if (gitPopover) {
-                gitPopover.style.display = 'none';
-                gitToggleBtn.style.color = '';
-                gitToggleBtn.style.background = '';
-            }
+
         });
     }
 

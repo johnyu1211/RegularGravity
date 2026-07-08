@@ -2687,8 +2687,11 @@ function setupUI() {
         popover.className = 'web-popover-window';
         
         popover.style.position = 'absolute';
-        popover.style.width = '600px';
-        popover.style.height = '450px';
+        const defaultWidth = isRightAligned ? 600 : 360;
+        const defaultHeight = isRightAligned ? 450 : 640;
+        popover.style.width = `${defaultWidth}px`;
+        popover.style.height = `${defaultHeight}px`;
+        popover.style.maxHeight = 'calc(100% - 60px)';
         popover.style.display = 'flex';
         popover.style.flexDirection = 'column';
         popover.style.background = 'rgba(12, 12, 14, 0.85)';
@@ -2920,12 +2923,18 @@ function setupUI() {
             const raw = localStorage.getItem('poormansgravity-shortcuts');
             if (raw) {
                 list = JSON.parse(raw);
+                // Ensure Instagram Reels is appended if missing (automatic migration)
+                if (!list.some(item => item.title === 'Instagram Reels')) {
+                    list.push({ title: 'Instagram Reels', url: 'https://www.instagram.com/reels/' });
+                    localStorage.setItem('poormansgravity-shortcuts', JSON.stringify(list));
+                }
             } else {
                 // Populate default shortcuts
                 list = [
                     { title: 'GitHub', url: 'https://github.com' },
                     { title: 'Gemini', url: 'https://gemini.google.com' },
-                    { title: 'YouTube', url: 'https://youtube.com' }
+                    { title: 'YouTube', url: 'https://youtube.com' },
+                    { title: 'Instagram Reels', url: 'https://www.instagram.com/reels/' }
                 ];
                 localStorage.setItem('poormansgravity-shortcuts', JSON.stringify(list));
             }

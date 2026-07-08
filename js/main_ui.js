@@ -1246,8 +1246,8 @@ async function setupBoot() {
                             ChatUI.appendBubble('system', '[SYSTEM] INITIALIZATION COMPLETE.');
                             
                             const startPrompt = window.dragDropMode 
-                                ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "파일명"] 형태로 즉시 답변하십시오.` 
-                                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.`;
+                                ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(예: package.json, index.html 등 진입점 파일)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
+                                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오.`;
 
                             const briefPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
 ${projectTree}
@@ -2074,8 +2074,8 @@ function setupUI() {
             window.userMessageCount = 0;
             
             const startPrompt = window.dragDropMode 
-                ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "파일명"] 형태로 즉시 답변하십시오.` 
-                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "파일명"] 형태로 즉시 답변하십시오.`;
+                ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(예: package.json, index.html 등 진입점 파일)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
+                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오.`;
             
             const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
 ${tree}

@@ -432,9 +432,21 @@ window.autoClickPendingQueueItems = async function() {
     window.autoClickingQueue = true;
     
     try {
+        const attemptCounts = {};
         let pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
         while (pendingItems.length > 0) {
             const item = pendingItems[0];
+            
+            const key = item.absolutePath;
+            attemptCounts[key] = (attemptCounts[key] || 0) + 1;
+            if (attemptCounts[key] > 5) {
+                console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 5 consecutive upload attempts.`);
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    ChatUI.appendBubble('system', `[SYSTEM] 업로드 실패 5회 초과로 자동 드래그가 중단되었습니다: ${item.relativePath}`);
+                }
+                break;
+            }
+            
             const listEl = document.getElementById('drag-drop-queue-list');
             if (!listEl) break;
             

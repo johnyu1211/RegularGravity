@@ -2938,9 +2938,25 @@ ${startPrompt}`.trim();
                     console.log("[HostConsole] Ignored host-injected payload:", userMsg);
                     return;
                 }
-                if (userMsg && typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    if (userMsg !== "[File Attachment]") {
-                        ChatUI.appendBubble('user', userMsg);
+                
+                let cleanUserMsg = userMsg;
+                if (cleanUserMsg.includes('[USER MESSAGE]')) {
+                    const idx = cleanUserMsg.indexOf('[USER MESSAGE]');
+                    cleanUserMsg = cleanUserMsg.substring(idx + 14).trim();
+                } else {
+                    const idxRules = cleanUserMsg.indexOf('[SYSTEM RULES]');
+                    if (idxRules !== -1) {
+                        cleanUserMsg = cleanUserMsg.substring(0, idxRules).trim();
+                    }
+                    const idxReminder = cleanUserMsg.indexOf('[REMINDER]');
+                    if (idxReminder !== -1) {
+                        cleanUserMsg = cleanUserMsg.substring(0, idxReminder).trim();
+                    }
+                }
+
+                if (cleanUserMsg && typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    if (cleanUserMsg !== "[File Attachment]") {
+                        ChatUI.appendBubble('user', cleanUserMsg);
                     }
                     
                     if (typeof runExperimentalEngine === 'function') {

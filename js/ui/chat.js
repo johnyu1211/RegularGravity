@@ -221,13 +221,12 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
         };
 
         try {
-            window.userMessageCount = (window.userMessageCount || 0) + 1;
-            let webPayload = promptText.trim();
+            if (typeof window.sessionTurnCount === 'undefined') window.sessionTurnCount = 0;
+            window.sessionTurnCount++;
             
-            if (window.userMessageCount % 5 === 0) {
-                const systemRulePrompt = typeof window.getSystemRulesPrompt === 'function' ? window.getSystemRulesPrompt() : '';
-                webPayload += systemRulePrompt;
-            }
+            let webPayload = promptText.trim();
+            const systemRulePrompt = typeof window.getSystemRulesPrompt === 'function' ? window.getSystemRulesPrompt() : '';
+            webPayload += systemRulePrompt;
             window.sessionBriefed = true;
 
             await injectWebPayload(webPayload, 0);

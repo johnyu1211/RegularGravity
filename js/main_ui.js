@@ -1849,132 +1849,135 @@ ${startPrompt}`.trim();
     const closeLocalDropZone = document.getElementById('close-local-drop-zone');
     
     if (localChatPanel && localDropZone) {
+        const preventDrag = (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        };
+        
         localChatPanel.addEventListener('dragenter', (e) => {
-            if (window.dragDropMode) {
-                e.preventDefault();
-                const dropText = document.getElementById('local-drop-zone-text');
-                if (dropText) {
-                    if (window.activeDragDropContinue && window.readCmds) {
-                        const fileNames = window.readCmds.map(f => {
-                            const parts = f.path.split(/[\\/]/);
-                            return parts[parts.length - 1];
-                        }).join(', ');
-                        dropText.innerHTML = `Drag and drop <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> here to proceed`;
-                    } else {
-                        dropText.innerHTML = `Drop file here to attach to conversation`;
-                    }
+            e.preventDefault();
+            const dropText = document.getElementById('local-drop-zone-text');
+            if (dropText) {
+                if (window.activeDragDropContinue && window.readCmds) {
+                    const fileNames = window.readCmds.map(f => {
+                        const parts = f.path.split(/[\\/]/);
+                        return parts[parts.length - 1];
+                    }).join(', ');
+                    dropText.innerHTML = `Drag and drop <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> here to proceed`;
+                } else {
+                    dropText.innerHTML = `Drop file here to attach to conversation`;
                 }
-                localDropZone.style.display = 'flex';
             }
+            localDropZone.style.display = 'flex';
         });
         localChatPanel.addEventListener('dragover', (e) => {
-            if (window.dragDropMode) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
-                localDropZone.style.display = 'flex';
-            }
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            localDropZone.style.display = 'flex';
         });
+        
+        localDropZone.addEventListener('dragenter', preventDrag);
+        localDropZone.addEventListener('dragover', preventDrag);
+        
         localChatPanel.addEventListener('dragleave', (e) => {
             if (e.relatedTarget && !localChatPanel.contains(e.relatedTarget)) {
                 localDropZone.style.display = 'none';
             }
         });
         localChatPanel.addEventListener('drop', async (e) => {
-            if (window.dragDropMode) {
-                e.preventDefault();
-                localDropZone.style.display = 'none';
-                
-                let filePath = '';
-                const internalPath = e.dataTransfer.getData('text/plain');
-                if (internalPath) {
-                    filePath = internalPath;
-                } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                    filePath = e.dataTransfer.files[0].path;
-                }
-                if (!filePath) return;
-                
-                console.log("[LocalChatPanel] Dropped file path:", filePath);
-                
-                const pathModule = require('path');
-                const droppedName = pathModule.basename(filePath).toLowerCase();
-                
-                if (window.activeDragDropContinue) {
-                    const requestedNames = (window.readCmds || []).map(f => {
-                        const parts = f.path.split(/[\\/]/);
-                        return parts[parts.length - 1].toLowerCase();
-                    });
-                    
-                    if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
-                        const { showAlert } = require('./ui/dialogs.js');
-                        if (typeof showAlert === 'function') {
-                            showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
-                        } else {
-                            alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
-                        }
-                        return;
-                    }
-                }
-                
-                // Simulate drop inside webview guest page!
-                const fs = require('fs');
-                try {
-                    const contentBuffer = fs.readFileSync(filePath);
-                    const filename = pathModule.basename(filePath);
-                    const base64Content = contentBuffer.toString('base64');
-                    
-                    const ext = filename.split('.').pop().toLowerCase();
-                    const mimeMap = {
-                        'js': 'text/javascript', 'json': 'application/json',
-                        'html': 'text/html', 'css': 'text/css',
-                        'txt': 'text/plain', 'md': 'text/markdown',
-                        'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                        'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
-                    };
-                    const mimeType = mimeMap[ext] || 'application/octet-stream';
-                    
-                    const wv = document.getElementById('active-agent-webview');
-                    if (wv) {
-                        wv.executeJavaScript(`
-                            (() => {
-                                const b64 = "${base64Content}";
-                                const name = "${filename}";
-                                const mime = "${mimeType}";
-                                
-                                const binary = atob(b64);
-                                const array = new Uint8Array(binary.length);
-                                for (let i = 0; i < binary.length; i++) {
-                                    array[i] = binary.charCodeAt(i);
-                                }
-                                const blob = new Blob([array], { type: mime });
-                                const file = new File([blob], name, { type: mime });
-                                
-                                const dt = new DataTransfer();
-                                dt.items.add(file);
-                                
-                                let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
-                                
-                                const options = { bubbles: true, cancelable: true, dataTransfer: dt };
-                                target.dispatchEvent(new DragEvent('dragenter', options));
-                                target.dispatchEvent(new DragEvent('dragover', options));
-                                target.dispatchEvent(new DragEvent('drop', options));
-                                
-                                console.log("[GuestDrop] Dispatched drop event for file:", name);
-                            })();
-                        `).catch(err => console.error("Failed to execute drop injection script:", err));
-                        
-                        if (!window.activeDragDropContinue) {
-                            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                                ChatUI.appendBubble('system', `[SYSTEM] File attached: ${filename}`);
-                            }
-                        }
-                    }
-                } catch (err) {
-                    console.error("Failed to process drop upload:", err);
-                }
-                
-                if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-                if (window.activeDragDropContinue) window.activeDragDropContinue();
+            e.preventDefault();
+            localDropZone.style.display = 'none';
+            
+            let filePath = '';
+            const internalPath = e.dataTransfer.getData('text/plain');
+            if (internalPath) {
+                filePath = internalPath;
+            } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                filePath = e.dataTransfer.files[0].path;
             }
+            if (!filePath) return;
+            
+            console.log("[LocalChatPanel] Dropped file path:", filePath);
+            
+            const pathModule = require('path');
+            const droppedName = pathModule.basename(filePath).toLowerCase();
+            
+            if (window.activeDragDropContinue) {
+                const requestedNames = (window.readCmds || []).map(f => {
+                    const parts = f.path.split(/[\\/]/);
+                    return parts[parts.length - 1].toLowerCase();
+                });
+                
+                if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
+                    const { showAlert } = require('./ui/dialogs.js');
+                    if (typeof showAlert === 'function') {
+                        showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                    } else {
+                        alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                    }
+                    return;
+                }
+            }
+            
+            // Simulate drop inside webview guest page!
+            const fs = require('fs');
+            try {
+                const contentBuffer = fs.readFileSync(filePath);
+                const filename = pathModule.basename(filePath);
+                const base64Content = contentBuffer.toString('base64');
+                
+                const ext = filename.split('.').pop().toLowerCase();
+                const mimeMap = {
+                    'js': 'text/javascript', 'json': 'application/json',
+                    'html': 'text/html', 'css': 'text/css',
+                    'txt': 'text/plain', 'md': 'text/markdown',
+                    'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                    'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
+                };
+                const mimeType = mimeMap[ext] || 'application/octet-stream';
+                
+                const wv = document.getElementById('active-agent-webview');
+                if (wv) {
+                    wv.executeJavaScript(`
+                        (() => {
+                            const b64 = "${base64Content}";
+                            const name = "${filename}";
+                            const mime = "${mimeType}";
+                            
+                            const binary = atob(b64);
+                            const array = new Uint8Array(binary.length);
+                            for (let i = 0; i < binary.length; i++) {
+                                array[i] = binary.charCodeAt(i);
+                            }
+                            const blob = new Blob([array], { type: mime });
+                            const file = new File([blob], name, { type: mime });
+                            
+                            const dt = new DataTransfer();
+                            dt.items.add(file);
+                            
+                            let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
+                            
+                            const options = { bubbles: true, cancelable: true, dataTransfer: dt };
+                            target.dispatchEvent(new DragEvent('dragenter', options));
+                            target.dispatchEvent(new DragEvent('dragover', options));
+                            target.dispatchEvent(new DragEvent('drop', options));
+                            
+                            console.log("[GuestDrop] Dispatched drop event for file:", name);
+                        })();
+                    `).catch(err => console.error("Failed to execute drop injection script:", err));
+                    
+                    if (!window.activeDragDropContinue) {
+                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                            ChatUI.appendBubble('system', `[SYSTEM] File attached: ${filename}`);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to process drop upload:", err);
+            }
+            
+            if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+            if (window.activeDragDropContinue) window.activeDragDropContinue();
         });
     }
     

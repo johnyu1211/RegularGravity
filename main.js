@@ -6,18 +6,26 @@ const http = require('http');
 const crypto = require('crypto');
 
 let watcher = null;
+let currentLogsPath = null;
+let currentKnowledgePath = null;
 
 function setupFileWatcher(projectPath) {
-    if (watcher) watcher.close();
+    if (watcher) {
+        try { watcher.close(); } catch(e) {}
+    }
     if (!fs.existsSync(projectPath)) return;
-    watcher = fs.watch(projectPath, { recursive: true }, (eventType, filename) => {
-        if (filename && !filename.includes('node_modules') && !filename.includes('.git') && !filename.includes('gravity_vault')) {
-            if (mainWindow) mainWindow.webContents.send('refresh-explorer');
-        }
-    });
+    try {
+        watcher = fs.watch(projectPath, { recursive: true }, (eventType, filename) => {
+            if (filename && !filename.includes('node_modules') && !filename.includes('.git') && !filename.includes('gravity_vault') && !filename.startsWith('_project_')) {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('refresh-explorer');
+                }
+            }
+        });
+    } catch(err) {
+        console.error("setupFileWatcher error:", err);
+    }
 }
-
-let currentLogsPath = null;
 
 const getProjectHash = () => {
     return crypto.createHash('md5').update(process.cwd()).digest('hex');
@@ -106,7 +114,7 @@ ipcMain.handle('vault-get-tree', async (event, projectPath) => {
             return;
         }
         items.forEach(item => {
-            if (ignore.includes(item) || item.startsWith('_project_rules_')) return;
+            if (ignore.includes(item) || item.startsWith('_project_')) return;
             const fullPath = path.join(dir, item);
             try {
                 const stats = fs.statSync(fullPath);

@@ -2670,9 +2670,6 @@ function setupUI() {
                 relativePath: '_project_rules.md',
                 status: 'PENDING'
             }];
-            if (typeof window.updateDragDropQueueUI === 'function') {
-                window.updateDragDropQueueUI();
-            }
 
             const cleanupDragDrop = () => {
                 if (window.activeDragDropCleanup === cleanupDragDrop) {
@@ -2733,6 +2730,12 @@ function setupUI() {
             window.sessionBriefed = true;
             window.briefingInProgress = false;
             window.currentBatchFileCount = 0;
+
+            setTimeout(() => {
+                if (typeof window.updateDragDropQueueUI === 'function') {
+                    window.updateDragDropQueueUI();
+                }
+            }, 600);
         };
 
         chatOverlay.appendChild(projBtn);

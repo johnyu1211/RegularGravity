@@ -339,16 +339,16 @@ window.reloadAgentSettings = function() {
         if (_fs.existsSync(p)) {
             const settings = JSON.parse(_fs.readFileSync(p, 'utf-8'));
             window.autoContinueOnRead = true;
-            window.hideUIOverlay = !!settings.hideUIOverlay;
+            window.hideUIOverlay = settings.hasOwnProperty('hideUIOverlay') ? !!settings.hideUIOverlay : true;
             window.debugMode = !!settings.debugMode;
-            window.dragDropMode = !!settings.dragDropMode;
+            window.dragDropMode = settings.hasOwnProperty('dragDropMode') ? !!settings.dragDropMode : true;
             return;
         }
     } catch(e) {}
     window.autoContinueOnRead = true;
-    window.hideUIOverlay = false;
+    window.hideUIOverlay = true;
     window.debugMode = false;
-    window.dragDropMode = false;
+    window.dragDropMode = true;
 };
 
 window.fetchDirContent = async (p) => await ipcRenderer.invoke('get-directory-content', p);
@@ -1638,34 +1638,15 @@ function setupUI() {
     const localSettingsBtn = document.getElementById('btn-local-settings');
     const localSettingsModal = document.getElementById('local-settings-modal');
     const closeLocalSettings = document.getElementById('close-local-settings');
-    const saveLocalSettings = document.getElementById('save-local-settings');
-    const chkDebugMode = document.getElementById('chk-debug-mode');
-    const chkDragDropMode = document.getElementById('chk-drag-drop-mode');
 
     if (localSettingsBtn && localSettingsModal) {
         localSettingsBtn.onclick = () => {
             window.reloadAgentSettings(); 
-            if (chkDebugMode) chkDebugMode.checked = window.debugMode;
-            if (chkDragDropMode) chkDragDropMode.checked = window.dragDropMode;
             localSettingsModal.style.display = 'flex';
         };
     }
     if (closeLocalSettings && localSettingsModal) {
         closeLocalSettings.onclick = () => {
-            localSettingsModal.style.display = 'none';
-        };
-    }
-    if (saveLocalSettings && localSettingsModal) {
-        saveLocalSettings.onclick = () => {
-            if (chkDebugMode || chkDragDropMode) {
-                const current = loadSettings();
-                current.autoContinueOnRead = true;
-                current.hideUIOverlay = true;
-                if (chkDebugMode) current.debugMode = chkDebugMode.checked;
-                if (chkDragDropMode) current.dragDropMode = chkDragDropMode.checked;
-                saveSettings(current);
-                window.reloadAgentSettings(); 
-            }
             localSettingsModal.style.display = 'none';
         };
     }

@@ -281,6 +281,12 @@ window.updateDragDropQueueUI = function() {
     const countEl = document.getElementById('requested-files-count');
     if (!listEl) return;
     
+    const warningEl = document.getElementById('drag-drop-queue-warning');
+    if (warningEl) {
+        warningEl.innerHTML = `⚠️ 자동 업로드 진행 중에는 마우스를 움직이지 마세요.`;
+        warningEl.style.color = `var(--error)`;
+    }
+    
     // Toggle container display based on dragDropMode and presence of items in the queue
     const hasItems = window.requestedFilesQueue.length > 0;
     if (containerEl) {
@@ -441,8 +447,10 @@ window.autoClickPendingQueueItems = async function() {
             attemptCounts[key] = (attemptCounts[key] || 0) + 1;
             if (attemptCounts[key] > 5) {
                 console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 5 consecutive upload attempts.`);
-                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    ChatUI.appendBubble('system', `[SYSTEM] 업로드 실패 5회 초과로 자동 드래그가 중단되었습니다: ${item.relativePath}`);
+                const warningEl = document.getElementById('drag-drop-queue-warning');
+                if (warningEl) {
+                    warningEl.innerHTML = `❌ 실패 5회 초과로 자동 드래그 중단: ${item.relativePath}`;
+                    warningEl.style.color = '#ff4444';
                 }
                 break;
             }

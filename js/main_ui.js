@@ -829,6 +829,7 @@ function detectAndAskCommand(text) {
         const editRangeMatch = cmd.match(/^edit-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
         const editMatch = cmd.match(/^edit-file\s+["']?([^"'\s]+)["']?$/i);
         const deleteMatch = cmd.match(/^delete-file\s+["']?([^"'\s]+)["']?$/i);
+        const createDirMatch = cmd.match(/^create-dir\s+["']?([^"\'\s]+)["']?$/i);
 
         const fs = require('fs');
         const path = require('path');

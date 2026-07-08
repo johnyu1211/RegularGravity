@@ -1500,6 +1500,21 @@ ${startPrompt}`.trim();
                 const userMsg = e.message.substring(21).trim();
                 if (userMsg && typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
                     ChatUI.appendBubble('user', userMsg);
+                    
+                    if (typeof runExperimentalEngine === 'function') {
+                        setTimeout(() => {
+                            runExperimentalEngine('/marktag', "", null).then(response => {
+                                if (response) {
+                                    if (typeof window.finalizeAiBubble === 'function') {
+                                        window.finalizeAiBubble(response);
+                                    }
+                                    if (typeof detectAndAskCommand === 'function') {
+                                        detectAndAskCommand(response);
+                                    }
+                                }
+                            }).catch(err => console.error("Error in manual response monitoring:", err));
+                        }, 50);
+                    }
                 }
                 return;
             }

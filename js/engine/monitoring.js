@@ -260,7 +260,17 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         }
 
         if (typeof window.showInputLoading === 'function' && !manualAbort) {
-            window.showInputLoading(text);
+            const isTyping = text.toLowerCase().includes('typing') || 
+                             text.toLowerCase().includes('started') || 
+                             text.toLowerCase().includes('responding') || 
+                             text.toLowerCase().includes('complete');
+            if (isTyping) {
+                if (typeof window.hideInputLoading === 'function') {
+                    window.hideInputLoading();
+                }
+            } else {
+                window.showInputLoading(text);
+            }
         }
     };
 

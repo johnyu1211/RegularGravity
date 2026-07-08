@@ -3987,9 +3987,9 @@ window.triggerSessionReset = async () => {
 이전 작업 진행 상황을 인계하니, 규칙과 도구 규격을 준수하여 계속해서 다음 작업을 진행하십시오.
 
 1. 수정 및 추가된 로컬 파일 목록 (Git Status):
-\\\`\\\`\\\`
+\`\`\`
 ${gitStatus || "No modified files"}
-\\\`\\\`\\\`
+\`\`\`
 
 2. 현재 프로젝트 전체 폴더/파일 구조:
 ${treeStr}

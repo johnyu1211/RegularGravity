@@ -833,40 +833,47 @@ function detectAndAskCommand(text) {
             let hasValidMarkers = false;
             if (cmdIdx !== -1) {
                 const subText = text.substring(cmdIdx);
-                const parsedBlocks = window.parseSearchReplaceBlocks(subText);
+                const parsedBlocks = window.parseSearchReplaceBlocks(subText, filePath);
                 if (parsedBlocks.length > 0) {
-                    searchVal = parsedBlocks[0].search;
-                    replaceVal = parsedBlocks[0].replace;
-                    hasValidMarkers = true;
-                } else {
-                    const sMarker = "<<<<<<<";
-                    const rMarker = ">>>>>>>";
-                    const sIdx = subText.indexOf(sMarker);
-                    const rIdx = subText.indexOf(rMarker);
-                    if (sIdx !== -1 && rIdx !== -1 && sIdx < rIdx) {
-                        const rawBlock = subText.substring(sIdx + sMarker.length, rIdx).trim();
-                        try {
-                            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-                            if (fs.existsSync(targetPath)) {
-                                const fileContent = fs.readFileSync(targetPath, 'utf-8').replace(/\r/g, '');
-                                const fileContentNorm = fileContent.replace(/\s+/g, '');
-                                
-                                const lines = rawBlock.split(/\r?\n/);
-                                for (let k = lines.length - 1; k >= 1; k--) {
-                                    const searchCand = lines.slice(0, k).join('\n').trim();
-                                    const replaceCand = lines.slice(k).join('\n').trim();
+                    const block = parsedBlocks[0];
+                    if (block.hasDivider) {
+                        searchVal = block.search;
+                        replaceVal = block.replace;
+                        hasValidMarkers = true;
+                    } else if (block.search && block.replace) {
+                        searchVal = block.search;
+                        replaceVal = block.replace;
+                        hasValidMarkers = true;
+                    } else {
+                        const sMarker = "<<<<<<<";
+                        const rMarker = ">>>>>>>";
+                        const sIdx = subText.indexOf(sMarker);
+                        const rIdx = subText.indexOf(rMarker);
+                        if (sIdx !== -1 && rIdx !== -1 && sIdx < rIdx) {
+                            const rawBlock = subText.substring(sIdx + sMarker.length, rIdx).trim();
+                            try {
+                                const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+                                if (fs.existsSync(targetPath)) {
+                                    const fileContent = fs.readFileSync(targetPath, 'utf-8').replace(/\r/g, '');
+                                    const fileContentNorm = fileContent.replace(/\s+/g, '');
                                     
-                                    const searchCandNorm = searchCand.replace(/\s+/g, '');
-                                    if (searchCandNorm && fileContentNorm.includes(searchCandNorm)) {
-                                        searchVal = searchCand;
-                                        replaceVal = replaceCand;
-                                        hasValidMarkers = true;
-                                        break;
+                                    const lines = rawBlock.split(/\r?\n/);
+                                    for (let k = lines.length - 1; k >= 1; k--) {
+                                        const searchCand = lines.slice(0, k).join('\n').trim();
+                                        const replaceCand = lines.slice(k).join('\n').trim();
+                                        
+                                        const searchCandNorm = searchCand.replace(/\s+/g, '');
+                                        if (searchCandNorm && fileContentNorm.includes(searchCandNorm)) {
+                                            searchVal = searchCand;
+                                            replaceVal = replaceCand;
+                                            hasValidMarkers = true;
+                                            break;
+                                        }
                                     }
                                 }
+                            } catch (err) {
+                                console.error("Resilient parser error:", err);
                             }
-                        } catch (err) {
-                            console.error("Resilient parser error:", err);
                         }
                     }
                 }
@@ -1792,12 +1799,12 @@ ${startPrompt}`.trim();
             }
         };
 
-        window.parseSearchReplaceBlocks = (text) => {
+        window.parseSearchReplaceBlocks = (text, filePath = null) => {
             if (!text) return [];
             const blocks = [];
             const sRegex = /(?:<<<<<<<|< < < < < < <)/g;
             const mRegex = /(?:=======|= = = = = = =)/g;
-            const rRegex = /(?:>>>>>>>|> > > > > > >)/g;
+            const rRegex = /(?:>>>>>>>|> > > > > > >|REPLACE)/gi;
             
             let pos = 0;
             while (true) {
@@ -1807,19 +1814,10 @@ ${startPrompt}`.trim();
                 const sIdx = sMatch.index;
                 const sLen = sMatch[0].length;
                 
-                mRegex.lastIndex = sIdx + sLen;
-                const mMatch = mRegex.exec(text);
-                if (!mMatch) {
-                    pos = sIdx + sLen;
-                    continue;
-                }
-                const mIdx = mMatch.index;
-                const mLen = mMatch[0].length;
-                
-                rRegex.lastIndex = mIdx + mLen;
+                rRegex.lastIndex = sIdx + sLen;
                 const rMatch = rRegex.exec(text);
                 if (!rMatch) {
-                    pos = mIdx + mLen;
+                    pos = sIdx + sLen;
                     continue;
                 }
                 const rIdx = rMatch.index;
@@ -1827,19 +1825,87 @@ ${startPrompt}`.trim();
                 
                 sRegex.lastIndex = sIdx + sLen;
                 const nextSMatch = sRegex.exec(text);
-                if (nextSMatch && nextSMatch.index < mIdx) {
+                if (nextSMatch && nextSMatch.index < rIdx) {
                     pos = nextSMatch.index;
                     continue;
                 }
                 
-                let searchVal = text.substring(sIdx + sLen, mIdx).trim();
-                if (searchVal.toUpperCase().startsWith("SEARCH")) {
-                    searchVal = searchVal.substring(6).trim();
+                let rawBlock = text.substring(sIdx + sLen, rIdx).trim();
+                if (rawBlock.toUpperCase().startsWith("SEARCH")) {
+                    rawBlock = rawBlock.substring(6).trim();
                 }
                 
-                let replaceVal = text.substring(mIdx + mLen, rIdx).trim();
-                if (replaceVal.toUpperCase().startsWith("REPLACE")) {
-                    replaceVal = replaceVal.substring(7).trim();
+                let searchVal = "";
+                let replaceVal = "";
+                let hasDivider = false;
+                
+                mRegex.lastIndex = sIdx + sLen;
+                const mMatch = mRegex.exec(text);
+                if (mMatch && mMatch.index < rIdx) {
+                    const mIdx = mMatch.index;
+                    const mLen = mMatch[0].length;
+                    
+                    searchVal = text.substring(sIdx + sLen, mIdx).trim();
+                    if (searchVal.toUpperCase().startsWith("SEARCH")) {
+                        searchVal = searchVal.substring(6).trim();
+                    }
+                    
+                    replaceVal = text.substring(mIdx + mLen, rIdx).trim();
+                    if (replaceVal.toUpperCase().startsWith("REPLACE")) {
+                        replaceVal = replaceVal.substring(7).trim();
+                    }
+                    hasDivider = true;
+                } else {
+                    let fuzzySplitSuccess = false;
+                    if (filePath) {
+                        try {
+                            const fs = require('fs');
+                            const path = require('path');
+                            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+                            if (fs.existsSync(targetPath)) {
+                                const fileContent = fs.readFileSync(targetPath, 'utf-8').replace(/\r/g, '');
+                                const fileLines = fileContent.split('\n').map(l => l.trim().toLowerCase().replace(/[^a-z0-9ㄱ-ㅎㅏ-ㅣ가-힣]/g, ''));
+                                
+                                const blockLines = rawBlock.split('\n');
+                                let splitIdx = blockLines.length;
+                                
+                                for (let i = 0; i < blockLines.length; i++) {
+                                    const line = blockLines[i].trim();
+                                    if (line === "") continue;
+                                    
+                                    const lineNorm = line.toLowerCase().replace(/[^a-z0-9ㄱ-ㅎㅏ-ㅣ가-힣]/g, '');
+                                    const hasMatch = fileLines.some(fl => {
+                                        if (fl === "" && lineNorm === "") return true;
+                                        if (fl.includes(lineNorm) || lineNorm.includes(fl)) return true;
+                                        if (fl.length > 5 && lineNorm.length > 5) {
+                                            let common = 0;
+                                            for (let c of lineNorm) {
+                                                if (fl.includes(c)) common++;
+                                            }
+                                            if (common / Math.max(fl.length, lineNorm.length) >= 0.7) return true;
+                                        }
+                                        return false;
+                                    });
+                                    
+                                    if (!hasMatch) {
+                                        splitIdx = i;
+                                        break;
+                                    }
+                                }
+                                
+                                searchVal = blockLines.slice(0, splitIdx).join('\n').trim();
+                                replaceVal = blockLines.slice(splitIdx).join('\n').trim();
+                                fuzzySplitSuccess = true;
+                            }
+                        } catch (err) {
+                            console.error("parseSearchReplaceBlocks resilient fallback error:", err);
+                        }
+                    }
+                    
+                    if (!fuzzySplitSuccess) {
+                        searchVal = rawBlock;
+                        replaceVal = "";
+                    }
                 }
                 
                 const stripFences = (str) => {
@@ -1853,7 +1919,9 @@ ${startPrompt}`.trim();
                 blocks.push({
                     fullMatch: text.substring(sIdx, rIdx + rLen),
                     search: stripFences(searchVal),
-                    replace: stripFences(replaceVal)
+                    replace: stripFences(replaceVal),
+                    hasDivider: hasDivider,
+                    rawBlock: stripFences(rawBlock)
                 });
                 
                 pos = rIdx + rLen;
@@ -1872,7 +1940,10 @@ ${startPrompt}`.trim();
             };
 
             let formatted = text;
-            const parsedBlocks = window.parseSearchReplaceBlocks(text);
+            const editMatch = text.match(/\[CMD:\s*edit-file\s+["']?([^"'\s\]]+)["']?\]/i);
+            const filePath = editMatch ? editMatch[1].trim() : null;
+            
+            const parsedBlocks = window.parseSearchReplaceBlocks(text, filePath);
             parsedBlocks.forEach(block => {
                 const cardHtml = `<div class="search-replace-block" style="border: 1px solid var(--border-color); background: #0c0c0e; border-radius: 6px; overflow: hidden; margin: 12px 0; font-family: 'DM Sans', sans-serif;">
     <div style="padding: 6px 12px; background: rgba(239, 68, 68, 0.08); border-bottom: 1px solid rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: space-between;">

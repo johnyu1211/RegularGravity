@@ -2040,7 +2040,6 @@ ${startPrompt}`.trim();
         <span style="font-size: 10px; font-weight: 700; color: #ef4444; letter-spacing: 0.08em; text-transform: uppercase;">Original (Search)</span>
     </div>
     <pre style="margin: 0; padding: 12px; background: #09090b !important; border: none !important; border-radius: 0 !important; color: #f87171 !important; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(block.search)}</pre>
-    
     <div style="padding: 6px 12px; background: rgba(16, 185, 129, 0.08); border-top: 1px solid rgba(16, 185, 129, 0.15); border-bottom: 1px solid rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: space-between;">
         <span style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.08em; text-transform: uppercase;">Replacement (Replace)</span>
     </div>

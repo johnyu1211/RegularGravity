@@ -39,6 +39,9 @@ async function executeWriteFileBatch(writeCmds) {
             document.getElementById('tab-local-agent')?.click();
         }
         if (response) {
+            if (typeof window.finalizeAiBubble === 'function') {
+                window.finalizeAiBubble(response);
+            }
             detectAndAskCommand(response);
         }
     } catch (err) {
@@ -262,6 +265,9 @@ async function executeEditFileBatch(editCmds) {
             document.getElementById('tab-local-agent')?.click();
         }
         if (response) {
+            if (typeof window.finalizeAiBubble === 'function') {
+                window.finalizeAiBubble(response);
+            }
             detectAndAskCommand(response);
         }
     } catch (err) {

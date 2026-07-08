@@ -250,6 +250,17 @@ window.injectGuestDropInterceptor = function() {
     `).catch(err => console.error("Failed to inject guest drop interceptor:", err));
 };
 
+window.toggleBackdropBlur = function(show) {
+    const vLC = document.getElementById('inspector-local-chat');
+    if (vLC) {
+        if (show) {
+            vLC.classList.add('modal-backdrop-blur');
+        } else {
+            vLC.classList.remove('modal-backdrop-blur');
+        }
+    }
+};
+
 window.updateDragDropQueueUI = function() {
     const containerEl = document.getElementById('drag-drop-queue-container');
     const listEl = document.getElementById('drag-drop-queue-list');
@@ -261,8 +272,10 @@ window.updateDragDropQueueUI = function() {
     if (containerEl) {
         if (window.dragDropMode && hasItems) {
             containerEl.style.display = 'flex';
+            window.toggleBackdropBlur(true);
         } else {
             containerEl.style.display = 'none';
+            window.toggleBackdropBlur(false);
         }
     }
     
@@ -270,6 +283,7 @@ window.updateDragDropQueueUI = function() {
     if (closeBtn && containerEl) {
         closeBtn.onclick = () => {
             containerEl.style.display = 'none';
+            window.toggleBackdropBlur(false);
         };
     }
     

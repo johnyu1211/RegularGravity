@@ -1270,7 +1270,11 @@ input:checked + .slider:before {
 }
 
 #inspector-local-chat {
-    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s ease !important;
+}
+#inspector-local-chat.modal-backdrop-blur {
+    filter: blur(8px) brightness(0.4) !important;
+    pointer-events: none !important;
 }
 
 /* Premium Markdown Table Styles in ChatCover */

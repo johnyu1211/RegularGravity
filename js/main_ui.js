@@ -798,18 +798,6 @@ async function setupBoot() {
                             [class*="disclaimer"], [class*="legal"], [class*="bottom-text"], [class*="footer"], .disclaimer {
                                 display: none !important;
                             }
-                            .input-area-container, [class*="composer-parent"], [class*="PromptTextarea"], [class*="input-container"], [class*="input_container"] {
-                                padding-top: 10px !important;
-                                padding-bottom: 10px !important;
-                                margin-top: 0px !important;
-                                margin-bottom: 0px !important;
-                            }
-                            .input-area {
-                                margin-top: 0px !important;
-                                margin-bottom: 0px !important;
-                                padding-top: 0px !important;
-                                padding-bottom: 0px !important;
-                            }
                         \`;
                         document.head.appendChild(style);
                     }
@@ -817,6 +805,11 @@ async function setupBoot() {
                     const getInputAreaHeight = () => {
                         let input = document.querySelector('textarea, [contenteditable="true"]');
                         if (!input) return 220;
+                        
+                        let capsule = document.querySelector('.input-area, [class*="PromptTextarea"]');
+                        if (!capsule) {
+                            capsule = input;
+                        }
                         
                         let container = input;
                         while (container && container !== document.body) {
@@ -836,8 +829,15 @@ async function setupBoot() {
                             container = input.parentElement;
                         }
                         
-                        const rect = container.getBoundingClientRect();
-                        return Math.ceil(rect.height);
+                        const capRect = capsule.getBoundingClientRect();
+                        const bottomSpace = Math.max(0, window.innerHeight - capRect.bottom);
+                        
+                        // Symmetrize top padding to match bottom space!
+                        container.style.paddingTop = bottomSpace + 'px';
+                        container.style.marginTop = '0px';
+                        container.style.marginBottom = '0px';
+                        
+                        return Math.ceil(capRect.height + bottomSpace * 2);
                     };
                     
                     let lastHeight = 0;

@@ -147,7 +147,7 @@
             <div id="editor-content" style="flex: 1; height: 100%; position: relative; overflow: hidden;"></div>
 
             <!-- Editor Bottom Status Bar (Taskbar-like) -->
-            <div id="editor-status-bar" style="height: 44px; min-height: 44px; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid var(--border-color); z-index: 100; box-sizing: border-box; display: flex; align-items: center; padding-right: 110px; overflow: hidden; justify-content: flex-start;">
+            <div id="editor-status-bar" style="height: 44px; min-height: 44px; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid var(--border-color); z-index: 100; box-sizing: border-box; display: flex; align-items: center; padding-right: 155px; overflow: hidden; justify-content: flex-start;">
                 <!-- Horizontal scrollable flex container for shortcuts -->
                 <div id="status-bar-shortcuts-list" style="display: flex; align-items: center; gap: 8px; overflow-x: auto; white-space: nowrap; height: 100%; flex: 1; padding: 0 12px; box-sizing: border-box; -ms-overflow-style: none; scrollbar-width: none;">
                     <!-- Pills will be rendered dynamically here -->
@@ -155,6 +155,14 @@
             </div>
 
             <!-- Floating GitHub Popover Trigger -->
+            <!-- Floating Gemini Usage Shortcut -->
+            <div id="gemini-usage-toggle-btn" title="Google Gemini Usage" style="position: absolute; right: 101px; bottom: 5px; z-index: 1001; width: 34px; height: 34px; border-radius: 50%; background: rgba(22, 22, 28, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.75;">
+                <img src="https://www.google.com/s2/favicons?domain=gemini.google.com&sz=32" style="width: 16px; height: 16px; border-radius: 2px;">
+            </div>
+
+            <!-- Vertical Divider to separate left and right taskbars -->
+            <div style="position: absolute; right: 145px; bottom: 10px; height: 24px; width: 1px; background: var(--border-color); z-index: 1001;"></div>
+
             <div id="git-toggle-btn" title="Toggle GitHub Git Integration" style="position: absolute; right: 58px; bottom: 5px; z-index: 1001; width: 34px; height: 34px; border-radius: 50%; background: rgba(22, 22, 28, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(255, 255, 255, 0.55); box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.75;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
             </div>

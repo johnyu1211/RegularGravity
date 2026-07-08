@@ -1464,3 +1464,10 @@ input:checked + .slider:before {
     color: #fff;
     border-color: rgba(255, 255, 255, 0.15);
 }
+
+/* Gemini Usage Button Hover */
+#gemini-usage-toggle-btn:hover {
+    opacity: 1;
+    background: rgba(30, 30, 38, 0.9) !important;
+    border-color: rgba(255, 255, 255, 0.25);
+}

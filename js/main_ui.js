@@ -2523,11 +2523,27 @@ function setupUI() {
     const gitToggleBtn = document.getElementById('git-toggle-btn');
     const gitPopover = document.getElementById('git-popover');
     const gitWebview = document.getElementById('git-webview');
+    const geminiUsageToggleBtn = document.getElementById('gemini-usage-toggle-btn');
     
     if (gitToggleBtn && gitPopover && gitWebview) {
+        // Helper to reset both button highlights
+        const deactiveRightShortcuts = () => {
+            if (gitToggleBtn) {
+                gitToggleBtn.style.color = '';
+                gitToggleBtn.style.background = '';
+            }
+            if (geminiUsageToggleBtn) {
+                geminiUsageToggleBtn.style.background = '';
+                geminiUsageToggleBtn.style.borderColor = '';
+            }
+        };
+
         gitToggleBtn.onclick = (e) => {
             e.stopPropagation();
-            if (gitPopover.style.display === 'none' || !gitPopover.style.display) {
+            const isClosed = (gitPopover.style.display === 'none' || !gitPopover.style.display);
+            const isNotGitHub = !gitWebview.src.includes('github.com');
+
+            if (isClosed || isNotGitHub) {
                 // Close terminal popover
                 const termPopover = document.getElementById('terminal-popover');
                 if (termPopover) {
@@ -2539,19 +2555,54 @@ function setupUI() {
                     }
                 }
                 
+                deactiveRightShortcuts();
                 gitPopover.style.display = 'flex';
                 gitToggleBtn.style.color = '#fff';
                 gitToggleBtn.style.background = 'var(--primary)';
-                
-                // Load URL if it's blank or not loaded yet
-                if (gitWebview.src === 'about:blank' || gitWebview.getAttribute('src') === 'about:blank') {
-                    gitWebview.src = 'https://github.com';
-                }
+                gitWebview.src = 'https://github.com';
             } else {
                 gitPopover.style.display = 'none';
-                gitToggleBtn.style.color = '';
-                gitToggleBtn.style.background = '';
+                deactiveRightShortcuts();
             }
+        };
+
+        if (geminiUsageToggleBtn) {
+            geminiUsageToggleBtn.onclick = (e) => {
+                e.stopPropagation();
+                const geminiUrl = 'https://gemini.google.com/usage?is_sa=1&is_sa=1&android-min-version=301356232&ios-min-version=322.0&campaign_id=bkws&utm_source=sem&utm_source=google&utm_medium=paid-media&utm_medium=cpc&utm_campaign=bkws&utm_campaign=2024koKR_gemfeb&pt=9008&mt=8&ct=p-growth-sem-bkws&gclsrc=aw.ds&gad_source=1&gad_campaignid=21109724830&gbraid=0AAAAApk5BhkxRciAUYxl8rW7UfQty0YgK&gclid=Cj0KCQiA6NTJBhDEARIsAB7QHD2o-8jsNlWaXTVpCPiRu6ZoBApTX1dwLv0FefL3sBu-hExJeoJIrJgaAuqlEALw_wcB';
+                const isClosed = (gitPopover.style.display === 'none' || !gitPopover.style.display);
+                const isNotGeminiUsage = !gitWebview.src.includes('gemini.google.com/usage');
+
+                if (isClosed || isNotGeminiUsage) {
+                    // Close terminal popover
+                    const termPopover = document.getElementById('terminal-popover');
+                    if (termPopover) {
+                        termPopover.style.display = 'none';
+                        if (toggleBtn) {
+                            toggleBtn.style.color = '';
+                            toggleBtn.style.background = '';
+                            toggleBtn.style.boxShadow = '';
+                        }
+                    }
+
+                    deactiveRightShortcuts();
+                    gitPopover.style.display = 'flex';
+                    geminiUsageToggleBtn.style.background = 'var(--primary)';
+                    geminiUsageToggleBtn.style.borderColor = 'var(--primary)';
+                    gitWebview.src = geminiUrl;
+                } else {
+                    gitPopover.style.display = 'none';
+                    deactiveRightShortcuts();
+                }
+            };
+        }
+
+        // Handle minimize hook to clear both highlights
+        const originalMinimize = document.getElementById('git-wv-minimize').onclick;
+        document.getElementById('git-wv-minimize').onclick = (e) => {
+            e.stopPropagation();
+            gitPopover.style.display = 'none';
+            deactiveRightShortcuts();
         };
         
         gitPopover.onclick = (e) => { e.stopPropagation(); };

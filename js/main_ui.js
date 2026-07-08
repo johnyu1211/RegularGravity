@@ -409,6 +409,9 @@ function detectAndAskCommand(text) {
         const type = match[1].toUpperCase();
         const cleanCmd = match[2].trim();
         if (cleanCmd) {
+            if (cleanCmd === '...' || cleanCmd.includes('...')) continue;
+            if (cleanCmd.includes('경로') || cleanCmd.includes('path') || cleanCmd.includes('요청')) continue;
+            
             // Filter REQUEST: read-file if dragDropMode is OFF
             if (type === 'REQUEST' && !window.dragDropMode) continue;
             foundCmds.push(cleanCmd);
@@ -445,18 +448,30 @@ function detectAndAskCommand(text) {
         const searchFileMatch = cmd.match(/^search-file\s+["']?([^"'\s]+)["']?\s+["']?([^"']+)["']?$/i);
         const searchAllMatch = cmd.match(/^search-all\s+["']?([^"']+)["']?$/i);
 
+        const fs = require('fs');
+        const path = require('path');
+
         if (rangeMatch) {
             const filePath = rangeMatch[1].trim();
-            readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]) });
-            if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
+            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+            if (fs.existsSync(targetPath)) {
+                readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]) });
+                if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
+            }
         } else if (fileFullMatch) {
             const filePath = fileFullMatch[1].trim();
-            readCmds.push({ path: filePath, full: true });
-            if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
+            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+            if (fs.existsSync(targetPath)) {
+                readCmds.push({ path: filePath, full: true });
+                if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
+            }
         } else if (fileMatch) {
             const filePath = fileMatch[1].trim();
-            readCmds.push({ path: filePath, full: false });
-            if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
+            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+            if (fs.existsSync(targetPath)) {
+                readCmds.push({ path: filePath, full: false });
+                if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
+            }
         } else if (writeMatch) {
             const filePath = writeMatch[1].trim();
             const cmdIdx = text.indexOf(rawCmd);

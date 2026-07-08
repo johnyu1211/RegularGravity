@@ -1289,15 +1289,9 @@ ${startPrompt}`.trim();
         }
 
         window.showInputLoading = (text = "Processing...") => {
+            // Completely disabled overlay display during thinking/typing to keep chat screen clean and fully visible
             const overlay = document.getElementById('local-chat-overlay');
-            if (!overlay) return;
-            overlay.style.display = 'flex';
-            overlay.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px; color: #fff; font-size: 12px; font-weight: 500; font-family: 'DM Sans', sans-serif;">
-                    <div class="spinner-small" style="width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s infinite linear;"></div>
-                    <span>${text}</span>
-                </div>
-            `;
+            if (overlay) overlay.style.display = 'none';
         };
         window.hideInputLoading = () => {
             const overlay = document.getElementById('local-chat-overlay');

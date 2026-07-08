@@ -369,3 +369,63 @@ async function executeEditFileRangeBatch(editCmds) {
     }
 }
 
+async function executeDeleteFileBatch(deleteCmds) {
+    try {
+        window.lastInjectedBubble = null;
+        window.lastReceivedMirrorText = "";
+
+        const fs = require('fs');
+        const path = require('path');
+
+        let feedbackContent = "";
+        deleteCmds.forEach(fileObj => {
+            const filePath = fileObj.path;
+            const targetPath = path.resolve(window.currentPath, filePath);
+            
+            try {
+                if (!fs.existsSync(targetPath)) {
+                    feedbackContent += `[FILE DELETE SUCCESS: ${filePath} - File already gone]\n`;
+                    ChatUI.appendBubble('system', `[SUCCESS] Deleted ${filePath} (Already gone).`);
+                    return;
+                }
+                
+                const stat = fs.statSync(targetPath);
+                if (stat.isDirectory()) {
+                    fs.rmSync(targetPath, { recursive: true, force: true });
+                } else {
+                    fs.unlinkSync(targetPath);
+                }
+                
+                feedbackContent += `[FILE DELETE SUCCESS: ${filePath}]\n`;
+                ChatUI.appendBubble('system', `[SUCCESS] Deleted ${filePath} successfully.`);
+            } catch (err) {
+                feedbackContent += `[FILE DELETE ERROR: ${filePath} - ${err.message}]\n`;
+                ChatUI.appendBubble('system', `[ERROR] Failed to delete ${filePath}: ${err.message}`);
+            }
+        });
+
+        if (typeof window.refreshTree === 'function') {
+            window.refreshTree();
+        }
+
+        const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
+        
+        await injectWebPayload(finalMessage, 0);
+        
+        window.currentBatchFileCount = 0;
+        const response = await runExperimentalEngine('/marktag', finalMessage, null);
+        if (!window.autoContinueOnRead) {
+            document.getElementById('tab-local-agent')?.click();
+        }
+        if (response) {
+            if (typeof window.finalizeAiBubble === 'function') {
+                window.finalizeAiBubble(response);
+            }
+            detectAndAskCommand(response);
+        }
+    } catch (err) {
+        ChatUI.appendBubble('system', `[ERROR] Delete batch processing failed: ${err.message}`);
+    }
+}
+
+

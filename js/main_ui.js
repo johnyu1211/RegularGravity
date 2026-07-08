@@ -650,6 +650,8 @@ window.getSystemRulesPrompt = function() {
      \`\`\`언어
      전체 코드 본문
      \`\`\`
+   - 파일/폴더를 삭제해야 할 때만 다음 형식을 사용하십시오:
+     [CMD: delete-file "경로"]
 4. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 파일 목록을 유저에게 드롭해달라고 요청([REQUEST: read-file...])하여 확인한 뒤 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
 5. 문구 제한: 설명/단답 문장 일절 없이 오직 요청 태그만 한 줄로 출력. 사족 절대 금지.
 6. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
@@ -675,6 +677,8 @@ window.getSystemRulesPrompt = function() {
      \`\`\`언어
      전체 코드 본문
      \`\`\`
+   - 파일/폴더를 삭제해야 할 때만 다음 형식을 사용하십시오:
+     [CMD: delete-file "경로"]
 4. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 파일 목록을 유저에게 업로드해달라고 요청([REQUEST: read-file...])하여 확인한 뒤 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
 5. 문구 제한: 설명/단답 문장 일절 없이 오직 요청 태그만 한 줄로 출력. 사족 절대 금지.
 6. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
@@ -708,6 +712,7 @@ function detectAndAskCommand(text) {
     const readCmds = [];
     const writeCmds = [];
     const editCmds = [];
+    const deleteCmds = [];
     const searchCmds = [];
     const otherCmds = [];
 
@@ -731,6 +736,7 @@ function detectAndAskCommand(text) {
         const writeMatch = cmd.match(/^write-file\s+["']?([^"'\s]+)["']?$/i);
         const editRangeMatch = cmd.match(/^edit-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
         const editMatch = cmd.match(/^edit-file\s+["']?([^"'\s]+)["']?$/i);
+        const deleteMatch = cmd.match(/^delete-file\s+["']?([^"'\s]+)["']?$/i);
 
         const fs = require('fs');
         const path = require('path');
@@ -848,6 +854,9 @@ function detectAndAskCommand(text) {
             if (hasValidMarkers) {
                 editCmds.push({ type: 'block', path: filePath, search: searchVal, replace: replaceVal });
             }
+        } else if (deleteMatch) {
+            const filePath = deleteMatch[1].trim();
+            deleteCmds.push({ path: filePath });
         } else {
             otherCmds.push(cmd);
         }
@@ -856,8 +865,9 @@ function detectAndAskCommand(text) {
     const hasReadFile = (readCmds.length > 0);
     const hasWriteFile = (writeCmds.length > 0);
     const hasEditFile = (editCmds.length > 0);
+    const hasDeleteFile = (deleteCmds.length > 0);
 
-    if (!hasReadFile && !hasWriteFile && !hasEditFile && window.autoContinueOnRead) {
+    if (!hasReadFile && !hasWriteFile && !hasEditFile && !hasDeleteFile && window.autoContinueOnRead) {
         const toast = document.getElementById('injection-toast');
         if (toast) toast.style.display = 'none';
         document.getElementById('tab-local-agent')?.click();
@@ -1243,7 +1253,38 @@ function detectAndAskCommand(text) {
         }
     }
 
+    if (hasDeleteFile) {
+        const displayCmd = deleteCmds.map(f => `delete-file "${f.path}"`).join(', ');
+        
+        const runDelete = async () => {
+            await executeDeleteFileBatch(deleteCmds);
+        };
 
+        if (window.autoContinueOnRead) {
+            runDelete();
+        } else {
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#ef4444"; 
+            const glowShadow = "rgba(239, 68, 68, 0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">🗑</span>${displayCmd}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                </div>
+            `;
+
+            content.querySelector('.cmd-run-btn').onclick = async () => {
+                box.remove();
+                await runDelete();
+            };
+            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        }
+    }
 
     otherCmds.forEach(cleanCmd => {
         const box = ChatUI.appendBubble('system', '');

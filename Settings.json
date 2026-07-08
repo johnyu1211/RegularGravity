@@ -2,5 +2,7 @@
   "hideUIOverlay": true,
   "debugMode": false,
   "dragDropMode": true,
-  "autoDragging": true
+  "autoDragging": true,
+  "autoRefreshSession": false,
+  "refreshTurnCount": 35
 }

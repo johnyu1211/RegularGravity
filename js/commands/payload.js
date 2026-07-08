@@ -215,7 +215,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                                 .replace(/>/g, "&gt;")
                                 .replace(/"/g, "&quot;")
                                 .replace(/'/g, "&#039;")
-                                .replace(/\\n/g, "<br>");
+                                .replace(/\n/g, "<br>");
                         };
                         const htmlText = escapeHtml(decodedPayload);
                         try {

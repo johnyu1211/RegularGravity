@@ -2159,7 +2159,7 @@ async function setupBoot() {
                                     .replace(/>/g, "&gt;")
                                     .replace(/"/g, "&quot;")
                                     .replace(/'/g, "&#039;")
-                                    .replace(/\\n/g, "<br>");
+                                    .replace(/\n/g, "<br>");
                             };
                             input.innerHTML = escapeHtml(fullText);
                         }
@@ -2632,7 +2632,7 @@ ${startPrompt}`.trim();
     </div>
     <pre style="margin: 0; padding: 12px; background: #09090b !important; border: none !important; border-radius: 0 !important; color: #34d399 !important; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(block.replace)}</pre>
 </div>`;
-                formatted = formatted.replace(block.fullMatch, cardHtml);
+                formatted = formatted.replace(block.fullMatch, () => cardHtml);
             });
 
             return formatted.replace(/\[CMD:\s*([^\]]+)\]/gi, (match, cmdContent) => {

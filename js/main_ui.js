@@ -1804,7 +1804,7 @@ ${startPrompt}`.trim();
         window.formatChatText = (text) => {
             if (!text) return "";
             return text.replace(/\[CMD:\s*([^\]]+)\]/gi, (match, cmdContent) => {
-                return `<span class="chat-cmd-badge">CMD: ${cmdContent}</span>`;
+                return `<span class="chat-cmd-badge">&gt;_ ${cmdContent}</span>`;
             });
         };
 

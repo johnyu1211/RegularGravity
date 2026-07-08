@@ -2706,7 +2706,7 @@ function setupUI() {
         
         popover.style.bottom = '50px';
         if (isRightAligned) {
-            const rightOffset = window.innerWidth - rect.right;
+            const rightOffset = parentRect.right - rect.right;
             popover.style.right = `${rightOffset}px`;
             popover.style.left = 'auto';
         } else {

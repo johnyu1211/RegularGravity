@@ -16,6 +16,15 @@ window.selectProject = async (folderPath) => {
         });
     } catch(e) {}
 
+    window.sessionTurnCount = 0;
+    try {
+        const rulesText = window.getSystemRulesPrompt();
+        fs.writeFileSync(path.join(folderPath, 'SystemRules.md'), rulesText, 'utf-8');
+        console.log("[ProjectInfo] Successfully wrote SystemRules.md to workspace root.");
+    } catch(e) {
+        console.error("[ProjectInfo] Failed to write SystemRules.md:", e);
+    }
+
     window.projectRoot = folderPath;
     window.currentPath = folderPath;
     ipcRenderer.send('save-recent-project', folderPath);

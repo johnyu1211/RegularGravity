@@ -705,7 +705,7 @@ const syncBrowserView = (() => {
 })();
 
 window.getSystemRulesPrompt = function() {
-    return `
+    const fullRules = `
 [SYSTEM RULES]
 1. 탐색 단계: 설명 일절 금지, 오직 다음 탐색용 파일 요청 태그만 출력하십시오.
    - 중요: 파일 내용 분석이 필요하면 문장 끝에 반드시 다음 태그를 포함하십시오:
@@ -725,9 +725,9 @@ window.getSystemRulesPrompt = function() {
      [END]
    - 새 파일 생성 또는 전체 쓰기:
      [CMD: write-file "경로"]
-     \\\`\\\`\\\`언어
+     \`\`\`언어
      전체 코드 본문
-     \\\`\\\`\\\`
+     \`\`\`
    - 파일/폴더 삭제: [CMD: delete-file "경로"]
    - 빈 폴더 생성: [CMD: create-dir "경로"]
    - 파일/폴더 이동 및 이름 변경: [CMD: move-file "원본경로" "대상경로"]
@@ -737,6 +737,13 @@ window.getSystemRulesPrompt = function() {
    - 컨텍스트 누적으로 렉이 걸리거나 대화가 길어지면 다음 태그를 출력하여 세션을 안전하게 초기화 및 리부트 하십시오:
      * [CMD: reset-session]
 5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
+
+    if (typeof window.sessionTurnCount === 'undefined') window.sessionTurnCount = 0;
+    if (window.sessionTurnCount === 0 || window.sessionTurnCount % 10 === 0) {
+        return fullRules;
+    } else {
+        return "\n[REMINDER] Follow SystemRules.md guidelines. Use [REQUEST: read-file \"path\"] to read target file first before modification to get exact indentation. Output ONLY structured commands without explanations.";
+    }
 };
 
 function detectAndAskCommand(text) {

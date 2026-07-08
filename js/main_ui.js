@@ -7,12 +7,123 @@ window.currentBatchFileCount = 0;
 window.currentPath = process.cwd();
 window.currentSplitHeight = 0;
 window.pendingSplitHeight = 220;
+window.requestedFilesQueue = [];
+
+// Hook readFilesSet.add
+const originalAdd = window.readFilesSet.add.bind(window.readFilesSet);
+window.readFilesSet.add = function(filePath) {
+    const result = originalAdd(filePath);
+    if (typeof window.markFileAsCompleted === 'function') {
+        window.markFileAsCompleted(filePath);
+    }
+    return result;
+};
+
+window.markFileAsCompleted = function(filePath) {
+    const path = require('path');
+    const absolutePath = path.resolve(window.currentPath || process.cwd(), filePath);
+    const item = window.requestedFilesQueue.find(x => x.absolutePath === absolutePath);
+    if (item) {
+        item.status = 'COMPLETED';
+        if (typeof window.updateDragDropQueueUI === 'function') {
+            window.updateDragDropQueueUI();
+        }
+    }
+};
+
+window.addFileToRequestedQueue = function(filePath) {
+    const path = require('path');
+    const absolutePath = path.resolve(window.currentPath || process.cwd(), filePath);
+    const relativePath = path.relative(window.currentPath || process.cwd(), absolutePath);
+    const fs = require('fs');
+    if (fs.existsSync(absolutePath)) {
+        if (!window.requestedFilesQueue.some(x => x.absolutePath === absolutePath)) {
+            const isCompleted = window.readFilesSet.has(filePath) || window.readFilesSet.has(absolutePath);
+            window.requestedFilesQueue.push({
+                absolutePath,
+                relativePath,
+                status: isCompleted ? 'COMPLETED' : 'PENDING'
+            });
+            if (typeof window.updateDragDropQueueUI === 'function') {
+                window.updateDragDropQueueUI();
+            }
+        }
+    }
+};
+
+window.updateDragDropQueueUI = function() {
+    const listEl = document.getElementById('drag-drop-queue-list');
+    const countEl = document.getElementById('requested-files-count');
+    if (!listEl) return;
+    
+    listEl.innerHTML = '';
+    
+    const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+    if (countEl) countEl.innerText = pendingItems.length;
+    
+    if (window.requestedFilesQueue.length === 0) {
+        listEl.innerHTML = `<div style="font-size: 11px; color: var(--text-dark); text-align: center; margin-top: 50px; font-family: 'DM Sans', sans-serif;">No requested files</div>`;
+        return;
+    }
+    
+    window.requestedFilesQueue.forEach(item => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'queue-item';
+        itemEl.draggable = item.status === 'PENDING';
+        itemEl.setAttribute('data-filepath', item.absolutePath);
+        
+        itemEl.style = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            background: \${item.status === 'COMPLETED' ? 'rgba(70, 140, 246, 0.03)' : 'var(--surface-color)'};
+            border: 1px solid \${item.status === 'COMPLETED' ? 'rgba(70, 140, 246, 0.15)' : 'var(--border-color)'};
+            border-radius: 6px;
+            cursor: \${item.status === 'PENDING' ? 'grab' : 'default'};
+            user-select: none;
+            transition: all 0.2s;
+            opacity: \${item.status === 'COMPLETED' ? '0.5' : '1'};
+        `;
+        
+        if (item.status === 'PENDING') {
+            itemEl.onmouseenter = () => {
+                itemEl.style.background = 'var(--surface-high)';
+                itemEl.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            };
+            itemEl.onmouseleave = () => {
+                itemEl.style.background = 'var(--surface-color)';
+                itemEl.style.borderColor = 'var(--border-color)';
+            };
+            itemEl.ondragstart = (e) => {
+                e.preventDefault();
+                ipcRenderer.send('ondragstart', item.absolutePath);
+            };
+        }
+        
+        const icon = item.status === 'COMPLETED' ? '✅' : '📄';
+        const statusText = item.status;
+        const statusColor = item.status === 'COMPLETED' ? 'var(--primary)' : 'var(--text-muted)';
+        
+        itemEl.innerHTML = `
+            <span class="queue-file-icon" style="font-size: 11px; flex-shrink: 0; display: flex; align-items: center;">${icon}</span>
+            <span class="queue-file-name" style="font-size: 11px; color: var(--text-main); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
+            <span class="queue-status" style="font-size: 8px; color: ${statusColor}; padding: 2px 4px; background: var(--surface-low); border-radius: 4px; font-weight: 700; font-family: 'DM Sans', sans-serif;">${statusText}</span>
+        `;
+        
+        listEl.appendChild(itemEl);
+    });
+};
 
 window.updateSplitLayoutHeight = function(newHeight) {
-    window.currentSplitHeight = 0;
-    const vLC = document.getElementById('inspector-local-chat');
-    if (vLC) {
-        vLC.style.height = `calc(100% - 44px)`;
+    if (newHeight < 40 || newHeight > 500) return;
+    window.pendingSplitHeight = newHeight;
+    if (window.sessionBriefed || window.briefingInProgress) {
+        window.currentSplitHeight = newHeight;
+        const vLC = document.getElementById('inspector-local-chat');
+        if (vLC && (window.activeSubTabId === 'local' || !window.activeSubTabId || vLC.style.zIndex === '150')) {
+            vLC.style.height = `calc(100% - 44px - ${newHeight}px)`;
+        }
     }
 };
 
@@ -211,12 +322,15 @@ function detectAndAskCommand(text) {
         if (rangeMatch) {
             const filePath = rangeMatch[1].trim();
             readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]) });
+            if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
         } else if (fileFullMatch) {
             const filePath = fileFullMatch[1].trim();
             readCmds.push({ path: filePath, full: true });
+            if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
         } else if (fileMatch) {
             const filePath = fileMatch[1].trim();
             readCmds.push({ path: filePath, full: false });
+            if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
         } else if (writeMatch) {
             const filePath = writeMatch[1].trim();
             const cmdIdx = text.indexOf(rawCmd);
@@ -236,7 +350,6 @@ function detectAndAskCommand(text) {
         }
     });
 
-    window.readCmds = readCmds;
     const hasReadFile = (readCmds.length > 0);
     const hasWriteFile = (writeCmds.length > 0);
     const hasSearchFile = (searchCmds.length > 0);
@@ -402,28 +515,131 @@ function detectAndAskCommand(text) {
         } else {
             if (window.dragDropMode) {
                 const dropZone = document.getElementById('local-drop-zone');
-                if (dropZone) {
+                if (dropZone) dropZone.style.display = 'none';
+
+                const localInput = document.getElementById('local-agent-input');
+                const sendBtn = document.getElementById('send-to-local');
+                const inputContainer = document.getElementById('local-input-container');
+
+                if (localInput && inputContainer) {
+                    const vLC = document.getElementById('inspector-local-chat');
+                    const vBH = document.getElementById('inspector-browser-hub');
+                    if (vLC) {
+                        vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
+                        vLC.style.zIndex = '150';
+                    }
+                    
+                    if (vBH) {
+                        vBH.style.position = 'absolute';
+                        vBH.style.top = '0';
+                        vBH.style.height = 'calc(100% - 44px)';
+                        vBH.style.width = '100%';
+                        vBH.style.zIndex = '100';
+                        vBH.style.opacity = '1';
+                        vBH.style.pointerEvents = 'auto';
+                    }
+
+                    const wrapper = inputContainer.firstElementChild;
+                    if (wrapper) wrapper.style.display = 'none';
+
+                    inputContainer.dataset.originalHeight = inputContainer.style.height || '';
+                    inputContainer.dataset.originalPadding = inputContainer.style.padding || '';
+                    inputContainer.dataset.originalBackground = inputContainer.style.background || '';
+                    inputContainer.dataset.originalDisplay = inputContainer.style.display || '';
+                    inputContainer.dataset.originalAlignItems = inputContainer.style.alignItems || '';
+                    inputContainer.dataset.originalJustifyContent = inputContainer.style.justifyContent || '';
+
+                    inputContainer.style.height = '30px';
+                    inputContainer.style.padding = '0';
+                    inputContainer.style.display = 'flex';
+                    inputContainer.style.alignItems = 'center';
+                    inputContainer.style.justifyContent = 'center';
+                    inputContainer.style.background = 'var(--surface-low)';
+
                     const fileNames = readCmds.map(f => {
                         const parts = f.path.split(/[\\/]/);
                         return parts[parts.length - 1];
                     }).join(', ');
-                    
-                    const dropText = document.getElementById('local-drop-zone-text');
-                    if (dropText) {
-                        dropText.innerHTML = `Drag and drop <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> here to proceed`;
+
+                    let fileBox = null;
+                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                        fileBox = ChatUI.appendBubble('system', '');
+                        const fileBoxContent = fileBox.querySelector('.bubble-content');
+                        if (fileBoxContent) {
+                            fileBoxContent.innerHTML = `
+                                <div style="background: var(--surface-low); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-main); display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                    <span>Requested: <strong style="color: var(--primary);">${fileNames}</strong></span>
+                                </div>
+                            `;
+                        }
                     }
-                    dropZone.style.display = 'flex';
+
+                    if (!document.getElementById('bounce-arrow-style')) {
+                        const styleNode = document.createElement('style');
+                        styleNode.id = 'bounce-arrow-style';
+                        styleNode.innerHTML = `
+                            @keyframes bounce-arrow {
+                                0%, 100% { transform: translateY(0); }
+                                50% { transform: translateY(5px); }
+                            }
+                        `;
+                        document.head.appendChild(styleNode);
+                    }
+
+                    const arrowIndicator = document.createElement('div');
+                    arrowIndicator.id = 'drag-drop-arrow-indicator';
+                    arrowIndicator.style.cssText = "font-size: 20px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; line-height: 1; pointer-events: none;";
+                    arrowIndicator.innerText = "↓";
+
+                    const cleanupDragDrop = () => {
+                        arrowIndicator.remove();
+                        if (fileBox) fileBox.remove();
+                        window.activeDragDropCleanup = null;
+                        window.activeDragDropContinue = null;
+                        
+                        if (wrapper) wrapper.style.display = '';
+                        
+                        inputContainer.style.height = inputContainer.dataset.originalHeight || '';
+                        inputContainer.style.padding = inputContainer.dataset.originalPadding || '';
+                        inputContainer.style.background = inputContainer.dataset.originalBackground || '';
+                        inputContainer.style.display = inputContainer.dataset.originalDisplay || '';
+                        inputContainer.style.alignItems = inputContainer.dataset.originalAlignItems || '';
+                        inputContainer.style.justifyContent = inputContainer.dataset.originalJustifyContent || '';
+                        
+                        if (vLC) {
+                            vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
+                            vLC.style.zIndex = '150';
+                        }
+                        if (vBH) {
+                            vBH.style.position = 'absolute';
+                            vBH.style.top = '0';
+                            vBH.style.height = 'calc(100% - 44px)';
+                            vBH.style.width = '100%';
+                            vBH.style.zIndex = '100';
+                            vBH.style.opacity = '1';
+                            vBH.style.pointerEvents = 'auto';
+                        }
+                    };
+
+                    window.activeDragDropCleanup = cleanupDragDrop;
+                    window.activeDragDropContinue = async () => {
+                        await runRead();
+                    };
+
+                    const wv = document.getElementById('active-agent-webview');
+                    if (wv) {
+                        wv.executeJavaScript(`
+                            if (!window.hasDropListener) {
+                                window.hasDropListener = true;
+                                document.addEventListener('drop', (e) => {
+                                    console.log('[WEBVIEW_DROP_DETECTED]');
+                                }, true);
+                            }
+                        `).catch(err => console.error("Failed to inject drop listener", err));
+                    }
+
+                    inputContainer.appendChild(arrowIndicator);
                 }
-                
-                window.activeDragDropCleanup = () => {
-                    const dropZone = document.getElementById('local-drop-zone');
-                    if (dropZone) dropZone.style.display = 'none';
-                    window.activeDragDropCleanup = null;
-                    window.activeDragDropContinue = null;
-                };
-                window.activeDragDropContinue = async () => {
-                    await runRead();
-                };
             } else {
                 const box = ChatUI.appendBubble('system', '');
                 const content = box.querySelector('.bubble-content');
@@ -1182,6 +1398,19 @@ function setupUI() {
 
     window.reloadAgentSettings();
 
+    const clearQueueBtn = document.getElementById('clear-queue-btn');
+    if (clearQueueBtn) {
+        clearQueueBtn.onclick = () => {
+            window.requestedFilesQueue = [];
+            if (typeof window.updateDragDropQueueUI === 'function') {
+                window.updateDragDropQueueUI();
+            }
+        };
+    }
+    if (typeof window.updateDragDropQueueUI === 'function') {
+        window.updateDragDropQueueUI();
+    }
+
     const localSettingsBtn = document.getElementById('btn-local-settings');
     const localSettingsModal = document.getElementById('local-settings-modal');
     const closeLocalSettings = document.getElementById('close-local-settings');
@@ -1456,7 +1685,7 @@ function setupUI() {
             vLC.style.opacity = '1';
             vLC.style.pointerEvents = 'auto';
             vLC.style.zIndex = '150';
-            vLC.style.height = 'calc(100% - 44px)';
+            vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
             
             vBH.style.position = 'absolute';
             vBH.style.top = '0';
@@ -1844,149 +2073,6 @@ ${startPrompt}`.trim();
         });
     }
 
-    const localChatPanel = document.getElementById('inspector-local-chat');
-    const localDropZone = document.getElementById('local-drop-zone');
-    const closeLocalDropZone = document.getElementById('close-local-drop-zone');
-    
-    if (localChatPanel && localDropZone) {
-        const preventDrag = (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-        };
-        
-        localChatPanel.addEventListener('dragenter', (e) => {
-            e.preventDefault();
-            const dropText = document.getElementById('local-drop-zone-text');
-            if (dropText) {
-                if (window.activeDragDropContinue && window.readCmds) {
-                    const fileNames = window.readCmds.map(f => {
-                        const parts = f.path.split(/[\\/]/);
-                        return parts[parts.length - 1];
-                    }).join(', ');
-                    dropText.innerHTML = `Drag and drop <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> here to proceed`;
-                } else {
-                    dropText.innerHTML = `Drop file here to attach to conversation`;
-                }
-            }
-            localDropZone.style.display = 'flex';
-        });
-        localChatPanel.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-            localDropZone.style.display = 'flex';
-        });
-        
-        localDropZone.addEventListener('dragenter', preventDrag);
-        localDropZone.addEventListener('dragover', preventDrag);
-        
-        localChatPanel.addEventListener('dragleave', (e) => {
-            if (e.relatedTarget && !localChatPanel.contains(e.relatedTarget)) {
-                localDropZone.style.display = 'none';
-            }
-        });
-        localChatPanel.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            localDropZone.style.display = 'none';
-            
-            let filePath = '';
-            const internalPath = e.dataTransfer.getData('text/plain');
-            if (internalPath) {
-                filePath = internalPath;
-            } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                filePath = e.dataTransfer.files[0].path;
-            }
-            if (!filePath) return;
-            
-            console.log("[LocalChatPanel] Dropped file path:", filePath);
-            
-            const pathModule = require('path');
-            const droppedName = pathModule.basename(filePath).toLowerCase();
-            
-            if (window.activeDragDropContinue) {
-                const requestedNames = (window.readCmds || []).map(f => {
-                    const parts = f.path.split(/[\\/]/);
-                    return parts[parts.length - 1].toLowerCase();
-                });
-                
-                if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
-                    const { showAlert } = require('./ui/dialogs.js');
-                    if (typeof showAlert === 'function') {
-                        showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
-                    } else {
-                        alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
-                    }
-                    return;
-                }
-            }
-            
-            // Simulate drop inside webview guest page!
-            const fs = require('fs');
-            try {
-                const contentBuffer = fs.readFileSync(filePath);
-                const filename = pathModule.basename(filePath);
-                const base64Content = contentBuffer.toString('base64');
-                
-                const ext = filename.split('.').pop().toLowerCase();
-                const mimeMap = {
-                    'js': 'text/javascript', 'json': 'application/json',
-                    'html': 'text/html', 'css': 'text/css',
-                    'txt': 'text/plain', 'md': 'text/markdown',
-                    'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                    'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
-                };
-                const mimeType = mimeMap[ext] || 'application/octet-stream';
-                
-                const wv = document.getElementById('active-agent-webview');
-                if (wv) {
-                    wv.executeJavaScript(`
-                        (() => {
-                            const b64 = "${base64Content}";
-                            const name = "${filename}";
-                            const mime = "${mimeType}";
-                            
-                            const binary = atob(b64);
-                            const array = new Uint8Array(binary.length);
-                            for (let i = 0; i < binary.length; i++) {
-                                array[i] = binary.charCodeAt(i);
-                            }
-                            const blob = new Blob([array], { type: mime });
-                            const file = new File([blob], name, { type: mime });
-                            
-                            const dt = new DataTransfer();
-                            dt.items.add(file);
-                            
-                            let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
-                            
-                            const options = { bubbles: true, cancelable: true, dataTransfer: dt };
-                            target.dispatchEvent(new DragEvent('dragenter', options));
-                            target.dispatchEvent(new DragEvent('dragover', options));
-                            target.dispatchEvent(new DragEvent('drop', options));
-                            
-                            console.log("[GuestDrop] Dispatched drop event for file:", name);
-                        })();
-                    `).catch(err => console.error("Failed to execute drop injection script:", err));
-                    
-                    if (!window.activeDragDropContinue) {
-                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                            ChatUI.appendBubble('system', `[SYSTEM] File attached: ${filename}`);
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to process drop upload:", err);
-            }
-            
-            if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-            if (window.activeDragDropContinue) window.activeDragDropContinue();
-        });
-    }
-    
-    if (closeLocalDropZone) {
-        closeLocalDropZone.onclick = () => {
-            if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-        };
-    }
-
     updateAgentBadge();
 }
 
@@ -2007,13 +2093,6 @@ async function migrateToVault() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    document.addEventListener('dragover', (e) => {
-        e.preventDefault();
-    });
-    document.addEventListener('drop', (e) => {
-        e.preventDefault();
-    });
-
     try {
         await migrateToVault();
     } catch (e) {

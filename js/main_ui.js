@@ -2539,8 +2539,14 @@ function setupUI() {
                     }
                     targetUrl = rawUrl;
                 }
-                const { shell } = require('electron');
-                shell.openExternal(targetUrl);
+                
+                // Open inside the Electron app's Browser tab
+                if (typeof window.launchWebAgent === 'function') {
+                    window.launchWebAgent(targetUrl, true);
+                    if (typeof window.swi === 'function') {
+                        window.swi('browser');
+                    }
+                }
             });
         };
     }

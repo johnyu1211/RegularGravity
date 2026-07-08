@@ -93,44 +93,41 @@ ipcMain.on('vault-reset-session', (event, { logPath }) => {
 });
 
 ipcMain.handle('vault-get-tree', async (event, projectPath) => {
-const root = projectPath || process.cwd();
-const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch', 'out', '.vs', '.idea'];
-const results = [];
+    const root = projectPath || process.cwd();
+    const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch', 'out', '.vs', '.idea'];
+    const results = [];
 
-```
-function traverse(dir, depth = 0) {
-    if (depth > 10) return; // 최대 10단계 제한
-    let items = [];
-    try {
-        items = fs.readdirSync(dir);
-    } catch (e) {
-        return;
-    }
-    items.forEach(item => {
-        if (ignore.includes(item)) return;
-        const fullPath = path.join(dir, item);
+    function traverse(dir, depth = 0) {
+        if (depth > 10) return; // 최대 10단계 제한
+        let items = [];
         try {
-            const stats = fs.statSync(fullPath);
-            const relativePath = path.relative(root, fullPath).replace(/\\/g, '/');
-            if (stats.isDirectory()) {
-                results.push(relativePath + '/');
-                traverse(fullPath, depth + 1);
-            } else if (stats.isFile()) {
-                results.push(relativePath);
-            }
-        } catch (err) {
-            // skip
+            items = fs.readdirSync(dir);
+        } catch (e) {
+            return;
         }
-    });
-}
+        items.forEach(item => {
+            if (ignore.includes(item)) return;
+            const fullPath = path.join(dir, item);
+            try {
+                const stats = fs.statSync(fullPath);
+                const relativePath = path.relative(root, fullPath).replace(/\\/g, '/');
+                if (stats.isDirectory()) {
+                    results.push(relativePath + '/');
+                    traverse(fullPath, depth + 1);
+                } else if (stats.isFile()) {
+                    results.push(relativePath);
+                }
+            } catch (err) {
+                // skip
+            }
+        });
+    }
 
-traverse(root);
-if (results.length === 0) {
-return "[WARNING: No files or directories found in target root path]";
-}
-return results.map(p => `- ${p}`).join('\n');
-});
-
+    traverse(root);
+    if (results.length === 0) {
+        return "[WARNING: No files or directories found in target root path]";
+    }
+    return results.map(p => `- ${p}`).join('\n');
 });
 
 ipcMain.handle('vault-search', async (event, { query }) => {

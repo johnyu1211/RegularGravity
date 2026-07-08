@@ -134,6 +134,19 @@ const extractScript = `(function(){
             case 'ul': return "\\n" + childrenMarkdown + "\\n";
             case 'ol': return "\\n" + childrenMarkdown + "\\n";
             case 'blockquote': return "\\n> " + childrenMarkdown.trim().split("\\n").join("\\n> ") + "\\n";
+            case 'th':
+            case 'td': return childrenMarkdown.replace(/\\n/g, " ").trim() + " | ";
+            case 'tr': {
+                const isHeader = Array.from(node.children || []).every(child => child.tagName.toLowerCase() === 'th');
+                const cells = childrenMarkdown.trim();
+                if (isHeader) {
+                    const colCount = node.children.length;
+                    const divider = "\\n| " + Array(colCount).fill("---").join(" | ") + " |";
+                    return "\\n| " + cells + divider;
+                }
+                return "\\n| " + cells;
+            }
+            case 'table': return "\\n\\n" + childrenMarkdown.trim() + "\\n\\n";
             default: return childrenMarkdown;
         }
     };

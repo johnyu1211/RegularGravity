@@ -1369,16 +1369,25 @@ ${startPrompt}`.trim();
                 const contentEl = targetBubble.querySelector('.bubble-content');
                 if (contentEl) {
                     window.activeAiResponding = false; // Turn off stream overwrites
-                    window.typewriterHTML(contentEl, response, () => {
-                        contentEl.dataset.rawText = response;
-                        if (targetBubble && typeof hljs !== 'undefined') {
-                            targetBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
-                        }
-                        if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
-                    });
+                    
+                    if (contentEl.typewriterInterval) {
+                        clearInterval(contentEl.typewriterInterval);
+                        contentEl.typewriterInterval = null;
+                    }
+                    
+                    contentEl.dataset.rawText = response;
+                    const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(response) : response;
+                    contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(formatted).trim() : formatted.trim();
+                    
+                    if (targetBubble && typeof hljs !== 'undefined') {
+                        targetBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                    }
+                    if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
                     return;
                 }
             }
+            const wv = document.getElementById('active-agent-webview');
+            const getWebIcon = (w) => { try { return `https://www.google.com/s2/favicons?domain=${new URL(w.src).hostname}&sz=64`; } catch { return null; } };
             window.lastActiveAiBubble = ChatUI.appendBubble('ai', response, false, getWebIcon(wv));
         };
 

@@ -796,7 +796,7 @@ async function setupBoot() {
                         style.id = styleId;
                         style.textContent = \`
                             .input-area-container, [class*="composer-parent"], [class*="PromptTextarea"], [class*="input-container"], [class*="input_container"] {
-                                padding-top: 0px !important;
+                                padding-top: 8px !important;
                                 margin-top: 0px !important;
                                 padding-bottom: 8px !important;
                             }
@@ -827,7 +827,7 @@ async function setupBoot() {
                         }
                         
                         const rect = container.getBoundingClientRect();
-                        return Math.ceil(rect.height) + 4;
+                        return Math.ceil(rect.height);
                     };
                     
                     let lastHeight = 0;

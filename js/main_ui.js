@@ -715,6 +715,7 @@ window.getSystemRulesPrompt = function() {
    - 프로젝트 전체 텍스트 검색이 필요할 때는 다음 태그를 사용하십시오:
      * [CMD: search-keyword "검색어"] (전역 텍스트 검색)
 2. 파일 수정/관리 규격 (반드시 형식 준수):
+   - 중요: 기존 파일 코드를 수정([CMD: edit-file])하기 전에는, 반드시 대상 파일 읽기([REQUEST: read-file])를 먼저 수행하여 실제 코드와 정확한 들여쓰기(Indentation)를 완전히 파악한 후에 수정 명령을 내려야 합니다. 짐작해서 수정하는 것은 절대 금지됩니다.
    - 기존 파일 부분수정/치환:
      [CMD: edit-file "경로"]
      [SEARCH]

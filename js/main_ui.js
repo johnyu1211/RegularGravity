@@ -2583,12 +2583,12 @@ function setupUI() {
             e.stopPropagation();
             gitWebview.reload();
         };
-        document.getElementById('git-wv-external').onclick = (e) => {
+        document.getElementById('git-wv-minimize').onclick = (e) => {
             e.stopPropagation();
-            const currentUrl = gitWebview.getURL();
-            if (currentUrl && currentUrl !== 'about:blank') {
-                const { shell } = require('electron');
-                shell.openExternal(currentUrl);
+            gitPopover.style.display = 'none';
+            if (gitToggleBtn) {
+                gitToggleBtn.style.color = '';
+                gitToggleBtn.style.background = '';
             }
         };
         

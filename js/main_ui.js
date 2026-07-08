@@ -9,14 +9,10 @@ window.currentSplitHeight = 0;
 window.pendingSplitHeight = 220;
 
 window.updateSplitLayoutHeight = function(newHeight) {
-    if (newHeight < 40 || newHeight > 500) return;
-    window.pendingSplitHeight = newHeight;
-    if (window.sessionBriefed || window.briefingInProgress) {
-        window.currentSplitHeight = newHeight;
-        const vLC = document.getElementById('inspector-local-chat');
-        if (vLC && (window.activeSubTabId === 'local' || !window.activeSubTabId || vLC.style.zIndex === '150')) {
-            vLC.style.height = `calc(100% - 44px - ${newHeight}px)`;
-        }
+    window.currentSplitHeight = 0;
+    const vLC = document.getElementById('inspector-local-chat');
+    if (vLC) {
+        vLC.style.height = `calc(100% - 44px)`;
     }
 };
 
@@ -1460,7 +1456,7 @@ function setupUI() {
             vLC.style.opacity = '1';
             vLC.style.pointerEvents = 'auto';
             vLC.style.zIndex = '150';
-            vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
+            vLC.style.height = 'calc(100% - 44px)';
             
             vBH.style.position = 'absolute';
             vBH.style.top = '0';
@@ -1848,28 +1844,45 @@ ${startPrompt}`.trim();
         });
     }
 
+    const localChatPanel = document.getElementById('inspector-local-chat');
     const localDropZone = document.getElementById('local-drop-zone');
     const closeLocalDropZone = document.getElementById('close-local-drop-zone');
     
-    if (localDropZone) {
-        localDropZone.ondragover = (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-        };
-        localDropZone.ondrop = async (e) => {
-            e.preventDefault();
-            let filePath = '';
-            const internalPath = e.dataTransfer.getData('text/plain');
-            if (internalPath) {
-                filePath = internalPath;
-            } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                filePath = e.dataTransfer.files[0].path;
-            }
-            if (!filePath) return;
-            
-            console.log("[LocalDropZone] Dropped file path:", filePath);
-            
+    if (localChatPanel && localDropZone) {
+        localChatPanel.addEventListener('dragenter', (e) => {
             if (window.dragDropMode && window.activeDragDropContinue) {
+                e.preventDefault();
+                localDropZone.style.display = 'flex';
+            }
+        });
+        localChatPanel.addEventListener('dragover', (e) => {
+            if (window.dragDropMode && window.activeDragDropContinue) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                localDropZone.style.display = 'flex';
+            }
+        });
+        localChatPanel.addEventListener('dragleave', (e) => {
+            if (e.relatedTarget && !localChatPanel.contains(e.relatedTarget)) {
+                localDropZone.style.display = 'none';
+            }
+        });
+        localChatPanel.addEventListener('drop', async (e) => {
+            if (window.dragDropMode && window.activeDragDropContinue) {
+                e.preventDefault();
+                localDropZone.style.display = 'none';
+                
+                let filePath = '';
+                const internalPath = e.dataTransfer.getData('text/plain');
+                if (internalPath) {
+                    filePath = internalPath;
+                } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    filePath = e.dataTransfer.files[0].path;
+                }
+                if (!filePath) return;
+                
+                console.log("[LocalChatPanel] Dropped file path:", filePath);
+                
                 const pathModule = require('path');
                 const droppedName = pathModule.basename(filePath).toLowerCase();
                 
@@ -1942,7 +1955,7 @@ ${startPrompt}`.trim();
                 if (window.activeDragDropCleanup) window.activeDragDropCleanup();
                 if (window.activeDragDropContinue) window.activeDragDropContinue();
             }
-        };
+        });
     }
     
     if (closeLocalDropZone) {

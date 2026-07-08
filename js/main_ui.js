@@ -1291,12 +1291,14 @@ ${startPrompt}`.trim();
                                 }
                                 detectAndAskCommand(briefResponse);
                             }
+                            window.currentBatchFileCount = 0;
                         } catch (err) {
                             window.sessionBriefed = true;
                             window.briefingInProgress = false;
                             window.hideInputLoading();
                             document.getElementById('tab-local-agent').click();
                             ChatUI.appendBubble('system', '[ERROR] INITIALIZATION FAILED.');
+                            window.currentBatchFileCount = 0;
                         }
                     }, 2500);
                 }

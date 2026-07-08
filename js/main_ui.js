@@ -707,14 +707,12 @@ const syncBrowserView = (() => {
 window.getSystemRulesPrompt = function(forceFull = false) {
     const fullRules = `
 [SYSTEM RULES]
-1. 탐색 단계: 설명 일절 금지, 오직 다음 탐색용 파일 요청 태그만 출력하십시오.
-   - 중요: 분석 대상이 되는 관련 파일이 여러 개일 경우, 대화 턴을 아끼기 위해 반드시 관련 파일들을 한 번에 모아서 한 줄에 여러 태그로 동시에 요청하십시오. 예: [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"]
-   - 파일 내용 분석이 필요하면 문장 끝에 반드시 다음 태그를 포함하십시오:
-     * [REQUEST: read-file "경로"] (분석할 파일)
-   - 특정 폴더 내부의 파일 목록 구조만 조회해야 할 때는 다음 태그를 사용하십시오:
-     * [CMD: list-dir "폴더경로"] (폴더 리스트 조회)
-   - 프로젝트 전체 텍스트 검색이 필요할 때는 다음 태그를 사용하십시오:
-     * [CMD: search-keyword "검색어"] (전역 텍스트 검색)
+1. 탐색 단계 (추측 금지, 무조건 선행 검색 우선):
+   - 중요: 관련 파일 이름이나 역할을 절대 임의로 짐작하지 마십시오. 반드시 먼저 [CMD: search-keyword "검색어"] 또는 [CMD: list-dir "경로"]를 통해 실재 유무를 확인한 후에 읽어야 합니다.
+   - 대화 턴을 아끼기 위해 분석할 파일 여러 개를 한 줄에 한 번에 동시에 요청하십시오. 예: [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"]
+   - 파일 내용 분석: [REQUEST: read-file "경로"]
+   - 폴더 내부 구조 조회: [CMD: list-dir "폴더경로"]
+   - 전역 텍스트 검색: [CMD: search-keyword "검색어"]
 2. 파일 수정/관리 규격 (반드시 형식 준수):
    - 중요: 기존 파일 코드를 수정([CMD: edit-file])하기 전에는, 반드시 대상 파일 읽기([REQUEST: read-file])를 먼저 수행하여 실제 코드와 정확한 들여쓰기(Indentation)를 완전히 파악한 후에 수정 명령을 내려야 합니다. 짐작해서 수정하는 것은 절대 금지됩니다.
    - 기존 파일 부분수정/치환:
@@ -742,7 +740,7 @@ window.getSystemRulesPrompt = function(forceFull = false) {
     if (forceFull) {
         return fullRules;
     }
-    return "\n[REMINDER] Follow SystemRules.md guidelines. Use [REQUEST: read-file \"path\"] to read target file first before modification to get exact indentation. Output ONLY structured commands without explanations.";
+    return "\n[REMINDER] Follow SystemRules.md. Use [CMD: search-keyword] first to locate code. Never guess. Always read-file before editing. Output ONLY commands, NO explanations.";
 };
 
 function detectAndAskCommand(text) {

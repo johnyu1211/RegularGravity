@@ -1254,6 +1254,12 @@ input:checked + .slider:before {
     background: rgba(30, 30, 38, 0.9) !important;
     border-color: rgba(255, 255, 255, 0.25);
 }
+#git-toggle-btn:hover {
+    opacity: 1;
+    color: #fff;
+    background: rgba(30, 30, 38, 0.9) !important;
+    border-color: rgba(255, 255, 255, 0.25);
+}
 
 /* Popover resizer handles styling - High priority stacking context */
 .popover-resizer-l {

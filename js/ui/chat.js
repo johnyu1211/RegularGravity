@@ -128,9 +128,8 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
             else {
                 const statusBub = ChatUI.appendBubble('ai', `[SYSTEM] ${cmd} entering wait mode...`);
                 window.currentBatchFileCount = 0;
-                const enginePromise = runExperimentalEngine(cmd, msg, statusBub);
-                await new Promise(r => setTimeout(r, 300));
                 await injectWebPayload(msg);
+                const enginePromise = runExperimentalEngine(cmd, msg, statusBub);
                 const response = await enginePromise;
                 if (statusBub) statusBub.remove();
 
@@ -175,9 +174,8 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
             }
             window.sessionBriefed = true;
 
-            const enginePromise = runExperimentalEngine('/marktag', webPayload, null);
-            await new Promise(r => setTimeout(r, 300));
             await injectWebPayload(webPayload, 0);
+            const enginePromise = runExperimentalEngine('/marktag', webPayload, null);
 
             updateProcess('extract', 90);
 

@@ -207,7 +207,16 @@ window.injectGuestDropInterceptor = function() {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     const inputEl = findInput();
                     const text = getInputText(inputEl).trim();
-                    logUserMessage(text);
+                    if (!text) return;
+                    
+                    // Verify if the input is actually submitted and cleared!
+                    setTimeout(() => {
+                        const verifiedEl = findInput();
+                        const verifiedText = getInputText(verifiedEl).trim();
+                        if (!verifiedText || !verifiedText.includes(text)) {
+                            logUserMessage(text);
+                        }
+                    }, 350);
                 }
             };
 
@@ -219,7 +228,15 @@ window.injectGuestDropInterceptor = function() {
                     if (isSend) {
                         const inputEl = findInput();
                         const text = getInputText(inputEl).trim();
-                        logUserMessage(text);
+                        if (!text) return;
+                        
+                        setTimeout(() => {
+                            const verifiedEl = findInput();
+                            const verifiedText = getInputText(verifiedEl).trim();
+                            if (!verifiedText || !verifiedText.includes(text)) {
+                                logUserMessage(text);
+                            }
+                        }, 350);
                     }
                 }
             };

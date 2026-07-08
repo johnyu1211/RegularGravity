@@ -758,6 +758,9 @@ window.getSystemRulesPrompt = function() {
 function detectAndAskCommand(text) {
     if (!text) return;
 
+    // Reset requested files queue for the new AI response/turn
+    window.requestedFilesQueue = [];
+
     let isBriefing = false;
     if (window.isBriefingResponsePending) {
         window.isBriefingResponsePending = false;
@@ -782,6 +785,9 @@ function detectAndAskCommand(text) {
             const toast = document.getElementById('injection-toast');
             if (toast) toast.style.display = 'none';
             document.getElementById('tab-local-agent')?.click();
+        }
+        if (typeof window.updateDragDropQueueUI === 'function') {
+            window.updateDragDropQueueUI();
         }
         return;
     }

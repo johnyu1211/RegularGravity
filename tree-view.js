@@ -111,12 +111,10 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         item.style.setProperty('--level', level);
         
         const arrowSpan = document.createElement('span');
-        arrowSpan.className = 'tree-arrow';
+        arrowSpan.className = 'tree-arrow' + (isExpanded ? ' expanded' : '');
         // No arrow for ../ (Parent Entry)
         if (isDir && !isParentEntry) {
-            arrowSpan.innerHTML = isExpanded 
-                ? `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(90deg); transition: transform 0.2s;"><polyline points="9 18 15 12 9 6"></polyline></svg>`
-                : `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s;"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+            arrowSpan.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
         } else {
             arrowSpan.innerHTML = '';
         }

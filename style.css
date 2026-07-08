@@ -224,13 +224,22 @@ body {
     align-items: center;
     color: var(--text-muted);
     opacity: 0.6;
-    transition: transform 0.2s ease;
     flex-shrink: 0;
     margin-top: 2px;
 }
 
 .tree-arrow svg {
     display: block;
+    transform: rotate(0deg);
+}
+
+@keyframes rotate-down {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(90deg); }
+}
+
+.tree-arrow.expanded svg {
+    animation: rotate-down 0.18s ease-out forwards;
 }
 
 .file-icon {

@@ -1531,6 +1531,16 @@ ${startPrompt}`.trim();
                 
                 if (filePath) {
                     console.log("[HostDrop] Intercepted drop for path:", filePath);
+                    
+                    const isImage = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(filePath);
+                    if (isImage) {
+                        if (typeof ChatUI !== 'undefined' && ChatUI.appendBubble) {
+                            const pathModule = require('path');
+                            ChatUI.appendBubble('user', `Attached image: ${pathModule.basename(filePath)}`);
+                        }
+                        return;
+                    }
+                    
                     if (window.dragDropMode && window.activeDragDropContinue) {
                         const pathModule = require('path');
                         const droppedName = pathModule.basename(filePath).toLowerCase();

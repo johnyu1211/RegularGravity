@@ -361,14 +361,26 @@ window.updateDragDropQueueUI = function() {
                     
                     // 1. Get window content bounds relative to screen X/Y
                     const bounds = await ipcRenderer.invoke('get-content-bounds');
+                    if (!bounds || bounds.width === 0 || bounds.height === 0) {
+                        console.log("[DragSim] Aborted: Invalid window content bounds.");
+                        return;
+                    }
                     
                     // 2. Get click item element screen position
                     const rect = itemEl.getBoundingClientRect();
+                    if (rect.width === 0 || rect.height === 0) {
+                        console.log("[DragSim] Aborted: Queue item element is hidden or has 0 size.");
+                        return;
+                    }
                     const startX = Math.round(bounds.x + rect.left + rect.width / 2);
                     const startY = Math.round(bounds.y + rect.top + rect.height / 2);
                     
                     // 3. Get webview screen position (middle lower area, where Gemini input lies)
                     const wvRect = wv.getBoundingClientRect();
+                    if (wvRect.width === 0 || wvRect.height === 0) {
+                        console.log("[DragSim] Aborted: Webview is hidden or has 0 size.");
+                        return;
+                    }
                     const endX = Math.round(bounds.x + wvRect.left + wvRect.width / 2);
                     const endY = Math.round(bounds.y + wvRect.top + wvRect.height - 110);
                     

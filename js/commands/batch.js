@@ -270,6 +270,14 @@ async function executeEditFileBatch(editCmds) {
                 }
 
                 if (idx === -1) {
+                    const fuzzyRange = findFuzzyMatchIndexRange(content, searchStr);
+                    if (fuzzyRange) {
+                        idx = fuzzyRange.start;
+                        matchedLength = fuzzyRange.end - fuzzyRange.start;
+                    }
+                }
+
+                if (idx === -1) {
                     feedbackContent += `[FILE EDIT ERROR: ${filePath} - SEARCH block not found in file]\n`;
                     ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: SEARCH block not found in file`);
                     return;
@@ -446,6 +454,82 @@ async function executeDeleteFileBatch(deleteCmds) {
     } catch (err) {
         ChatUI.appendBubble('system', `[ERROR] Delete batch processing failed: ${err.message}`);
     }
+}
+
+function findFuzzyMatchIndexRange(content, searchStr) {
+    const contentLines = content.split('\n');
+    const searchLines = searchStr.split('\n').map(l => l.trim()).filter(l => l !== '');
+    
+    if (searchLines.length === 0) return null;
+    
+    const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9ㄱ-ㅎㅏ-ㅣ가-힣]/g, '');
+    const normSearchLines = searchLines.map(normalize);
+    const normContentLines = contentLines.map(l => normalize(l));
+    
+    let bestStart = -1;
+    let bestEnd = -1;
+    let bestScore = 0;
+    
+    const windowSize = searchLines.length;
+    
+    for (let i = 0; i <= contentLines.length - 1; i++) {
+        let score = 0;
+        let matchedCount = 0;
+        
+        for (let j = 0; j < windowSize; j++) {
+            if (i + j >= contentLines.length) break;
+            
+            const sNorm = normSearchLines[j];
+            const cNorm = normContentLines[i + j];
+            
+            if (sNorm === "" || cNorm === "") {
+                if (sNorm === cNorm) score += 0.5;
+                continue;
+            }
+            
+            if (sNorm === cNorm || cNorm.includes(sNorm) || sNorm.includes(cNorm)) {
+                score += 1.0;
+                matchedCount++;
+            } else {
+                let common = 0;
+                for (let char of sNorm) {
+                    if (cNorm.includes(char)) common++;
+                }
+                const sim = common / Math.max(sNorm.length, cNorm.length);
+                if (sim >= 0.6) {
+                    score += sim;
+                    matchedCount++;
+                }
+            }
+        }
+        
+        if (score > bestScore && matchedCount >= Math.ceil(searchLines.length * 0.5)) {
+            bestScore = score;
+            bestStart = i;
+            bestEnd = Math.min(contentLines.length - 1, i + windowSize - 1);
+        }
+    }
+    
+    if (bestStart !== -1) {
+        let startCharIdx = 0;
+        for (let i = 0; i < bestStart; i++) {
+            startCharIdx += contentLines[i].length + 1;
+        }
+        
+        let endCharIdx = 0;
+        for (let i = 0; i <= bestEnd; i++) {
+            endCharIdx += contentLines[i].length + 1;
+        }
+        if (endCharIdx > 0 && content.endsWith('\n') && endCharIdx >= content.length) {
+            endCharIdx = content.length;
+        } else if (endCharIdx > 0) {
+            endCharIdx -= 1;
+        }
+        
+        return { start: startCharIdx, end: endCharIdx };
+    }
+    
+    return null;
 }
 
 

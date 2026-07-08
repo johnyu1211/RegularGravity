@@ -1228,8 +1228,8 @@ input:checked + .slider:before {
 /* Semi-transparent Terminal Toggle Button */
 #terminal-toggle-btn {
     position: absolute;
-    left: 15px;
-    bottom: 2px;
+    right: 15px;
+    bottom: 5px;
     z-index: 1001;
     width: 34px;
     height: 34px;

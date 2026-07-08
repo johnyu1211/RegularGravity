@@ -318,6 +318,7 @@ window.updateDragDropQueueUI = function() {
             };
             itemEl.onclick = async () => {
                 const pathModule = require('path');
+                const fs = require('fs');
                 try {
                     const filePath = item.absolutePath;
                     window.currentlyDraggedFilePath = filePath;
@@ -326,34 +327,48 @@ window.updateDragDropQueueUI = function() {
                     const wv = document.getElementById('active-agent-webview');
                     if (!wv) return;
                     
-                    // 1. Get window content bounds relative to screen X/Y
-                    const bounds = await ipcRenderer.invoke('get-content-bounds');
+                    const contentBuffer = fs.readFileSync(filePath);
+                    const base64Content = contentBuffer.toString('base64');
                     
-                    // 2. Get click item element screen position
-                    const rect = itemEl.getBoundingClientRect();
-                    const startX = Math.round(bounds.x + rect.left + rect.width / 2);
-                    const startY = Math.round(bounds.y + rect.top + rect.height / 2);
+                    const ext = filename.split('.').pop().toLowerCase();
+                    const mimeMap = {
+                        'js': 'text/javascript', 'json': 'application/json',
+                        'html': 'text/html', 'css': 'text/css',
+                        'txt': 'text/plain', 'md': 'text/markdown',
+                        'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                        'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
+                    };
+                    const mimeType = mimeMap[ext] || 'application/octet-stream';
                     
-                    // 3. Get webview screen position (middle lower area, where Gemini input lies)
-                    const wvRect = wv.getBoundingClientRect();
-                    const endX = Math.round(bounds.x + wvRect.left + wvRect.width / 2);
-                    const endY = Math.round(bounds.y + wvRect.top + wvRect.height - 110);
-                    
-                    ChatUI.appendBubble('system', `[SYSTEM] Dragging and dropping ${filename}...`);
-                    
-                    // 4. Run C# drag_sim.exe to drag file from startX, startY to endX, endY!
-                    const { execFile } = require('child_process');
-                    const exePath = pathModule.join(process.cwd(), 'js', 'drag_sim.exe');
-                    
-                    document.body.classList.add('hide-cursor');
-                    execFile(exePath, [startX.toString(), startY.toString(), endX.toString(), endY.toString()], (err) => {
-                        document.body.classList.remove('hide-cursor');
-                        if (err) {
-                            console.error("Drag simulation failed:", err);
-                        }
-                    });
+                    wv.executeJavaScript(`
+                        (() => {
+                            const b64 = "${base64Content}";
+                            const name = "${filename}";
+                            const mime = "${mimeType}";
+                            
+                            const binary = atob(b64);
+                            const array = new Uint8Array(binary.length);
+                            for (let i = 0; i < binary.length; i++) {
+                                array[i] = binary.charCodeAt(i);
+                            }
+                            const blob = new Blob([array], { type: mime });
+                            const file = new File([blob], name, { type: mime });
+                            
+                            const dt = new DataTransfer();
+                            dt.items.add(file);
+                            
+                            let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
+                            
+                            const options = { bubbles: true, cancelable: true, dataTransfer: dt };
+                            target.dispatchEvent(new DragEvent('dragenter', options));
+                            target.dispatchEvent(new DragEvent('dragover', options));
+                            target.dispatchEvent(new DragEvent('drop', options));
+                            
+                            console.log("[GuestDrop] Dispatched drop event for file:", name);
+                        })();
+                    `).catch(err => console.error("Failed to execute drop injection script:", err));
                 } catch (err) {
-                    console.error("Failed to execute drag simulation on click:", err);
+                    console.error("Failed to execute silent HTML5 drop injection on click:", err);
                 }
             };
         }
@@ -398,8 +413,8 @@ window.autoClickPendingQueueItems = async function() {
             if (targetEl && targetEl.onclick) {
                 console.log("[AutoClick] Clicking queue item:", item.relativePath);
                 await targetEl.onclick();
-                // Wait for C# drag simulation to fully complete
-                await new Promise(resolve => setTimeout(resolve, 1400));
+                // Wait for HTML5 drop state to bind
+                await new Promise(resolve => setTimeout(resolve, 300));
             } else {
                 break;
             }

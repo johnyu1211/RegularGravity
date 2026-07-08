@@ -1486,6 +1486,14 @@ function setupUI() {
         refreshAgentBtn.onclick = () => { const u = urlIn ? urlIn.value.trim() : ''; if (u) { const wv = document.getElementById('active-agent-webview'); if (wv) wv.reload(); } };
     }
 
+    const debugAgentBtn = document.getElementById('debug-agent');
+    if (debugAgentBtn) {
+        debugAgentBtn.onclick = () => {
+            const wv = document.getElementById('active-agent-webview');
+            if (wv) wv.openDevTools();
+        };
+    }
+
     const settingsBtn = document.getElementById('agent-settings-btn');
     const settingsMenu = document.getElementById('agent-settings-menu');
     if (settingsBtn && settingsMenu) {

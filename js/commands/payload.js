@@ -144,7 +144,11 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                     };
                     
                     const inputEl = findInput();
-                    if (!inputEl) return "INPUT_NOT_FOUND";
+                    if (!inputEl) {
+                        console.log("[GuestInject] Error: input element not found!");
+                        return "INPUT_NOT_FOUND";
+                    }
+                    console.log("[GuestInject] Found element: " + inputEl.tagName + ", class: " + inputEl.className + ", id: " + inputEl.id + ", placeholder: " + inputEl.placeholder);
                     
                     inputEl.focus();
 
@@ -218,8 +222,11 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                         };
                         const htmlText = escapeHtml(decodedPayload);
                         try {
+                            console.log("[GuestInject] Executing insertHTML...");
                             document.execCommand('insertHTML', false, htmlText);
+                            console.log("[GuestInject] execCommand complete. InnerText: " + inputEl.innerText.substring(0, 100));
                         } catch (cmdErr) {
+                            console.log("[GuestInject] execCommand failed, falling back to innerText. Error: " + cmdErr.message);
                             inputEl.innerText = decodedPayload;
                         }
                     }

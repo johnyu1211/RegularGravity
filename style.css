@@ -1252,6 +1252,18 @@ input:checked + .slider:before {
     transition: .3s;
     border-radius: 20px;
 }
+.switch-toggle {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 18px;
+    flex-shrink: 0;
+}
+.switch-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
 
 /* Switch Toggle Styles */
 .switch-toggle input:checked + .slider-toggle {

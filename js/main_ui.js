@@ -420,6 +420,10 @@ window.updateDragDropQueueUI = function() {
 window.autoClickingQueue = false;
 window.autoClickPendingQueueItems = async function() {
     if (window.autoClickingQueue) return;
+    if (!window.autoDragging) {
+        console.log("[AutoClick] Auto-dragging is disabled. Skipping auto-clicks.");
+        return;
+    }
     window.autoClickingQueue = true;
     
     try {
@@ -486,6 +490,7 @@ window.reloadAgentSettings = function() {
             window.hideUIOverlay = settings.hasOwnProperty('hideUIOverlay') ? !!settings.hideUIOverlay : true;
             window.debugMode = !!settings.debugMode;
             window.dragDropMode = settings.hasOwnProperty('dragDropMode') ? !!settings.dragDropMode : true;
+            window.autoDragging = settings.hasOwnProperty('autoDragging') ? !!settings.autoDragging : true;
             return;
         }
     } catch(e) {}
@@ -493,6 +498,7 @@ window.reloadAgentSettings = function() {
     window.hideUIOverlay = true;
     window.debugMode = false;
     window.dragDropMode = true;
+    window.autoDragging = true;
 };
 
 window.fetchDirContent = async (p) => await ipcRenderer.invoke('get-directory-content', p);
@@ -1844,6 +1850,60 @@ function setupUI() {
     if (localSettingsBtn && localSettingsModal) {
         localSettingsBtn.onclick = () => {
             window.reloadAgentSettings(); 
+            
+            const contentEl = document.getElementById('local-settings-content');
+            if (contentEl) {
+                contentEl.style.justifyContent = 'flex-start';
+                contentEl.style.alignItems = 'stretch';
+                contentEl.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:14px; width:100%; font-family:'DM Sans',sans-serif;">
+                        <!-- Drag & Drop Mode -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;">Drag & Drop Mode</span>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="chk-drag-drop-mode" ${window.dragDropMode ? 'checked' : ''}>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                        <!-- Auto Dragging -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;">Auto Dragging (Auto Click)</span>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="chk-auto-drag" ${window.autoDragging ? 'checked' : ''}>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                        <!-- Debug Mode -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;">Debug Mode</span>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="chk-debug-mode" ${window.debugMode ? 'checked' : ''}>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                    </div>
+                `;
+                
+                const chkDragDrop = document.getElementById('chk-drag-drop-mode');
+                const chkAutoDrag = document.getElementById('chk-auto-drag');
+                const chkDebug = document.getElementById('chk-debug-mode');
+                
+                const updateAndSave = () => {
+                    const settingsData = {
+                        hideUIOverlay: window.hideUIOverlay,
+                        debugMode: !!chkDebug.checked,
+                        dragDropMode: !!chkDragDrop.checked,
+                        autoDragging: !!chkAutoDrag.checked
+                    };
+                    saveSettings(settingsData);
+                    window.reloadAgentSettings();
+                };
+                
+                if (chkDragDrop) chkDragDrop.onchange = updateAndSave;
+                if (chkAutoDrag) chkAutoDrag.onchange = updateAndSave;
+                if (chkDebug) chkDebug.onchange = updateAndSave;
+            }
+            
             localSettingsModal.style.display = 'flex';
         };
     }

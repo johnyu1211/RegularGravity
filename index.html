@@ -147,7 +147,12 @@
             <div id="editor-content" style="flex: 1; height: 100%; position: relative; overflow: hidden;"></div>
 
             <!-- Editor Bottom Status Bar (Taskbar-like) -->
-            <div id="editor-status-bar" style="height: 44px; min-height: 44px; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid var(--border-color); z-index: 100; box-sizing: border-box;"></div>
+            <div id="editor-status-bar" style="height: 44px; min-height: 44px; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid var(--border-color); z-index: 100; box-sizing: border-box; display: flex; align-items: center; padding-right: 110px; overflow: hidden; justify-content: flex-start;">
+                <!-- Horizontal scrollable flex container for shortcuts -->
+                <div id="status-bar-shortcuts-list" style="display: flex; align-items: center; gap: 8px; overflow-x: auto; white-space: nowrap; height: 100%; flex: 1; padding: 0 12px; box-sizing: border-box; -ms-overflow-style: none; scrollbar-width: none;">
+                    <!-- Pills will be rendered dynamically here -->
+                </div>
+            </div>
 
             <!-- Floating GitHub Popover Trigger -->
             <div id="git-toggle-btn" title="Toggle GitHub Git Integration" style="position: absolute; right: 58px; bottom: 5px; z-index: 1001; width: 34px; height: 34px; border-radius: 50%; background: rgba(22, 22, 28, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(255, 255, 255, 0.55); box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.75;">
@@ -390,6 +395,19 @@
                 <div id="tab-browser-hub" class="ins-tab">BROWSER</div>
             </div>
         </aside>
+    </div>
+
+    <!-- Add Shortcut Modal -->
+    <div id="add-shortcut-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:10000; align-items:center; justify-content:center;">
+        <div style="background:var(--surface-color); padding:20px; width:340px; border:1px solid var(--border-color); border-radius:12px; display:flex; flex-direction:column; gap:12px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); font-family: 'DM Sans', sans-serif;">
+            <span style="font-size: 13px; font-weight: 700; color: #fff;">Register Internet Shortcut</span>
+            <input type="text" id="shortcut-title-input" placeholder="Title (e.g. Google)..." style="width:100%; background:var(--surface-low); color:#fff; border:1px solid var(--border-color); padding:10px; border-radius:6px; font-size:12px; outline:none; box-sizing: border-box;">
+            <input type="text" id="shortcut-url-input" placeholder="URL (e.g. https://google.com)..." style="width:100%; background:var(--surface-low); color:#fff; border:1px solid var(--border-color); padding:10px; border-radius:6px; font-size:12px; outline:none; box-sizing: border-box;">
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+                <button id="close-shortcut-modal-btn" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; font-weight:700; padding:8px 12px;">Cancel</button>
+                <button id="save-shortcut-btn" style="background:linear-gradient(135deg, #3b82f6, #2563eb); color:white; border:none; padding:8px 16px; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer;">Save</button>
+            </div>
+        </div>
     </div>
 
     <!-- Modals -->

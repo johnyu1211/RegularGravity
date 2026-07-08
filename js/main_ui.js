@@ -2713,6 +2713,179 @@ function setupUI() {
         });
     }
 
+    // Shortcuts Bar Logic
+    const shortcutsList = document.getElementById('status-bar-shortcuts-list');
+    const shortcutAddModal = document.getElementById('add-shortcut-modal');
+    const shortcutCloseBtn = document.getElementById('close-shortcut-modal-btn');
+    const shortcutSaveBtn = document.getElementById('save-shortcut-btn');
+    const shortcutTitleInput = document.getElementById('shortcut-title-input');
+    const shortcutUrlInput = document.getElementById('shortcut-url-input');
+    
+    const loadShortcuts = () => {
+        let list = [];
+        try {
+            const raw = localStorage.getItem('poormansgravity-shortcuts');
+            if (raw) {
+                list = JSON.parse(raw);
+            } else {
+                // Populate default shortcuts
+                list = [
+                    { title: 'GitHub', url: 'https://github.com' },
+                    { title: 'Gemini', url: 'https://gemini.google.com' },
+                    { title: 'YouTube', url: 'https://youtube.com' }
+                ];
+                localStorage.setItem('poormansgravity-shortcuts', JSON.stringify(list));
+            }
+        } catch (e) {
+            console.error("Shortcuts load failed", e);
+        }
+        return list;
+    };
+    
+    const saveShortcuts = (list) => {
+        localStorage.setItem('poormansgravity-shortcuts', JSON.stringify(list));
+    };
+    
+    const renderShortcuts = () => {
+        if (!shortcutsList) return;
+        shortcutsList.innerHTML = '';
+        const list = loadShortcuts();
+        
+        // Render each shortcut pill
+        list.forEach((item, index) => {
+            const pill = document.createElement('div');
+            pill.className = 'status-shortcut-pill';
+            pill.title = `Left click: Open. Right click: Delete "${item.title}".`;
+            
+            let domain = 'github.com';
+            try {
+                domain = new URL(item.url).hostname;
+            } catch(e){}
+            
+            pill.innerHTML = `
+                <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 12px; height: 12px; border-radius: 2px;" onerror="this.style.display='none';">
+                <span>${item.title}</span>
+            `;
+            
+            // Left click: Open inside GITHUB HUB popover
+            pill.onclick = (e) => {
+                e.stopPropagation();
+                if (gitPopover && gitWebview) {
+                    // Close terminal if open
+                    const termPopover = document.getElementById('terminal-popover');
+                    if (termPopover) {
+                        termPopover.style.display = 'none';
+                        const tBtn = document.getElementById('terminal-toggle-btn');
+                        if (tBtn) {
+                            tBtn.style.color = '';
+                            tBtn.style.background = '';
+                        }
+                    }
+                    
+                    gitPopover.style.display = 'flex';
+                    if (gitToggleBtn) {
+                        gitToggleBtn.style.color = '#fff';
+                        gitToggleBtn.style.background = 'var(--primary)';
+                    }
+                    gitWebview.src = item.url;
+                }
+            };
+            
+            // Right click: Delete shortcut
+            pill.oncontextmenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (confirm(`Delete shortcut "${item.title}"?`)) {
+                    const newList = list.filter((_, idx) => idx !== index);
+                    saveShortcuts(newList);
+                    renderShortcuts();
+                }
+            };
+            
+            shortcutsList.appendChild(pill);
+        });
+        
+        // Append circular plus button at the end
+        const addBtn = document.createElement('div');
+        addBtn.id = 'add-shortcut-trigger-btn';
+        addBtn.style.display = 'inline-flex';
+        addBtn.style.alignItems = 'center';
+        addBtn.style.justifyContent = 'center';
+        addBtn.style.width = '24px';
+        addBtn.style.height = '24px';
+        addBtn.style.borderRadius = '50%';
+        addBtn.style.background = 'rgba(255,255,255,0.04)';
+        addBtn.style.border = '1px solid var(--border-color)';
+        addBtn.style.cursor = 'pointer';
+        addBtn.style.transition = 'all 0.2s';
+        addBtn.style.color = 'var(--text-muted)';
+        addBtn.style.flexShrink = '0';
+        addBtn.title = 'Register Internet Shortcut';
+        addBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+        
+        addBtn.onmouseenter = () => {
+            addBtn.style.background = 'rgba(255,255,255,0.08)';
+            addBtn.style.color = '#fff';
+            addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+        };
+        addBtn.onmouseleave = () => {
+            addBtn.style.background = 'rgba(255,255,255,0.04)';
+            addBtn.style.color = 'var(--text-muted)';
+            addBtn.style.borderColor = 'var(--border-color)';
+        };
+        
+        addBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (shortcutAddModal) {
+                if (shortcutTitleInput) shortcutTitleInput.value = '';
+                if (shortcutUrlInput) shortcutUrlInput.value = 'https://';
+                shortcutAddModal.style.display = 'flex';
+                if (shortcutTitleInput) shortcutTitleInput.focus();
+            }
+        };
+        
+        shortcutsList.appendChild(addBtn);
+    };
+    
+    // Modal handlers
+    if (shortcutCloseBtn && shortcutAddModal) {
+        shortcutCloseBtn.onclick = (e) => {
+            e.stopPropagation();
+            shortcutAddModal.style.display = 'none';
+        };
+    }
+    
+    if (shortcutSaveBtn && shortcutAddModal) {
+        shortcutSaveBtn.onclick = (e) => {
+            e.stopPropagation();
+            const title = shortcutTitleInput ? shortcutTitleInput.value.trim() : '';
+            let url = shortcutUrlInput ? shortcutUrlInput.value.trim() : '';
+            
+            if (!title) {
+                alert('Please enter a title!');
+                return;
+            }
+            if (!url || url === 'https://' || url === 'http://') {
+                alert('Please enter a valid URL!');
+                return;
+            }
+            
+            // Auto prepend protocol if missing
+            if (!/^https?:\/\//i.test(url)) {
+                url = 'https://' + url;
+            }
+            
+            const list = loadShortcuts();
+            list.push({ title, url });
+            saveShortcuts(list);
+            shortcutAddModal.style.display = 'none';
+            renderShortcuts();
+        };
+    }
+    
+    // Initial Render
+    renderShortcuts();
+
     // 3. Setup Popover Resizers
     const setupPopoverResizers = () => {
         const lResizer = popover ? popover.querySelector('.popover-resizer-l') : null;

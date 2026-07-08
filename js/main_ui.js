@@ -1476,6 +1476,9 @@ ${startPrompt}`.trim();
                         }
                         
                         window.markFileAsCompleted(filePath);
+                        if (typeof ChatUI !== 'undefined' && ChatUI.appendBubble) {
+                            ChatUI.appendBubble('user', `📁 Attached: ${pathModule.basename(filePath)}`);
+                        }
                         
                         const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
                         if (stillPending.length === 0) {

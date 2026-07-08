@@ -1850,13 +1850,25 @@ ${startPrompt}`.trim();
     
     if (localChatPanel && localDropZone) {
         localChatPanel.addEventListener('dragenter', (e) => {
-            if (window.dragDropMode && window.activeDragDropContinue) {
+            if (window.dragDropMode) {
                 e.preventDefault();
+                const dropText = document.getElementById('local-drop-zone-text');
+                if (dropText) {
+                    if (window.activeDragDropContinue && window.readCmds) {
+                        const fileNames = window.readCmds.map(f => {
+                            const parts = f.path.split(/[\\/]/);
+                            return parts[parts.length - 1];
+                        }).join(', ');
+                        dropText.innerHTML = `Drag and drop <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> here to proceed`;
+                    } else {
+                        dropText.innerHTML = `Drop file here to attach to conversation`;
+                    }
+                }
                 localDropZone.style.display = 'flex';
             }
         });
         localChatPanel.addEventListener('dragover', (e) => {
-            if (window.dragDropMode && window.activeDragDropContinue) {
+            if (window.dragDropMode) {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'copy';
                 localDropZone.style.display = 'flex';
@@ -1868,7 +1880,7 @@ ${startPrompt}`.trim();
             }
         });
         localChatPanel.addEventListener('drop', async (e) => {
-            if (window.dragDropMode && window.activeDragDropContinue) {
+            if (window.dragDropMode) {
                 e.preventDefault();
                 localDropZone.style.display = 'none';
                 
@@ -1886,19 +1898,21 @@ ${startPrompt}`.trim();
                 const pathModule = require('path');
                 const droppedName = pathModule.basename(filePath).toLowerCase();
                 
-                const requestedNames = (window.readCmds || []).map(f => {
-                    const parts = f.path.split(/[\\/]/);
-                    return parts[parts.length - 1].toLowerCase();
-                });
-                
-                if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
-                    const { showAlert } = require('./ui/dialogs.js');
-                    if (typeof showAlert === 'function') {
-                        showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
-                    } else {
-                        alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                if (window.activeDragDropContinue) {
+                    const requestedNames = (window.readCmds || []).map(f => {
+                        const parts = f.path.split(/[\\/]/);
+                        return parts[parts.length - 1].toLowerCase();
+                    });
+                    
+                    if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
+                        const { showAlert } = require('./ui/dialogs.js');
+                        if (typeof showAlert === 'function') {
+                            showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                        } else {
+                            alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                        }
+                        return;
                     }
-                    return;
                 }
                 
                 // Simulate drop inside webview guest page!
@@ -1947,6 +1961,12 @@ ${startPrompt}`.trim();
                                 console.log("[GuestDrop] Dispatched drop event for file:", name);
                             })();
                         `).catch(err => console.error("Failed to execute drop injection script:", err));
+                        
+                        if (!window.activeDragDropContinue) {
+                            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                                ChatUI.appendBubble('system', `[SYSTEM] File attached: ${filename}`);
+                            }
+                        }
                     }
                 } catch (err) {
                     console.error("Failed to process drop upload:", err);
@@ -1984,6 +2004,13 @@ async function migrateToVault() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+    document.addEventListener('drop', (e) => {
+        e.preventDefault();
+    });
+
     try {
         await migrateToVault();
     } catch (e) {

@@ -795,7 +795,7 @@ async function setupBoot() {
                         style = document.createElement('style');
                         style.id = styleId;
                         style.textContent = \`
-                            .input-area-container > *:not(.input-area) {
+                            [class*="disclaimer"], [class*="legal"], [class*="bottom-text"], [class*="footer"], .disclaimer {
                                 display: none !important;
                             }
                             .input-area-container, [class*="composer-parent"], [class*="PromptTextarea"], [class*="input-container"], [class*="input_container"] {

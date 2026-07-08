@@ -86,27 +86,64 @@ window.triggerGuestSend = function() {
                 return null;
             };
 
-            const input = findInput();
-            if (!input) return false;
-
-            input.focus();
-
-            const dispatchEnter = (el) => {
-                const createEvent = (type) => {
-                    const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter' });
-                    Object.defineProperty(ev, 'keyCode', { get: () => 13 });
-                    Object.defineProperty(ev, 'which', { get: () => 13 });
-                    Object.defineProperty(ev, 'charCode', { get: () => 13 });
-                    return ev;
-                };
-                el.dispatchEvent(createEvent('keydown'));
-                el.dispatchEvent(createEvent('keypress'));
-                el.dispatchEvent(createEvent('keyup'));
+            const findSendButton = (input) => {
+                const labels = ["send", "보내기", "전송", "submit"];
+                const buttons = Array.from(document.querySelectorAll('button'));
+                for (let btn of buttons) {
+                    const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                    if (labels.some(l => label.includes(l))) return btn;
+                }
+                for (let btn of buttons) {
+                    const cls = btn.className.toLowerCase();
+                    if (cls.includes('send') || cls.includes('submit')) return btn;
+                }
+                for (let btn of buttons) {
+                    if (btn.querySelector('svg, mat-icon, img')) {
+                        const html = btn.innerHTML.toLowerCase();
+                        if (html.includes('arrow') || html.includes('send') || html.includes('submit') || html.includes('up')) return btn;
+                    }
+                }
+                if (input) {
+                    let parent = input.parentElement;
+                    for (let depth = 0; depth < 5 && parent; depth++) {
+                        const btns = Array.from(parent.querySelectorAll('button')).filter(el => !!(el.offsetWidth || el.offsetHeight));
+                        if (btns.length > 0) {
+                            return btns[btns.length - 1];
+                        }
+                        parent = parent.parentElement;
+                    }
+                }
+                return null;
             };
 
-            dispatchEnter(input);
-            await new Promise(r => setTimeout(r, 1000));
-            dispatchEnter(input);
+            const input = findInput();
+            const btn = findSendButton(input);
+            
+            if (btn) {
+                console.log("[GuestSend] Found send button, clicking it.");
+                btn.click();
+                await new Promise(r => setTimeout(r, 500));
+            }
+            
+            if (input) {
+                input.focus();
+                const dispatchEnter = (el) => {
+                    const createEvent = (type) => {
+                        const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter' });
+                        Object.defineProperty(ev, 'keyCode', { get: () => 13 });
+                        Object.defineProperty(ev, 'which', { get: () => 13 });
+                        Object.defineProperty(ev, 'charCode', { get: () => 13 });
+                        return ev;
+                    };
+                    el.dispatchEvent(createEvent('keydown'));
+                    el.dispatchEvent(createEvent('keypress'));
+                    el.dispatchEvent(createEvent('keyup'));
+                };
+
+                dispatchEnter(input);
+                await new Promise(r => setTimeout(r, 1000));
+                dispatchEnter(input);
+            }
             return true;
         })()
     `;

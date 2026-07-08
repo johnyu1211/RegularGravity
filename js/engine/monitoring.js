@@ -404,6 +404,9 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         }
 
         if (isGenerating) {
+            if (typeof window.updateAiStreamBubble === 'function' && delta.length > 0) {
+                window.updateAiStreamBubble(delta);
+            }
             const isStillResponding = await wv.executeJavaScript(`(() => {
                 const stopBtn = Array.from(document.querySelectorAll('button')).find(b => b.querySelector('svg rect') || (b.getAttribute('aria-label') && (b.getAttribute('aria-label').includes('Stop') || b.getAttribute('aria-label').includes('중지'))));
                 if (stopBtn && stopBtn.offsetHeight > 0) return true;

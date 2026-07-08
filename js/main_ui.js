@@ -1358,6 +1358,33 @@ ${startPrompt}`.trim();
             }, 12);
         };
 
+        window.updateAiStreamBubble = (text) => {
+            if (!text) return;
+            const chatLog = document.getElementById('local-chat-messages');
+            if (!chatLog) return;
+            
+            if (window.currentBatchFileCount === -1 && window.autoContinueOnRead) return;
+
+            if (!window.isNewResponse && window.lastActiveAiBubble) {
+                const contentEl = window.lastActiveAiBubble.querySelector('.bubble-content');
+                if (contentEl) {
+                    contentEl.dataset.rawText = text;
+                    const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(text) : text;
+                    contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(formatted).trim() : formatted.trim();
+                    if (typeof hljs !== 'undefined') {
+                        window.lastActiveAiBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                    }
+                    chatLog.scrollTop = chatLog.scrollHeight;
+                    return;
+                }
+            }
+            
+            window.isNewResponse = false;
+            const webviewEl = document.getElementById('active-agent-webview');
+            const getWebIcon = (w) => { try { return `https://www.google.com/s2/favicons?domain=${new URL(w.src).hostname}&sz=64`; } catch { return null; } };
+            window.lastActiveAiBubble = ChatUI.appendBubble('ai', text, false, getWebIcon(webviewEl));
+        };
+
         window.finalizeAiBubble = (response) => {
             if (!response) return;
             const chatLog = document.getElementById('local-chat-messages');

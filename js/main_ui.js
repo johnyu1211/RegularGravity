@@ -57,10 +57,10 @@ window.updateDragDropQueueUI = function() {
     const countEl = document.getElementById('requested-files-count');
     if (!listEl) return;
     
-    // Toggle container display based on dragDropMode and queue content!
-    const hasItems = window.requestedFilesQueue.length > 0;
+    // Only show pending items in the queue list!
+    const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
     if (containerEl) {
-        if (window.dragDropMode && hasItems) {
+        if (window.dragDropMode && pendingItems.length > 0) {
             containerEl.style.display = 'flex';
         } else {
             containerEl.style.display = 'none';
@@ -69,57 +69,46 @@ window.updateDragDropQueueUI = function() {
     
     listEl.innerHTML = '';
     
-    const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
     if (countEl) countEl.innerText = pendingItems.length;
     
-    if (window.requestedFilesQueue.length === 0) {
+    if (pendingItems.length === 0) {
         listEl.innerHTML = `<div style="font-size: 11px; color: var(--text-dark); text-align: center; margin-top: 50px; font-family: 'DM Sans', sans-serif;">No requested files</div>`;
         return;
     }
     
-    window.requestedFilesQueue.forEach(item => {
+    pendingItems.forEach(item => {
         const itemEl = document.createElement('div');
         itemEl.className = 'queue-item';
-        itemEl.draggable = item.status === 'PENDING';
+        itemEl.draggable = true;
         itemEl.setAttribute('data-filepath', item.absolutePath);
         
         itemEl.style = `
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 8px;
-            background: ${item.status === 'COMPLETED' ? 'rgba(70, 140, 246, 0.03)' : 'var(--surface-color)'};
-            border: 1px solid ${item.status === 'COMPLETED' ? 'rgba(70, 140, 246, 0.15)' : 'var(--border-color)'};
+            padding: 6px 10px;
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
-            cursor: ${item.status === 'PENDING' ? 'grab' : 'default'};
+            cursor: grab;
             user-select: none;
             transition: all 0.2s;
-            opacity: ${item.status === 'COMPLETED' ? '0.5' : '1'};
         `;
         
-        if (item.status === 'PENDING') {
-            itemEl.onmouseenter = () => {
-                itemEl.style.background = 'var(--surface-high)';
-                itemEl.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-            };
-            itemEl.onmouseleave = () => {
-                itemEl.style.background = 'var(--surface-color)';
-                itemEl.style.borderColor = 'var(--border-color)';
-            };
-            itemEl.ondragstart = (e) => {
-                e.preventDefault();
-                ipcRenderer.send('ondragstart', item.absolutePath);
-            };
-        }
-        
-        const icon = item.status === 'COMPLETED' ? '✅' : '📄';
-        const statusText = item.status;
-        const statusColor = item.status === 'COMPLETED' ? 'var(--primary)' : 'var(--text-muted)';
+        itemEl.onmouseenter = () => {
+            itemEl.style.background = 'var(--surface-high)';
+            itemEl.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        };
+        itemEl.onmouseleave = () => {
+            itemEl.style.background = 'var(--surface-color)';
+            itemEl.style.borderColor = 'var(--border-color)';
+        };
+        itemEl.ondragstart = (e) => {
+            e.preventDefault();
+            ipcRenderer.send('ondragstart', item.absolutePath);
+        };
         
         itemEl.innerHTML = `
-            <span class="queue-file-icon" style="font-size: 11px; flex-shrink: 0; display: flex; align-items: center;">${icon}</span>
-            <span class="queue-file-name" style="font-size: 11px; color: var(--text-main); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
-            <span class="queue-status" style="font-size: 8px; color: ${statusColor}; padding: 2px 4px; background: var(--surface-low); border-radius: 4px; font-weight: 700; font-family: 'DM Sans', sans-serif;">${statusText}</span>
+            <span class="queue-file-name" style="font-size: 11px; color: var(--text-main); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px;" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
         `;
         
         listEl.appendChild(itemEl);

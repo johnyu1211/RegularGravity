@@ -259,11 +259,7 @@ window.updateDragDropQueueUI = function() {
     // Toggle container display based on dragDropMode and presence of items in the queue
     const hasItems = window.requestedFilesQueue.length > 0;
     if (containerEl) {
-        if (window.dragDropMode && hasItems) {
-            containerEl.style.display = 'flex';
-        } else {
-            containerEl.style.display = 'none';
-        }
+        containerEl.style.display = 'none';
     }
     
     const closeBtn = document.getElementById('close-drag-drop-queue');

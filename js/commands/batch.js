@@ -190,7 +190,7 @@ async function executeSearchBatch(searchCmds) {
     }
 }
 
-async function executeEditFileRangeBatch(editCmds) {
+async function executeEditFileBatch(editCmds) {
     try {
         window.lastInjectedBubble = null;
         window.lastReceivedMirrorText = "";
@@ -210,21 +210,38 @@ async function executeEditFileRangeBatch(editCmds) {
                     return;
                 }
                 
-                const content = fs.readFileSync(targetPath, 'utf-8');
-                const isCRLF = content.includes('\r\n');
-                const lines = content.replace(/\r/g, '').split('\n');
+                let originalContent = fs.readFileSync(targetPath, 'utf-8');
+                const isCRLF = originalContent.includes('\r\n');
                 
-                const startLine = Math.max(1, fileObj.start);
-                const endLine = Math.min(lines.length, fileObj.end);
+                let content = originalContent.replace(/\r/g, '');
+                let searchStr = fileObj.search.replace(/\r/g, '');
+                let replaceStr = fileObj.replace.replace(/\r/g, '');
                 
-                const newLines = fileObj.code.replace(/\r/g, '').split('\n');
-                lines.splice(startLine - 1, endLine - startLine + 1, ...newLines);
+                if (!searchStr) {
+                    feedbackContent += `[FILE EDIT ERROR: ${filePath} - Empty SEARCH block]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: Empty SEARCH block`);
+                    return;
+                }
+
+                let idx = content.indexOf(searchStr);
+                if (idx === -1) {
+                    feedbackContent += `[FILE EDIT ERROR: ${filePath} - SEARCH block not found in file]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: SEARCH block not found in file`);
+                    return;
+                }
+
+                const before = content.substring(0, idx);
+                const after = content.substring(idx + searchStr.length);
+                let newContent = before + replaceStr + after;
                 
-                const joined = lines.join(isCRLF ? '\r\n' : '\n');
-                fs.writeFileSync(targetPath, joined, 'utf-8');
+                if (isCRLF) {
+                    newContent = newContent.replace(/\n/g, '\r\n');
+                }
                 
-                feedbackContent += `[FILE EDIT SUCCESS: ${filePath} range ${startLine}-${endLine}]\n`;
-                ChatUI.appendBubble('system', `[SUCCESS] Edited ${filePath} lines ${startLine}-${endLine}.`);
+                fs.writeFileSync(targetPath, newContent, 'utf-8');
+                
+                feedbackContent += `[FILE EDIT SUCCESS: ${filePath}]\n`;
+                ChatUI.appendBubble('system', `[SUCCESS] Edited ${filePath} successfully.`);
             } catch (err) {
                 feedbackContent += `[FILE EDIT ERROR: ${filePath} - ${err.message}]\n`;
                 ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: ${err.message}`);

@@ -512,6 +512,9 @@ window.autoClickPendingQueueItems = async function() {
                 return;
             }
             
+            console.log("[AutoClick] Clicking queue item:", item.relativePath);
+            await targetEl.onclick();
+
             item.status = 'UPLOADING';
             if (typeof window.updateDragDropQueueUI === 'function') {
                 window.updateDragDropQueueUI();
@@ -528,9 +531,6 @@ window.autoClickPendingQueueItems = async function() {
                     }
                 }
             }, 5000);
-            
-            console.log("[AutoClick] Clicking queue item:", item.relativePath);
-            await targetEl.onclick();
         } catch (err) {
             console.error("[AutoClick] Error in queue auto-clicker:", err);
         } finally {

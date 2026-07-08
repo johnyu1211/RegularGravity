@@ -1,11 +1,15 @@
 if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 
 async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0, isAppend = false, clickSend = true) {
+    window.isHostSending = true;
     const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
     const inKeywords = savedKeywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
 
     return new Promise((resolve, reject) => {
-        const wv = document.getElementById('active-agent-webview'); if (!wv) return reject("Webview not found");
+        const wv = document.getElementById('active-agent-webview'); if (!wv) {
+            window.isHostSending = false;
+            return reject("Webview not found");
+        }
         const cleanPayload = webPayload.trim();
         const base64Payload = Buffer.from(cleanPayload, 'utf-8').toString('base64');
         const totalLines = cleanPayload.split('\n').length; // 전체 라인수 산출
@@ -111,6 +115,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
         wv.addEventListener('console-message', onConsole);
 
         const cleanup = () => {
+            window.isHostSending = false;
             wv.removeEventListener('console-message', onConsole);
             if (toast && !window.autoContinueOnRead) toast.style.display = 'none';
         };
@@ -311,6 +316,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             }
 
             if (toast) toast.style.display = 'none';
+            cleanup();
             resolve(true);
         }).catch(err => {
             cleanup();

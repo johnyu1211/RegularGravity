@@ -69,6 +69,8 @@ window.addFileToRequestedQueue = function(filePath) {
 };
 
 window.triggerGuestSend = function() {
+    window.isHostSending = true;
+    setTimeout(() => { window.isHostSending = false; }, 2000);
     const wv = document.getElementById('active-agent-webview');
     if (!wv) return;
     
@@ -143,6 +145,12 @@ window.injectGuestDropInterceptor = function() {
                 window.removeEventListener('dragover', window.guestDragoverListener, true);
                 window.removeEventListener('drop', window.guestDropListener, true);
             }
+            if (window.guestKeydownListener) {
+                window.removeEventListener('keydown', window.guestKeydownListener, true);
+            }
+            if (window.guestClickListener) {
+                window.removeEventListener('click', window.guestClickListener, true);
+            }
             
             window.guestDragoverListener = (e) => {
                 const isFiles = e.dataTransfer.types.includes('Files');
@@ -165,9 +173,62 @@ window.injectGuestDropInterceptor = function() {
                 }
             };
             
+            const findInput = () => {
+                const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                const candidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(isVisible);
+                if (document.activeElement && candidates.includes(document.activeElement)) {
+                    return document.activeElement;
+                }
+                return candidates[0] || null;
+            };
+
+            const getInputText = (el) => {
+                if (!el) return "";
+                if (el.tagName.toLowerCase() === 'textarea' || el.tagName.toLowerCase() === 'input') {
+                    return el.value;
+                }
+                return el.innerText || el.textContent || "";
+            };
+
+            window.lastLoggedUserMessage = "";
+            window.lastLoggedTime = 0;
+            const logUserMessage = (text) => {
+                if (!text) return;
+                const now = Date.now();
+                if (text === window.lastLoggedUserMessage && (now - window.lastLoggedTime) < 1500) {
+                    return;
+                }
+                window.lastLoggedUserMessage = text;
+                window.lastLoggedTime = now;
+                console.log('[GUEST_USER_MESSAGE]:' + text);
+            };
+
+            window.guestKeydownListener = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    const inputEl = findInput();
+                    const text = getInputText(inputEl).trim();
+                    logUserMessage(text);
+                }
+            };
+
+            window.guestClickListener = (e) => {
+                const btn = e.target.closest('button');
+                if (btn) {
+                    const label = (btn.getAttribute('aria-label') || btn.title || btn.innerText || '').toLowerCase();
+                    const isSend = label.includes('send') || label.includes('보내기') || label.includes('전송') || label.includes('submit') || btn.querySelector('svg') || btn.innerHTML.includes('arrow') || btn.innerHTML.includes('send');
+                    if (isSend) {
+                        const inputEl = findInput();
+                        const text = getInputText(inputEl).trim();
+                        logUserMessage(text);
+                    }
+                }
+            };
+            
             window.addEventListener('dragover', window.guestDragoverListener, true);
             window.addEventListener('drop', window.guestDropListener, true);
-            console.log('[GuestInterceptor] Successfully registered drop listeners.');
+            window.addEventListener('keydown', window.guestKeydownListener, true);
+            window.addEventListener('click', window.guestClickListener, true);
+            console.log('[GuestInterceptor] Successfully registered drop and message listeners.');
         })();
     `).catch(err => console.error("Failed to inject guest drop interceptor:", err));
 };
@@ -1428,6 +1489,17 @@ ${startPrompt}`.trim();
                             console.error("Failed to process drop upload:", err);
                         }
                     }
+                }
+                return;
+            }
+            if (e.message.startsWith('[GUEST_USER_MESSAGE]:')) {
+                if (window.isHostSending) {
+                    console.log("[HostConsole] Ignored GUEST_USER_MESSAGE due to isHostSending flag.");
+                    return;
+                }
+                const userMsg = e.message.substring(21).trim();
+                if (userMsg && typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    ChatUI.appendBubble('user', userMsg);
                 }
                 return;
             }

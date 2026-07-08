@@ -11,7 +11,7 @@ window.updateSplitLayoutHeight = function(newHeight) {
     if (newHeight < 40 || newHeight > 500) return;
     window.currentSplitHeight = newHeight;
     const vLC = document.getElementById('inspector-local-chat');
-    if (vLC && window.activeSubTabId === 'local') {
+    if (vLC && (window.activeSubTabId === 'local' || !window.activeSubTabId || vLC.style.zIndex === '150')) {
         vLC.style.height = `calc(100% - 44px - ${newHeight}px)`;
     }
 };

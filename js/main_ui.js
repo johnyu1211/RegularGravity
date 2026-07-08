@@ -474,14 +474,14 @@ window.autoClickPendingQueueItems = async function() {
                     warningEl.style.color = '#e0a100';
                 }
                 
-                if (attemptCounts[key] > 5) {
-                    console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 5 consecutive upload attempts.`);
-                    if (warningEl) {
-                        warningEl.innerHTML = `❌ 실패 5회 초과로 자동 드래그 중단: ${item.relativePath}`;
-                        warningEl.style.color = '#ff4444';
-                    }
-                    break;
-                }
+if (attemptCounts[key] > 3) {
+console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 3 consecutive upload attempts.`);
+if (warningEl) {
+warningEl.innerHTML = `❌ 실패 3회 초과로 자동 드래그 중단: ${item.relativePath}`;
+warningEl.style.color = '#ff4444';
+}
+break;
+}
                 
                 item.status = 'UPLOADING';
                 
@@ -2334,6 +2334,19 @@ ${startPrompt}`.trim();
                     return;
                 }
                 const userMsg = e.message.substring(21).trim();
+                const isHostPayload = userMsg.startsWith('[FILE EDIT SUCCESS:') ||
+                                      userMsg.startsWith('[FILE EDIT ERROR:') ||
+                                      userMsg.startsWith('[FILE CREATED:') ||
+                                      userMsg.startsWith('[FILE DELETED:') ||
+                                      userMsg.startsWith('[FILE DATA') ||
+                                      userMsg.startsWith('[PROJECT BRIEFING]') ||
+                                      userMsg.includes('I have uploaded the requested') ||
+                                      userMsg.includes('Proceed to analyze') ||
+                                      userMsg.includes('Proceed to verify');
+                if (isHostPayload) {
+                    console.log("[HostConsole] Ignored host-injected payload:", userMsg);
+                    return;
+                }
                 if (userMsg && typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
                     if (userMsg !== "[File Attachment]") {
                         ChatUI.appendBubble('user', userMsg);

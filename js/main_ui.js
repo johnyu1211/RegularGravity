@@ -1090,7 +1090,9 @@ function detectAndAskCommand(text) {
                             const absDir = path.resolve(window.currentPath || process.cwd(), dir.path);
                             const files = getFlatDirectoryTree(absDir);
                             const relativeFiles = files.map(f => path.relative(window.currentPath || process.cwd(), f));
-                            const fileListStr = relativeFiles.map(rf => `- ${rf.replace(/\\/g, '/')}`).join('\n');
+                            const fileListStr = files.length > 0 
+                                ? relativeFiles.map(rf => `- ${rf.replace(/\\/g, '/')}`).join('\n') 
+                                : "(Directory is empty)";
                             parts.push(`[DIRECTORY LIST: ${dir.path}]\n${fileListStr}\n`);
                         });
                     }
@@ -1786,7 +1788,9 @@ function detectAndAskCommand(text) {
                     if (fs.existsSync(absDir)) {
                         const files = getFlatDirectoryTree(absDir);
                         const relativeFiles = files.map(f => path.relative(window.currentPath || process.cwd(), f));
-                        const fileListStr = relativeFiles.map(rf => `- ${rf.replace(/\\/g, '/')}`).join('\n');
+                        const fileListStr = files.length > 0 
+                            ? relativeFiles.map(rf => `- ${rf.replace(/\\/g, '/')}`).join('\n') 
+                            : "(Directory is empty)";
                         
                         if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
                             const resBox = ChatUI.appendBubble('system', '');

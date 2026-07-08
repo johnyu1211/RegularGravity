@@ -797,6 +797,8 @@ function detectAndAskCommand(text) {
     const editCmds = [];
     const deleteCmds = [];
     const createDirCmds = [];
+    const runCommandCmds = [];
+    const searchKeywordCmds = [];
     const searchCmds = [];
     const otherCmds = [];
 
@@ -966,6 +968,18 @@ function detectAndAskCommand(text) {
         } else if (createDirMatch) {
             const dirPath = createDirMatch[1].trim();
             createDirCmds.push({ path: dirPath });
+        } else if (runCommandMatch) {
+            let cmdStr = runCommandMatch[1].trim();
+            if ((cmdStr.startsWith('"') && cmdStr.endsWith('"')) || (cmdStr.startsWith("'") && cmdStr.endsWith("'"))) {
+                cmdStr = cmdStr.slice(1, -1);
+            }
+            runCommandCmds.push({ command: cmdStr });
+        } else if (searchKeywordMatch) {
+            let pattern = searchKeywordMatch[1].trim();
+            if ((pattern.startsWith('"') && pattern.endsWith('"')) || (pattern.startsWith("'") && pattern.endsWith("'"))) {
+                pattern = pattern.slice(1, -1);
+            }
+            searchKeywordCmds.push({ pattern: pattern });
         } else {
             otherCmds.push(cmd);
         }
@@ -976,6 +990,8 @@ function detectAndAskCommand(text) {
     const hasEditFile = (editCmds.length > 0);
     const hasDeleteFile = (deleteCmds.length > 0);
     const hasCreateDir = (createDirCmds.length > 0);
+    const hasRunCommand = (runCommandCmds.length > 0);
+    const hasSearchKeyword = (searchKeywordCmds.length > 0);
 
     if (!hasReadFile && !hasWriteFile && !hasEditFile && !hasDeleteFile && window.autoContinueOnRead) {
         const toast = document.getElementById('injection-toast');
@@ -1467,6 +1483,172 @@ function detectAndAskCommand(text) {
             content.querySelector('.cmd-run-btn').onclick = async () => {
                 box.remove();
                 await runCreateDir();
+            };
+            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        }
+    }
+
+    if (hasRunCommand) {
+        const displayCmd = runCommandCmds.map(c => `run-command "${c.command}"`).join(', ');
+        
+        const runCommandExec = async () => {
+            const { exec } = require('child_process');
+            for (const c of runCommandCmds) {
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    ChatUI.appendBubble('system', `[SYSTEM] Running command: ${c.command}...\n`);
+                }
+                
+                // Show loading spinner
+                let loaderBox = null;
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    loaderBox = ChatUI.appendBubble('system', '');
+                    const loaderContent = loaderBox.querySelector('.bubble-content');
+                    if (loaderContent) {
+                        loaderContent.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-muted);">
+                                <div class="terminal-loading-spinner" style="width: 12px; height: 12px; border-width: 1.5px;"></div>
+                                <span>Executing: ${c.command}</span>
+                            </div>
+                        `;
+                    }
+                }
+                
+                exec(c.command, { cwd: window.currentPath || process.cwd(), timeout: 45000 }, async (err, stdout, stderr) => {
+                    if (loaderBox) loaderBox.remove();
+                    
+                    const output = (stdout + '\n' + stderr).trim() || "[No output]";
+                    
+                    // Render premium output card
+                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                        const resBox = ChatUI.appendBubble('system', '');
+                        const resContent = resBox.querySelector('.bubble-content');
+                        if (resContent) {
+                            resContent.innerHTML = `
+                                <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.4;">
+                                    <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: ${err ? '#FF5252' : '#4CAF50'}; margin-bottom: 8px;">
+                                        <span>${err ? '❌ Command Failed' : '✅ Command Succeeded'}</span>
+                                        <span style="color: var(--text-muted); font-size: 10.5px; font-weight: normal;">(${c.command})</span>
+                                    </div>
+                                    <pre style="margin: 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; overflow-x: auto; color: var(--text-main); font-size: 11px; max-height: 200px; white-space: pre-wrap;">${output.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                </div>
+                            `;
+                        }
+                    }
+                    
+                    const payload = "[SYSTEM] Command `" + c.command + "` executed. Output:\n```\n" + output + "\n```\nProceed with next step." + window.getSystemRulesPrompt();
+                    await injectWebPayload(payload, 1, 1, false, true);
+                });
+            }
+        };
+
+        const box = ChatUI.appendBubble('system', '');
+        const content = box.querySelector('.bubble-content');
+        const themeColor = "#ef4444"; // Red for commands warning
+        const glowShadow = "rgba(239, 68, 68, 0.15)";
+
+        content.innerHTML = `
+            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                <div style="font-weight: bold; color: #ff4444; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <span>⚠️ SECURITY WARNING</span>
+                </div>
+                <span>Allow Web AI to execute: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayCmd}</strong>?</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
+                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">DENY</button>
+            </div>
+        `;
+
+        content.querySelector('.cmd-run-btn').onclick = async () => {
+            box.remove();
+            await runCommandExec();
+        };
+        content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+    }
+
+    if (hasSearchKeyword) {
+        const displayCmd = searchKeywordCmds.map(s => `search-keyword "&quot;${s.pattern}&quot;"`).join(', ');
+        
+        const runSearch = async () => {
+            const fs = require('fs');
+            const path = require('path');
+            for (const c of searchKeywordCmds) {
+                const results = [];
+                const walk = (dir) => {
+                    const list = fs.readdirSync(dir);
+                    for (const file of list) {
+                        const fullPath = path.join(dir, file);
+                        if (file === 'node_modules' || file === '.git' || file === '.gemini') continue;
+                        try {
+                            const stat = fs.statSync(fullPath);
+                            if (stat && stat.isDirectory()) {
+                                walk(fullPath);
+                            } else {
+                                const ext = path.extname(file).toLowerCase();
+                                if (['.js', '.json', '.html', '.css', '.md', '.txt', '.cs', '.py', '.ts'].includes(ext)) {
+                                    const content = fs.readFileSync(fullPath, 'utf-8');
+                                    const lines = content.split('\n');
+                                    lines.forEach((line, idx) => {
+                                        if (line.toLowerCase().includes(c.pattern.toLowerCase())) {
+                                            const rel = path.relative(window.currentPath || process.cwd(), fullPath);
+                                            results.push({ file: rel, line: idx + 1, text: line.trim() });
+                                        }
+                                    });
+                                }
+                            }
+                        } catch(e) {}
+                        if (results.length > 50) break;
+                    }
+                };
+                
+                try {
+                    walk(window.currentPath || process.cwd());
+                } catch(e) {}
+                
+                const formatted = results.map(r => `${r.file}:${r.line}: ${r.text}`).join('\n') || "[No matches found]";
+                
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    const resBox = ChatUI.appendBubble('system', '');
+                    const resContent = resBox.querySelector('.bubble-content');
+                    if (resContent) {
+                        resContent.innerHTML = `
+                            <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.4;">
+                                <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: var(--primary); margin-bottom: 8px;">
+                                    <span>🔍 Search Results</span>
+                                    <span style="color: var(--text-muted); font-size: 10.5px; font-weight: normal;">("${c.pattern}" - ${results.length} matches)</span>
+                                </div>
+                                <pre style="margin: 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; overflow-x: auto; color: var(--text-main); font-size: 11px; max-height: 180px; white-space: pre-wrap;">${formatted.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                            </div>
+                        `;
+                    }
+                }
+                
+                const payload = "[SYSTEM] Search results for \"" + c.pattern + "\":\n```\n" + formatted + "\n```\nProceed with next step." + window.getSystemRulesPrompt();
+                await injectWebPayload(payload, 1, 1, false, true);
+            }
+        };
+
+        if (window.autoContinueOnRead) {
+            runSearch();
+        } else {
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#468CF6"; 
+            const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">🔍</span>${displayCmd}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                </div>
+            `;
+
+            content.querySelector('.cmd-run-btn').onclick = async () => {
+                box.remove();
+                await runSearch();
             };
             content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
         }

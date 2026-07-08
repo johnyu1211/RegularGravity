@@ -2544,22 +2544,8 @@ function setupUI() {
                 gitToggleBtn.style.background = 'var(--primary)';
                 
                 // Load URL if it's blank or not loaded yet
-                if (gitWebview.src === 'about:blank') {
-                    const { exec } = require('child_process');
-                    const cwd = window.currentPath || process.cwd();
-                    exec('git config --get remote.origin.url', { cwd }, (err, stdout) => {
-                        let targetUrl = 'https://github.com';
-                        if (!err && stdout.trim()) {
-                            let rawUrl = stdout.trim();
-                            if (rawUrl.startsWith('git@')) {
-                                rawUrl = rawUrl.replace(':', '/').replace('git@', 'https://').replace(/.git$/, '');
-                            } else if (rawUrl.endsWith('.git')) {
-                                rawUrl = rawUrl.replace(/.git$/, '');
-                            }
-                            targetUrl = rawUrl;
-                        }
-                        gitWebview.src = targetUrl;
-                    });
+                if (gitWebview.src === 'about:blank' || gitWebview.getAttribute('src') === 'about:blank') {
+                    gitWebview.src = 'https://github.com';
                 }
             } else {
                 gitPopover.style.display = 'none';

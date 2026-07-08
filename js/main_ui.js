@@ -538,13 +538,7 @@ window.autoClickPendingQueueItems = async function() {
                 return;
             }
             
-            console.log("[AutoClick] Clicking queue item:", item.relativePath);
-            await targetEl.onclick();
-
             item.status = 'UPLOADING';
-            if (typeof window.updateDragDropQueueUI === 'function') {
-                window.updateDragDropQueueUI();
-            }
             
             const currentKey = key;
             setTimeout(() => {
@@ -557,6 +551,12 @@ window.autoClickPendingQueueItems = async function() {
                     }
                 }
             }, 5000);
+
+            console.log("[AutoClick] Clicking queue item:", item.relativePath);
+            await targetEl.onclick();
+            
+            // Wait for drag simulation to fully complete before updating UI and releasing lock
+            await new Promise(resolve => setTimeout(resolve, 1400));
         } catch (err) {
             console.error("[AutoClick] Error in queue auto-clicker:", err);
         } finally {

@@ -705,59 +705,37 @@ const syncBrowserView = (() => {
 })();
 
 window.getSystemRulesPrompt = function() {
-    if (window.dragDropMode) {
-        return `
+    return `
 [SYSTEM RULES]
-1. 탐색 단계: 전체 파악 전 설명/단답 문장 일절 금지, 오직 다음 탐색용 파일 요청 태그만 출력하십시오.
-2. 요구 규격 (Drag & Drop Mode 활성 상태):
-   - 중요: 모든 파일 파악/요구는 문장 끝에 반드시 다음 태그를 포함하십시오 (어차피 파일 전체가 첨부되므로 단일 규격 사용):
-     * [REQUEST: read-file "경로"] (분석이 필요한 대상 파일)
-   - 여러 파일이 동시에 필요할 경우, 한 줄에 여러 개의 태그를 연속으로 출력하십시오. 예: [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"]
-3. 파일 수정 규격 (SEARCH/REPLACE 블록 사용):
-   - 중요: 기존 파일 코드를 부분수정/치환할 때, 반드시 다음 형식으로 응답하십시오 (여러 파일 수정 시 연속 작성 가능):
+1. 탐색 단계: 설명 일절 금지, 오직 다음 탐색용 파일 요청 태그만 출력하십시오.
+   - 중요: 파일 내용 분석이 필요하면 문장 끝에 반드시 다음 태그를 포함하십시오:
+     * [REQUEST: read-file "경로"] (분석할 파일)
+   - 특정 폴더 내부의 파일 목록 구조만 조회해야 할 때는 다음 태그를 사용하십시오:
+     * [CMD: list-dir "폴더경로"] (폴더 리스트 조회)
+   - 프로젝트 전체 텍스트 검색이 필요할 때는 다음 태그를 사용하십시오:
+     * [CMD: search-keyword "검색어"] (전역 텍스트 검색)
+2. 파일 수정/관리 규격 (반드시 형식 준수):
+   - 기존 파일 부분수정/치환:
      [CMD: edit-file "경로"]
      [SEARCH]
      수정하려는 파일 내 기존 코드 일부 (정확히 일치해야 함)
      [REPLACE]
      수정하여 덮어쓸 새 코드 본문
      [END]
-   - 새 파일을 생성하거나 코드 전체를 다시 써야 할 때만 다음 형식을 사용하십시오:
+   - 새 파일 생성 또는 전체 쓰기:
      [CMD: write-file "경로"]
-     \`\`\`언어
+     \\\`\\\`\\\`언어
      전체 코드 본문
-     \`\`\`
-   - 파일/폴더를 삭제해야 할 때만 다음 형식을 사용하십시오:
-     [CMD: delete-file "경로"]
-4. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 파일 목록을 유저에게 드롭해달라고 요청([REQUEST: read-file...])하여 확인한 뒤 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
-5. 문구 제한: 설명/단답 문장 일절 없이 오직 요청 태그만 한 줄로 출력. 사족 절대 금지.
-6. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
-    } else {
-        return `
-[SYSTEM RULES]
-1. 탐색 단계: 전체 파악 전 설명/단답 문장 일절 금지, 오직 다음 탐색용 파일 요청 태그만 출력하십시오.
-2. 요구 규격 (일반 모드):
-   - 중요: 모든 파일 파악/요구는 문장 끝에 반드시 다음 태그를 포함하여 유저에게 업로드를 요청하십시오 (어차피 파일 전체가 첨부되므로 단일 규격 사용):
-     * [REQUEST: read-file "경로"] (분석이 필요한 대상 파일)
-   - 여러 파일이 동시에 필요할 경우, 한 줄에 여러 개의 태그를 연속으로 출력하십시오. 예: [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"]
-3. 파일 수정 규격 (SEARCH/REPLACE 블록 사용):
-   - 중요: 기존 파일 코드를 부분수정/치환할 때, 반드시 다음 형식으로 응답하십시오 (여러 파일 수정 시 연속 작성 가능):
-     [CMD: edit-file "경로"]
-     [SEARCH]
-     수정하려는 파일 내 기존 코드 일부 (정확히 일치해야 함)
-     [REPLACE]
-     수정하여 덮어쓸 새 코드 본문
-     [END]
-   - 새 파일을 생성하거나 코드 전체를 다시 써야 할 때만 다음 형식을 사용하십시오:
-     [CMD: write-file "경로"]
-     \`\`\`언어
-     전체 코드 본문
-     \`\`\`
-   - 파일/폴더를 삭제해야 할 때만 다음 형식을 사용하십시오:
-     [CMD: delete-file "경로"]
-4. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 파일 목록을 유저에게 업로드해달라고 요청([REQUEST: read-file...])하여 확인한 뒤 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
-5. 문구 제한: 설명/단답 문장 일절 없이 오직 요청 태그만 한 줄로 출력. 사족 절대 금지.
-6. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
-    }
+     \\\`\\\`\\\`
+   - 파일/폴더 삭제: [CMD: delete-file "경로"]
+   - 빈 폴더 생성: [CMD: create-dir "경로"]
+   - 파일/폴더 이동 및 이름 변경: [CMD: move-file "원본경로" "대상경로"]
+3. 터미널 명령어 실행 (빌드, 테스트, 기타 운영체제 쉘 명령):
+   - [CMD: run-command "명령어"]
+4. 세션 초기화 및 맥락 인계:
+   - 컨텍스트 누적으로 렉이 걸리거나 대화가 길어지면 다음 태그를 출력하여 세션을 안전하게 초기화 및 리부트 하십시오:
+     * [CMD: reset-session]
+5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
 };
 
 function detectAndAskCommand(text) {
@@ -840,6 +818,11 @@ function detectAndAskCommand(text) {
         const editMatch = cmd.match(/^edit-file\s+["']?([^"'\s]+)["']?$/i);
         const deleteMatch = cmd.match(/^delete-file\s+["']?([^"'\s]+)["']?$/i);
         const createDirMatch = cmd.match(/^create-dir\s+["']?([^"\'\s]+)["']?$/i);
+        const runCommandMatch = cmd.match(/^run-command\s+(.*)$/i);
+        const searchKeywordMatch = cmd.match(/^search-keyword\s+(.*)$/i);
+        const moveFileMatch = cmd.match(/^move-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
+        const listDirMatch = cmd.match(/^list-dir\s+(.*)$/i);
+        const resetSessionMatch = cmd.match(/^reset-session$/i);
 
         const fs = require('fs');
         const path = require('path');

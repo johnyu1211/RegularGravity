@@ -704,7 +704,7 @@ const syncBrowserView = (() => {
     };
 })();
 
-window.getSystemRulesPrompt = function() {
+window.getSystemRulesPrompt = function(forceFull = false) {
     const fullRules = `
 [SYSTEM RULES]
 1. 탐색 단계: 설명 일절 금지, 오직 다음 탐색용 파일 요청 태그만 출력하십시오.
@@ -738,12 +738,10 @@ window.getSystemRulesPrompt = function() {
      * [CMD: reset-session]
 5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
 
-    if (typeof window.sessionTurnCount === 'undefined') window.sessionTurnCount = 0;
-    if (window.sessionTurnCount === 0 || window.sessionTurnCount % 10 === 0) {
+    if (forceFull) {
         return fullRules;
-    } else {
-        return "\n[REMINDER] Follow SystemRules.md guidelines. Use [REQUEST: read-file \"path\"] to read target file first before modification to get exact indentation. Output ONLY structured commands without explanations.";
     }
+    return "\n[REMINDER] Follow SystemRules.md guidelines. Use [REQUEST: read-file \"path\"] to read target file first before modification to get exact indentation. Output ONLY structured commands without explanations.";
 };
 
 function detectAndAskCommand(text) {
@@ -2825,26 +2823,41 @@ ${startPrompt}`.trim();
                         const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                         if (stillPending.length === 0) {
                             if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-                            setTimeout(() => {
+                            setTimeout(async () => {
+                                // Inject pending user message if there is one blocked by rules reminder
+                                if (window.pendingUserMessageText) {
+                                    const userMsg = window.pendingUserMessageText;
+                                    window.pendingUserMessageText = null;
+                                    try {
+                                        await injectWebPayload(userMsg, 0, 0, false, true);
+                                    } catch(e) {}
+                                }
+                                
                                 if (typeof window.triggerGuestSend === 'function') {
                                     window.triggerGuestSend();
                                 }
 
-                                // Delay deletion of temp rules file to guarantee upload completes
+                                // Delay deletion of temp rules files to guarantee upload completes
                                 setTimeout(() => {
                                     try {
                                         const fs = require('fs');
                                         const path = require('path');
-                                        const tPath = path.join(window.currentPath || process.cwd(), window.tempRulesFileName || '_project_rules.md');
-                                        if (fs.existsSync(tPath)) {
-                                            fs.unlinkSync(tPath);
-                                            console.log("[ProjectInfo] Successfully deleted temporary rules file after send.");
+                                        const dir = window.projectRoot || window.currentPath;
+                                        if (dir && fs.existsSync(dir)) {
+                                            const files = fs.readdirSync(dir);
+                                            files.forEach(file => {
+                                                if (file.startsWith('_project_rules_') && file.endsWith('.md')) {
+                                                    try {
+                                                        fs.unlinkSync(path.join(dir, file));
+                                                    } catch(e) {}
+                                                }
+                                            });
                                             if (typeof window.refreshTree === 'function') {
                                                 window.refreshTree();
                                             }
                                         }
                                     } catch (err) {
-                                        console.error("[ProjectInfo] Failed to delete temporary rules file after send:", err);
+                                        console.error("[ProjectInfo] Failed to delete temporary rules files after send:", err);
                                     }
                                 }, 3000);
                                 

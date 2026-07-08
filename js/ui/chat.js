@@ -225,6 +225,40 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
             window.sessionTurnCount++;
             
             let webPayload = promptText.trim();
+            
+            // Check if 10-turn reminder is needed (starting from turn 10)
+            if (window.sessionTurnCount > 0 && window.sessionTurnCount % 10 === 0) {
+                const fs = require('fs');
+                const path = require('path');
+                const tempFileName = `_project_rules_reminder_${Date.now()}.md`;
+                const tempPath = path.join(window.projectRoot || window.currentPath, tempFileName);
+                try {
+                    const rulesText = typeof window.getSystemRulesPrompt === 'function' ? window.getSystemRulesPrompt(true) : '';
+                    fs.writeFileSync(tempPath, rulesText, 'utf-8');
+                    
+                    window.requestedFilesQueue = [{
+                        relativePath: tempFileName,
+                        absolutePath: tempPath,
+                        status: 'PENDING'
+                    }];
+                    
+                    if (typeof window.updateDragDropQueueUI === 'function') {
+                        window.updateDragDropQueueUI();
+                    }
+                    
+                    window.pendingUserMessageText = webPayload;
+                    
+                    if (window.autoDragging) {
+                        if (typeof window.autoClickPendingQueueItems === 'function') {
+                            window.autoClickPendingQueueItems();
+                        }
+                    }
+                    return; // Halt sending, wait for rules drop
+                } catch(e) {
+                    console.error("Failed to create temporary rules reminder file:", e);
+                }
+            }
+
             const systemRulePrompt = typeof window.getSystemRulesPrompt === 'function' ? window.getSystemRulesPrompt() : '';
             webPayload += systemRulePrompt;
             window.sessionBriefed = true;

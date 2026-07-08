@@ -266,6 +266,13 @@ window.updateDragDropQueueUI = function() {
         }
     }
     
+    const closeBtn = document.getElementById('close-drag-drop-queue');
+    if (closeBtn && containerEl) {
+        closeBtn.onclick = () => {
+            containerEl.style.display = 'none';
+        };
+    }
+    
     listEl.innerHTML = '';
     
     if (countEl) countEl.innerText = window.requestedFilesQueue.filter(item => item.status === 'PENDING').length;
@@ -290,7 +297,7 @@ window.updateDragDropQueueUI = function() {
             background: ${isCompleted ? 'rgba(255, 255, 255, 0.02)' : 'var(--surface-color)'};
             border: 1px solid ${isCompleted ? 'rgba(255, 255, 255, 0.05)' : 'var(--border-color)'};
             border-radius: 6px;
-            cursor: ${isCompleted ? 'default' : 'grab'};
+            cursor: ${isCompleted ? 'default' : 'pointer'};
             user-select: none;
             transition: all 0.2s;
             opacity: ${isCompleted ? '0.35' : '1'};
@@ -313,6 +320,7 @@ window.updateDragDropQueueUI = function() {
                 const pathModule = require('path');
                 try {
                     const filePath = item.absolutePath;
+                    window.currentlyDraggedFilePath = filePath;
                     const filename = pathModule.basename(filePath);
                     
                     const wv = document.getElementById('active-agent-webview');

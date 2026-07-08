@@ -595,6 +595,8 @@ window.reloadAgentSettings = function() {
             window.debugMode = !!settings.debugMode;
             window.dragDropMode = true;
             window.autoDragging = settings.hasOwnProperty('autoDragging') ? !!settings.autoDragging : true;
+            window.autoRefreshSession = !!settings.autoRefreshSession;
+            window.refreshTurnCount = parseInt(settings.refreshTurnCount) || 35;
             return;
         }
     } catch(e) {}
@@ -603,6 +605,9 @@ window.reloadAgentSettings = function() {
     window.debugMode = false;
     window.dragDropMode = true;
     window.autoDragging = true;
+window.sessionTurnCount = 0;
+window.autoRefreshSession = false;
+window.refreshTurnCount = 35;
 };
 
 window.fetchDirContent = async (p) => await ipcRenderer.invoke('get-directory-content', p);
@@ -803,6 +808,7 @@ function detectAndAskCommand(text) {
     const listDirCmds = [];
     const searchCmds = [];
     const otherCmds = [];
+    let hasResetSession = false;
 
     foundCmds.forEach(rawCmd => {
         let cmd = rawCmd.replace(/\\"/g, '"')
@@ -989,6 +995,8 @@ function detectAndAskCommand(text) {
         } else if (listDirMatch) {
             const dirPath = (listDirMatch[1] || listDirMatch[2] || listDirMatch[3]).trim();
             listDirCmds.push({ path: dirPath });
+        } else if (resetSessionMatch) {
+            hasResetSession = true;
         } else {
             otherCmds.push(cmd);
         }
@@ -1665,6 +1673,13 @@ function detectAndAskCommand(text) {
         }
     }
 
+    if (hasResetSession) {
+        setTimeout(() => {
+            if (typeof window.triggerSessionReset === 'function') window.triggerSessionReset();
+        }, 100);
+        return;
+    }
+
     if (hasMoveFile) {
         const displayCmd = moveFileCmds.map(c => `move-file "${c.src}" -> "${c.dest}"`).join(', ');
         
@@ -2281,6 +2296,40 @@ async function setupBoot() {
 
         if (!isSilentBoot) {
             wv.addEventListener('did-finish-load', async () => {
+                if (window.carryOverPrompt) {
+                    const carry = window.carryOverPrompt;
+                    window.carryOverPrompt = null;
+                    window.sessionBriefed = true;
+                    window.briefingInProgress = false;
+                    
+                    setTimeout(async () => {
+                        try {
+                            window.showInputLoading();
+                            ChatUI.appendBubble('system', '[SYSTEM] Fresh session started. Injecting carryover context...');
+                            
+                            window.currentBatchFileCount = -1;
+                            const promptPromise = runExperimentalEngine('/marktag', carry, null);
+                            await injectWebPayload(carry, -1);
+                            
+                            const response = await Promise.race([
+                                promptPromise,
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('Response timeout')), 120000))
+                            ]);
+                            window.hideInputLoading();
+                            document.getElementById('tab-local-agent')?.click();
+                            if (response) {
+                                if (typeof window.finalizeAiBubble === 'function') {
+                                    window.finalizeAiBubble(response);
+                                }
+                                detectAndAskCommand(response);
+                            }
+                        } catch (e) {
+                            console.error(e);
+                            window.hideInputLoading();
+                        }
+                    }, 5000);
+                    return;
+                }
                 if (window.sessionBriefed || window.briefingInProgress) return;
                 window.briefingInProgress = true;
                 
@@ -3033,22 +3082,49 @@ function setupUI() {
                                 <span class="slider-toggle"></span>
                             </label>
                         </div>
+                        <!-- Auto Refresh Session -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;">Auto Refresh Session</span>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="chk-auto-refresh-session" ${window.autoRefreshSession ? 'checked' : ''}>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                        <!-- Refresh Turn Count -->
+                        <div id="refresh-turn-container" style="display:${window.autoRefreshSession ? 'flex' : 'none'}; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;">Refresh Turn Trigger</span>
+                            <input type="number" id="txt-refresh-turn-count" value="${window.refreshTurnCount}" style="width:50px; background:var(--surface-low); border:1px solid var(--border-color); color:#fff; font-size:11px; padding:2px 6px; border-radius:4px; text-align:center; outline:none;">
+                        </div>
                     </div>
                 `;
                 
                 const chkAutoDrag = document.getElementById('chk-auto-drag');
                 const chkDebug = document.getElementById('chk-debug-mode');
+                const chkAutoRefresh = document.getElementById('chk-auto-refresh-session');
+                const txtRefreshCount = document.getElementById('txt-refresh-turn-count');
+                const containerRefresh = document.getElementById('refresh-turn-container');
+                
+                if (chkAutoRefresh && containerRefresh) {
+                    chkAutoRefresh.onchange = () => {
+                        containerRefresh.style.display = chkAutoRefresh.checked ? 'flex' : 'none';
+                        updateAndSave();
+                    };
+                }
                 
                 const updateAndSave = () => {
                     const settingsData = {
                         hideUIOverlay: window.hideUIOverlay,
                         debugMode: !!chkDebug.checked,
                         dragDropMode: true,
-                        autoDragging: !!chkAutoDrag.checked
+                        autoDragging: !!chkAutoDrag.checked,
+                        autoRefreshSession: !!chkAutoRefresh.checked,
+                        refreshTurnCount: parseInt(txtRefreshCount.value) || 35
                     };
                     saveSettings(settingsData);
                     window.reloadAgentSettings();
                 };
+                
+                if (txtRefreshCount) txtRefreshCount.onchange = updateAndSave;
                 
                 if (chkAutoDrag) chkAutoDrag.onchange = updateAndSave;
                 if (chkDebug) chkDebug.onchange = updateAndSave;
@@ -3858,3 +3934,72 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.loadDirectory(window.currentPath); 
     });
 });
+
+
+window.triggerSessionReset = async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const { execSync } = require('child_process');
+    
+    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+        ChatUI.appendBubble('system', '[SYSTEM] Preparing session reset. Generating carryover context...');
+    }
+    
+    let gitStatus = "";
+    try {
+        gitStatus = execSync('git status -s', { cwd: window.currentPath || process.cwd() }).toString().trim();
+    } catch (e) {
+        gitStatus = "Git not initialized or not found";
+    }
+    
+    let treeStr = "";
+    try {
+        const getFlatDirectoryTree = (dirPath) => {
+            let results = [];
+            try {
+                const list = fs.readdirSync(dirPath);
+                list.forEach(file => {
+                    const fullPath = path.join(dirPath, file);
+                    if (file === 'node_modules' || file === '.git' || file === '.gemini') return;
+                    const stat = fs.statSync(fullPath);
+                    if (stat && stat.isDirectory()) {
+                        results = results.concat(getFlatDirectoryTree(fullPath));
+                    } else {
+                        results.push(fullPath);
+                    }
+                });
+            } catch (e) {}
+            return results;
+        };
+        const files = getFlatDirectoryTree(window.currentPath || process.cwd());
+        const relativeFiles = files.map(f => path.relative(window.currentPath || process.cwd(), f));
+        treeStr = relativeFiles.map(rf => `- ${rf.replace(/\\/g, '/')}`).join('\n');
+    } catch(e) {
+        treeStr = "Error reading directory structure";
+    }
+    
+    const carryOverPrompt = `[SYSTEM REBOOTED]
+현재 세션의 대화 내역이 한도를 초과하여 초기 세션으로 안전하게 재부팅되었습니다.
+이전 작업 진행 상황을 인계하니, 규칙과 도구 규격을 준수하여 계속해서 다음 작업을 진행하십시오.
+
+1. 수정 및 추가된 로컬 파일 목록 (Git Status):
+\\\`\\\`\\\`
+${gitStatus || "No modified files"}
+\\\`\\\`\\\`
+
+2. 현재 프로젝트 전체 폴더/파일 구조:
+${treeStr}
+
+${window.getSystemRulesPrompt()}
+
+이전 세션의 목표를 확인하고 다음 변경 또는 작업을 지시해주십시오.`;
+
+    window.carryOverPrompt = carryOverPrompt;
+    window.sessionBriefed = false; // Reset session briefing state
+    window.sessionTurnCount = 0;
+    
+    const webview = document.getElementById('active-agent-webview');
+    if (webview) {
+        webview.loadURL('https://gemini.google.com/app');
+    }
+};

@@ -441,7 +441,16 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             lastText = delta;
 
             if (stableCount >= 2) {
-                updateUI("Generation complete! Fetching...", 100); 
+                updateUI("Generation complete! Fetching...", 100);
+                
+                if (typeof window.sessionTurnCount === 'undefined') window.sessionTurnCount = 0;
+                window.sessionTurnCount++;
+                console.log("[Session Monitor] Current Turn Count: " + window.sessionTurnCount + "/" + window.refreshTurnCount);
+                if (window.autoRefreshSession && window.sessionTurnCount >= window.refreshTurnCount) {
+                    setTimeout(() => {
+                        if (typeof window.triggerSessionReset === 'function') window.triggerSessionReset();
+                    }, 1000);
+                }
                 
                 const hasCmd = /\[CMD:\s*([^\]]+)\]/gi.test(delta);
                 if (window.autoContinueOnRead && hasCmd) {

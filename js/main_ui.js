@@ -1237,12 +1237,17 @@ async function setupBoot() {
                         
                         const currentText = toMarkdown(clone).replace(/\\n{3,}/g, "\\n\\n").trim();
                         if (!currentText || currentText === lastSentText) return;
-                        clearTimeout(stableTimer);
-                        stableTimer = setTimeout(() => {
+                        
+                        if (!stableTimer) {
                             lastSentText = currentText;
                             const encoded = btoa(unescape(encodeURIComponent(currentText)));
                             console.log("[BACKGROUND_AI_RESP]:" + encoded);
-                        }, 200);
+                            
+                            stableTimer = setTimeout(() => {
+                                stableTimer = null;
+                                checkAndSend();
+                            }, 150);
+                        }
                     };
                     const observer = new MutationObserver(() => { checkAndSend(); });
                     observer.observe(document.body, { childList: true, subtree: true, characterData: true });

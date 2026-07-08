@@ -535,7 +535,7 @@ window.reloadAgentSettings = function() {
             window.autoContinueOnRead = true;
             window.hideUIOverlay = settings.hasOwnProperty('hideUIOverlay') ? !!settings.hideUIOverlay : true;
             window.debugMode = !!settings.debugMode;
-            window.dragDropMode = settings.hasOwnProperty('dragDropMode') ? !!settings.dragDropMode : true;
+            window.dragDropMode = true;
             window.autoDragging = settings.hasOwnProperty('autoDragging') ? !!settings.autoDragging : true;
             return;
         }
@@ -702,6 +702,13 @@ window.getSystemRulesPrompt = function() {
 function detectAndAskCommand(text) {
     if (!text) return;
 
+    let isBriefing = false;
+    if (window.isBriefingResponsePending) {
+        window.isBriefingResponsePending = false;
+        isBriefing = true;
+        console.log("[BriefingShield] Activated: Ignoring any non-read commands during briefing response.");
+    }
+
     const cmdRegex = /\[(CMD|REQUEST):\s*([^\]]+)\]/gi;
     let match;
     const foundCmds = [];
@@ -738,6 +745,14 @@ function detectAndAskCommand(text) {
                         .replace(/[“”]/g, '"')
                         .replace(/[‘’]/g, "'")
                         .trim();
+
+        if (isBriefing) {
+            const isRead = cmd.startsWith('read-file') || cmd.startsWith('read-file-full') || cmd.startsWith('read-file-range');
+            if (!isRead) {
+                console.log(`[BriefingShield] Ignored briefing command: ${cmd}`);
+                return;
+            }
+        }
 
         if (cmd.startsWith('search-file') || cmd.startsWith('search-all')) {
             // Ignore legacy search commands completely to prevent main thread freezing
@@ -2751,6 +2766,7 @@ function setupUI() {
             window.sessionBriefed = true;
             window.briefingInProgress = false;
             window.currentBatchFileCount = 0;
+            window.isBriefingResponsePending = true;
 
             setTimeout(() => {
                 if (typeof window.updateDragDropQueueUI === 'function') {

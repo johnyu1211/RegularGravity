@@ -32,44 +32,44 @@ const ChatUI = {
             if (wroteMatch) {
                 const filePath = wroteMatch[1].trim();
                 customHtml = `
-                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif;">
-                        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #10b981; font-weight: bold; font-size: 13px; flex-shrink: 0; box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);">✓</div>
-                        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
-                            <div style="font-size: 9.5px; font-weight: 700; color: #10b981; letter-spacing: 0.08em; text-transform: uppercase;">File Created</div>
-                            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;" title="${filePath}">${filePath.split(/[\\/]/).pop()}</div>
+                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; width: 100%;">
+                        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #10b981; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);">✓</div>
+                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                            <span style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">File Created:</span>
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${filePath}">${filePath}</span>
                         </div>
                     </div>
                 `;
             } else if (editedMatch) {
                 const filePath = editedMatch[1].trim();
                 customHtml = `
-                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif;">
-                        <div style="background: rgba(70, 140, 246, 0.1); border: 1px solid rgba(70, 140, 246, 0.25); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #468CF6; font-weight: bold; font-size: 12px; flex-shrink: 0; box-shadow: 0 0 10px rgba(70, 140, 246, 0.15);">⚙</div>
-                        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
-                            <div style="font-size: 9.5px; font-weight: 700; color: #468CF6; letter-spacing: 0.08em; text-transform: uppercase;">File Modified</div>
-                            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;" title="${filePath}">${filePath.split(/[\\/]/).pop()}</div>
+                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; width: 100%;">
+                        <div style="background: rgba(70, 140, 246, 0.1); border: 1px solid rgba(70, 140, 246, 0.25); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #468CF6; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: 0 0 10px rgba(70, 140, 246, 0.15);">⚙</div>
+                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                            <span style="font-size: 10px; font-weight: 700; color: #468CF6; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">File Modified:</span>
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${filePath}">${filePath}</span>
                         </div>
                     </div>
                 `;
             } else if (deleteMatch) {
                 const filePath = deleteMatch[1].trim();
                 customHtml = `
-                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif;">
-                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-weight: bold; font-size: 13px; flex-shrink: 0; box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);">🗑</div>
-                        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
-                            <div style="font-size: 9.5px; font-weight: 700; color: #ef4444; letter-spacing: 0.08em; text-transform: uppercase;">File Deleted</div>
-                            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;" title="${filePath}">${filePath.split(/[\\/]/).pop()}</div>
+                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; width: 100%;">
+                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);">🗑</div>
+                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                            <span style="font-size: 10px; font-weight: 700; color: #ef4444; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">File Deleted:</span>
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${filePath}">${filePath}</span>
                         </div>
                     </div>
                 `;
             } else if (errorMatch) {
                 const details = errorMatch[1].trim();
                 customHtml = `
-                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif;">
-                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-weight: bold; font-size: 13px; flex-shrink: 0; box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);">✕</div>
-                        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
-                            <div style="font-size: 9.5px; font-weight: 700; color: #ef4444; letter-spacing: 0.08em; text-transform: uppercase;">Operation Failed</div>
-                            <div style="font-size: 11.5px; color: var(--text-muted); line-height: 1.4; word-break: break-all; max-width: 250px;">${details}</div>
+                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; width: 100%;">
+                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);">✕</div>
+                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                            <span style="font-size: 10px; font-weight: 700; color: #ef4444; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">Operation Failed:</span>
+                            <span style="font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${details}">${details}</span>
                         </div>
                     </div>
                 `;

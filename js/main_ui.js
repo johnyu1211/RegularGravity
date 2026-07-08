@@ -506,6 +506,9 @@ window.autoClickPendingQueueItems = async function() {
                     warningEl.style.color = '#ff4444';
                 }
                 window.autoClickingQueue = false;
+                if (typeof window.updateDragDropQueueUI === 'function') {
+                    window.updateDragDropQueueUI();
+                }
                 return;
             }
             
@@ -532,6 +535,9 @@ window.autoClickPendingQueueItems = async function() {
             console.error("[AutoClick] Error in queue auto-clicker:", err);
         } finally {
             window.autoClickingQueue = false;
+            if (typeof window.updateDragDropQueueUI === 'function') {
+                window.updateDragDropQueueUI();
+            }
         }
     }
 };

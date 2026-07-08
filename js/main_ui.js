@@ -317,7 +317,8 @@ window.updateDragDropQueueUI = function() {
                 ipcRenderer.send('ondragstart', item.absolutePath);
             };
             itemEl.onclick = async () => {
-                if (!document.hasFocus()) {
+                const isFocused = await ipcRenderer.invoke('is-window-focused');
+                if (!isFocused) {
                     console.log("[DragSim] Aborted drag simulation because window is in the background.");
                     return;
                 }
@@ -398,7 +399,8 @@ window.autoClickPendingQueueItems = async function() {
             }
             
             if (targetEl && targetEl.onclick) {
-                if (!document.hasFocus()) {
+                const isFocused = await ipcRenderer.invoke('is-window-focused');
+                if (!isFocused) {
                     console.log("[AutoClick] Window is not focused. Postponing click.");
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');

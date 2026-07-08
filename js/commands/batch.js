@@ -231,6 +231,39 @@ async function executeEditFileBatch(editCmds) {
                 }
 
                 let idx = content.indexOf(searchStr);
+                let matchedLength = searchStr.length;
+                
+                if (idx === -1) {
+                    const normSearch = searchStr.replace(/\s+/g, '');
+                    const normContent = content.replace(/\s+/g, '');
+                    const normIdx = normContent.indexOf(normSearch);
+                    
+                    if (normIdx !== -1) {
+                        let cNormIdx = 0;
+                        let startIdx = -1;
+                        let endIdx = -1;
+                        
+                        for (let j = 0; j < content.length; j++) {
+                            const char = content[j];
+                            if (/\s/.test(char)) continue;
+                            
+                            if (cNormIdx === normIdx) {
+                                startIdx = j;
+                            }
+                            if (cNormIdx === normIdx + normSearch.length - 1) {
+                                endIdx = j + 1;
+                                break;
+                            }
+                            cNormIdx++;
+                        }
+                        
+                        if (startIdx !== -1 && startIdx < endIdx) {
+                            idx = startIdx;
+                            matchedLength = endIdx - startIdx;
+                        }
+                    }
+                }
+
                 if (idx === -1) {
                     feedbackContent += `[FILE EDIT ERROR: ${filePath} - SEARCH block not found in file]\n`;
                     ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: SEARCH block not found in file`);
@@ -238,7 +271,7 @@ async function executeEditFileBatch(editCmds) {
                 }
 
                 const before = content.substring(0, idx);
-                const after = content.substring(idx + searchStr.length);
+                const after = content.substring(idx + matchedLength);
                 let newContent = before + replaceStr + after;
                 
                 if (isCRLF) {

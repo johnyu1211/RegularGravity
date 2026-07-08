@@ -799,19 +799,50 @@ function detectAndAskCommand(text) {
             if (cmdIdx !== -1) {
                 const subText = text.substring(cmdIdx);
                 const sMarker = "<<<<<<< SEARCH";
-                const mMarker = "=======";
-                const rMarker = ">>>>>>> REPLACE";
+                
+                let rMarker = ">>>>>>> REPLACE";
+                let rIdx = subText.indexOf(rMarker);
+                if (rIdx === -1) {
+                    rMarker = "REPLACE";
+                    rIdx = subText.indexOf(rMarker);
+                }
                 
                 const sIdx = subText.indexOf(sMarker);
-                const mIdx = subText.indexOf(mMarker, sIdx);
-                const rIdx = subText.indexOf(rMarker, mIdx);
                 
-                if (sIdx !== -1 && mIdx !== -1 && rIdx !== -1) {
-                    const rawSearch = subText.substring(sIdx + sMarker.length, mIdx);
-                    const rawReplace = subText.substring(mIdx + mMarker.length, rIdx);
-                    searchVal = rawSearch.replace(/^\r?\n|\r?\n$/g, '');
-                    replaceVal = rawReplace.replace(/^\r?\n|\r?\n$/g, '');
-                    hasValidMarkers = true;
+                if (sIdx !== -1 && rIdx !== -1 && sIdx < rIdx) {
+                    const rawBlock = subText.substring(sIdx + sMarker.length, rIdx).trim();
+                    const mMarker = "=======";
+                    const mIdx = rawBlock.indexOf(mMarker);
+                    
+                    if (mIdx !== -1) {
+                        searchVal = rawBlock.substring(0, mIdx).replace(/^\r?\n|\r?\n$/g, '');
+                        replaceVal = rawBlock.substring(mIdx + mMarker.length).replace(/^\r?\n|\r?\n$/g, '');
+                        hasValidMarkers = true;
+                    } else {
+                        try {
+                            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+                            if (fs.existsSync(targetPath)) {
+                                const fileContent = fs.readFileSync(targetPath, 'utf-8').replace(/\r/g, '');
+                                const fileContentNorm = fileContent.replace(/\s+/g, '');
+                                
+                                const lines = rawBlock.split(/\r?\n/);
+                                for (let k = lines.length - 1; k >= 1; k--) {
+                                    const searchCand = lines.slice(0, k).join('\n').trim();
+                                    const replaceCand = lines.slice(k).join('\n').trim();
+                                    
+                                    const searchCandNorm = searchCand.replace(/\s+/g, '');
+                                    if (searchCandNorm && fileContentNorm.includes(searchCandNorm)) {
+                                        searchVal = searchCand;
+                                        replaceVal = replaceCand;
+                                        hasValidMarkers = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Resilient parser error:", err);
+                        }
+                    }
                 }
             }
             if (hasValidMarkers) {

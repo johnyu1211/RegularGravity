@@ -310,95 +310,41 @@ window.updateDragDropQueueUI = function() {
                 ipcRenderer.send('ondragstart', item.absolutePath);
             };
             itemEl.onclick = async () => {
-                const fs = require('fs');
                 const pathModule = require('path');
                 try {
                     const filePath = item.absolutePath;
-                    const contentBuffer = fs.readFileSync(filePath);
                     const filename = pathModule.basename(filePath);
-                    const base64Content = contentBuffer.toString('base64');
-                    
-                    const ext = filename.split('.').pop().toLowerCase();
-                    const mimeMap = {
-                        'js': 'text/javascript', 'json': 'application/json',
-                        'html': 'text/html', 'css': 'text/css',
-                        'txt': 'text/plain', 'md': 'text/markdown',
-                        'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                        'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
-                    };
-                    const mimeType = mimeMap[ext] || 'application/octet-stream';
                     
                     const wv = document.getElementById('active-agent-webview');
-                    if (wv) {
-                        ChatUI.appendBubble('system', `[SYSTEM] Uploading ${filename} via click...`);
-                        await wv.executeJavaScript(`
-                            (() => {
-                                const b64 = "${base64Content}";
-                                const name = "${filename}";
-                                const mime = "${mimeType}";
-                                
-                                const binary = atob(b64);
-                                const array = new Uint8Array(binary.length);
-                                for (let i = 0; i < binary.length; i++) {
-                                    array[i] = binary.charCodeAt(i);
-                                }
-                                const blob = new Blob([array], { type: mime });
-                                const file = new File([blob], name, { type: mime });
-                                
-                                const dt = new DataTransfer();
-                                dt.items.add(file);
-                                
-                                const options = { bubbles: true, cancelable: true };
-                                const dragEnterEvent = new DragEvent('dragenter', options);
-                                const dragOverEvent = new DragEvent('dragover', options);
-                                const dropEvent = new DragEvent('drop', options);
-
-                                Object.defineProperty(dragEnterEvent, 'dataTransfer', { value: dt });
-                                Object.defineProperty(dragOverEvent, 'dataTransfer', { value: dt });
-                                Object.defineProperty(dropEvent, 'dataTransfer', { value: dt });
-                                
-                                let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
-                                target.dispatchEvent(dragEnterEvent);
-                                target.dispatchEvent(dragOverEvent);
-                                target.dispatchEvent(dropEvent);
-                                
-                                console.log("[GuestDrop] Click-triggered synthetic file drop dispatched for:", name);
-                            })();
-                        `);
-                    }
+                    if (!wv) return;
                     
-                    window.markFileAsCompleted(filePath);
+                    // 1. Get window content bounds relative to screen X/Y
+                    const bounds = await ipcRenderer.invoke('get-content-bounds');
                     
-                    const stillPending = window.requestedFilesQueue.filter(x => x.status === 'PENDING');
-                    if (stillPending.length === 0) {
-                        if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-                        setTimeout(() => {
-                            if (typeof window.triggerGuestSend === 'function') {
-                                window.triggerGuestSend();
-                            }
-                            
-                            if (typeof runExperimentalEngine === 'function') {
-                                runExperimentalEngine('/marktag', "", null).then(response => {
-                                    if (response) {
-                                        if (typeof window.finalizeAiBubble === 'function') {
-                                            window.finalizeAiBubble(response);
-                                        }
-                                        if (typeof detectAndAskCommand === 'function') {
-                                            detectAndAskCommand(response);
-                                        }
-                                    }
-                                }).catch(err => console.error("Error in response monitoring:", err));
-                            }
-                            
-                            window.requestedFilesQueue = [];
-                            if (typeof window.updateDragDropQueueUI === 'function') {
-                                window.updateDragDropQueueUI();
-                            }
-                        }, 500);
-                    }
+                    // 2. Get click item element screen position
+                    const rect = itemEl.getBoundingClientRect();
+                    const startX = Math.round(bounds.x + rect.left + rect.width / 2);
+                    const startY = Math.round(bounds.y + rect.top + rect.height / 2);
+                    
+                    // 3. Get webview screen position (middle lower area, where Gemini input lies)
+                    const wvRect = wv.getBoundingClientRect();
+                    const endX = Math.round(bounds.x + wvRect.left + wvRect.width / 2);
+                    const endY = Math.round(bounds.y + wvRect.top + wvRect.height - 110);
+                    
+                    ChatUI.appendBubble('system', `[SYSTEM] Dragging and dropping ${filename}...`);
+                    
+                    // 4. Run C# drag_sim.exe to drag file from startX, startY to endX, endY!
+                    const { execFile } = require('child_process');
+                    const os = require('os');
+                    const exePath = pathModule.join(os.homedir(), '.gemini', 'antigravity', 'brain', 'ba2ac7e2-3bd2-490c-ac39-3fe6fcf2ecd1', 'scratch', 'drag_sim.exe');
+                    
+                    execFile(exePath, [startX.toString(), startY.toString(), endX.toString(), endY.toString()], (err) => {
+                        if (err) {
+                            console.error("Drag simulation failed:", err);
+                        }
+                    });
                 } catch (err) {
-                    console.error("Failed to attach file via click:", err);
-                    ChatUI.appendBubble('system', `[ERROR] Failed to attach file: ${err.message}`);
+                    console.error("Failed to execute drag simulation on click:", err);
                 }
             };
         }

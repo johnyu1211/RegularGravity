@@ -327,6 +327,11 @@ ipcMain.on('relaunch-app', () => {
     app.exit(0);
 });
 
+ipcMain.handle('get-content-bounds', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return win ? win.getContentBounds() : { x: 0, y: 0, width: 0, height: 0 };
+});
+
 ipcMain.on('ondragstart', (event, filePath) => {
     console.log("[MainDrag] Received ondragstart for:", filePath);
     const { nativeImage } = require('electron');

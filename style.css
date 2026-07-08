@@ -101,7 +101,7 @@ body {
 .agent-app:hover .icon-wrapper { 
     border-color: var(--primary); 
     background: var(--surface-high);
-    box-shadow: 0 6px 16px rgba(119,153,255,0.15);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
 }
 
 .icon-wrapper img {
@@ -356,7 +356,7 @@ body {
     align-self: stretch;
     background: linear-gradient(135deg, var(--primary), #5577dd);
     color: #fff;
-    box-shadow: 0 4px 14px rgba(119, 153, 255, 0.15);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 
 .chat-bubble.ai {
@@ -796,7 +796,7 @@ input:checked + .slider {
 input:checked + .slider:before {
   transform: translateX(16px);
   background-color: #fff;
-  box-shadow: 0 0 8px rgba(255,255,255,0.4);
+  box-shadow: none;
 }
 
 .slider.round {
@@ -881,7 +881,7 @@ input:checked + .slider:before {
 
 .step-item.active .step-icon {
     border-color: #0078d4;
-    box-shadow: 0 0 10px rgba(0,120,212,0.3);
+    box-shadow: none;
 }
 
 .step-text {

@@ -1306,7 +1306,7 @@ function detectAndAskCommand(text) {
         const box = ChatUI.appendBubble('system', '');
         const content = box.querySelector('.bubble-content');
         const themeColor = "#468CF6"; 
-        const glowShadow = "rgba(70, 140, 246, 0.15)";
+        const glowShadow = "rgba(0,0,0,0.15)";
 
         content.innerHTML = `
             <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
@@ -1321,7 +1321,7 @@ function detectAndAskCommand(text) {
         const runBtn = content.querySelector('.cmd-run-btn');
         const cancelBtn = content.querySelector('.cmd-cancel-btn');
         if (runBtn) {
-            runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(70, 140, 246, 0.3)"; };
+            runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(0,0,0,0.35)"; };
             runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
         }
         if (cancelBtn) {
@@ -2525,7 +2525,7 @@ function setupUI() {
                 popover.style.display = 'flex';
                 toggleBtn.style.color = '#fff';
                 toggleBtn.style.background = 'var(--primary)';
-                toggleBtn.style.boxShadow = '0 0 15px var(--primary)';
+                toggleBtn.style.boxShadow = 'none';
                 
                 if (window.terminalCount === 0) {
                     addSubTerminal(true);
@@ -3769,7 +3769,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
             const box = ChatUI.appendBubble('system', '');
             const content = box.querySelector('.bubble-content');
             const themeColor = "#ef4444"; 
-            const glowShadow = "rgba(239, 68, 68, 0.15)";
+            const glowShadow = "rgba(0,0,0,0.15)";
 
             content.innerHTML = `
                 <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
@@ -3849,7 +3849,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
         const box = ChatUI.appendBubble('system', '');
         const content = box.querySelector('.bubble-content');
         const themeColor = "#ef4444"; 
-        const glowShadow = "rgba(239, 68, 68, 0.15)";
+        const glowShadow = "rgba(0,0,0,0.15)";
 
         content.innerHTML = `
             <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">

@@ -2316,7 +2316,7 @@ ${startPrompt}`.trim();
                                     } catch (err) {
                                         console.error("[ProjectInfo] Failed to delete temporary rules files after send:", err);
                                     }
-                                }, 3000);
+                                }, 10000);
                                 
                                 if (typeof runExperimentalEngine === 'function') {
                                     runExperimentalEngine('/marktag', "", null).then(response => {
@@ -4069,7 +4069,7 @@ function setupUI() {
                                 } catch (err) {
                                     console.error("[ProjectInfo] Failed to delete temporary files after send:", err);
                                 }
-                            }, 3000);
+                            }, 10000);
 
                             if (typeof runExperimentalEngine === 'function') {
                                 runExperimentalEngine('/marktag', "", null).then(response => {

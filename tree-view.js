@@ -78,6 +78,9 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         if (!file) continue;
         
         const name = file.name;
+        if (name && name.toLowerCase().startsWith('_project')) {
+            continue;
+        }
         const isDir = file.isDir;
         const isParentEntry = file.isParentEntry === true;
         

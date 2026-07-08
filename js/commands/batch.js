@@ -29,6 +29,11 @@ async function executeWriteFileBatch(writeCmds) {
             window.loadDirectory(window.currentPath);
         }
 
+        if (typeof window.openFileInEditor === 'function' && window.currentEditingPath) {
+            const hasModifiedOpen = writeCmds.some(f => path.resolve(window.currentPath, f.path) === path.resolve(window.currentEditingPath));
+            if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
+        }
+
         const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
         
         await injectWebPayload(finalMessage, 0);
@@ -288,6 +293,11 @@ async function executeEditFileBatch(editCmds) {
             }
         });
 
+        if (typeof window.openFileInEditor === 'function' && window.currentEditingPath) {
+            const hasModifiedOpen = editCmds.some(f => path.resolve(window.currentPath, f.path) === path.resolve(window.currentEditingPath));
+            if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
+        }
+
         const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
         
         await injectWebPayload(finalMessage, 0);
@@ -349,6 +359,11 @@ async function executeEditFileRangeBatch(editCmds) {
             }
         });
 
+        if (typeof window.openFileInEditor === 'function' && window.currentEditingPath) {
+            const hasModifiedOpen = editCmds.some(f => path.resolve(window.currentPath, f.path) === path.resolve(window.currentEditingPath));
+            if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
+        }
+
         const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
         
         await injectWebPayload(finalMessage, 0);
@@ -403,6 +418,11 @@ async function executeDeleteFileBatch(deleteCmds) {
                 ChatUI.appendBubble('system', `[ERROR] Failed to delete ${filePath}: ${err.message}`);
             }
         });
+
+        if (typeof window.openFileInEditor === 'function' && window.currentEditingPath) {
+            const hasModifiedOpen = deleteCmds.some(f => path.resolve(window.currentPath, f.path) === path.resolve(window.currentEditingPath));
+            if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
+        }
 
         if (typeof window.refreshTree === 'function') {
             window.refreshTree();

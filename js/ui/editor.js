@@ -238,6 +238,7 @@ window.openFileInEditor = (filePath) => {
                         .pormsg-line:hover { background: rgba(255, 255, 255, 0.08); } .pormsg-line:hover .line-num { color: #888; }
                         
                         .search-highlight { background: rgba(212, 160, 23, 0.2) !important; border-radius: 2px; } .search-highlight .line-num { color: #d4a017 !important; font-weight: bold; }
+                        .search-highlight-active { background: rgba(212, 160, 23, 0.6) !important; outline: 1px solid #d4a017; border-radius: 2px; } .search-highlight-active .line-num { color: #fff !important; background: #d4a017 !important; font-weight: bold; }
                         
                         #minimap-thumb:hover { background: rgba(255, 255, 255, 0.15) !important; border-color: rgba(255, 255, 255, 0.4) !important; }
                         .mini-detail, .mini-body, .mini-footer { margin: 0; padding: 0; outline: none; } .mini-summary { list-style: none; margin: 0; padding: 0; display: block; } .mini-summary::-webkit-details-marker { display: none; }
@@ -261,19 +262,57 @@ window.openFileInEditor = (filePath) => {
                     searchInput.onfocus = () => { document.getElementById('editor-search-box').style.borderColor = 'var(--primary)'; };
                     searchInput.onblur = () => { document.getElementById('editor-search-box').style.borderColor = 'var(--border-color)'; };
                     searchInput.value = '';
-                    if (searchResult) searchResult.innerText = '';
+                    if (searchResult) searchResult.innerText = '0/0';
+                    
+                    let matchedElements = [];
+                    let currentMatchIndex = -1;
+
+                    const scrollToCurrentMatch = () => {
+                        if (currentMatchIndex >= 0 && currentMatchIndex < matchedElements.length) {
+                            const el = matchedElements[currentMatchIndex];
+                            
+                            editorContent.querySelectorAll('.search-highlight-active').forEach(x => x.classList.remove('search-highlight-active'));
+                            el.classList.add('search-highlight-active');
+                            
+                            scrollCont.scrollTo({ top: el.offsetTop - 40, behavior: 'smooth' });
+                            searchResult.innerText = `${currentMatchIndex + 1}/${matchedElements.length}`;
+                            setTimeout(updateThumb, 50);
+                        }
+                    };
+
+                    searchInput.onkeydown = (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (matchedElements.length > 0) {
+                                currentMatchIndex = (currentMatchIndex + 1) % matchedElements.length;
+                                scrollToCurrentMatch();
+                            }
+                        }
+                    };
+
                     searchInput.oninput = () => {
                         clearTimeout(searchTimer);
                         searchTimer = setTimeout(() => {
                             const query = searchInput.value.toLowerCase();
                             const elements = editorContent.querySelectorAll('.pormsg-line, .pormsg-header, .pormsg-footer');
-                            elements.forEach(el => el.classList.remove('search-highlight'));
-                            if (!query.trim()) { searchResult.innerText = ''; return; }
-                            let matchCount = 0, firstMatch = null;
+                            
+                            elements.forEach(el => {
+                                el.classList.remove('search-highlight');
+                                el.classList.remove('search-highlight-active');
+                            });
+                            matchedElements = [];
+                            currentMatchIndex = -1;
+                            
+                            if (!query.trim()) { 
+                                searchResult.innerText = '0/0'; 
+                                return; 
+                            }
+                            
                             elements.forEach(el => {
                                 if (el.textContent.toLowerCase().includes(query)) {
-                                    el.classList.add('search-highlight'); matchCount++;
-                                    if (!firstMatch) firstMatch = el;
+                                    el.classList.add('search-highlight');
+                                    matchedElements.push(el);
+                                    
                                     let parent = el.closest('details');
                                     while (parent) {
                                         if (!parent.open) {
@@ -285,8 +324,13 @@ window.openFileInEditor = (filePath) => {
                                     }
                                 }
                             });
-                            searchResult.innerText = matchCount > 0 ? matchCount : '0';
-                            if (firstMatch) { scrollCont.scrollTo({ top: firstMatch.offsetTop - 40, behavior: 'smooth' }); setTimeout(updateThumb, 50); }
+                            
+                            if (matchedElements.length > 0) {
+                                currentMatchIndex = 0;
+                                scrollToCurrentMatch();
+                            } else {
+                                searchResult.innerText = '0/0';
+                            }
                         }, 250);
                     };
                 }

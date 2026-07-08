@@ -1500,3 +1500,22 @@ input:checked + .slider:before {
     cursor: nw-resize;
     z-index: 11;
 }
+
+.web-popover-resizer-r {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: e-resize;
+    z-index: 10;
+}
+.web-popover-resizer-tr {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 10px;
+    height: 10px;
+    cursor: ne-resize;
+    z-index: 11;
+}

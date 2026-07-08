@@ -2535,10 +2535,12 @@ function setupUI() {
 
     const setupWebPopoverResizing = (popover, isRightAligned) => {
         const lResizer = popover.querySelector('.web-popover-resizer-l');
+        const rResizer = popover.querySelector('.web-popover-resizer-r');
         const tResizer = popover.querySelector('.web-popover-resizer-t');
         const tlResizer = popover.querySelector('.web-popover-resizer-tl');
+        const trResizer = popover.querySelector('.web-popover-resizer-tr');
         
-        let startWidth, startHeight, startX, startY, startLeft;
+        let startWidth, startHeight, startX, startY, startLeft, startRight;
         
         const onMouseMoveL = (e) => {
             if (isRightAligned) {
@@ -2549,6 +2551,18 @@ function setupUI() {
                 const newWidth = Math.max(300, startWidth + deltaX);
                 popover.style.width = `${newWidth}px`;
                 popover.style.left = `${startLeft - deltaX}px`;
+            }
+        };
+
+        const onMouseMoveR = (e) => {
+            if (isRightAligned) {
+                const deltaX = e.clientX - startX;
+                const newWidth = Math.max(300, startWidth + deltaX);
+                popover.style.width = `${newWidth}px`;
+                popover.style.right = `${startRight - deltaX}px`;
+            } else {
+                const newWidth = Math.max(300, startWidth + (e.clientX - startX));
+                popover.style.width = `${newWidth}px`;
             }
         };
         
@@ -2570,11 +2584,28 @@ function setupUI() {
                 popover.style.left = `${startLeft - deltaX}px`;
             }
         };
+
+        const onMouseMoveTR = (e) => {
+            const newHeight = Math.max(200, startHeight - (e.clientY - startY));
+            popover.style.height = `${newHeight}px`;
+            
+            if (isRightAligned) {
+                const deltaX = e.clientX - startX;
+                const newWidth = Math.max(300, startWidth + deltaX);
+                popover.style.width = `${newWidth}px`;
+                popover.style.right = `${startRight - deltaX}px`;
+            } else {
+                const newWidth = Math.max(300, startWidth + (e.clientX - startX));
+                popover.style.width = `${newWidth}px`;
+            }
+        };
         
         const onMouseUp = () => {
             document.removeEventListener('mousemove', onMouseMoveL);
+            document.removeEventListener('mousemove', onMouseMoveR);
             document.removeEventListener('mousemove', onMouseMoveT);
             document.removeEventListener('mousemove', onMouseMoveTL);
+            document.removeEventListener('mousemove', onMouseMoveTR);
             document.removeEventListener('mouseup', onMouseUp);
         };
         
@@ -2586,6 +2617,18 @@ function setupUI() {
                 startWidth = parseInt(document.defaultView.getComputedStyle(popover).width, 10);
                 startLeft = parseInt(popover.style.left || '0', 10);
                 document.addEventListener('mousemove', onMouseMoveL);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
+
+        if (rResizer) {
+            rResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startX = e.clientX;
+                startWidth = parseInt(document.defaultView.getComputedStyle(popover).width, 10);
+                startRight = parseInt(popover.style.right || '0', 10);
+                document.addEventListener('mousemove', onMouseMoveR);
                 document.addEventListener('mouseup', onMouseUp);
             });
         }
@@ -2611,6 +2654,20 @@ function setupUI() {
                 startHeight = parseInt(document.defaultView.getComputedStyle(popover).height, 10);
                 startLeft = parseInt(popover.style.left || '0', 10);
                 document.addEventListener('mousemove', onMouseMoveTL);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
+
+        if (trResizer) {
+            trResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = parseInt(document.defaultView.getComputedStyle(popover).width, 10);
+                startHeight = parseInt(document.defaultView.getComputedStyle(popover).height, 10);
+                startRight = parseInt(popover.style.right || '0', 10);
+                document.addEventListener('mousemove', onMouseMoveTR);
                 document.addEventListener('mouseup', onMouseUp);
             });
         }
@@ -2687,8 +2744,8 @@ function setupUI() {
         popover.className = 'web-popover-window';
         
         popover.style.position = 'absolute';
-        const defaultWidth = isRightAligned ? 600 : 360;
-        const defaultHeight = isRightAligned ? 450 : 640;
+        const defaultWidth = isRightAligned ? 600 : 410;
+        const defaultHeight = isRightAligned ? 450 : 730;
         popover.style.width = `${defaultWidth}px`;
         popover.style.height = `${defaultHeight}px`;
         popover.style.maxHeight = 'calc(100% - 60px)';
@@ -2752,8 +2809,10 @@ function setupUI() {
             </div>
             <!-- Resizers -->
             <div class="web-popover-resizer-l"></div>
+            <div class="web-popover-resizer-r"></div>
             <div class="web-popover-resizer-t"></div>
             <div class="web-popover-resizer-tl"></div>
+            <div class="web-popover-resizer-tr"></div>
         `;
 
         document.getElementById('editor-container').appendChild(popover);

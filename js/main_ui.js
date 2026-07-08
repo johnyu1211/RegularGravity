@@ -833,49 +833,66 @@ function detectAndAskCommand(text) {
             let hasValidMarkers = false;
             if (cmdIdx !== -1) {
                 const subText = text.substring(cmdIdx);
-                const sMarker = "<<<<<<< SEARCH";
+                const blockRegex = /<<<<<<<(?:\s*SEARCH)?\r?\n?([\s\S]*?)\r?\n?=======\r?\n?([\s\S]*?)\r?\n?>>>>>>>(?:\s*REPLACE)?/i;
+                const match = subText.match(blockRegex);
                 
-                let rMarker = ">>>>>>> REPLACE";
-                let rIdx = subText.indexOf(rMarker);
-                if (rIdx === -1) {
-                    rMarker = "REPLACE";
-                    rIdx = subText.indexOf(rMarker);
-                }
-                
-                const sIdx = subText.indexOf(sMarker);
-                
-                if (sIdx !== -1 && rIdx !== -1 && sIdx < rIdx) {
-                    const rawBlock = subText.substring(sIdx + sMarker.length, rIdx).trim();
+                if (match) {
+                    searchVal = match[1].trim()
+                                        .replace(/^```[a-zA-Z]*\r?\n/, '')
+                                        .replace(/\r?\n```$/, '')
+                                        .replace(/^\r?\n|\r?\n$/g, '');
+                    replaceVal = match[2].trim()
+                                         .replace(/^```[a-zA-Z]*\r?\n/, '')
+                                         .replace(/\r?\n```$/, '')
+                                         .replace(/^\r?\n|\r?\n$/g, '');
+                    hasValidMarkers = true;
+                } else {
+                    const sMarker = "<<<<<<<";
                     const mMarker = "=======";
-                    const mIdx = rawBlock.indexOf(mMarker);
+                    const rMarker = ">>>>>>>";
                     
-                    if (mIdx !== -1) {
-                        searchVal = rawBlock.substring(0, mIdx).replace(/^\r?\n|\r?\n$/g, '');
-                        replaceVal = rawBlock.substring(mIdx + mMarker.length).replace(/^\r?\n|\r?\n$/g, '');
-                        hasValidMarkers = true;
-                    } else {
-                        try {
-                            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-                            if (fs.existsSync(targetPath)) {
-                                const fileContent = fs.readFileSync(targetPath, 'utf-8').replace(/\r/g, '');
-                                const fileContentNorm = fileContent.replace(/\s+/g, '');
-                                
-                                const lines = rawBlock.split(/\r?\n/);
-                                for (let k = lines.length - 1; k >= 1; k--) {
-                                    const searchCand = lines.slice(0, k).join('\n').trim();
-                                    const replaceCand = lines.slice(k).join('\n').trim();
+                    const sIdx = subText.indexOf(sMarker);
+                    const rIdx = subText.indexOf(rMarker);
+                    
+                    if (sIdx !== -1 && rIdx !== -1 && sIdx < rIdx) {
+                        const rawBlock = subText.substring(sIdx + sMarker.length, rIdx).trim();
+                        const mIdx = rawBlock.indexOf(mMarker);
+                        if (mIdx !== -1) {
+                            searchVal = rawBlock.substring(0, mIdx).trim()
+                                                .replace(/^(SEARCH\s*)?(\r?\n)?/, '')
+                                                .replace(/^```[a-zA-Z]*\r?\n/, '')
+                                                .replace(/\r?\n```$/, '')
+                                                .replace(/^\r?\n|\r?\n$/g, '');
+                            replaceVal = rawBlock.substring(mIdx + mMarker.length).trim()
+                                                .replace(/^(REPLACE\s*)?(\r?\n)?/, '')
+                                                .replace(/^```[a-zA-Z]*\r?\n/, '')
+                                                .replace(/\r?\n```$/, '')
+                                                .replace(/^\r?\n|\r?\n$/g, '');
+                            hasValidMarkers = true;
+                        } else {
+                            try {
+                                const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+                                if (fs.existsSync(targetPath)) {
+                                    const fileContent = fs.readFileSync(targetPath, 'utf-8').replace(/\r/g, '');
+                                    const fileContentNorm = fileContent.replace(/\s+/g, '');
                                     
-                                    const searchCandNorm = searchCand.replace(/\s+/g, '');
-                                    if (searchCandNorm && fileContentNorm.includes(searchCandNorm)) {
-                                        searchVal = searchCand;
-                                        replaceVal = replaceCand;
-                                        hasValidMarkers = true;
-                                        break;
+                                    const lines = rawBlock.split(/\r?\n/);
+                                    for (let k = lines.length - 1; k >= 1; k--) {
+                                        const searchCand = lines.slice(0, k).join('\n').trim();
+                                        const replaceCand = lines.slice(k).join('\n').trim();
+                                        
+                                        const searchCandNorm = searchCand.replace(/\s+/g, '');
+                                        if (searchCandNorm && fileContentNorm.includes(searchCandNorm)) {
+                                            searchVal = searchCand;
+                                            replaceVal = replaceCand;
+                                            hasValidMarkers = true;
+                                            break;
+                                        }
                                     }
                                 }
+                            } catch (err) {
+                                console.error("Resilient parser error:", err);
                             }
-                        } catch (err) {
-                            console.error("Resilient parser error:", err);
                         }
                     }
                 }
@@ -1810,17 +1827,26 @@ ${startPrompt}`.trim();
                           .replace(/>/g, '&gt;');
             };
 
-            let formatted = text.replace(/<<<<<<< SEARCH([\s\S]*?)=======\r?\n?([\s\S]*?)(>>>>>>> REPLACE|REPLACE|>>>>>>>)/gi, (match, searchVal, replaceVal) => {
+            let formatted = text.replace(/<<<<<<<(?:\s*SEARCH)?\r?\n?([\s\S]*?)\r?\n?=======\r?\n?([\s\S]*?)\r?\n?>>>>>>>(?:\s*REPLACE)?/gi, (match, searchVal, replaceVal) => {
+                const stripFences = (str) => {
+                    return str.trim()
+                              .replace(/^```[a-zA-Z]*\r?\n/, '')
+                              .replace(/\r?\n```$/, '')
+                              .trim();
+                };
+                const sClean = stripFences(searchVal);
+                const rClean = stripFences(replaceVal);
+                
                 return `<div class="search-replace-block" style="border: 1px solid var(--border-color); background: #0c0c0e; border-radius: 6px; overflow: hidden; margin: 12px 0; font-family: 'DM Sans', sans-serif;">
     <div style="padding: 6px 12px; background: rgba(239, 68, 68, 0.08); border-bottom: 1px solid rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: space-between;">
         <span style="font-size: 10px; font-weight: 700; color: #ef4444; letter-spacing: 0.08em; text-transform: uppercase;">Original (Search)</span>
     </div>
-    <pre style="margin: 0; padding: 12px; background: #09090b !important; border: none !important; border-radius: 0 !important; color: #f87171 !important; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(searchVal.trim())}</pre>
+    <pre style="margin: 0; padding: 12px; background: #09090b !important; border: none !important; border-radius: 0 !important; color: #f87171 !important; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(sClean)}</pre>
     
     <div style="padding: 6px 12px; background: rgba(16, 185, 129, 0.08); border-top: 1px solid rgba(16, 185, 129, 0.15); border-bottom: 1px solid rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: space-between;">
         <span style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.08em; text-transform: uppercase;">Replacement (Replace)</span>
     </div>
-    <pre style="margin: 0; padding: 12px; background: #09090b !important; border: none !important; border-radius: 0 !important; color: #34d399 !important; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(replaceVal.trim())}</pre>
+    <pre style="margin: 0; padding: 12px; background: #09090b !important; border: none !important; border-radius: 0 !important; color: #34d399 !important; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(rClean)}</pre>
 </div>`;
             });
 

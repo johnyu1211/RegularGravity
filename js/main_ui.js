@@ -483,6 +483,20 @@ window.autoClickPendingQueueItems = async function() {
                     break;
                 }
                 
+                item.status = 'UPLOADING';
+                
+                const currentKey = key;
+                setTimeout(() => {
+                    const checkItem = window.requestedFilesQueue.find(x => x.absolutePath === currentKey);
+                    if (checkItem && checkItem.status === 'UPLOADING') {
+                        console.log(`[AutoClick] Timeout reached for ${checkItem.relativePath}. Resetting to PENDING.`);
+                        checkItem.status = 'PENDING';
+                        if (typeof window.updateDragDropQueueUI === 'function') {
+                            window.updateDragDropQueueUI();
+                        }
+                    }
+                }, 5000);
+
                 console.log("[AutoClick] Clicking queue item:", item.relativePath);
                 await targetEl.onclick();
                 await new Promise(resolve => setTimeout(resolve, 1400));

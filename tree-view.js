@@ -147,10 +147,34 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         item.appendChild(iconSpan);
         item.appendChild(nameSpan);
 
+        // Copy Path Button - Skip for ../
+        if (!isParentEntry) {
+            const copyPathBtn = document.createElement('span');
+            copyPathBtn.className = 'copy-path-btn';
+            copyPathBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+            copyPathBtn.title = `Copy relative path`;
+            copyPathBtn.onclick = async (e) => {
+                e.stopPropagation();
+                const pathModule = require('path');
+                const root = window.projectRoot || process.cwd();
+                const relPath = pathModule.relative(root, fullPath).replace(/\\/g, '/');
+                await navigator.clipboard.writeText(relPath);
+                
+                const originalIcon = copyPathBtn.innerHTML;
+                copyPathBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                setTimeout(() => {
+                    copyPathBtn.innerHTML = originalIcon;
+                }, 1000);
+            };
+            item.appendChild(copyPathBtn);
+        }
+
         // Drill-down Button (→) - Skip for ../
         if (isDir && !isParentEntry) {
             const drillBtn = document.createElement('span');
             drillBtn.className = 'jump-folder-btn';
+            // Override folder margin-left to stack next to copy-path-btn
+            drillBtn.style.marginLeft = '0';
             drillBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`; 
             drillBtn.title = `Navigate into this folder`;
             drillBtn.onclick = (e) => {

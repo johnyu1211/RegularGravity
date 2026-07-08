@@ -308,6 +308,27 @@ body {
     color: #fff;
     background: rgba(255, 255, 255, 0.08);
 }
+.copy-path-btn {
+    opacity: 0;
+    color: #555;
+    padding: 0;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 16px;
+    width: 16px;
+    border-radius: 4px;
+    margin-left: auto;
+    margin-top: 1px;
+}
+.file-item:hover .copy-path-btn {
+    opacity: 1;
+}
+.copy-path-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
 
 /* Local Chat UI */
 #local-chat-messages {

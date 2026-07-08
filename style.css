@@ -1264,3 +1264,7 @@ input:checked + .slider:before {
     transition: .3s;
     border-radius: 50%;
 }
+
+#local-input-container {
+    display: none !important;
+}

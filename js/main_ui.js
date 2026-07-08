@@ -5,6 +5,16 @@ window.totalFilesCount = 0;
 window.readFilesSet = new Set();
 window.currentBatchFileCount = 0;
 window.currentPath = process.cwd();
+window.currentSplitHeight = 220;
+
+window.updateSplitLayoutHeight = function(newHeight) {
+    if (newHeight < 40 || newHeight > 500) return;
+    window.currentSplitHeight = newHeight;
+    const vLC = document.getElementById('inspector-local-chat');
+    if (vLC && window.activeSubTabId === 'local') {
+        vLC.style.height = `calc(100% - 44px - ${newHeight}px)`;
+    }
+};
 
 window.reloadAgentSettings = function() {
     const _path = require('path');
@@ -401,7 +411,7 @@ function detectAndAskCommand(text) {
                     const vLC = document.getElementById('inspector-local-chat');
                     const vBH = document.getElementById('inspector-browser-hub');
                     if (vLC) {
-                        vLC.style.height = 'calc(100% - 44px - 220px)';
+                        vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
                         vLC.style.zIndex = '150';
                     }
                     
@@ -483,7 +493,7 @@ function detectAndAskCommand(text) {
                         inputContainer.style.justifyContent = inputContainer.dataset.originalJustifyContent || '';
                         
                         if (vLC) {
-                            vLC.style.height = 'calc(100% - 44px - 220px)';
+                            vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
                             vLC.style.zIndex = '150';
                         }
                         if (vBH) {
@@ -775,6 +785,76 @@ async function setupBoot() {
             `).catch(err => console.error("Failed to inject guest drop interceptor:", err));
             wv.executeJavaScript(`
                 (() => {
+                    const getInputAreaHeight = () => {
+                        let input = document.querySelector('textarea, [contenteditable="true"]');
+                        if (!input) return 220;
+                        
+                        let container = input;
+                        while (container && container !== document.body) {
+                            const style = window.getComputedStyle(container);
+                            const isBottomContainer = container.matches('.input-area-container, .input-area, [class*="composer"], [class*="input-container"], [class*="PromptTextarea"]') || 
+                                                     (style.position === 'fixed' || style.position === 'absolute');
+                            
+                            if (isBottomContainer) {
+                                const rect = container.getBoundingClientRect();
+                                if (rect.width > window.innerWidth * 0.5) {
+                                    break;
+                                }
+                            }
+                            container = container.parentElement;
+                        }
+                        if (!container || container === document.body) {
+                            container = input.parentElement;
+                        }
+                        
+                        const rect = container.getBoundingClientRect();
+                        return Math.ceil(rect.height) + 16;
+                    };
+                    
+                    let lastHeight = 0;
+                    const observer = new ResizeObserver(() => {
+                        const h = getInputAreaHeight();
+                        if (h !== lastHeight && h > 40 && h < 500) {
+                            lastHeight = h;
+                            console.log('[GUEST_INPUT_HEIGHT]:' + h);
+                        }
+                    });
+                    
+                    setInterval(() => {
+                        let input = document.querySelector('textarea, [contenteditable="true"]');
+                        if (input) {
+                            let container = input;
+                            while (container && container !== document.body) {
+                                const style = window.getComputedStyle(container);
+                                const isBottomContainer = container.matches('.input-area-container, .input-area, [class*="composer"], [class*="input-container"], [class*="PromptTextarea"]') || 
+                                                         (style.position === 'fixed' || style.position === 'absolute');
+                                
+                                if (isBottomContainer) {
+                                    const rect = container.getBoundingClientRect();
+                                    if (rect.width > window.innerWidth * 0.5) {
+                                        break;
+                                    }
+                                }
+                                container = container.parentElement;
+                            }
+                            if (!container || container === document.body) {
+                                container = input.parentElement;
+                            }
+                            if (container && container !== window.observedInputContainer) {
+                                observer.disconnect();
+                                observer.observe(container);
+                                window.observedInputContainer = container;
+                                
+                                const h = getInputAreaHeight();
+                                lastHeight = h;
+                                console.log('[GUEST_INPUT_HEIGHT]:' + h);
+                            }
+                        }
+                    }, 1000);
+                })();
+            `).catch(err => console.error("Failed to inject guest height observer:", err));
+            wv.executeJavaScript(`
+                (() => {
                     let lastSentText = "";
                     let stableTimer = null;
                     
@@ -1053,6 +1133,13 @@ ${startPrompt}`.trim();
                     } catch (err) {
                         console.error("Failed to process drop upload:", err);
                     }
+                }
+                return;
+            }
+            if (e.message.startsWith('[GUEST_INPUT_HEIGHT]:')) {
+                const h = parseInt(e.message.substring(21), 10);
+                if (!isNaN(h) && typeof window.updateSplitLayoutHeight === 'function') {
+                    window.updateSplitLayoutHeight(h);
                 }
                 return;
             }
@@ -1440,7 +1527,7 @@ function setupUI() {
             vLC.style.opacity = '1';
             vLC.style.pointerEvents = 'auto';
             vLC.style.zIndex = '150';
-            vLC.style.height = 'calc(100% - 44px - 220px)';
+            vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
             
             vBH.style.position = 'absolute';
             vBH.style.top = '0';

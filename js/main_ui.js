@@ -842,9 +842,6 @@ function detectAndAskCommand(text) {
                 try { isDirectory = fs.statSync(targetPath).isDirectory(); } catch(e) {}
             }
             readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]), exists: exists, isDirectory: isDirectory });
-            if (exists && !isDirectory) {
-                if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
-            }
         } else if (fileFullMatch) {
             const filePath = fileFullMatch[1].trim();
             const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
@@ -854,9 +851,6 @@ function detectAndAskCommand(text) {
                 try { isDirectory = fs.statSync(targetPath).isDirectory(); } catch(e) {}
             }
             readCmds.push({ path: filePath, full: true, exists: exists, isDirectory: isDirectory });
-            if (exists && !isDirectory) {
-                if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
-            }
         } else if (fileMatch) {
             const filePath = fileMatch[1].trim();
             const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
@@ -866,9 +860,6 @@ function detectAndAskCommand(text) {
                 try { isDirectory = fs.statSync(targetPath).isDirectory(); } catch(e) {}
             }
             readCmds.push({ path: filePath, full: false, exists: exists, isDirectory: isDirectory });
-            if (exists && !isDirectory) {
-                if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
-            }
         } else if (writeMatch) {
             const filePath = writeMatch[1].trim();
             const cmdIdx = text.indexOf(rawCmd);
@@ -990,6 +981,40 @@ function detectAndAskCommand(text) {
             otherCmds.push(cmd);
         }
     });
+
+    // Combined files bundling logic for Drag & Drop
+    const filesToBundle = readCmds.filter(f => f.exists !== false && !f.isDirectory);
+    if (filesToBundle.length > 0) {
+        let mergedContent = "# Requested Files Bundle\n\n";
+        filesToBundle.forEach(f => {
+            const absPath = path.resolve(window.currentPath || process.cwd(), f.path);
+            let fileContent = "";
+            try {
+                if (f.range) {
+                    const rawContent = fs.readFileSync(absPath, 'utf-8');
+                    const lines = rawContent.split(/\r?\n/);
+                    fileContent = lines.slice(f.start - 1, f.end).join('\n');
+                } else {
+                    fileContent = fs.readFileSync(absPath, 'utf-8');
+                }
+            } catch(e) {
+                fileContent = "[ERROR READING FILE: " + e.message + "]";
+            }
+            const ext = f.path.split('.').pop().toLowerCase();
+            mergedContent += "## [FILE DATA: " + f.path + "]\n```" + ext + "\n" + fileContent + "\n```\n\n";
+        });
+        
+        const tempFileName = `_project_read_bundle_${Date.now()}.md`;
+        const tempPath = path.join(window.projectRoot || window.currentPath, tempFileName);
+        try {
+            fs.writeFileSync(tempPath, mergedContent, 'utf-8');
+            if (typeof window.addFileToRequestedQueue === 'function') {
+                window.addFileToRequestedQueue(tempFileName);
+            }
+        } catch(e) {
+            console.error("Failed to write read bundle file:", e);
+        }
+    }
 
     const hasReadFile = (readCmds.length > 0);
     const hasWriteFile = (writeCmds.length > 0);
@@ -2776,7 +2801,12 @@ ${startPrompt}`.trim();
                         if (typeof ChatUI !== 'undefined' && ChatUI.appendBubble) {
                             const chatLog = document.getElementById('local-chat-messages');
                             let lastUserBubble = null;
-                            const baseName = pathModule.basename(filePath);
+                            let baseName = pathModule.basename(filePath);
+                            if (baseName.startsWith('_project_read_bundle_')) {
+                                baseName = 'Requested Files';
+                            } else if (baseName.startsWith('_project_rules_')) {
+                                baseName = 'System Rules';
+                            }
                             
                             if (chatLog) {
                                 const bubbles = Array.from(chatLog.querySelectorAll('.chat-bubble'));

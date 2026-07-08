@@ -2974,14 +2974,96 @@ function setupUI() {
                 createWebPopover(`shortcut-${index}`, item.url, item.title, pill, false);
             };
             
-            // Right click: Delete shortcut
+            // Drag and drop properties
+            pill.setAttribute('draggable', 'true');
+            
+            pill.ondragstart = (e) => {
+                pill.style.opacity = '0.4';
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', index);
+            };
+            
+            pill.ondragend = () => {
+                pill.style.opacity = '1';
+                document.querySelectorAll('.status-shortcut-pill').forEach(el => {
+                    el.style.borderLeft = '';
+                    el.style.borderRight = '';
+                });
+            };
+            
+            pill.ondragover = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const rect = pill.getBoundingClientRect();
+                const relX = e.clientX - rect.left;
+                if (relX < rect.width / 2) {
+                    pill.style.borderLeft = '2px solid var(--primary)';
+                    pill.style.borderRight = '';
+                } else {
+                    pill.style.borderRight = '2px solid var(--primary)';
+                    pill.style.borderLeft = '';
+                }
+            };
+            
+            pill.ondragleave = () => {
+                pill.style.borderLeft = '';
+                pill.style.borderRight = '';
+            };
+            
+            pill.ondrop = (e) => {
+                e.preventDefault();
+                pill.style.borderLeft = '';
+                pill.style.borderRight = '';
+                
+                const srcIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                if (isNaN(srcIndex) || srcIndex === index) return;
+                
+                const rect = pill.getBoundingClientRect();
+                const relX = e.clientX - rect.left;
+                
+                let destIndex = index;
+                if (relX >= rect.width / 2) {
+                    destIndex = index + 1;
+                }
+                
+                const currentList = loadShortcuts();
+                const [movedItem] = currentList.splice(srcIndex, 1);
+                
+                let targetPos = destIndex;
+                if (srcIndex < destIndex) {
+                    targetPos = destIndex - 1;
+                }
+                
+                currentList.splice(targetPos, 0, movedItem);
+                saveShortcuts(currentList);
+                renderShortcuts();
+            };
+
+            // Right click: Delete shortcut (with custom themed modal)
             pill.oncontextmenu = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (confirm(`Delete shortcut "${item.title}"?`)) {
-                    const newList = list.filter((_, idx) => idx !== index);
-                    saveShortcuts(newList);
-                    renderShortcuts();
+                
+                if (typeof showConfirm === 'function') {
+                    showConfirm(`Delete shortcut "${item.title}"?`, () => {
+                        const newList = list.filter((_, idx) => idx !== index);
+                        saveShortcuts(newList);
+                        
+                        // Close if active popover window exists
+                        const popupEl = document.getElementById(`web-popover-shortcut-${index}`);
+                        if (popupEl) popupEl.remove();
+                        
+                        renderShortcuts();
+                    });
+                } else {
+                    // Fallback to confirm
+                    if (confirm(`Delete shortcut "${item.title}"?`)) {
+                        const newList = list.filter((_, idx) => idx !== index);
+                        saveShortcuts(newList);
+                        const popupEl = document.getElementById(`web-popover-shortcut-${index}`);
+                        if (popupEl) popupEl.remove();
+                        renderShortcuts();
+                    }
                 }
             };
             

@@ -1256,9 +1256,9 @@ input:checked + .slider:before {
 }
 
 /* Popover resizer handles styling - High priority stacking context */
-.popover-resizer-r {
+.popover-resizer-l {
     position: absolute !important;
-    right: 0 !important;
+    left: 0 !important;
     top: 0 !important;
     width: 8px !important;
     height: 100% !important;
@@ -1280,13 +1280,13 @@ input:checked + .slider:before {
     pointer-events: auto !important;
 }
 
-.popover-resizer-tr {
+.popover-resizer-tl {
     position: absolute !important;
-    right: 0 !important;
+    left: 0 !important;
     top: 0 !important;
     width: 16px !important;
     height: 16px !important;
-    cursor: nesw-resize !important;
+    cursor: nwse-resize !important;
     z-index: 100003 !important;
     background: transparent !important;
     pointer-events: auto !important;

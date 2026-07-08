@@ -2552,15 +2552,15 @@ function setupUI() {
 
     // 3. Setup Popover Resizers
     const setupPopoverResizers = () => {
-        const rResizer = popover ? popover.querySelector('.popover-resizer-r') : null;
+        const lResizer = popover ? popover.querySelector('.popover-resizer-l') : null;
         const tResizer = popover ? popover.querySelector('.popover-resizer-t') : null;
-        const trResizer = popover ? popover.querySelector('.popover-resizer-tr') : null;
+        const tlResizer = popover ? popover.querySelector('.popover-resizer-tl') : null;
         if (!popover) return;
         
         let startWidth, startHeight, startX, startY;
         
-        const onMouseMoveR = (e) => {
-            const newWidth = Math.max(300, startWidth + (e.clientX - startX));
+        const onMouseMoveL = (e) => {
+            const newWidth = Math.max(300, startWidth - (e.clientX - startX));
             popover.style.width = `${newWidth}px`;
         };
         
@@ -2569,27 +2569,27 @@ function setupUI() {
             popover.style.height = `${newHeight}px`;
         };
         
-        const onMouseMoveTR = (e) => {
-            const newWidth = Math.max(300, startWidth + (e.clientX - startX));
+        const onMouseMoveTL = (e) => {
+            const newWidth = Math.max(300, startWidth - (e.clientX - startX));
             const newHeight = Math.max(200, startHeight - (e.clientY - startY));
             popover.style.width = `${newWidth}px`;
             popover.style.height = `${newHeight}px`;
         };
         
         const onMouseUp = () => {
-            document.removeEventListener('mousemove', onMouseMoveR);
+            document.removeEventListener('mousemove', onMouseMoveL);
             document.removeEventListener('mousemove', onMouseMoveT);
-            document.removeEventListener('mousemove', onMouseMoveTR);
+            document.removeEventListener('mousemove', onMouseMoveTL);
             document.removeEventListener('mouseup', onMouseUp);
         };
         
-        if (rResizer) {
-            rResizer.addEventListener('mousedown', (e) => {
+        if (lResizer) {
+            lResizer.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 startX = e.clientX;
                 startWidth = parseInt(document.defaultView.getComputedStyle(popover).width, 10);
-                document.addEventListener('mousemove', onMouseMoveR);
+                document.addEventListener('mousemove', onMouseMoveL);
                 document.addEventListener('mouseup', onMouseUp);
             });
         }
@@ -2605,15 +2605,15 @@ function setupUI() {
             });
         }
         
-        if (trResizer) {
-            trResizer.addEventListener('mousedown', (e) => {
+        if (tlResizer) {
+            tlResizer.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 startX = e.clientX;
                 startY = e.clientY;
                 startWidth = parseInt(document.defaultView.getComputedStyle(popover).width, 10);
                 startHeight = parseInt(document.defaultView.getComputedStyle(popover).height, 10);
-                document.addEventListener('mousemove', onMouseMoveTR);
+                document.addEventListener('mousemove', onMouseMoveTL);
                 document.addEventListener('mouseup', onMouseUp);
             });
         }

@@ -838,24 +838,36 @@ function detectAndAskCommand(text) {
             const filePath = rangeMatch[1].trim();
             const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
             const exists = fs.existsSync(targetPath);
-            readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]), exists: exists });
+            let isDirectory = false;
             if (exists) {
+                try { isDirectory = fs.statSync(targetPath).isDirectory(); } catch(e) {}
+            }
+            readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]), exists: exists, isDirectory: isDirectory });
+            if (exists && !isDirectory) {
                 if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
             }
         } else if (fileFullMatch) {
             const filePath = fileFullMatch[1].trim();
             const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
             const exists = fs.existsSync(targetPath);
-            readCmds.push({ path: filePath, full: true, exists: exists });
+            let isDirectory = false;
             if (exists) {
+                try { isDirectory = fs.statSync(targetPath).isDirectory(); } catch(e) {}
+            }
+            readCmds.push({ path: filePath, full: true, exists: exists, isDirectory: isDirectory });
+            if (exists && !isDirectory) {
                 if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
             }
         } else if (fileMatch) {
             const filePath = fileMatch[1].trim();
             const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
             const exists = fs.existsSync(targetPath);
-            readCmds.push({ path: filePath, full: false, exists: exists });
+            let isDirectory = false;
             if (exists) {
+                try { isDirectory = fs.statSync(targetPath).isDirectory(); } catch(e) {}
+            }
+            readCmds.push({ path: filePath, full: false, exists: exists, isDirectory: isDirectory });
+            if (exists && !isDirectory) {
                 if (typeof window.addFileToRequestedQueue === 'function') window.addFileToRequestedQueue(filePath);
             }
         } else if (writeMatch) {
@@ -1010,7 +1022,8 @@ function detectAndAskCommand(text) {
                 let combinedPayload = "";
 
                 if (window.dragDropMode) {
-                    const existingFiles = activeCmds.filter(f => f.exists !== false);
+                    const existingFiles = activeCmds.filter(f => f.exists !== false && !f.isDirectory);
+                    const directoryFiles = activeCmds.filter(f => f.exists !== false && f.isDirectory);
                     const missingFiles = activeCmds.filter(f => f.exists === false);
                     let parts = [];
                     if (existingFiles.length > 0) {
@@ -1020,6 +1033,31 @@ function detectAndAskCommand(text) {
                         }).join(', ');
                         existingFiles.forEach(f => window.readFilesSet.add(f.path));
                         parts.push(`I have uploaded the requested file contents: ${fileNames} as attachments.`);
+                    }
+                    if (directoryFiles.length > 0) {
+                        const getFlatDirectoryTree = (dirPath) => {
+                            let results = [];
+                            try {
+                                const list = fs.readdirSync(dirPath);
+                                list.forEach(file => {
+                                    const fullPath = path.join(dirPath, file);
+                                    const stat = fs.statSync(fullPath);
+                                    if (stat && stat.isDirectory()) {
+                                        results = results.concat(getFlatDirectoryTree(fullPath));
+                                    } else {
+                                        results.push(fullPath);
+                                    }
+                                });
+                            } catch (e) {}
+                            return results;
+                        };
+                        directoryFiles.forEach(dir => {
+                            const absDir = path.resolve(window.currentPath || process.cwd(), dir.path);
+                            const files = getFlatDirectoryTree(absDir);
+                            const relativeFiles = files.map(f => path.relative(window.currentPath || process.cwd(), f));
+                            const fileListStr = relativeFiles.map(rf => `- ${rf.replace(/\\/g, '/')}`).join('\n');
+                            parts.push(`[DIRECTORY LIST: ${dir.path}]\n${fileListStr}\n`);
+                        });
                     }
                     if (missingFiles.length > 0) {
                         missingFiles.forEach(f => {
@@ -1131,7 +1169,7 @@ function detectAndAskCommand(text) {
             }
         };
 
-        const existingReadCount = readCmds.filter(f => f.exists !== false).length;
+        const existingReadCount = readCmds.filter(f => f.exists !== false && !f.isDirectory).length;
         if ((window.autoContinueOnRead && !window.dragDropMode) || (window.dragDropMode && existingReadCount === 0)) {
             runRead();
         } else {

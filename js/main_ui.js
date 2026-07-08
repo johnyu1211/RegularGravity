@@ -442,19 +442,6 @@ window.autoClickPendingQueueItems = async function() {
         let pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
         while (pendingItems.length > 0) {
             const item = pendingItems[0];
-            
-            const key = item.absolutePath;
-            attemptCounts[key] = (attemptCounts[key] || 0) + 1;
-            if (attemptCounts[key] > 5) {
-                console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 5 consecutive upload attempts.`);
-                const warningEl = document.getElementById('drag-drop-queue-warning');
-                if (warningEl) {
-                    warningEl.innerHTML = `❌ 실패 5회 초과로 자동 드래그 중단: ${item.relativePath}`;
-                    warningEl.style.color = '#ff4444';
-                }
-                break;
-            }
-            
             const listEl = document.getElementById('drag-drop-queue-list');
             if (!listEl) break;
             
@@ -475,9 +462,27 @@ window.autoClickPendingQueueItems = async function() {
                     pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
                     continue;
                 }
+                
+                const key = item.absolutePath;
+                attemptCounts[key] = (attemptCounts[key] || 0) + 1;
+                
+                const warningEl = document.getElementById('drag-drop-queue-warning');
+                if (warningEl) {
+                    warningEl.innerHTML = `⏳ 자동 업로드 진행 중 (${item.relativePath} 시도 ${attemptCounts[key]}/5)...`;
+                    warningEl.style.color = '#e0a100';
+                }
+                
+                if (attemptCounts[key] > 5) {
+                    console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 5 consecutive upload attempts.`);
+                    if (warningEl) {
+                        warningEl.innerHTML = `❌ 실패 5회 초과로 자동 드래그 중단: ${item.relativePath}`;
+                        warningEl.style.color = '#ff4444';
+                    }
+                    break;
+                }
+                
                 console.log("[AutoClick] Clicking queue item:", item.relativePath);
                 await targetEl.onclick();
-                // Wait for C# drag simulation to fully complete
                 await new Promise(resolve => setTimeout(resolve, 1400));
             } else {
                 break;

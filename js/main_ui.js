@@ -795,7 +795,7 @@ async function setupBoot() {
                         style = document.createElement('style');
                         style.id = styleId;
                         style.textContent = \`
-                            .input-area-container, [class*="composer-parent"], [class*="PromptTextarea"], [class*="input-container"], [class*="input_container"] {
+                            .input-area, .input-area-container, [class*="input-area"], [class*="composer-parent"], [class*="PromptTextarea"], [class*="input-container"], [class*="input_container"] {
                                 padding-top: 8px !important;
                                 margin-top: 0px !important;
                                 padding-bottom: 8px !important;

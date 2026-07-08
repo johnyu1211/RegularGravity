@@ -189,3 +189,56 @@ async function executeSearchBatch(searchCmds) {
         ChatUI.appendBubble('system', `[ERROR] Search batch processing failed: ${err.message}`);
     }
 }
+
+async function executeEditFileRangeBatch(editCmds) {
+    try {
+        window.lastInjectedBubble = null;
+        window.lastReceivedMirrorText = "";
+
+        const fs = require('fs');
+        const path = require('path');
+
+        let feedbackContent = "";
+        editCmds.forEach(cmdObj => {
+            const filePath = cmdObj.path;
+            const targetPath = path.resolve(window.currentPath, filePath);
+            
+            try {
+                if (!fs.existsSync(targetPath)) {
+                    throw new Error("Target file does not exist.");
+                }
+                const originalContent = fs.readFileSync(targetPath, 'utf-8');
+                const lines = originalContent.replace(/\r/g, '').split('\n');
+                
+                const startLine = cmdObj.start;
+                const endLine = cmdObj.end;
+                const newLines = cmdObj.code.replace(/\r/g, '').split('\n');
+                
+                const deleteCount = endLine - startLine + 1;
+                lines.splice(startLine - 1, deleteCount, ...newLines);
+                
+                fs.writeFileSync(targetPath, lines.join('\n'), 'utf-8');
+                feedbackContent += `[FILE EDIT SUCCESS: ${filePath} range ${startLine}-${endLine}]\n`;
+                ChatUI.appendBubble('system', `[SUCCESS] Edited ${filePath} lines ${startLine}-${endLine}.`);
+            } catch (err) {
+                feedbackContent += `[FILE EDIT ERROR: ${filePath} - ${err.message}]\n`;
+                ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: ${err.message}`);
+            }
+        });
+
+        const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
+        
+        await injectWebPayload(finalMessage, 0);
+        
+        window.currentBatchFileCount = 0;
+        const response = await runExperimentalEngine('/marktag', finalMessage, null);
+        if (!window.autoContinueOnRead) {
+            document.getElementById('tab-local-agent')?.click();
+        }
+        if (response) {
+            detectAndAskCommand(response);
+        }
+    } catch (err) {
+        ChatUI.appendBubble('system', `[ERROR] Edit batch processing failed: ${err.message}`);
+    }
+}

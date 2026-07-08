@@ -626,44 +626,10 @@ const syncBrowserView = (() => {
 })();
 
 window.getSystemRulesPrompt = function() {
-    if (window.dragDropMode) {
-        return `
-[SYSTEM RULES]
-1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 요구 사항만 단답형 제출.
-2. 요구 규격 (Drag & Drop Mode 활성 상태):
-   - 중요: 모든 파일 파악/요구는 유저에게 파일 드래그앤드롭을 정중히 요청하고, 문장 끝에 반드시 다음 태그를 포함하십시오:
-     * [REQUEST: read-file "경로"] (파일의 개요/아웃라인(함수/클래스명, JSON 키 목록 등)만 축소 파악)
-     * [REQUEST: read-file-full "경로"] (파일의 실제 전체 본문 코드 및 구체적인 설정값 파악)
-     * [REQUEST: read-file-range "경로" 시작줄-끝줄] (파일 본문의 특정 줄 범위 분석, 최대 2000줄 제한)
-3. 파일 수정 규격:
-   - 코드 생성/수정/작성이 필요할 때, 반드시 다음 형식으로 명령어와 코드를 명시하여 응답하십시오 (유저가 승인하면 파일에 반영됩니다):
-     [CMD: write-file "경로"]
-     \`\`\`언어
-     전체 코드 본문
-     \`\`\`
-4. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 파일 목록을 유저에게 드롭해달라고 요청([REQUEST: read-file...])하여 확인한 뒤 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
-5. 문구 제한: 단답형으로 요청 직후 태그만 표시. 사족 절대 금지.
-6. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
-    } else {
-        return `
-[SYSTEM RULES]
-1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 [CMD: ...] 명령어만 단답형 제출.
-2. 명령 규격:
-   - [CMD: read-file "경로"] (파일의 개요/아웃라인(함수/클래스명, JSON 키 목록 등)만 축소 파악)
-   - [CMD: read-file-full "경로"] (파일의 실제 전체 본문 코드 및 구체적인 설정값 파악)
-   - [CMD: read-file-range "경로" 시작줄-끝줄] (파일 본문의 특정 줄 범위 분석, 최대 2000줄 제한)
-   - [CMD: search-file "경로" "검색어"] (파일 내 검색)
-   - [CMD: search-all "검색어"] (전역 검색)
-3. 파일 수정 규격:
-   - 코드 생성/수정/작성이 필요할 때, 반드시 다음 형식으로 명령어와 코드를 명시하여 응답하십시오 (유저가 승인하면 파일에 반영됩니다):
-     [CMD: write-file "경로"]
-     \`\`\`언어
-     전체 코드 본문
-     \`\`\`
-4. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 핵심 키워드로 [CMD: search-all "검색어"]를 최우선 실행하여 위치를 파악한 뒤, 대상 소스 본문을 [CMD: read-file...]로 직접 읽고 검증하여 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
-5. 문구 제한: 명령어 제출 시 '코드를 읽어보는게 정확하겠습니다' 등 사족 절대 금지. 오직 '읽어보겠습니다.' 등 짧은 단답 직후 명령어만 표시.
-6. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
-    }
+    return `
+[CRITICAL SYSTEM RULES NOTICE]
+이 프로젝트의 개발/분석/탐색/코드수정 관련 규칙은 프로젝트 루트의 \`.pormsg_rules.md\` 파일에 기록되어 있습니다.
+반드시 최우선적으로 \`.pormsg_rules.md\` 파일을 읽고 파일 내의 [SYSTEM RULES] 지침 및 모든 명시된 명령 규격을 엄격히 준수하여 응답하십시오.`;
 };
 
 function detectAndAskCommand(text) {
@@ -696,6 +662,7 @@ function detectAndAskCommand(text) {
 
     const readCmds = [];
     const writeCmds = [];
+    const editCmds = [];
     const searchCmds = [];
     const otherCmds = [];
 
@@ -717,6 +684,7 @@ function detectAndAskCommand(text) {
         const fileFullMatch = cmd.match(/^read-file-full\s+["']?([^"'\s]+)["']?$/i);
         const rangeMatch = cmd.match(/^read-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
         const writeMatch = cmd.match(/^write-file\s+["']?([^"'\s]+)["']?$/i);
+        const editMatch = cmd.match(/^edit-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
 
         const fs = require('fs');
         const path = require('path');
@@ -752,6 +720,18 @@ function detectAndAskCommand(text) {
                 if (codeBlockMatch) codeVal = codeBlockMatch[1];
             }
             writeCmds.push({ path: filePath, code: codeVal });
+        } else if (editMatch) {
+            const filePath = editMatch[1].trim();
+            const startLine = parseInt(editMatch[2]);
+            const endLine = parseInt(editMatch[3]);
+            const cmdIdx = text.indexOf(rawCmd);
+            let codeVal = "";
+            if (cmdIdx !== -1) {
+                const subText = text.substring(cmdIdx);
+                const codeBlockMatch = subText.match(/```[a-zA-Z]*\n([\s\S]*?)\n```/);
+                if (codeBlockMatch) codeVal = codeBlockMatch[1];
+            }
+            editCmds.push({ path: filePath, start: startLine, end: endLine, code: codeVal });
         } else {
             otherCmds.push(cmd);
         }
@@ -759,8 +739,9 @@ function detectAndAskCommand(text) {
 
     const hasReadFile = (readCmds.length > 0);
     const hasWriteFile = (writeCmds.length > 0);
+    const hasEditFile = (editCmds.length > 0);
 
-    if (!hasReadFile && !hasWriteFile && window.autoContinueOnRead) {
+    if (!hasReadFile && !hasWriteFile && !hasEditFile && window.autoContinueOnRead) {
         const toast = document.getElementById('injection-toast');
         if (toast) toast.style.display = 'none';
         document.getElementById('tab-local-agent')?.click();
@@ -1102,6 +1083,39 @@ function detectAndAskCommand(text) {
         }
     }
 
+    if (hasEditFile) {
+        const displayCmd = editCmds.map(f => `edit-file-range "${f.path}" ${f.start}-${f.end}`).join(', ');
+        
+        const runEdit = async () => {
+            await executeEditFileRangeBatch(editCmds);
+        };
+
+        if (window.autoContinueOnRead) {
+            runEdit();
+        } else {
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#468CF6"; 
+            const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">✏️</span>${displayCmd}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                </div>
+            `;
+
+            content.querySelector('.cmd-run-btn').onclick = async () => {
+                box.remove();
+                await runEdit();
+            };
+            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        }
+    }
+
 
 
     otherCmds.forEach(cleanCmd => {
@@ -1438,8 +1452,8 @@ async function setupBoot() {
                             ChatUI.appendBubble('system', '[SYSTEM] INITIALIZATION COMPLETE.');
                             
                             const startPrompt = window.dragDropMode 
-                                ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(예: package.json, index.html 등 진입점 파일)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
-                                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오.`;
+                                ? `이 지침을 확인했다면 개발 규칙 숙지를 위해 프로젝트 루트의 \`.pormsg_rules.md\` 파일을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file ".pormsg_rules.md"] 형태로 즉시 단답형 답변하십시오.` 
+                                : `이 지침을 확인했다면 개발 규칙 숙지를 위해 프로젝트 루트의 \`.pormsg_rules.md\` 파일을 읽도록 [CMD: read-file ".pormsg_rules.md"] 형태로 즉시 답변하십시오.`;
 
                             const briefPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
 ${projectTree}
@@ -2378,8 +2392,8 @@ function setupUI() {
             window.userMessageCount = 0;
             
             const startPrompt = window.dragDropMode 
-                ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(예: package.json, index.html 등 진입점 파일)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
-                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오.`;
+                ? `이 지침을 확인했다면 개발 규칙 숙지를 위해 프로젝트 루트의 \`.pormsg_rules.md\` 파일을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file ".pormsg_rules.md"] 형태로 즉시 단답형 답변하십시오.` 
+                : `이 지침을 확인했다면 개발 규칙 숙지를 위해 프로젝트 루트의 \`.pormsg_rules.md\` 파일을 읽도록 [CMD: read-file ".pormsg_rules.md"] 형태로 즉시 답변하십시오.`;
             
             const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:
 ${tree}

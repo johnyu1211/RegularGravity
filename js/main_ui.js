@@ -470,7 +470,7 @@ window.autoClickPendingQueueItems = async function() {
                 
                 const warningEl = document.getElementById('drag-drop-queue-warning');
                 if (warningEl) {
-                    warningEl.innerHTML = `⏳ 자동 업로드 진행 중 (${item.relativePath} 시도 ${attemptCounts[key]}/5)...`;
+                    warningEl.innerHTML = `⏳ 자동 업로드 진행 중 (${item.relativePath} 시도 ${attemptCounts[key]}/3)...`;
                 }
                 
                 if (attemptCounts[key] > 3) {

@@ -654,11 +654,11 @@ window.getSystemRulesPrompt = function() {
 3. 파일 수정 규격 (SEARCH/REPLACE 블록 사용):
    - 중요: 기존 파일 코드를 부분수정/치환할 때, 반드시 다음 형식으로 응답하십시오 (여러 파일 수정 시 연속 작성 가능):
      [CMD: edit-file "경로"]
-     <<<<<<< SEARCH
+     [SEARCH]
      수정하려는 파일 내 기존 코드 일부 (정확히 일치해야 함)
-     =======
+     [REPLACE]
      수정하여 덮어쓸 새 코드 본문
-     >>>>>>> REPLACE
+     [END]
    - 새 파일을 생성하거나 코드 전체를 다시 써야 할 때만 다음 형식을 사용하십시오:
      [CMD: write-file "경로"]
      \`\`\`언어
@@ -681,11 +681,11 @@ window.getSystemRulesPrompt = function() {
 3. 파일 수정 규격 (SEARCH/REPLACE 블록 사용):
    - 중요: 기존 파일 코드를 부분수정/치환할 때, 반드시 다음 형식으로 응답하십시오 (여러 파일 수정 시 연속 작성 가능):
      [CMD: edit-file "경로"]
-     <<<<<<< SEARCH
+     [SEARCH]
      수정하려는 파일 내 기존 코드 일부 (정확히 일치해야 함)
-     =======
+     [REPLACE]
      수정하여 덮어쓸 새 코드 본문
-     >>>>>>> REPLACE
+     [END]
    - 새 파일을 생성하거나 코드 전체를 다시 써야 할 때만 다음 형식을 사용하십시오:
      [CMD: write-file "경로"]
      \`\`\`언어
@@ -1802,6 +1802,8 @@ ${startPrompt}`.trim();
         window.parseSearchReplaceBlocks = (text, filePath = null) => {
             if (!text) return [];
             const blocks = [];
+            
+            // 1. Standard format parser: <<<<<<< SEARCH ... ======= ... >>>>>>> REPLACE
             const sRegex = /(?:<<<<<<<|< < < < < < <)/g;
             const mRegex = /(?:=======|= = = = = = =)/g;
             const rRegex = /(?:>>>>>>>|> > > > > > >|REPLACE)/gi;
@@ -1926,6 +1928,80 @@ ${startPrompt}`.trim();
                 
                 pos = rIdx + rLen;
             }
+            
+            // 2. Simple bracket format parser: [SEARCH] ... [REPLACE] ... [END]
+            const sMarkerSimple = /\[SEARCH\]/gi;
+            const mMarkerSimple = /\[REPLACE\]/gi;
+            const rMarkerSimple = /\[END\]/gi;
+            
+            let posSimple = 0;
+            while (true) {
+                sMarkerSimple.lastIndex = posSimple;
+                const sMatch = sMarkerSimple.exec(text);
+                if (!sMatch) break;
+                const sIdx = sMatch.index;
+                const sLen = sMatch[0].length;
+                
+                mMarkerSimple.lastIndex = sIdx + sLen;
+                const mMatch = mMarkerSimple.exec(text);
+                if (!mMatch) {
+                    posSimple = sIdx + sLen;
+                    continue;
+                }
+                const mIdx = mMatch.index;
+                const mLen = mMatch[0].length;
+                
+                rMarkerSimple.lastIndex = mIdx + mLen;
+                let rMatch = rMarkerSimple.exec(text);
+                let rIdx, rLen;
+                if (rMatch) {
+                    rIdx = rMatch.index;
+                    rLen = rMatch[0].length;
+                } else {
+                    const nextCmd = text.indexOf("[CMD:", mIdx + mLen);
+                    const nextSearch = text.indexOf("[SEARCH]", mIdx + mLen);
+                    let endPos = text.length;
+                    if (nextCmd !== -1 && nextSearch !== -1) {
+                        endPos = Math.min(nextCmd, nextSearch);
+                    } else if (nextCmd !== -1) {
+                        endPos = nextCmd;
+                    } else if (nextSearch !== -1) {
+                        endPos = nextSearch;
+                    }
+                    rIdx = endPos;
+                    rLen = 0;
+                }
+                
+                sMarkerSimple.lastIndex = sIdx + sLen;
+                const nextSMatch = sMarkerSimple.exec(text);
+                if (nextSMatch && nextSMatch.index < mIdx) {
+                    posSimple = nextSMatch.index;
+                    continue;
+                }
+                
+                const searchVal = text.substring(sIdx + sLen, mIdx).trim();
+                const replaceVal = text.substring(mIdx + mLen, rIdx).trim();
+                
+                const stripFences = (str) => {
+                    return str.trim()
+                              .replace(/^```[a-zA-Z]*\r?\n/, '')
+                              .replace(/\r?\n```$/, '')
+                              .replace(/```$/, '')
+                              .trim();
+                };
+                
+                blocks.push({
+                    fullMatch: text.substring(sIdx, rIdx + rLen),
+                    search: stripFences(searchVal),
+                    replace: stripFences(replaceVal),
+                    hasDivider: true,
+                    rawBlock: stripFences(searchVal + "\n" + replaceVal)
+                });
+                
+                posSimple = rIdx + rLen;
+            }
+            
+            blocks.sort((a, b) => text.indexOf(a.fullMatch) - text.indexOf(b.fullMatch));
             
             return blocks;
         };

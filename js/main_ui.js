@@ -365,7 +365,9 @@ window.updateDragDropQueueUI = function() {
                     const wv = document.getElementById('active-agent-webview');
                     if (!wv) return;
                     
-                    // 1. Get window content bounds relative to screen X/Y
+                    itemEl.scrollIntoView({ block: 'center', inline: 'nearest' });
+                    await new Promise(r => setTimeout(r, 60));
+                    
                     const bounds = await ipcRenderer.invoke('get-content-bounds');
                     if (!bounds || bounds.width === 0 || bounds.height === 0) {
                         console.log("[DragSim] Aborted: Invalid window content bounds.");

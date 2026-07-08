@@ -1448,11 +1448,11 @@ input:checked + .slider:before {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(22, 22, 28, 0.6);
     border: 1px solid var(--border-color);
     border-radius: 50%;
-    width: 26px;
-    height: 26px;
+    width: 34px;
+    height: 34px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     user-select: none;

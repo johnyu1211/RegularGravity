@@ -2763,7 +2763,7 @@ function setupUI() {
             } catch(e){}
             
             pill.innerHTML = `
-                <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 14px; height: 14px; border-radius: 2px;" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'14\' height=\'14\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23888\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><circle cx=\'12\' cy=\'12\' r=\'10\'></circle><line x1=\'2\' y1=\'12\' x2=\'22\' y2=\'12\'></line><path d=\'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z\'></path></svg>';">
+                <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 16px; height: 16px; border-radius: 2px;" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'16\\' height=\\'16\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'%23888\\' stroke-width=\\'2.5\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\'><circle cx=\\'12\\' cy=\\'12\\' r=\\'10\\'></circle><line x1=\\'2\\' y1=\\'12\\' x2=\\'22\\' y2=\\'12\\'></line><path d=\\'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z\\'></path></svg>';">
             `;
             
             // Left click: Open inside GITHUB HUB popover
@@ -2810,17 +2810,17 @@ function setupUI() {
         addBtn.style.display = 'inline-flex';
         addBtn.style.alignItems = 'center';
         addBtn.style.justifyContent = 'center';
-        addBtn.style.width = '24px';
-        addBtn.style.height = '24px';
+        addBtn.style.width = '34px';
+        addBtn.style.height = '34px';
         addBtn.style.borderRadius = '50%';
-        addBtn.style.background = 'rgba(255,255,255,0.04)';
+        addBtn.style.background = 'rgba(22, 22, 28, 0.6)';
         addBtn.style.border = '1px solid var(--border-color)';
         addBtn.style.cursor = 'pointer';
         addBtn.style.transition = 'all 0.2s';
         addBtn.style.color = 'var(--text-muted)';
         addBtn.style.flexShrink = '0';
         addBtn.title = 'Register Internet Shortcut';
-        addBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+        addBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
         
         addBtn.onmouseenter = () => {
             addBtn.style.background = 'rgba(255,255,255,0.08)';
@@ -2828,7 +2828,7 @@ function setupUI() {
             addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
         };
         addBtn.onmouseleave = () => {
-            addBtn.style.background = 'rgba(255,255,255,0.04)';
+            addBtn.style.background = 'rgba(22, 22, 28, 0.6)';
             addBtn.style.color = 'var(--text-muted)';
             addBtn.style.borderColor = 'var(--border-color)';
         };

@@ -783,7 +783,7 @@ body {
   height: 12px;
   width: 12px;
   left: 2px;
-  bottom: 2px;
+  bottom: 5px;
   background-color: #555;
   transition: .3s;
 }

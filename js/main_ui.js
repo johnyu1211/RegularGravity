@@ -729,7 +729,8 @@ function detectAndAskCommand(text) {
         const fileFullMatch = cmd.match(/^read-file-full\s+["']?([^"'\s]+)["']?$/i);
         const rangeMatch = cmd.match(/^read-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
         const writeMatch = cmd.match(/^write-file\s+["']?([^"'\s]+)["']?$/i);
-        const editMatch = cmd.match(/^edit-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
+        const editRangeMatch = cmd.match(/^edit-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
+        const editMatch = cmd.match(/^edit-file\s+["']?([^"'\s]+)["']?$/i);
 
         const fs = require('fs');
         const path = require('path');
@@ -765,10 +766,10 @@ function detectAndAskCommand(text) {
                 if (codeBlockMatch) codeVal = codeBlockMatch[1];
             }
             writeCmds.push({ path: filePath, code: codeVal });
-        } else if (editMatch) {
-            const filePath = editMatch[1].trim();
-            const startLine = parseInt(editMatch[2]);
-            const endLine = parseInt(editMatch[3]);
+        } else if (editRangeMatch) {
+            const filePath = editRangeMatch[1].trim();
+            const startLine = parseInt(editRangeMatch[2]);
+            const endLine = parseInt(editRangeMatch[3]);
             const cmdIdx = text.indexOf(rawCmd);
             let codeVal = "";
             if (cmdIdx !== -1) {
@@ -776,7 +777,30 @@ function detectAndAskCommand(text) {
                 const codeBlockMatch = subText.match(/```[a-zA-Z]*\n([\s\S]*?)\n```/);
                 if (codeBlockMatch) codeVal = codeBlockMatch[1];
             }
-            editCmds.push({ path: filePath, start: startLine, end: endLine, code: codeVal });
+            editCmds.push({ type: 'range', path: filePath, start: startLine, end: endLine, code: codeVal });
+        } else if (editMatch) {
+            const filePath = editMatch[1].trim();
+            const cmdIdx = text.indexOf(rawCmd);
+            let searchVal = "";
+            let replaceVal = "";
+            if (cmdIdx !== -1) {
+                const subText = text.substring(cmdIdx);
+                const sMarker = "<<<<<<< SEARCH";
+                const mMarker = "=======";
+                const rMarker = ">>>>>>> REPLACE";
+                
+                const sIdx = subText.indexOf(sMarker);
+                const mIdx = subText.indexOf(mMarker, sIdx);
+                const rIdx = subText.indexOf(rMarker, mIdx);
+                
+                if (sIdx !== -1 && mIdx !== -1 && rIdx !== -1) {
+                    const rawSearch = subText.substring(sIdx + sMarker.length, mIdx);
+                    const rawReplace = subText.substring(mIdx + mMarker.length, rIdx);
+                    searchVal = rawSearch.replace(/^\r?\n|\r?\n$/g, '');
+                    replaceVal = rawReplace.replace(/^\r?\n|\r?\n$/g, '');
+                }
+            }
+            editCmds.push({ type: 'block', path: filePath, search: searchVal, replace: replaceVal });
         } else {
             otherCmds.push(cmd);
         }
@@ -1129,10 +1153,21 @@ function detectAndAskCommand(text) {
     }
 
     if (hasEditFile) {
-        const displayCmd = editCmds.map(f => `edit-file-range "${f.path}" ${f.start}-${f.end}`).join(', ');
+        const displayCmd = editCmds.map(f => {
+            if (f.type === 'range') return `edit-file-range "${f.path}" ${f.start}-${f.end}`;
+            return `edit-file "${f.path}"`;
+        }).join(', ');
         
         const runEdit = async () => {
-            await executeEditFileRangeBatch(editCmds);
+            const blockCmds = editCmds.filter(c => c.type === 'block');
+            const rangeCmds = editCmds.filter(c => c.type === 'range');
+            
+            if (blockCmds.length > 0) {
+                await executeEditFileBatch(blockCmds);
+            }
+            if (rangeCmds.length > 0) {
+                await executeEditFileRangeBatch(rangeCmds);
+            }
         };
 
         if (window.autoContinueOnRead) {

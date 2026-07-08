@@ -274,3 +274,65 @@ async function executeEditFileBatch(editCmds) {
         ChatUI.appendBubble('system', `[ERROR] Edit batch processing failed: ${err.message}`);
     }
 }
+
+async function executeEditFileRangeBatch(editCmds) {
+    try {
+        window.lastInjectedBubble = null;
+        window.lastReceivedMirrorText = "";
+
+        const fs = require('fs');
+        const path = require('path');
+
+        let feedbackContent = "";
+        editCmds.forEach(fileObj => {
+            const filePath = fileObj.path;
+            const targetPath = path.resolve(window.currentPath, filePath);
+            
+            try {
+                if (!fs.existsSync(targetPath)) {
+                    feedbackContent += `[FILE EDIT ERROR: ${filePath} - File not found]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: File not found`);
+                    return;
+                }
+                
+                const content = fs.readFileSync(targetPath, 'utf-8');
+                const isCRLF = content.includes('\r\n');
+                const lines = content.replace(/\r/g, '').split('\n');
+                
+                const startLine = Math.max(1, fileObj.start);
+                const endLine = Math.min(lines.length, fileObj.end);
+                
+                const newLines = fileObj.code.replace(/\r/g, '').split('\n');
+                lines.splice(startLine - 1, endLine - startLine + 1, ...newLines);
+                
+                const joined = lines.join(isCRLF ? '\r\n' : '\n');
+                fs.writeFileSync(targetPath, joined, 'utf-8');
+                
+                feedbackContent += `[FILE EDIT SUCCESS: ${filePath} range ${startLine}-${endLine}]\n`;
+                ChatUI.appendBubble('system', `[SUCCESS] Edited ${filePath} successfully.`);
+            } catch (err) {
+                feedbackContent += `[FILE EDIT ERROR: ${filePath} - ${err.message}]\n`;
+                ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: ${err.message}`);
+            }
+        });
+
+        const finalMessage = `${feedbackContent}\nProceed to verify the changes.`;
+        
+        await injectWebPayload(finalMessage, 0);
+        
+        window.currentBatchFileCount = 0;
+        const response = await runExperimentalEngine('/marktag', finalMessage, null);
+        if (!window.autoContinueOnRead) {
+            document.getElementById('tab-local-agent')?.click();
+        }
+        if (response) {
+            if (typeof window.finalizeAiBubble === 'function') {
+                window.finalizeAiBubble(response);
+            }
+            detectAndAskCommand(response);
+        }
+    } catch (err) {
+        ChatUI.appendBubble('system', `[ERROR] Edit batch processing failed: ${err.message}`);
+    }
+}
+

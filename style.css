@@ -1273,6 +1273,34 @@ input:checked + .slider:before {
     transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-body.hide-cursor, body.hide-cursor * {
-    cursor: none !important;
+/* Premium Markdown Table Styles in ChatCover */
+.bubble-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    background: var(--surface-low);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+.bubble-content th {
+    background: var(--surface-lowest);
+    color: #fff;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--border-color);
+}
+.bubble-content td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+.bubble-content tr:last-child td {
+    border-bottom: none;
+}
+.bubble-content tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.015);
 }

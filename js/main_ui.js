@@ -1529,12 +1529,14 @@ ${startPrompt}`.trim();
                             const baseName = pathModule.basename(filePath);
                             
                             if (chatLog) {
-                                const userBubbles = chatLog.querySelectorAll('.chat-bubble.user');
-                                if (userBubbles.length > 0) {
-                                    const lastBub = userBubbles[userBubbles.length - 1];
-                                    const contentEl = lastBub.querySelector('.bubble-content');
-                                    if (contentEl && contentEl.dataset.rawText && contentEl.dataset.rawText.startsWith('Attached:')) {
-                                        lastUserBubble = lastBub;
+                                const bubbles = chatLog.querySelectorAll('.chat-bubble');
+                                if (bubbles.length > 0) {
+                                    const lastBub = bubbles[bubbles.length - 1];
+                                    if (lastBub.classList.contains('user')) {
+                                        const contentEl = lastBub.querySelector('.bubble-content');
+                                        if (contentEl && contentEl.dataset.rawText && contentEl.dataset.rawText.startsWith('Attached:')) {
+                                            lastUserBubble = lastBub;
+                                        }
                                     }
                                 }
                             }

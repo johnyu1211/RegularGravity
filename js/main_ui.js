@@ -52,9 +52,20 @@ window.addFileToRequestedQueue = function(filePath) {
 };
 
 window.updateDragDropQueueUI = function() {
+    const containerEl = document.getElementById('drag-drop-queue-container');
     const listEl = document.getElementById('drag-drop-queue-list');
     const countEl = document.getElementById('requested-files-count');
     if (!listEl) return;
+    
+    // Toggle container display based on dragDropMode and queue content!
+    const hasItems = window.requestedFilesQueue.length > 0;
+    if (containerEl) {
+        if (window.dragDropMode && hasItems) {
+            containerEl.style.display = 'flex';
+        } else {
+            containerEl.style.display = 'none';
+        }
+    }
     
     listEl.innerHTML = '';
     
@@ -77,13 +88,13 @@ window.updateDragDropQueueUI = function() {
             align-items: center;
             gap: 8px;
             padding: 6px 8px;
-            background: \${item.status === 'COMPLETED' ? 'rgba(70, 140, 246, 0.03)' : 'var(--surface-color)'};
-            border: 1px solid \${item.status === 'COMPLETED' ? 'rgba(70, 140, 246, 0.15)' : 'var(--border-color)'};
+            background: ${item.status === 'COMPLETED' ? 'rgba(70, 140, 246, 0.03)' : 'var(--surface-color)'};
+            border: 1px solid ${item.status === 'COMPLETED' ? 'rgba(70, 140, 246, 0.15)' : 'var(--border-color)'};
             border-radius: 6px;
-            cursor: \${item.status === 'PENDING' ? 'grab' : 'default'};
+            cursor: ${item.status === 'PENDING' ? 'grab' : 'default'};
             user-select: none;
             transition: all 0.2s;
-            opacity: \${item.status === 'COMPLETED' ? '0.5' : '1'};
+            opacity: ${item.status === 'COMPLETED' ? '0.5' : '1'};
         `;
         
         if (item.status === 'PENDING') {

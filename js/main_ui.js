@@ -2081,15 +2081,15 @@ ${startPrompt}`.trim();
                                     window.triggerGuestSend();
                                 }
 
-                                // Delay deletion of _project_rules.md to guarantee upload completes
+                                // Delay deletion of temp rules file to guarantee upload completes
                                 setTimeout(() => {
                                     try {
                                         const fs = require('fs');
                                         const path = require('path');
-                                        const tPath = path.join(window.currentPath || process.cwd(), '_project_rules.md');
+                                        const tPath = path.join(window.currentPath || process.cwd(), window.tempRulesFileName || '_project_rules.md');
                                         if (fs.existsSync(tPath)) {
                                             fs.unlinkSync(tPath);
-                                            console.log("[ProjectInfo] Successfully deleted temporary _project_rules.md file after send.");
+                                            console.log("[ProjectInfo] Successfully deleted temporary rules file after send.");
                                             if (typeof window.refreshTree === 'function') {
                                                 window.refreshTree();
                                             }
@@ -2787,7 +2787,9 @@ function setupUI() {
             
             const webPayload = `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${tree}\n\n${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim();
             
-            const tempRulesPath = path.join(window.currentPath, '_project_rules.md');
+            const randSuffix = Math.floor(100000 + Math.random() * 900000);
+            window.tempRulesFileName = `_project_rules_${randSuffix}.md`;
+            const tempRulesPath = path.join(window.currentPath, window.tempRulesFileName);
             try {
                 fs.writeFileSync(tempRulesPath, webPayload, 'utf-8');
                 if (typeof window.refreshTree === 'function') {
@@ -2799,7 +2801,7 @@ function setupUI() {
 
             window.requestedFilesQueue = [{
                 absolutePath: tempRulesPath,
-                relativePath: '_project_rules.md',
+                relativePath: window.tempRulesFileName,
                 status: 'PENDING'
             }];
 
@@ -2974,15 +2976,15 @@ function setupUI() {
                                 window.triggerGuestSend();
                             }
                             
-                            // Delay deletion of _project_rules.md to guarantee upload completes
+                            // Delay deletion of temp rules file to guarantee upload completes
                             setTimeout(() => {
                                 try {
                                     const fs = require('fs');
                                     const path = require('path');
-                                    const tPath = path.join(window.currentPath || process.cwd(), '_project_rules.md');
+                                    const tPath = path.join(window.currentPath || process.cwd(), window.tempRulesFileName || '_project_rules.md');
                                     if (fs.existsSync(tPath)) {
                                         fs.unlinkSync(tPath);
-                                        console.log("[ProjectInfo] Successfully deleted temporary _project_rules.md file after send.");
+                                        console.log("[ProjectInfo] Successfully deleted temporary rules file after send.");
                                         if (typeof window.refreshTree === 'function') {
                                             window.refreshTree();
                                         }

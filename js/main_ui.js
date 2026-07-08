@@ -832,12 +832,12 @@ async function setupBoot() {
                         const capRect = capsule.getBoundingClientRect();
                         const bottomSpace = Math.max(0, window.innerHeight - capRect.bottom);
                         
-                        // Symmetrize top padding to match bottom space!
-                        container.style.paddingTop = bottomSpace + 'px';
+                        // Symmetrize top padding to match bottom space + 2px offset!
+                        container.style.paddingTop = (bottomSpace + 2) + 'px';
                         container.style.marginTop = '0px';
                         container.style.marginBottom = '0px';
                         
-                        return Math.ceil(capRect.height + bottomSpace * 2);
+                        return Math.ceil(capRect.height + bottomSpace * 2) + 2;
                     };
                     
                     let lastHeight = 0;

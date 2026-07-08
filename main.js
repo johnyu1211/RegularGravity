@@ -303,6 +303,10 @@ ipcMain.on('save-recent-project', (event, folderPath) => {
     saveRecentProjects(recents);
 });
 
+ipcMain.handle('get-app-path', () => {
+    return app.getAppPath();
+});
+
 
 ipcMain.handle('get-directory-content', async (event, dirPath) => {
     try {

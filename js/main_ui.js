@@ -394,7 +394,8 @@ window.updateDragDropQueueUI = function() {
                     
                     // 4. Run C# drag_sim.exe to drag file from startX, startY to endX, endY!
                     const { execFile } = require('child_process');
-                    const exePath = pathModule.join(process.cwd(), 'js', 'drag_sim.exe');
+                    const appPath = await ipcRenderer.invoke('get-app-path');
+                    const exePath = pathModule.join(appPath, 'js', 'drag_sim.exe');
                     
                     execFile(exePath, [startX.toString(), startY.toString(), endX.toString(), endY.toString()], (err) => {
                         if (err) {

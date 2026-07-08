@@ -113,6 +113,44 @@ window.triggerGuestSend = function() {
     wv.executeJavaScript(clickScript).catch(err => console.error("Failed to trigger guest send:", err));
 };
 
+window.injectGuestDropInterceptor = function() {
+    const wv = document.getElementById('active-agent-webview');
+    if (!wv) return;
+    wv.executeJavaScript(`
+        (() => {
+            if (window.guestDropListener) {
+                window.removeEventListener('dragover', window.guestDragoverListener, true);
+                window.removeEventListener('drop', window.guestDropListener, true);
+            }
+            
+            window.guestDragoverListener = (e) => {
+                const isFiles = e.dataTransfer.types.includes('Files');
+                if (!isFiles) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                }
+            };
+            
+            window.guestDropListener = (e) => {
+                const isFiles = e.dataTransfer.files && e.dataTransfer.files.length > 0;
+                const textData = e.dataTransfer.getData('text/plain');
+                if (textData && !isFiles) {
+                    e.preventDefault();
+                    console.log('[GUEST_HTML5_DROP]:' + textData);
+                } else if (isFiles) {
+                    for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                        console.log('[GUEST_FILE_DROP]:' + e.dataTransfer.files[i].name);
+                    }
+                }
+            };
+            
+            window.addEventListener('dragover', window.guestDragoverListener, true);
+            window.addEventListener('drop', window.guestDropListener, true);
+            console.log('[GuestInterceptor] Successfully registered drop listeners.');
+        })();
+    `).catch(err => console.error("Failed to inject guest drop interceptor:", err));
+};
+
 window.updateDragDropQueueUI = function() {
     const containerEl = document.getElementById('drag-drop-queue-container');
     const listEl = document.getElementById('drag-drop-queue-list');
@@ -693,16 +731,8 @@ function detectAndAskCommand(text) {
                         await runRead();
                     };
 
-                    const wv = document.getElementById('active-agent-webview');
-                    if (wv) {
-                        wv.executeJavaScript(`
-                            if (!window.hasDropListener) {
-                                window.hasDropListener = true;
-                                document.addEventListener('drop', (e) => {
-                                    console.log('[WEBVIEW_DROP_DETECTED]');
-                                }, true);
-                            }
-                        `).catch(err => console.error("Failed to inject drop listener", err));
+                    if (typeof window.injectGuestDropInterceptor === 'function') {
+                        window.injectGuestDropInterceptor();
                     }
 
                     inputContainer.appendChild(arrowIndicator);
@@ -942,32 +972,9 @@ async function setupBoot() {
                     }
                 }, true);
             `);
-            wv.executeJavaScript(`
-                if (!window.hasGuestDropInterceptor) {
-                    window.hasGuestDropInterceptor = true;
-                    
-                    window.addEventListener('dragover', (e) => {
-                        const isFiles = e.dataTransfer.types.includes('Files');
-                        if (!isFiles) {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = 'copy';
-                        }
-                    }, true);
-                    
-                    window.addEventListener('drop', (e) => {
-                        const isFiles = e.dataTransfer.files && e.dataTransfer.files.length > 0;
-                        const textData = e.dataTransfer.getData('text/plain');
-                        if (textData && !isFiles) {
-                            e.preventDefault();
-                            console.log('[GUEST_HTML5_DROP]:' + textData);
-                        } else if (isFiles) {
-                            for (let i = 0; i < e.dataTransfer.files.length; i++) {
-                                console.log('[GUEST_FILE_DROP]:' + e.dataTransfer.files[i].name);
-                            }
-                        }
-                    }, true);
-                }
-            `).catch(err => console.error("Failed to inject guest drop interceptor:", err));
+            if (typeof window.injectGuestDropInterceptor === 'function') {
+                window.injectGuestDropInterceptor();
+            }
             wv.executeJavaScript(`
                 (() => {
                     const styleId = 'poormansgravity-guest-style';

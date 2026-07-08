@@ -9,6 +9,16 @@ window.currentSplitHeight = 0;
 window.pendingSplitHeight = 220;
 window.requestedFilesQueue = [];
 
+// Hook ipcRenderer.send to capture currentlyDraggedFilePath on dragstart
+const originalSend = ipcRenderer.send.bind(ipcRenderer);
+ipcRenderer.send = function(channel, ...args) {
+    if (channel === 'ondragstart') {
+        window.currentlyDraggedFilePath = args[0];
+        console.log("[HostDrag] Captured currentlyDraggedFilePath:", window.currentlyDraggedFilePath);
+    }
+    return originalSend(channel, ...args);
+};
+
 // Hook readFilesSet.add
 const originalAdd = window.readFilesSet.add.bind(window.readFilesSet);
 window.readFilesSet.add = function(filePath) {
@@ -21,8 +31,8 @@ window.readFilesSet.add = function(filePath) {
 
 window.markFileAsCompleted = function(filePath) {
     const path = require('path');
-    const absolutePath = path.resolve(window.currentPath || process.cwd(), filePath);
-    const item = window.requestedFilesQueue.find(x => x.absolutePath === absolutePath);
+    const normalizedTarget = path.resolve(window.currentPath || process.cwd(), filePath).replace(/\//g, '\\').toLowerCase();
+    const item = window.requestedFilesQueue.find(x => x.absolutePath.replace(/\//g, '\\').toLowerCase() === normalizedTarget);
     if (item) {
         item.status = 'COMPLETED';
         if (typeof window.updateDragDropQueueUI === 'function') {
@@ -34,11 +44,18 @@ window.markFileAsCompleted = function(filePath) {
 window.addFileToRequestedQueue = function(filePath) {
     const path = require('path');
     const absolutePath = path.resolve(window.currentPath || process.cwd(), filePath);
+    const normalizedPath = absolutePath.replace(/\//g, '\\').toLowerCase();
     const relativePath = path.relative(window.currentPath || process.cwd(), absolutePath);
     const fs = require('fs');
     if (fs.existsSync(absolutePath)) {
-        if (!window.requestedFilesQueue.some(x => x.absolutePath === absolutePath)) {
-            const isCompleted = window.readFilesSet.has(filePath) || window.readFilesSet.has(absolutePath);
+        if (!window.requestedFilesQueue.some(x => x.absolutePath.replace(/\//g, '\\').toLowerCase() === normalizedPath)) {
+            let isCompleted = false;
+            for (let readPath of window.readFilesSet) {
+                if (path.resolve(window.currentPath || process.cwd(), readPath).replace(/\//g, '\\').toLowerCase() === normalizedPath) {
+                    isCompleted = true;
+                    break;
+                }
+            }
             window.requestedFilesQueue.push({
                 absolutePath,
                 relativePath,
@@ -943,6 +960,10 @@ async function setupBoot() {
                         if (textData && !isFiles) {
                             e.preventDefault();
                             console.log('[GUEST_HTML5_DROP]:' + textData);
+                        } else if (isFiles) {
+                            for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                                console.log('[GUEST_FILE_DROP]:' + e.dataTransfer.files[i].name);
+                            }
                         }
                     }, true);
                 }
@@ -1249,85 +1270,102 @@ ${startPrompt}`.trim();
 
         let lastReceivedMirrorText = "";
         wv.addEventListener('console-message', (e) => {
-            if (e.message.startsWith('[GUEST_HTML5_DROP]:')) {
-                const filePath = e.message.substring(19);
-                console.log("[HostDrop] Intercepted guest HTML5 drop path:", filePath);
-                
-                if (window.dragDropMode && window.activeDragDropContinue) {
-                    const pathModule = require('path');
-                    const droppedName = pathModule.basename(filePath).toLowerCase();
-                    
-                    const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
-                    const requestedNames = pendingItems.map(item => item.relativePath.split(/[\\/]/).pop().toLowerCase());
-                    
-                    if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
-                        const { showAlert } = require('./ui/dialogs.js');
-                        if (typeof showAlert === 'function') {
-                            showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
-                        } else {
-                            alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
-                        }
-                        return;
-                    }
-                    
-                    window.readFilesSet.add(filePath);
-                    
-                    const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
-                    if (stillPending.length === 0) {
-                        if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-                        setTimeout(() => {
-                            if (typeof window.triggerGuestSend === 'function') {
-                                window.triggerGuestSend();
-                            }
-                        }, 500);
-                    }
+            if (e.message.startsWith('[GUEST_HTML5_DROP]:') || e.message.startsWith('[GUEST_FILE_DROP]:')) {
+                let filePath = "";
+                if (e.message.startsWith('[GUEST_HTML5_DROP]:')) {
+                    filePath = e.message.substring(19);
                 } else {
-                    const fs = require('fs');
+                    const filename = e.message.substring(18);
+                    const droppedName = filename.toLowerCase();
                     const pathModule = require('path');
-                    try {
-                        const contentBuffer = fs.readFileSync(filePath);
-                        const filename = pathModule.basename(filePath);
-                        const base64Content = contentBuffer.toString('base64');
+                    if (window.currentlyDraggedFilePath && pathModule.basename(window.currentlyDraggedFilePath).toLowerCase() === droppedName) {
+                        filePath = window.currentlyDraggedFilePath;
+                    } else {
+                        const match = window.requestedFilesQueue.find(x => x.relativePath.split(/[\\/]/).pop().toLowerCase() === droppedName);
+                        if (match) {
+                            filePath = match.absolutePath;
+                        }
+                    }
+                }
+                
+                if (filePath) {
+                    console.log("[HostDrop] Intercepted drop for path:", filePath);
+                    if (window.dragDropMode && window.activeDragDropContinue) {
+                        const pathModule = require('path');
+                        const droppedName = pathModule.basename(filePath).toLowerCase();
                         
-                        const ext = filename.split('.').pop().toLowerCase();
-                        const mimeMap = {
-                            'js': 'text/javascript', 'json': 'application/json',
-                            'html': 'text/html', 'css': 'text/css',
-                            'txt': 'text/plain', 'md': 'text/markdown',
-                            'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                            'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
-                        };
-                        const mimeType = mimeMap[ext] || 'application/octet-stream';
+                        const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+                        const requestedNames = pendingItems.map(item => item.relativePath.split(/[\\/]/).pop().toLowerCase());
                         
-                        wv.executeJavaScript(`
-                            (() => {
-                                const b64 = "${base64Content}";
-                                const name = "${filename}";
-                                const mime = "${mimeType}";
-                                
-                                const binary = atob(b64);
-                                const array = new Uint8Array(binary.length);
-                                for (let i = 0; i < binary.length; i++) {
-                                    array[i] = binary.charCodeAt(i);
+                        if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
+                            const { showAlert } = require('./ui/dialogs.js');
+                            if (typeof showAlert === 'function') {
+                                showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                            } else {
+                                alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                            }
+                            return;
+                        }
+                        
+                        window.markFileAsCompleted(filePath);
+                        
+                        const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+                        if (stillPending.length === 0) {
+                            if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+                            setTimeout(() => {
+                                if (typeof window.triggerGuestSend === 'function') {
+                                    window.triggerGuestSend();
                                 }
-                                const blob = new Blob([array], { type: mime });
-                                const file = new File([blob], name, { type: mime });
-                                
-                                const dt = new DataTransfer();
-                                dt.items.add(file);
-                                
-                                let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
-                                
-                                const options = { bubbles: true, cancelable: true, dataTransfer: dt };
-                                target.dispatchEvent(new DragEvent('dragenter', options));
-                                target.dispatchEvent(new DragEvent('dragover', options));
-                                target.dispatchEvent(new DragEvent('drop', options));
-                                
-                                console.log("[GuestDrop] Dispatched drop event for file:", name);
-                            })();
-                        `).catch(err => console.error("Failed to execute drop injection script:", err));
-                    } catch (err) {
-                        console.error("Failed to process drop upload:", err);
+                            }, 500);
+                        }
+                    } else {
+                        const fs = require('fs');
+                        const pathModule = require('path');
+                        try {
+                            const contentBuffer = fs.readFileSync(filePath);
+                            const filename = pathModule.basename(filePath);
+                            const base64Content = contentBuffer.toString('base64');
+                            
+                            const ext = filename.split('.').pop().toLowerCase();
+                            const mimeMap = {
+                                'js': 'text/javascript', 'json': 'application/json',
+                                'html': 'text/html', 'css': 'text/css',
+                                'txt': 'text/plain', 'md': 'text/markdown',
+                                'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                                'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
+                            };
+                            const mimeType = mimeMap[ext] || 'application/octet-stream';
+                            
+                            wv.executeJavaScript(`
+                                (() => {
+                                    const b64 = "${base64Content}";
+                                    const name = "${filename}";
+                                    const mime = "${mimeType}";
+                                    
+                                    const binary = atob(b64);
+                                    const array = new Uint8Array(binary.length);
+                                    for (let i = 0; i < binary.length; i++) {
+                                        array[i] = binary.charCodeAt(i);
+                                    }
+                                    const blob = new Blob([array], { type: mime });
+                                    const file = new File([blob], name, { type: mime });
+                                    
+                                    const dt = new DataTransfer();
+                                    dt.items.add(file);
+                                    
+                                    let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
+                                    
+                                    const options = { bubbles: true, cancelable: true, dataTransfer: dt };
+                                    target.dispatchEvent(new DragEvent('dragenter', options));
+                                    target.dispatchEvent(new DragEvent('dragover', options));
+                                    target.dispatchEvent(new DragEvent('drop', options));
+                                    
+                                    console.log("[GuestDrop] Dispatched drop event for file:", name);
+                                })();
+                            `).catch(err => console.error("Failed to execute drop injection script:", err));
+                        } catch (err) {
+                            console.error("Failed to process drop upload:", err);
+                        }
                     }
                 }
                 return;

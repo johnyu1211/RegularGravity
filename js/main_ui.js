@@ -3657,143 +3657,194 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
         }
     }
     
-    // 4. Delete Files
-    if (deleteCmds.length > 0) {
-        const fs = require('fs');
-        const path = require('path');
-        for (const c of deleteCmds) {
-            try {
-                const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
-                if (fs.existsSync(targetPath)) {
-                    const stat = fs.statSync(targetPath);
-                    if (stat.isDirectory()) {
-                        fs.rmSync(targetPath, { recursive: true, force: true });
-                    } else {
-                        fs.unlinkSync(targetPath);
-                    }
-                    accumulatedFeedback += `[FILE DELETE SUCCESS: ${c.path}]\n`;
-                    ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path}`);
-                } else {
-                    accumulatedFeedback += `[FILE DELETE SUCCESS: ${c.path} (Already gone)]\n`;
-                    ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path} (Already gone)`);
-                }
-            } catch (err) {
-                accumulatedFeedback += `[FILE DELETE ERROR: ${c.path} - ${err.message}]\n`;
-                ChatUI.appendBubble('system', `[ERROR] Failed to delete ${c.path}: ${err.message}`);
-            }
-        }
-        if (typeof window.loadDirectory === 'function' && window.currentPath) {
-            window.loadDirectory(window.currentPath);
-        }
-    }
-    
-    // 5. Move Files
-    if (moveCmds.length > 0) {
-        const fs = require('fs');
-        const path = require('path');
-        for (const c of moveCmds) {
-            try {
-                const srcPath = path.resolve(window.currentPath || process.cwd(), c.src);
-                const destPath = path.resolve(window.currentPath || process.cwd(), c.dest);
-                if (fs.existsSync(srcPath)) {
-                    const parentDir = path.dirname(destPath);
-                    if (!fs.existsSync(parentDir)) {
-                        fs.mkdirSync(parentDir, { recursive: true });
-                    }
-                    fs.renameSync(srcPath, destPath);
-                    accumulatedFeedback += `[FILE MOVE SUCCESS: ${c.src} to ${c.dest}]\n`;
-                    ChatUI.appendBubble('system', `[SUCCESS] Moved ${c.src} to ${c.dest}`);
-                } else {
-                    accumulatedFeedback += `[FILE MOVE ERROR: ${c.src} (File not found)]\n`;
-                    ChatUI.appendBubble('system', `[ERROR] Failed to move ${c.src}: File not found`);
-                }
-            } catch (err) {
-                accumulatedFeedback += `[FILE MOVE ERROR: ${c.src} - ${err.message}]\n`;
-                ChatUI.appendBubble('system', `[ERROR] Failed to move ${c.src}: ${err.message}`);
-            }
-        }
-        if (typeof window.loadDirectory === 'function' && window.currentPath) {
-            window.loadDirectory(window.currentPath);
-        }
-    }
-    
-    // 6. List Directory
-    if (listDirCmds.length > 0) {
-        const fs = require('fs');
-        const path = require('path');
-        for (const c of listDirCmds) {
-            try {
-                const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
-                if (fs.existsSync(targetPath)) {
-                    const files = fs.readdirSync(targetPath);
-                    const listText = files.map(f => `- ${f}`).join('\n') || "(Directory is empty)";
-                    accumulatedFeedback += `[DIRECTORY LIST FOR ${c.path}]:\n${listText}\n\n`;
-                    ChatUI.appendBubble('system', `[SUCCESS] Listed directory: ${c.path}`);
-                } else {
-                    accumulatedFeedback += `[DIRECTORY LIST ERROR: ${c.path} (Directory not found)]\n`;
-                    ChatUI.appendBubble('system', `[ERROR] Failed to list directory ${c.path}: Directory not found`);
-                }
-            } catch (err) {
-                accumulatedFeedback += `[DIRECTORY LIST ERROR: ${c.path} - ${err.message}]\n`;
-                ChatUI.appendBubble('system', `[ERROR] Failed to list directory ${c.path}: ${err.message}`);
-            }
-        }
-    }
-    
-    // 7. Search Keyword
-    if (searchKeywordCmds.length > 0) {
-        const fs = require('fs');
-        const path = require('path');
-        for (const c of searchKeywordCmds) {
-            const results = [];
-            const walk = (dir) => {
-                const list = fs.readdirSync(dir);
-                for (const file of list) {
-                    const fullPath = path.join(dir, file);
-                    if (file === 'node_modules' || file === '.git' || file === '.gemini') continue;
-                    try {
-                        const stat = fs.statSync(fullPath);
-                        if (stat && stat.isDirectory()) {
-                            walk(fullPath);
-                        } else {
-                            const ext = path.extname(file).toLowerCase();
-                            if (['.js', '.json', '.html', '.css', '.md', '.txt', '.cs', '.py', '.ts'].includes(ext)) {
-                                const content = fs.readFileSync(fullPath, 'utf-8');
-                                const lines = content.split('\n');
-                                lines.forEach((line, idx) => {
-                                    if (line.toLowerCase().includes(c.pattern.toLowerCase())) {
-                                        const rel = path.relative(window.currentPath || process.cwd(), fullPath);
-                                        results.push({ file: rel, line: idx + 1, text: line.trim() });
-                                    }
-                                });
-                            }
+    const proceedAfterDelete = async () => {
+        // 5. Move Files
+        if (moveCmds.length > 0) {
+            const fs = require('fs');
+            const path = require('path');
+            for (const c of moveCmds) {
+                try {
+                    const srcPath = path.resolve(window.currentPath || process.cwd(), c.src);
+                    const destPath = path.resolve(window.currentPath || process.cwd(), c.dest);
+                    if (fs.existsSync(srcPath)) {
+                        const parentDir = path.dirname(destPath);
+                        if (!fs.existsSync(parentDir)) {
+                            fs.mkdirSync(parentDir, { recursive: true });
                         }
-                    } catch(e) {}
-                    if (results.length > 50) break;
+                        fs.renameSync(srcPath, destPath);
+                        accumulatedFeedback += `[FILE MOVE SUCCESS: ${c.src} to ${c.dest}]\n`;
+                        ChatUI.appendBubble('system', `[SUCCESS] Moved ${c.src} to ${c.dest}`);
+                    } else {
+                        accumulatedFeedback += `[FILE MOVE ERROR: ${c.src} (File not found)]\n`;
+                        ChatUI.appendBubble('system', `[ERROR] Failed to move ${c.src}: File not found`);
+                    }
+                } catch (err) {
+                    accumulatedFeedback += `[FILE MOVE ERROR: ${c.src} - ${err.message}]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to move ${c.src}: ${err.message}`);
                 }
-            };
-            try {
-                walk(window.currentPath || process.cwd());
-                accumulatedFeedback += `[SEARCH RESULTS FOR "${c.pattern}"]: \n`;
-                if (results.length === 0) {
-                    accumulatedFeedback += `No matches found.\n\n`;
-                } else {
-                    results.forEach(r => {
-                        accumulatedFeedback += `${r.file}:${r.line}: ${r.text}\n`;
-                    });
-                    accumulatedFeedback += `\n`;
-                }
-                ChatUI.appendBubble('system', `[SUCCESS] Searched keyword: ${c.pattern}`);
-            } catch(e) {
-                accumulatedFeedback += `[SEARCH ERROR: ${e.message}]\n`;
-                ChatUI.appendBubble('system', `[ERROR] Search failed: ${e.message}`);
+            }
+            if (typeof window.loadDirectory === 'function' && window.currentPath) {
+                window.loadDirectory(window.currentPath);
             }
         }
-    }
-    
-    // 8. Run Shell Command (if any, requires security confirmation)
-    if (runCommandCmds.length > 0) {
-        const displayCmd = runCommandCmds.map(c => `run-command "${c.command}"`).join(', ');
+        
+        // 6. List Directory
+        if (listDirCmds.length > 0) {
+            const fs = require('fs');
+            const path = require('path');
+            for (const c of listDirCmds) {
+                try {
+                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                    if (fs.existsSync(targetPath)) {
+                        const files = fs.readdirSync(targetPath);
+                        const listText = files.map(f => `- ${f}`).join('\n') || "(Directory is empty)";
+                        accumulatedFeedback += `[DIRECTORY LIST FOR ${c.path}]:\n${listText}\n\n`;
+                        ChatUI.appendBubble('system', `[SUCCESS] Listed directory: ${c.path}`);
+                    } else {
+                        accumulatedFeedback += `[DIRECTORY LIST ERROR: ${c.path} (Directory not found)]\n`;
+                        ChatUI.appendBubble('system', `[ERROR] Failed to list directory ${c.path}: Directory not found`);
+                    }
+                } catch (err) {
+                    accumulatedFeedback += `[DIRECTORY LIST ERROR: ${c.path} - ${err.message}]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to list directory ${c.path}: ${err.message}`);
+                }
+            }
+        }
+        
+        // 7. Search Keyword
+        if (searchKeywordCmds.length > 0) {
+            const fs = require('fs');
+            const path = require('path');
+            for (const c of searchKeywordCmds) {
+                const results = [];
+                const walk = (dir) => {
+                    const list = fs.readdirSync(dir);
+                    for (const file of list) {
+                        const fullPath = path.join(dir, file);
+                        if (file === 'node_modules' || file === '.git' || file === '.gemini') continue;
+                        try {
+                            const stat = fs.statSync(fullPath);
+                            if (stat && stat.isDirectory()) {
+                                walk(fullPath);
+                            } else {
+                                const ext = path.extname(file).toLowerCase();
+                                if (['.js', '.json', '.html', '.css', '.md', '.txt', '.cs', '.py', '.ts'].includes(ext)) {
+                                    const content = fs.readFileSync(fullPath, 'utf-8');
+                                    const lines = content.split('\n');
+                                    lines.forEach((line, idx) => {
+                                        if (line.toLowerCase().includes(c.pattern.toLowerCase())) {
+                                            const rel = path.relative(window.currentPath || process.cwd(), fullPath);
+                                            results.push({ file: rel, line: idx + 1, text: line.trim() });
+                                        }
+                                    });
+                                }
+                            }
+                        } catch(e) {}
+                        if (results.length > 50) break;
+                    }
+                };
+                try {
+                    walk(window.currentPath || process.cwd());
+                    accumulatedFeedback += `[SEARCH RESULTS FOR "${c.pattern}"]: \n`;
+                    if (results.length === 0) {
+                        accumulatedFeedback += `No matches found.\n\n`;
+                    } else {
+                        results.forEach(r => {
+                            accumulatedFeedback += `${r.file}:${r.line}: ${r.text}\n`;
+                        });
+                        accumulatedFeedback += `\n`;
+                    }
+                    ChatUI.appendBubble('system', `[SUCCESS] Searched keyword: ${c.pattern}`);
+                } catch(e) {
+                    accumulatedFeedback += `[SEARCH ERROR: ${e.message}]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Search failed: ${e.message}`);
+                }
+            }
+        }
+        
+        // 8. Run Shell Command (if any, requires security confirmation)
+        if (runCommandCmds.length > 0) {
+            const displayCmd = runCommandCmds.map(c => `run-command "${c.command}"`).join(', ');
+            
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#ef4444"; 
+            const glowShadow = "rgba(239, 68, 68, 0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <div style="font-weight: bold; color: #ff4444; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                        <span>⚠️ SECURITY WARNING</span>
+                    </div>
+                    <span>Allow Web AI to execute: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayCmd}</strong>?</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
+                </div>
+            `;
+
+            content.querySelector('.cmd-run-btn').onclick = async () => {
+                box.remove();
+                
+                const { exec } = require('child_process');
+                for (const c of runCommandCmds) {
+                    ChatUI.appendBubble('system', `[SYSTEM] Running command: ${c.command}...\n`);
+                    
+                    let loaderBox = ChatUI.appendBubble('system', '');
+                    const loaderContent = loaderBox.querySelector('.bubble-content');
+                    if (loaderContent) {
+                        loaderContent.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-muted);">
+                                <div class="terminal-loading-spinner" style="width: 12px; height: 12px; border-width: 1.5px;"></div>
+                                <span>Executing: ${c.command}</span>
+                            </div>
+                        `;
+                    }
+                    
+                    await new Promise(resolve => {
+                        exec(c.command, { cwd: window.currentPath || process.cwd(), timeout: 45000 }, async (err, stdout, stderr) => {
+                            if (loaderBox) loaderBox.remove();
+                            const output = (stdout + '\n' + stderr).trim() || "[No output]";
+                            
+                            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                                const resBox = ChatUI.appendBubble('system', '');
+                                const resContent = resBox.querySelector('.bubble-content');
+                                if (resContent) {
+                                    resContent.innerHTML = `
+                                        <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.4;">
+                                            <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: ${err ? '#FF5252' : '#4CAF50'}; margin-bottom: 8px;">
+                                                <span>${err ? '❌ Command Failed' : '✅ Command Succeeded'}</span>
+                                                <span style="color: var(--text-muted); font-size: 10.5px; font-weight: normal;">(&quot;${c.command}&quot;)</span>
+                                            </div>
+                                            <pre style="margin: 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; overflow-x: auto; color: var(--text-main); font-size: 11px; max-height: 200px; white-space: pre-wrap;">${output.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                        </div>
+                                    `;
+                                }
+                            }
+                            accumulatedFeedback += `[COMMAND EXECUTION RESULT FOR "${c.command}"]: \n${output}\n\n`;
+                            resolve();
+                        });
+                    });
+                }
+                
+                await submitConsolidatedFeedback(accumulatedFeedback);
+            };
+            
+            content.querySelector('.cmd-cancel-btn').onclick = () => {
+                box.remove();
+                accumulatedFeedback += `[COMMAND EXECUTION CANCELLED BY USER]\n`;
+                submitConsolidatedFeedback(accumulatedFeedback);
+            };
+            return;
+        }
+        
+        await submitConsolidatedFeedback(accumulatedFeedback);
+    };
+
+    // 4. Delete Files (Requires security confirmation)
+    if (deleteCmds.length > 0) {
+        const displayDelete = deleteCmds.map(c => c.path).join(', ');
         
         const box = ChatUI.appendBubble('system', '');
         const content = box.querySelector('.bubble-content');
@@ -3801,74 +3852,67 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
         const glowShadow = "rgba(239, 68, 68, 0.15)";
 
         content.innerHTML = `
-            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
                 <div style="font-weight: bold; color: #ff4444; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                    <span>⚠️ SECURITY WARNING</span>
+                    <span>⚠️ DELETE CONFIRMATION</span>
                 </div>
-                <span>Allow Web AI to execute: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayCmd}</strong>?</span>
+                <span>Allow Web AI to delete: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayDelete}</strong>?</span>
             </div>
             <div style="display: flex; gap: 8px;">
-                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
-                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">DENY</button>
+                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
+                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
             </div>
         `;
 
         content.querySelector('.cmd-run-btn').onclick = async () => {
             box.remove();
             
-            const { exec } = require('child_process');
-            for (const c of runCommandCmds) {
-                ChatUI.appendBubble('system', `[SYSTEM] Running command: ${c.command}...\n`);
-                
-                let loaderBox = ChatUI.appendBubble('system', '');
-                const loaderContent = loaderBox.querySelector('.bubble-content');
-                if (loaderContent) {
-                    loaderContent.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-muted);">
-                            <div class="terminal-loading-spinner" style="width: 12px; height: 12px; border-width: 1.5px;"></div>
-                            <span>Executing: ${c.command}</span>
-                        </div>
-                    `;
-                }
-                
-                await new Promise(resolve => {
-                    exec(c.command, { cwd: window.currentPath || process.cwd(), timeout: 45000 }, async (err, stdout, stderr) => {
-                        if (loaderBox) loaderBox.remove();
-                        const output = (stdout + '\n' + stderr).trim() || "[No output]";
-                        
-                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                            const resBox = ChatUI.appendBubble('system', '');
-                            const resContent = resBox.querySelector('.bubble-content');
-                            if (resContent) {
-                                resContent.innerHTML = `
-                                    <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.4;">
-                                        <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: ${err ? '#FF5252' : '#4CAF50'}; margin-bottom: 8px;">
-                                            <span>${err ? '❌ Command Failed' : '✅ Command Succeeded'}</span>
-                                            <span style="color: var(--text-muted); font-size: 10.5px; font-weight: normal;">(&quot;${c.command}&quot;)</span>
-                                        </div>
-                                        <pre style="margin: 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; overflow-x: auto; color: var(--text-main); font-size: 11px; max-height: 200px; white-space: pre-wrap;">${output.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-                                    </div>
-                                `;
-                            }
+            const fs = require('fs');
+            const path = require('path');
+            let deleteFeedback = "";
+            for (const c of deleteCmds) {
+                try {
+                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                    if (fs.existsSync(targetPath)) {
+                        const stat = fs.statSync(targetPath);
+                        if (stat.isDirectory()) {
+                            fs.rmSync(targetPath, { recursive: true, force: true });
+                        } else {
+                            fs.unlinkSync(targetPath);
                         }
-                        accumulatedFeedback += `[COMMAND EXECUTION RESULT FOR "${c.command}"]: \n${output}\n\n`;
-                        resolve();
-                    });
-                });
+                        deleteFeedback += `[FILE DELETE SUCCESS: ${c.path}]\n`;
+                        ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path}`);
+                    } else {
+                        deleteFeedback += `[FILE DELETE SUCCESS: ${c.path} (Already gone)]\n`;
+                        ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path} (Already gone)`);
+                    }
+                } catch (err) {
+                    deleteFeedback += `[FILE DELETE ERROR: ${c.path} - ${err.message}]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to delete ${c.path}: ${err.message}`);
+                }
+            }
+            if (typeof window.loadDirectory === 'function' && window.currentPath) {
+                window.loadDirectory(window.currentPath);
             }
             
-            await submitConsolidatedFeedback(accumulatedFeedback);
+            accumulatedFeedback += deleteFeedback;
+            await proceedAfterDelete();
         };
-        
-        content.querySelector('.cmd-cancel-btn').onclick = () => {
+
+        content.querySelector('.cmd-cancel-btn').onclick = async () => {
             box.remove();
-            accumulatedFeedback += `[COMMAND EXECUTION CANCELLED BY USER]\n`;
-            submitConsolidatedFeedback(accumulatedFeedback);
+            let deleteFeedback = "";
+            deleteCmds.forEach(c => {
+                deleteFeedback += `[FILE DELETE ERROR: ${c.path} - User denied permission]\n`;
+                ChatUI.appendBubble('system', `[ERROR] Deletion of ${c.path} denied by user.`);
+            });
+            accumulatedFeedback += deleteFeedback;
+            await proceedAfterDelete();
         };
         return;
     }
     
-    await submitConsolidatedFeedback(accumulatedFeedback);
+    await proceedAfterDelete();
 }
 
 async function submitConsolidatedFeedback(feedback) {

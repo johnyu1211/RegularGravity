@@ -293,7 +293,7 @@ window.updateDragDropQueueUI = function() {
         itemEl.style = `
             display: flex;
             align-items: center;
-            padding: 6px 10px;
+            padding: 8px 12px;
             background: ${isCompleted ? 'rgba(255, 255, 255, 0.02)' : 'var(--surface-color)'};
             border: 1px solid ${isCompleted ? 'rgba(255, 255, 255, 0.05)' : 'var(--border-color)'};
             border-radius: 6px;
@@ -357,7 +357,7 @@ window.updateDragDropQueueUI = function() {
         }
         
         itemEl.innerHTML = `
-            <span class="queue-file-name" style="font-size: 11px; color: ${isCompleted ? 'var(--text-muted)' : 'var(--text-main)'}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px; ${isCompleted ? 'text-decoration: line-through;' : ''}" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
+            <span class="queue-file-name" style="font-size: 12px; color: ${isCompleted ? 'var(--text-muted)' : 'var(--text-main)'}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px; ${isCompleted ? 'text-decoration: line-through;' : ''}" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
         `;
         
         listEl.appendChild(itemEl);

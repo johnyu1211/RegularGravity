@@ -471,17 +471,30 @@ window.autoClickPendingQueueItems = async function() {
                 const warningEl = document.getElementById('drag-drop-queue-warning');
                 if (warningEl) {
                     warningEl.innerHTML = `⏳ 자동 업로드 진행 중 (${item.relativePath} 시도 ${attemptCounts[key]}/5)...`;
-                    warningEl.style.color = '#e0a100';
                 }
                 
-if (attemptCounts[key] > 3) {
-console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 3 consecutive upload attempts.`);
-if (warningEl) {
-warningEl.innerHTML = `❌ 실패 3회 초과로 자동 드래그 중단: ${item.relativePath}`;
-warningEl.style.color = '#ff4444';
-}
-break;
-}
+                if (attemptCounts[key] > 3) {
+                    console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 3 consecutive upload attempts.`);
+                    window.autoDragging = false;
+                    try {
+                        const sPath = require('path').join(window.currentPath || process.cwd(), 'Settings.json');
+                        const settingsData = {
+                            hideUIOverlay: window.hideUIOverlay,
+                            debugMode: window.debugMode,
+                            dragDropMode: true,
+                            autoDragging: false
+                        };
+                        require('fs').writeFileSync(sPath, JSON.stringify(settingsData, null, 2), 'utf-8');
+                    } catch(e) {}
+                    const chkAutoDrag = document.getElementById('chk-auto-drag');
+                    if (chkAutoDrag) chkAutoDrag.checked = false;
+                    
+                    if (warningEl) {
+                        warningEl.innerHTML = `❌ 실패 3회 초과로 자동 드래그 중단: ${item.relativePath}`;
+                        warningEl.style.color = '#ff4444';
+                    }
+                    break;
+                }
                 
                 item.status = 'UPLOADING';
                 

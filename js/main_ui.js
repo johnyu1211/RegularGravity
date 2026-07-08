@@ -240,6 +240,7 @@ function detectAndAskCommand(text) {
         }
     });
 
+    window.readCmds = readCmds;
     const hasReadFile = (readCmds.length > 0);
     const hasWriteFile = (writeCmds.length > 0);
     const hasSearchFile = (searchCmds.length > 0);
@@ -405,131 +406,28 @@ function detectAndAskCommand(text) {
         } else {
             if (window.dragDropMode) {
                 const dropZone = document.getElementById('local-drop-zone');
-                if (dropZone) dropZone.style.display = 'none';
-
-                const localInput = document.getElementById('local-agent-input');
-                const sendBtn = document.getElementById('send-to-local');
-                const inputContainer = document.getElementById('local-input-container');
-
-                if (localInput && inputContainer) {
-                    const vLC = document.getElementById('inspector-local-chat');
-                    const vBH = document.getElementById('inspector-browser-hub');
-                    if (vLC) {
-                        vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
-                        vLC.style.zIndex = '150';
-                    }
-                    
-                    if (vBH) {
-                        vBH.style.position = 'absolute';
-                        vBH.style.top = '0';
-                        vBH.style.height = 'calc(100% - 44px)';
-                        vBH.style.width = '100%';
-                        vBH.style.zIndex = '100';
-                        vBH.style.opacity = '1';
-                        vBH.style.pointerEvents = 'auto';
-                    }
-
-                    const wrapper = inputContainer.firstElementChild;
-                    if (wrapper) wrapper.style.display = 'none';
-
-                    inputContainer.dataset.originalHeight = inputContainer.style.height || '';
-                    inputContainer.dataset.originalPadding = inputContainer.style.padding || '';
-                    inputContainer.dataset.originalBackground = inputContainer.style.background || '';
-                    inputContainer.dataset.originalDisplay = inputContainer.style.display || '';
-                    inputContainer.dataset.originalAlignItems = inputContainer.style.alignItems || '';
-                    inputContainer.dataset.originalJustifyContent = inputContainer.style.justifyContent || '';
-
-                    inputContainer.style.height = '30px';
-                    inputContainer.style.padding = '0';
-                    inputContainer.style.display = 'flex';
-                    inputContainer.style.alignItems = 'center';
-                    inputContainer.style.justifyContent = 'center';
-                    inputContainer.style.background = 'var(--surface-low)';
-
+                if (dropZone) {
                     const fileNames = readCmds.map(f => {
                         const parts = f.path.split(/[\\/]/);
                         return parts[parts.length - 1];
                     }).join(', ');
-
-                    let fileBox = null;
-                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                        fileBox = ChatUI.appendBubble('system', '');
-                        const fileBoxContent = fileBox.querySelector('.bubble-content');
-                        if (fileBoxContent) {
-                            fileBoxContent.innerHTML = `
-                                <div style="background: var(--surface-low); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-main); display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                                    <span>Requested: <strong style="color: var(--primary);">${fileNames}</strong></span>
-                                </div>
-                            `;
-                        }
+                    
+                    const dropText = document.getElementById('local-drop-zone-text');
+                    if (dropText) {
+                        dropText.innerHTML = `Drag and drop <span style="color: var(--primary); font-weight: bold; text-decoration: underline;">${fileNames}</span> here to proceed`;
                     }
-
-                    if (!document.getElementById('bounce-arrow-style')) {
-                        const styleNode = document.createElement('style');
-                        styleNode.id = 'bounce-arrow-style';
-                        styleNode.innerHTML = `
-                            @keyframes bounce-arrow {
-                                0%, 100% { transform: translateY(0); }
-                                50% { transform: translateY(5px); }
-                            }
-                        `;
-                        document.head.appendChild(styleNode);
-                    }
-
-                    const arrowIndicator = document.createElement('div');
-                    arrowIndicator.id = 'drag-drop-arrow-indicator';
-                    arrowIndicator.style.cssText = "font-size: 20px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; line-height: 1; pointer-events: none;";
-                    arrowIndicator.innerText = "↓";
-
-                    const cleanupDragDrop = () => {
-                        arrowIndicator.remove();
-                        if (fileBox) fileBox.remove();
-                        window.activeDragDropCleanup = null;
-                        window.activeDragDropContinue = null;
-                        
-                        if (wrapper) wrapper.style.display = '';
-                        
-                        inputContainer.style.height = inputContainer.dataset.originalHeight || '';
-                        inputContainer.style.padding = inputContainer.dataset.originalPadding || '';
-                        inputContainer.style.background = inputContainer.dataset.originalBackground || '';
-                        inputContainer.style.display = inputContainer.dataset.originalDisplay || '';
-                        inputContainer.style.alignItems = inputContainer.dataset.originalAlignItems || '';
-                        inputContainer.style.justifyContent = inputContainer.dataset.originalJustifyContent || '';
-                        
-                        if (vLC) {
-                            vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
-                            vLC.style.zIndex = '150';
-                        }
-                        if (vBH) {
-                            vBH.style.position = 'absolute';
-                            vBH.style.top = '0';
-                            vBH.style.height = 'calc(100% - 44px)';
-                            vBH.style.width = '100%';
-                            vBH.style.zIndex = '100';
-                            vBH.style.opacity = '1';
-                            vBH.style.pointerEvents = 'auto';
-                        }
-                    };
-
-                    window.activeDragDropCleanup = cleanupDragDrop;
-                    window.activeDragDropContinue = async () => {
-                        await runRead();
-                    };
-
-                    const wv = document.getElementById('active-agent-webview');
-                    if (wv) {
-                        wv.executeJavaScript(`
-                            if (!window.hasDropListener) {
-                                window.hasDropListener = true;
-                                document.addEventListener('drop', (e) => {
-                                    console.log('[WEBVIEW_DROP_DETECTED]');
-                                }, true);
-                            }
-                        `).catch(err => console.error("Failed to inject drop listener", err));
-                    }
-
-                    inputContainer.appendChild(arrowIndicator);
+                    dropZone.style.display = 'flex';
                 }
+                
+                window.activeDragDropCleanup = () => {
+                    const dropZone = document.getElementById('local-drop-zone');
+                    if (dropZone) dropZone.style.display = 'none';
+                    window.activeDragDropCleanup = null;
+                    window.activeDragDropContinue = null;
+                };
+                window.activeDragDropContinue = async () => {
+                    await runRead();
+                };
             } else {
                 const box = ChatUI.appendBubble('system', '');
                 const content = box.querySelector('.bubble-content');
@@ -1948,6 +1846,109 @@ ${startPrompt}`.trim();
                 }
             }
         });
+    }
+
+    const localDropZone = document.getElementById('local-drop-zone');
+    const closeLocalDropZone = document.getElementById('close-local-drop-zone');
+    
+    if (localDropZone) {
+        localDropZone.ondragover = (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        };
+        localDropZone.ondrop = async (e) => {
+            e.preventDefault();
+            let filePath = '';
+            const internalPath = e.dataTransfer.getData('text/plain');
+            if (internalPath) {
+                filePath = internalPath;
+            } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                filePath = e.dataTransfer.files[0].path;
+            }
+            if (!filePath) return;
+            
+            console.log("[LocalDropZone] Dropped file path:", filePath);
+            
+            if (window.dragDropMode && window.activeDragDropContinue) {
+                const pathModule = require('path');
+                const droppedName = pathModule.basename(filePath).toLowerCase();
+                
+                const requestedNames = (window.readCmds || []).map(f => {
+                    const parts = f.path.split(/[\\/]/);
+                    return parts[parts.length - 1].toLowerCase();
+                });
+                
+                if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
+                    const { showAlert } = require('./ui/dialogs.js');
+                    if (typeof showAlert === 'function') {
+                        showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                    } else {
+                        alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                    }
+                    return;
+                }
+                
+                // Simulate drop inside webview guest page!
+                const fs = require('fs');
+                try {
+                    const contentBuffer = fs.readFileSync(filePath);
+                    const filename = pathModule.basename(filePath);
+                    const base64Content = contentBuffer.toString('base64');
+                    
+                    const ext = filename.split('.').pop().toLowerCase();
+                    const mimeMap = {
+                        'js': 'text/javascript', 'json': 'application/json',
+                        'html': 'text/html', 'css': 'text/css',
+                        'txt': 'text/plain', 'md': 'text/markdown',
+                        'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                        'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
+                    };
+                    const mimeType = mimeMap[ext] || 'application/octet-stream';
+                    
+                    const wv = document.getElementById('active-agent-webview');
+                    if (wv) {
+                        wv.executeJavaScript(`
+                            (() => {
+                                const b64 = "${base64Content}";
+                                const name = "${filename}";
+                                const mime = "${mimeType}";
+                                
+                                const binary = atob(b64);
+                                const array = new Uint8Array(binary.length);
+                                for (let i = 0; i < binary.length; i++) {
+                                    array[i] = binary.charCodeAt(i);
+                                }
+                                const blob = new Blob([array], { type: mime });
+                                const file = new File([blob], name, { type: mime });
+                                
+                                const dt = new DataTransfer();
+                                dt.items.add(file);
+                                
+                                let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
+                                
+                                const options = { bubbles: true, cancelable: true, dataTransfer: dt };
+                                target.dispatchEvent(new DragEvent('dragenter', options));
+                                target.dispatchEvent(new DragEvent('dragover', options));
+                                target.dispatchEvent(new DragEvent('drop', options));
+                                
+                                console.log("[GuestDrop] Dispatched drop event for file:", name);
+                            })();
+                        `).catch(err => console.error("Failed to execute drop injection script:", err));
+                    }
+                } catch (err) {
+                    console.error("Failed to process drop upload:", err);
+                }
+                
+                if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+                if (window.activeDragDropContinue) window.activeDragDropContinue();
+            }
+        };
+    }
+    
+    if (closeLocalDropZone) {
+        closeLocalDropZone.onclick = () => {
+            if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+        };
     }
 
     updateAgentBadge();

@@ -17,8 +17,14 @@ async function executeWriteFileBatch(writeCmds) {
                     fs.mkdirSync(parentDir, { recursive: true });
                 }
                 fs.writeFileSync(targetPath, fileObj.code, 'utf-8');
-                feedbackContent += `[FILE WRITE SUCCESS: ${filePath}]\n`;
-                ChatUI.appendBubble('system', `[SUCCESS] Wrote ${filePath} content.`);
+                const syntaxError = verifySyntax(filePath, targetPath);
+                if (syntaxError) {
+                    feedbackContent += `[FILE WRITE SUCCESS BUT SYNTAX ERROR DETECTED: ${filePath} - ${syntaxError}]\n`;
+                    ChatUI.appendBubble('system', `[WARNING] Syntax error in ${filePath}: ${syntaxError}`);
+                } else {
+                    feedbackContent += `[FILE WRITE SUCCESS: ${filePath}]\n`;
+                    ChatUI.appendBubble('system', `[SUCCESS] Wrote ${filePath} content.`);
+                }
             } catch (err) {
                 feedbackContent += `[FILE WRITE ERROR: ${filePath} - ${err.message}]\n`;
                 ChatUI.appendBubble('system', `[ERROR] Failed to write ${filePath}: ${err.message}`);
@@ -292,9 +298,14 @@ async function executeEditFileBatch(editCmds) {
                 }
                 
                 fs.writeFileSync(targetPath, newContent, 'utf-8');
-                
-                feedbackContent += `[FILE EDIT SUCCESS: ${filePath}]\n`;
-                ChatUI.appendBubble('system', `[SUCCESS] Edited ${filePath} successfully.`);
+                const syntaxError = verifySyntax(filePath, targetPath);
+                if (syntaxError) {
+                    feedbackContent += `[FILE EDIT SUCCESS BUT SYNTAX ERROR DETECTED: ${filePath} - ${syntaxError}]\n`;
+                    ChatUI.appendBubble('system', `[WARNING] Syntax error in ${filePath}: ${syntaxError}`);
+                } else {
+                    feedbackContent += `[FILE EDIT SUCCESS: ${filePath}]\n`;
+                    ChatUI.appendBubble('system', `[SUCCESS] Edited ${filePath} successfully.`);
+                }
             } catch (err) {
                 feedbackContent += `[FILE EDIT ERROR: ${filePath} - ${err.message}]\n`;
                 ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: ${err.message}`);
@@ -358,9 +369,14 @@ async function executeEditFileRangeBatch(editCmds) {
                 
                 const joined = lines.join(isCRLF ? '\r\n' : '\n');
                 fs.writeFileSync(targetPath, joined, 'utf-8');
-                
-                feedbackContent += `[FILE EDIT SUCCESS: ${filePath} range ${startLine}-${endLine}]\n`;
-                ChatUI.appendBubble('system', `[SUCCESS] Edited ${filePath} successfully.`);
+                const syntaxError = verifySyntax(filePath, targetPath);
+                if (syntaxError) {
+                    feedbackContent += `[FILE EDIT SUCCESS BUT SYNTAX ERROR DETECTED: ${filePath} - ${syntaxError}]\n`;
+                    ChatUI.appendBubble('system', `[WARNING] Syntax error in ${filePath}: ${syntaxError}`);
+                } else {
+                    feedbackContent += `[FILE EDIT SUCCESS: ${filePath} range ${startLine}-${endLine}]\n`;
+                    ChatUI.appendBubble('system', `[SUCCESS] Edited ${filePath} successfully.`);
+                }
             } catch (err) {
                 feedbackContent += `[FILE EDIT ERROR: ${filePath} - ${err.message}]\n`;
                 ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: ${err.message}`);
@@ -533,3 +549,29 @@ function findFuzzyMatchIndexRange(content, searchStr) {
 }
 
 
+
+
+function verifySyntax(filePath, targetPath) {
+    const fs = require('fs');
+    const path = require('path');
+    const ext = path.extname(filePath).toLowerCase();
+    
+    if (ext === '.js') {
+        const { execSync } = require('child_process');
+        try {
+            execSync(`node -c "${targetPath}"`, { stdio: 'pipe' });
+            return null;
+        } catch (err) {
+            return err.stderr.toString().trim() || err.message;
+        }
+    } else if (ext === '.json') {
+        try {
+            const content = fs.readFileSync(targetPath, 'utf-8');
+            JSON.parse(content);
+            return null;
+        } catch (err) {
+            return err.message;
+        }
+    }
+    return null;
+}

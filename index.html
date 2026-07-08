@@ -162,8 +162,12 @@
             <!-- Floating GitHub Popover Window -->
             <div id="git-popover" style="position: absolute; right: 58px; bottom: 50px; width: 600px; height: 450px; display: none; flex-direction: column; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.75); z-index: 1000; overflow: hidden; transition: opacity 0.2s, transform 0.2s; font-family: 'DM Sans', sans-serif;">
                 <div class="git-view-header" style="height:38px; min-height:38px; border-bottom: 1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #000; user-select: none;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-size: 11px; font-weight: 700; color: #fff; letter-spacing: 0.05em;">GITHUB HUB</span>
+                    <div style="display:flex; align-items:center; gap:8px; flex: 1; overflow: hidden; margin-right: 12px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #fff; letter-spacing: 0.05em; flex-shrink: 0;">GITHUB HUB</span>
+                        <div id="git-url-display-container" style="display:flex; align-items:center; gap:6px; flex: 1; max-width: 320px; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer; overflow: hidden;" title="Click to copy URL">
+                            <span id="git-url-display-text" style="font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">https://github.com</span>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+                        </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:12px;">
                         <!-- WebView Navigation Controls -->

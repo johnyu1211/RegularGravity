@@ -2556,6 +2556,41 @@ function setupUI() {
         
         gitPopover.onclick = (e) => { e.stopPropagation(); };
         
+        // Dynamic URL Display and Copy
+        const urlContainer = document.getElementById('git-url-display-container');
+        const urlText = document.getElementById('git-url-display-text');
+        
+        const updateUrlDisplay = () => {
+            if (gitWebview && urlText) {
+                const currentUrl = gitWebview.getURL();
+                if (currentUrl && currentUrl !== 'about:blank') {
+                    urlText.innerText = currentUrl;
+                }
+            }
+        };
+        
+        gitWebview.addEventListener('did-navigate', updateUrlDisplay);
+        gitWebview.addEventListener('did-navigate-in-page', updateUrlDisplay);
+        
+        if (urlContainer && urlText) {
+            urlContainer.onclick = (e) => {
+                e.stopPropagation();
+                const currentUrl = gitWebview.getURL();
+                if (currentUrl && currentUrl !== 'about:blank') {
+                    const { clipboard } = require('electron');
+                    clipboard.writeText(currentUrl);
+                    
+                    const originalText = urlText.innerText;
+                    urlText.innerText = 'COPIED!';
+                    urlText.style.color = '#10b981';
+                    setTimeout(() => {
+                        urlText.innerText = originalText;
+                        urlText.style.color = '';
+                    }, 1000);
+                }
+            };
+        }
+
         // Navigation controls
         document.getElementById('git-wv-back').onclick = (e) => {
             e.stopPropagation();

@@ -433,15 +433,12 @@ window.getSystemRulesPrompt = function() {
         return `
 [SYSTEM RULES]
 1. 탐색 단계: 전체 파악 전 설명 일절 금지, 다음 탐색용 요구 사항만 단답형 제출.
-2. 요구/명령 규격 (Drag & Drop Mode 활성 상태):
-   - 중요: 파일 읽기는 [CMD: ...] 명령을 절대 사용하지 마십시오. 대신 유저에게 파일 드래그앤드롭을 정중히 요청하고, 문장 끝에 반드시 다음 태그를 포함하십시오:
+2. 요구 규격 (Drag & Drop Mode 활성 상태):
+   - 중요: 모든 파일 파악/요구는 유저에게 파일 드래그앤드롭을 정중히 요청하고, 문장 끝에 반드시 다음 태그를 포함하십시오:
      * [REQUEST: read-file "경로"] (파일의 개요/아웃라인(함수/클래스명, JSON 키 목록 등)만 축소 파악)
      * [REQUEST: read-file-full "경로"] (파일의 실제 전체 본문 코드 및 구체적인 설정값 파악)
      * [REQUEST: read-file-range "경로" 시작줄-끝줄] (파일 본문의 특정 줄 범위 분석, 최대 2000줄 제한)
-   - 검색 명령은 기존 [CMD: ...] 방식을 그대로 유지하십시오:
-     * [CMD: search-file "경로" "검색어"] (파일 내 검색)
-     * [CMD: search-all "검색어"] (전역 검색)
-3. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 핵심 키워드로 [CMD: search-all "검색어"]를 최우선 실행하여 위치를 파악한 뒤, 대상 소스 본문을 파일 드롭 요청([REQUEST: read-file...])을 통해 직접 읽고 검증하여 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
+3. 탐색 강제: 유저 질문/요청 시 짐작 금지. 관련 파일 목록을 유저에게 드롭해달라고 요청([REQUEST: read-file...])하여 확인한 뒤 답변하십시오. 본문 로직 확인 전에 모른다/없다 선언 절대 금지.
 4. 문구 제한: 단답형으로 요청 직후 태그만 표시. 사족 절대 금지.
 5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
     } else {
@@ -502,12 +499,15 @@ function detectAndAskCommand(text) {
                         .replace(/[‘’]/g, "'")
                         .trim();
 
+        if (cmd.startsWith('search-file') || cmd.startsWith('search-all')) {
+            // Ignore legacy search commands completely to prevent main thread freezing
+            return;
+        }
+
         const fileMatch = cmd.match(/^read-file\s+["']?([^"'\s]+)["']?$/i);
         const fileFullMatch = cmd.match(/^read-file-full\s+["']?([^"'\s]+)["']?$/i);
         const rangeMatch = cmd.match(/^read-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
         const writeMatch = cmd.match(/^write-file\s+["']?([^"'\s]+)["']?$/i);
-        const searchFileMatch = cmd.match(/^search-file\s+["']?([^"'\s]+)["']?\s+["']?([^"']+)["']?$/i);
-        const searchAllMatch = cmd.match(/^search-all\s+["']?([^"']+)["']?$/i);
 
         const fs = require('fs');
         const path = require('path');
@@ -543,10 +543,6 @@ function detectAndAskCommand(text) {
                 if (codeBlockMatch) codeVal = codeBlockMatch[1];
             }
             writeCmds.push({ path: filePath, code: codeVal });
-        } else if (searchFileMatch) {
-            searchCmds.push({ type: 'file', path: searchFileMatch[1].trim(), query: searchFileMatch[2].trim() });
-        } else if (searchAllMatch) {
-            searchCmds.push({ type: 'all', query: searchAllMatch[1].trim() });
         } else {
             otherCmds.push(cmd);
         }
@@ -554,9 +550,8 @@ function detectAndAskCommand(text) {
 
     const hasReadFile = (readCmds.length > 0);
     const hasWriteFile = (writeCmds.length > 0);
-    const hasSearchFile = (searchCmds.length > 0);
 
-    if (!hasReadFile && !hasWriteFile && !hasSearchFile && window.autoContinueOnRead) {
+    if (!hasReadFile && !hasWriteFile && window.autoContinueOnRead) {
         const toast = document.getElementById('injection-toast');
         if (toast) toast.style.display = 'none';
         document.getElementById('tab-local-agent')?.click();
@@ -898,41 +893,7 @@ function detectAndAskCommand(text) {
         }
     }
 
-    if (hasSearchFile) {
-        const displayCmd = searchCmds.map(s => {
-            if (s.type === 'file') return `search-file "${s.path}" "${s.query}"`;
-            return `search-all "${s.query}"`;
-        }).join(', ');
-        
-        const runSearch = async () => {
-            await executeSearchBatch(searchCmds);
-        };
 
-        if (window.autoContinueOnRead) {
-            runSearch();
-        } else {
-            const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
-            const themeColor = "#468CF6"; 
-            const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-            content.innerHTML = `
-                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">🔍</span>${displayCmd}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                </div>
-            `;
-
-            content.querySelector('.cmd-run-btn').onclick = async () => {
-                box.remove();
-                await runSearch();
-            };
-            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
-        }
-    }
 
     otherCmds.forEach(cleanCmd => {
         const box = ChatUI.appendBubble('system', '');

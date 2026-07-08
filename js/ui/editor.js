@@ -159,12 +159,29 @@ window.openFileInEditor = (filePath) => {
                     
                     let net = 0; 
                     if (shouldFold) {
-                        for (let j = 0; j < line.length; j++) { if (line[j] === '{') net++; if (line[j] === '}') net--; }
+                        if (lang === 'html') {
+                            const tagRegex = /<(\/?[a-zA-Z0-9:-]+)([^>]*)>/g;
+                            let match;
+                            while ((match = tagRegex.exec(line)) !== null) {
+                                const tagPart = match[1].toLowerCase();
+                                const voidTags = ['br', 'hr', 'img', 'input', 'link', 'meta', 'base', 'col', 'embed', 'source', 'track', 'wbr'];
+                                if (voidTags.includes(tagPart)) continue;
+                                if (match[2].endsWith('/') || match[0].endsWith('/>')) continue;
+                                if (tagPart.startsWith('/')) {
+                                    net--;
+                                } else {
+                                    net++;
+                                }
+                            }
+                        } else {
+                            for (let j = 0; j < line.length; j++) { if (line[j] === '{') net++; if (line[j] === '}') net--; }
+                        }
                     }
                     if (shouldFold && net === 0 && blockStack.length === 0 && line.trim() === '') continue;
 
                     if (net > 0) {
-                        let titleName = line.replace(/[{}]/g, '').trim() || "Block";
+                        let titleName = (lang === 'html') ? line.trim() : line.replace(/[{}]/g, '').trim();
+                        if (!titleName) titleName = "Block";
                         let syncId = `mini-block-${blockCounter++}`;
                         blockStack.push({ title: titleName, id: syncId, start: i });
 

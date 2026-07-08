@@ -424,6 +424,11 @@ window.autoClickPendingQueueItems = async function() {
         console.log("[AutoClick] Auto-dragging is disabled. Skipping auto-clicks.");
         return;
     }
+    const modal = document.getElementById('local-settings-modal');
+    if (modal && modal.style.display === 'flex') {
+        console.log("[AutoClick] Paused: Settings modal is open.");
+        return;
+    }
     window.autoClickingQueue = true;
     
     try {

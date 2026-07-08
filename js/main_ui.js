@@ -1027,44 +1027,27 @@ function detectAndAskCommand(text) {
     const hasMoveFile = (moveFileCmds.length > 0);
     const hasListDir = (listDirCmds.length > 0);
 
-    if (!hasReadFile && !hasWriteFile && !hasEditFile && !hasDeleteFile && window.autoContinueOnRead) {
-        const toast = document.getElementById('injection-toast');
-        if (toast) toast.style.display = 'none';
-        document.getElementById('tab-local-agent')?.click();
+    const hasAnyAction = hasWriteFile || hasEditFile || hasDeleteFile || hasCreateDir || hasRunCommand || hasSearchKeyword || hasMoveFile || hasListDir;
+
+    if (hasResetSession) {
+        setTimeout(() => {
+            if (typeof window.triggerSessionReset === 'function') window.triggerSessionReset();
+        }, 100);
+        return;
+    }
+
+    if (hasAnyAction) {
+        orchestrateCommands(writeCmds, editCmds, deleteCmds, moveFileCmds, listDirCmds, createDirCmds, runCommandCmds, searchKeywordCmds);
+        return;
     }
 
     if (hasReadFile) {
         const displayCmd = readCmds.map(f => {
-            if (f.range) return `read-file-range "${f.path}" ${f.start}-${f.end}`;
-            return `${f.full ? 'read-file-full' : 'read-file'} "${f.path}"`;
+            if (f.range) return "read-file-range \"" + f.path + "\" " + f.start + "-" + f.end;
+            return (f.full ? 'read-file-full' : 'read-file') + " \"" + f.path + "\"";
         }).join(', ');
-        
-        const runRead = async (customCmds) => {
-            const activeCmds = customCmds || readCmds;
-            const chatOverlay = document.getElementById('local-chat-overlay');
-            const progressBox = document.getElementById('overlay-progress-box');
-            const projBtn = document.getElementById('btn-send-project-info');
-            
-            const toast = document.getElementById('injection-toast');
-            const projLbl = document.getElementById('project-pct-label');
-            const projBar = document.getElementById('toast-project-progress-bar');
-            const injectContainer = document.getElementById('toast-inject-container');
-            
-            if (!window.autoContinueOnRead && chatOverlay && progressBox && projBtn) {
-                chatOverlay.style.display = 'flex';
-                projBtn.style.display = 'none';
-                progressBox.style.display = 'flex';
-            }
-            
-            if (toast) {
-                toast.style.display = window.hideUIOverlay ? 'none' : 'flex';
-                if (injectContainer) injectContainer.style.display = 'none';
-                if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">0/${activeCmds.length}</span>`;
-                if (projBar) projBar.style.width = "0%";
-            }
 
-            window.currentBatchFileCount = activeCmds.length;
-
+        const runRead = async () => {
             try {
                 const fs = require('fs');
                 const path = require('path');
@@ -1072,9 +1055,9 @@ function detectAndAskCommand(text) {
                 let combinedPayload = "";
 
                 if (window.dragDropMode) {
-                    const existingFiles = activeCmds.filter(f => f.exists !== false && !f.isDirectory);
-                    const directoryFiles = activeCmds.filter(f => f.exists !== false && f.isDirectory);
-                    const missingFiles = activeCmds.filter(f => f.exists === false);
+                    const existingFiles = readCmds.filter(f => f.exists !== false && !f.isDirectory);
+                    const directoryFiles = readCmds.filter(f => f.exists !== false && f.isDirectory);
+                    const missingFiles = readCmds.filter(f => f.exists === false);
                     let parts = [];
                     if (existingFiles.length > 0) {
                         const fileNames = existingFiles.map(f => {
@@ -1082,7 +1065,7 @@ function detectAndAskCommand(text) {
                             return p[p.length - 1];
                         }).join(', ');
                         existingFiles.forEach(f => window.readFilesSet.add(f.path));
-                        parts.push(`I have uploaded the requested file contents: ${fileNames} as attachments.`);
+                        parts.push("I have uploaded the requested file contents: " + fileNames + " as attachments.");
                     }
                     if (directoryFiles.length > 0) {
                         const getFlatDirectoryTree = (dirPath) => {
@@ -1106,20 +1089,20 @@ function detectAndAskCommand(text) {
                             const files = getFlatDirectoryTree(absDir);
                             const relativeFiles = files.map(f => path.relative(window.currentPath || process.cwd(), f));
                             const fileListStr = files.length > 0 
-                                ? relativeFiles.map(rf => `- ${rf.replace(/\\/g, '/')}`).join('\n') 
+                                ? relativeFiles.map(rf => "- " + rf.replace(/\\/g, '/')).join('\n') 
                                 : "(Directory is empty)";
-                            parts.push(`[DIRECTORY LIST: ${dir.path}]\n${fileListStr}\n`);
+                            parts.push("[DIRECTORY LIST: " + dir.path + "]\n" + fileListStr + "\n");
                         });
                     }
                     if (missingFiles.length > 0) {
                         missingFiles.forEach(f => {
-                            parts.push(`[FILE DATA ERROR: ${f.path} not found on the local machine (does not exist)]`);
+                            parts.push("[FILE DATA ERROR: " + f.path + " not found on the local machine (does not exist)]");
                         });
                     }
                     combinedPayload = parts.join('\n') + "\nProceed to analyze the files.";
                 } else {
-                    for (let i = 0; i < activeCmds.length; i++) {
-                        const fileObj = activeCmds[i];
+                    for (let i = 0; i < readCmds.length; i++) {
+                        const fileObj = readCmds[i];
                         const filePath = fileObj.path;
                         window.readFilesSet.add(filePath);
                         
@@ -1143,9 +1126,9 @@ function detectAndAskCommand(text) {
                                 if (isTruncated) {
                                     const nextStart = endIdx + 1;
                                     const nextEnd = nextStart + 1999;
-                                    slicedContent += `\n// ... [TRUNCATED: Max 2000 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range "${filePath}" ${nextStart}-${nextEnd}]]`;
+                                    slicedContent += "\n// ... [TRUNCATED: Max 2000 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range \"" + filePath + "\" " + nextStart + "-" + nextEnd + "]]";
                                 }
-                                fileContentPayload = `[FILE DATA (LINE RANGE ${fileObj.start}-${fileObj.start + (endIdx - startIdx) - 1}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
+                                fileContentPayload = "[FILE DATA (LINE RANGE " + fileObj.start + "-" + (fileObj.start + (endIdx - startIdx) - 1) + "): " + filePath + "]\n```\n" + slicedContent + "\n```\n\n";
                             } else if (fileObj.full) {
                                 let endIdx = allLines.length;
                                 let isTruncated = false;
@@ -1157,26 +1140,26 @@ function detectAndAskCommand(text) {
                                 
                                 let slicedContent = allLines.slice(0, endIdx).join('\n');
                                 if (isTruncated) {
-                                    slicedContent += `\n// ... [TRUNCATED: Max 2000 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range "${filePath}" 2001-4000]]`;
+                                    slicedContent += "\n// ... [TRUNCATED: Max 2000 lines limit per turn reached. If you need to read the next part, please output [CMD: read-file-range \"" + filePath + "\" 2001-4000]]";
                                 }
-                                fileContentPayload = `[FILE DATA (${isTruncated ? 'PARTIAL CONTENT' : 'FULL CONTENT'}): ${filePath}]\n\`\`\`\n${slicedContent}\n\`\`\`\n\n`;
+                                fileContentPayload = "[FILE DATA (" + (isTruncated ? 'PARTIAL CONTENT' : 'FULL CONTENT') + "): " + filePath + "]\n```\n" + slicedContent + "\n```\n\n";
                             } else {
                                 const ext = filePath.split('.').pop().toLowerCase();
                                 const fileContent = extractCodeOutline(rawContent, ext);
-                                fileContentPayload = `[FILE DATA (OUTLINE ONLY): ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\n`;
+                                fileContentPayload = "[FILE DATA (OUTLINE ONLY): " + filePath + "]\n```\n" + fileContent + "\n```\n\n";
                             }
                         } else {
-                            fileContentPayload = `[FILE DATA ERROR: ${filePath} not found on the local machine]\n\n`;
+                            fileContentPayload = "[FILE DATA ERROR: " + filePath + " not found on the local machine]\n\n";
                         }
 
                         combinedPayload += fileContentPayload;
                         
                         if (typeof window.showInputLoading === 'function') {
-                            window.showInputLoading(`Reading files... (${i + 1}/${activeCmds.length})`);
+                            window.showInputLoading("Reading files... (" + (i + 1) + "/" + readCmds.length + ")");
                         }
-                        if (projLbl) projLbl.innerHTML = `Reading files: <span style="color: var(--primary); font-weight: bold;">${i + 1}/${activeCmds.length}</span>`;
-                        if (projBar) projBar.style.width = `${Math.floor(((i + 1) / activeCmds.length) * 100)}%`;
-                        ChatUI.appendBubble('system', `[SYSTEM] Prepared ${filePath} context (${i + 1}/${activeCmds.length}).`);
+                        if (projLbl) projLbl.innerHTML = "Reading files: <span style=\"color: var(--primary); font-weight: bold;\">" + (i + 1) + "/" + readCmds.length + "</span>";
+                        if (projBar) projBar.style.width = Math.floor(((i + 1) / readCmds.length) * 100) + "%";
+                        ChatUI.appendBubble('system', "[SYSTEM] Prepared " + filePath + " context (" + (i + 1) + "/" + readCmds.length + ").");
                         
                         await new Promise(r => setTimeout(r, 200));
                     }
@@ -1192,9 +1175,9 @@ function detectAndAskCommand(text) {
                 if (injectContainer) injectContainer.style.display = 'flex';
                 
                 const enginePromise = runExperimentalEngine('/marktag', combinedPayload, null);
-                ChatUI.appendBubble('system', `[SYSTEM] Sent all prepared ${activeCmds.length} files to Web AI.`);
-                await new Promise(r => setTimeout(r, 800)); // Give Web AI input box time to stabilize
-                await injectWebPayload(combinedPayload, activeCmds.length, activeCmds.length, false, true);
+                ChatUI.appendBubble('system', "[SYSTEM] Sent all prepared " + readCmds.length + " files to Web AI.");
+                await new Promise(r => setTimeout(r, 800));
+                await injectWebPayload(combinedPayload, readCmds.length, readCmds.length, false, true);
 
                 const response = await enginePromise;
                 if (response) {
@@ -1204,7 +1187,7 @@ function detectAndAskCommand(text) {
                     detectAndAskCommand(response);
                 }
             } catch (err) {
-                ChatUI.appendBubble('system', `[ERROR] Failed to read files batch: ${err.message}`);
+                ChatUI.appendBubble('system', "[ERROR] Failed to read files batch: " + err.message);
             } finally {
                 if (typeof window.hideInputLoading === 'function') {
                     window.hideInputLoading();
@@ -1212,13 +1195,6 @@ function detectAndAskCommand(text) {
                 if (!window.autoContinueOnRead) {
                     document.getElementById('tab-local-agent')?.click();
                 }
-                if (!window.autoContinueOnRead && chatOverlay && progressBox && projBtn) {
-                    chatOverlay.style.display = 'none';
-                    progressBox.style.display = 'none';
-                    projBtn.style.display = 'flex';
-                }
-                const dropZone = document.getElementById('local-drop-zone');
-                if (dropZone) dropZone.style.display = 'none';
             }
         };
 
@@ -1226,22 +1202,93 @@ function detectAndAskCommand(text) {
         if ((window.autoContinueOnRead && !window.dragDropMode) || (window.dragDropMode && existingReadCount === 0)) {
             runRead();
         } else {
-            if (window.dragDropMode) {
-                const dropZone = document.getElementById('local-drop-zone');
-                if (dropZone) dropZone.style.display = 'none';
+            const dropZone = document.getElementById('local-drop-zone');
+            if (dropZone) dropZone.style.display = 'none';
 
-                const localInput = document.getElementById('local-agent-input');
-                const sendBtn = document.getElementById('send-to-local');
-                const inputContainer = document.getElementById('local-input-container');
+            const localInput = document.getElementById('local-agent-input');
+            const sendBtn = document.getElementById('send-to-local');
+            const inputContainer = document.getElementById('local-input-container');
 
-                if (localInput && inputContainer) {
-                    const vLC = document.getElementById('inspector-local-chat');
-                    const vBH = document.getElementById('inspector-browser-hub');
+            if (localInput && inputContainer) {
+                const vLC = document.getElementById('inspector-local-chat');
+                const vBH = document.getElementById('inspector-browser-hub');
+                if (vLC) {
+                    vLC.style.height = "calc(100% - 44px - " + window.currentSplitHeight + "px)";
+                    vLC.style.zIndex = '150';
+                }
+                
+                if (vBH) {
+                    vBH.style.position = 'absolute';
+                    vBH.style.top = '0';
+                    vBH.style.height = 'calc(100% - 44px)';
+                    vBH.style.width = '100%';
+                    vBH.style.zIndex = '100';
+                    vBH.style.opacity = '1';
+                    vBH.style.pointerEvents = 'auto';
+                }
+
+                const wrapper = inputContainer.firstElementChild;
+                if (wrapper) wrapper.style.display = 'none';
+
+                inputContainer.dataset.originalHeight = inputContainer.style.height || '';
+                inputContainer.dataset.originalPadding = inputContainer.style.padding || '';
+                inputContainer.dataset.originalBackground = inputContainer.style.background || '';
+                inputContainer.dataset.originalDisplay = inputContainer.style.display || '';
+                inputContainer.dataset.originalAlignItems = inputContainer.style.alignItems || '';
+                inputContainer.dataset.originalJustifyContent = inputContainer.style.justifyContent || '';
+
+                inputContainer.style.height = '30px';
+                inputContainer.style.padding = '0';
+                inputContainer.style.display = 'flex';
+                inputContainer.style.alignItems = 'center';
+                inputContainer.style.justifyContent = 'center';
+                inputContainer.style.background = 'var(--surface-low)';
+
+                const fileNames = readCmds.map(f => {
+                    const parts = f.path.split(/[\\/]/);
+                    return parts[parts.length - 1];
+                }).join(', ');
+
+                let fileBox = null;
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    fileBox = ChatUI.appendBubble('system', '');
+                    const fileBoxContent = fileBox.querySelector('.bubble-content');
+                    if (fileBoxContent) {
+                        fileBoxContent.innerHTML = "<div>Requested: <strong style=\"color: var(--primary); font-weight: bold;\">" + fileNames + "</strong></div>";
+                    }
+                }
+
+                if (!document.getElementById('bounce-arrow-style')) {
+                    const styleNode = document.createElement('style');
+                    styleNode.id = 'bounce-arrow-style';
+                    styleNode.innerHTML = "@keyframes bounce-arrow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }";
+                    document.head.appendChild(styleNode);
+                }
+
+                const arrowIndicator = document.createElement('div');
+                arrowIndicator.id = 'drag-drop-arrow-indicator';
+                arrowIndicator.style.cssText = "font-size: 20px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; line-height: 1; pointer-events: none;";
+                arrowIndicator.innerText = "↓";
+
+                const cleanupDragDrop = () => {
+                    arrowIndicator.remove();
+                    if (fileBox) fileBox.remove();
+                    window.activeDragDropCleanup = null;
+                    window.activeDragDropContinue = null;
+                    
+                    if (wrapper) wrapper.style.display = '';
+                    
+                    inputContainer.style.height = inputContainer.dataset.originalHeight || '';
+                    inputContainer.style.padding = inputContainer.dataset.originalPadding || '';
+                    inputContainer.style.background = inputContainer.dataset.originalBackground || '';
+                    inputContainer.style.display = inputContainer.dataset.originalDisplay || '';
+                    inputContainer.style.alignItems = inputContainer.dataset.originalAlignItems || '';
+                    inputContainer.style.justifyContent = inputContainer.dataset.originalJustifyContent || '';
+                    
                     if (vLC) {
-                        vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
+                        vLC.style.height = "calc(100% - 44px - " + window.currentSplitHeight + "px)";
                         vLC.style.zIndex = '150';
                     }
-                    
                     if (vBH) {
                         vBH.style.position = 'absolute';
                         vBH.style.top = '0';
@@ -1251,651 +1298,22 @@ function detectAndAskCommand(text) {
                         vBH.style.opacity = '1';
                         vBH.style.pointerEvents = 'auto';
                     }
+                };
 
-                    const wrapper = inputContainer.firstElementChild;
-                    if (wrapper) wrapper.style.display = 'none';
-
-                    inputContainer.dataset.originalHeight = inputContainer.style.height || '';
-                    inputContainer.dataset.originalPadding = inputContainer.style.padding || '';
-                    inputContainer.dataset.originalBackground = inputContainer.style.background || '';
-                    inputContainer.dataset.originalDisplay = inputContainer.style.display || '';
-                    inputContainer.dataset.originalAlignItems = inputContainer.style.alignItems || '';
-                    inputContainer.dataset.originalJustifyContent = inputContainer.style.justifyContent || '';
-
-                    inputContainer.style.height = '30px';
-                    inputContainer.style.padding = '0';
-                    inputContainer.style.display = 'flex';
-                    inputContainer.style.alignItems = 'center';
-                    inputContainer.style.justifyContent = 'center';
-                    inputContainer.style.background = 'var(--surface-low)';
-
-                    const fileNames = readCmds.map(f => {
-                        const parts = f.path.split(/[\\/]/);
-                        return parts[parts.length - 1];
-                    }).join(', ');
-
-                    let fileBox = null;
-                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                        fileBox = ChatUI.appendBubble('system', '');
-                        const fileBoxContent = fileBox.querySelector('.bubble-content');
-                        if (fileBoxContent) {
-                            fileBoxContent.innerHTML = `
-                                <div style="background: var(--surface-low); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-main); display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                                    <span>Requested: <strong style="color: var(--primary);">${fileNames}</strong></span>
-                                </div>
-                            `;
-                        }
-                    }
-
-                    if (!document.getElementById('bounce-arrow-style')) {
-                        const styleNode = document.createElement('style');
-                        styleNode.id = 'bounce-arrow-style';
-                        styleNode.innerHTML = `
-                            @keyframes bounce-arrow {
-                                0%, 100% { transform: translateY(0); }
-                                50% { transform: translateY(5px); }
-                            }
-                        `;
-                        document.head.appendChild(styleNode);
-                    }
-
-                    const arrowIndicator = document.createElement('div');
-                    arrowIndicator.id = 'drag-drop-arrow-indicator';
-                    arrowIndicator.style.cssText = "font-size: 20px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; line-height: 1; pointer-events: none;";
-                    arrowIndicator.innerText = "↓";
-
-                    const cleanupDragDrop = () => {
-                        arrowIndicator.remove();
-                        if (fileBox) fileBox.remove();
-                        window.activeDragDropCleanup = null;
-                        window.activeDragDropContinue = null;
-                        
-                        if (wrapper) wrapper.style.display = '';
-                        
-                        inputContainer.style.height = inputContainer.dataset.originalHeight || '';
-                        inputContainer.style.padding = inputContainer.dataset.originalPadding || '';
-                        inputContainer.style.background = inputContainer.dataset.originalBackground || '';
-                        inputContainer.style.display = inputContainer.dataset.originalDisplay || '';
-                        inputContainer.style.alignItems = inputContainer.dataset.originalAlignItems || '';
-                        inputContainer.style.justifyContent = inputContainer.dataset.originalJustifyContent || '';
-                        
-                        if (vLC) {
-                            vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
-                            vLC.style.zIndex = '150';
-                        }
-                        if (vBH) {
-                            vBH.style.position = 'absolute';
-                            vBH.style.top = '0';
-                            vBH.style.height = 'calc(100% - 44px)';
-                            vBH.style.width = '100%';
-                            vBH.style.zIndex = '100';
-                            vBH.style.opacity = '1';
-                            vBH.style.pointerEvents = 'auto';
-                        }
-                    };
-
-                    window.activeDragDropCleanup = cleanupDragDrop;
-                    window.activeDragDropContinue = async () => {
-                        await runRead();
-                    };
-
-                    if (typeof window.injectGuestDropInterceptor === 'function') {
-                        window.injectGuestDropInterceptor();
-                    }
-
-                    inputContainer.appendChild(arrowIndicator);
-                }
-            } else {
-                const box = ChatUI.appendBubble('system', '');
-                const content = box.querySelector('.bubble-content');
-                const themeColor = "#468CF6"; 
-                const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-                content.innerHTML = `
-                    <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                        <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">📄</span>${displayCmd}
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                        <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                    </div>
-                `;
-                
-                content.querySelector('.cmd-run-btn').onclick = async () => {
-                    box.remove();
-                    const dropZone = document.getElementById('local-drop-zone');
-                    if (dropZone) dropZone.style.display = 'none';
+                window.activeDragDropCleanup = cleanupDragDrop;
+                window.activeDragDropContinue = async () => {
                     await runRead();
                 };
-                content.querySelector('.cmd-cancel-btn').onclick = () => {
-                    box.remove();
-                    const dropZone = document.getElementById('local-drop-zone');
-                    if (dropZone) dropZone.style.display = 'none';
-                };
-            }
-        }
-    }
 
-    if (hasWriteFile) {
-        const displayCmd = writeCmds.map(f => `write-file "${f.path}"`).join(', ');
-        
-        const runWrite = async () => {
-            await executeWriteFileBatch(writeCmds);
-        };
-
-        if (window.autoContinueOnRead) {
-            runWrite();
-        } else {
-            const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
-            const themeColor = "#468CF6"; 
-            const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-            content.innerHTML = `
-                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">✏️</span>${displayCmd}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                </div>
-            `;
-
-            content.querySelector('.cmd-run-btn').onclick = async () => {
-                box.remove();
-                await runWrite();
-            };
-            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
-        }
-    }
-
-    if (hasEditFile) {
-        const displayCmd = editCmds.map(f => {
-            if (f.type === 'range') return `edit-file-range "${f.path}" ${f.start}-${f.end}`;
-            return `edit-file "${f.path}"`;
-        }).join(', ');
-        
-        const runEdit = async () => {
-            const blockCmds = editCmds.filter(c => c.type === 'block');
-            const rangeCmds = editCmds.filter(c => c.type === 'range');
-            
-            if (blockCmds.length > 0) {
-                await executeEditFileBatch(blockCmds);
-            }
-            if (rangeCmds.length > 0) {
-                await executeEditFileRangeBatch(rangeCmds);
-            }
-        };
-
-        if (window.autoContinueOnRead) {
-            runEdit();
-        } else {
-            const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
-            const themeColor = "#468CF6"; 
-            const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-            content.innerHTML = `
-                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">✏️</span>${displayCmd}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                </div>
-            `;
-
-            content.querySelector('.cmd-run-btn').onclick = async () => {
-                box.remove();
-                await runEdit();
-            };
-            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
-        }
-    }
-
-    if (hasCreateDir) {
-        const displayCmd = createDirCmds.map(f => `create-dir "${f.path}"`).join(', ');
-        
-        const runCreateDir = async () => {
-            const fs = require('fs');
-            const path = require('path');
-            for (const c of createDirCmds) {
-                try {
-                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
-                    if (!fs.existsSync(targetPath)) {
-                        fs.mkdirSync(targetPath, { recursive: true });
-                        
-                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                            const sysBox = ChatUI.appendBubble('system', '');
-                            const sysContent = sysBox.querySelector('.bubble-content');
-                            if (sysContent) {
-                                sysContent.innerHTML = `
-                                    <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
-                                        <span style="color: #4CAF50; font-weight: bold;">📁 Directory Created</span>
-                                        <span style="color: var(--text-muted); font-size: 11px;">${c.path}</span>
-                                    </div>
-                                `;
-                            }
-                        }
-                    }
-                } catch (err) {
-                    console.error("Failed to create directory:", err);
-                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                        const sysBox = ChatUI.appendBubble('system', '');
-                        const sysContent = sysBox.querySelector('.bubble-content');
-                        if (sysContent) {
-                            sysContent.innerHTML = `
-                                <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
-                                    <span style="color: #FF5252; font-weight: bold;">❌ Operation Failed</span>
-                                    <span style="color: var(--text-muted); font-size: 11px;">Create Directory: ${c.path} (${err.message})</span>
-                                </div>
-                            `;
-                        }
-                    }
+                if (typeof window.injectGuestDropInterceptor === 'function') {
+                    window.injectGuestDropInterceptor();
                 }
+
+                inputContainer.appendChild(arrowIndicator);
             }
-            if (typeof window.refreshFileViewer === 'function') {
-                window.refreshFileViewer();
-            }
-        };
-
-        if (window.autoContinueOnRead) {
-            runCreateDir();
-        } else {
-            const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
-            const themeColor = "#468CF6"; 
-            const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-            content.innerHTML = `
-                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">📁</span>${displayCmd}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                </div>
-            `;
-
-            content.querySelector('.cmd-run-btn').onclick = async () => {
-                box.remove();
-                await runCreateDir();
-            };
-            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
         }
     }
-
-    if (hasRunCommand) {
-        const displayCmd = runCommandCmds.map(c => `run-command "${c.command}"`).join(', ');
-        
-        const runCommandExec = async () => {
-            const { exec } = require('child_process');
-            for (const c of runCommandCmds) {
-                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    ChatUI.appendBubble('system', `[SYSTEM] Running command: ${c.command}...\n`);
-                }
-                
-                // Show loading spinner
-                let loaderBox = null;
-                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    loaderBox = ChatUI.appendBubble('system', '');
-                    const loaderContent = loaderBox.querySelector('.bubble-content');
-                    if (loaderContent) {
-                        loaderContent.innerHTML = `
-                            <div style="display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-muted);">
-                                <div class="terminal-loading-spinner" style="width: 12px; height: 12px; border-width: 1.5px;"></div>
-                                <span>Executing: ${c.command}</span>
-                            </div>
-                        `;
-                    }
-                }
-                
-                exec(c.command, { cwd: window.currentPath || process.cwd(), timeout: 45000 }, async (err, stdout, stderr) => {
-                    if (loaderBox) loaderBox.remove();
-                    
-                    const output = (stdout + '\n' + stderr).trim() || "[No output]";
-                    
-                    // Render premium output card
-                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                        const resBox = ChatUI.appendBubble('system', '');
-                        const resContent = resBox.querySelector('.bubble-content');
-                        if (resContent) {
-                            resContent.innerHTML = `
-                                <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.4;">
-                                    <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: ${err ? '#FF5252' : '#4CAF50'}; margin-bottom: 8px;">
-                                        <span>${err ? '❌ Command Failed' : '✅ Command Succeeded'}</span>
-                                        <span style="color: var(--text-muted); font-size: 10.5px; font-weight: normal;">(${c.command})</span>
-                                    </div>
-                                    <pre style="margin: 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; overflow-x: auto; color: var(--text-main); font-size: 11px; max-height: 200px; white-space: pre-wrap;">${output.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-                                </div>
-                            `;
-                        }
-                    }
-                    
-                    const payload = "[SYSTEM] Command `" + c.command + "` executed. Output:\n```\n" + output + "\n```\nProceed with next step." + window.getSystemRulesPrompt();
-                    await injectWebPayload(payload, 1, 1, false, true);
-                });
-            }
-        };
-
-        const box = ChatUI.appendBubble('system', '');
-        const content = box.querySelector('.bubble-content');
-        const themeColor = "#ef4444"; // Red for commands warning
-        const glowShadow = "rgba(239, 68, 68, 0.15)";
-
-        content.innerHTML = `
-            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                <div style="font-weight: bold; color: #ff4444; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                    <span>⚠️ SECURITY WARNING</span>
-                </div>
-                <span>Allow Web AI to execute: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayCmd}</strong>?</span>
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
-                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">DENY</button>
-            </div>
-        `;
-
-        content.querySelector('.cmd-run-btn').onclick = async () => {
-            box.remove();
-            await runCommandExec();
-        };
-        content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
-    }
-
-    if (hasSearchKeyword) {
-        const displayCmd = searchKeywordCmds.map(s => `search-keyword "&quot;${s.pattern}&quot;"`).join(', ');
-        
-        const runSearch = async () => {
-            const fs = require('fs');
-            const path = require('path');
-            for (const c of searchKeywordCmds) {
-                const results = [];
-                const walk = (dir) => {
-                    const list = fs.readdirSync(dir);
-                    for (const file of list) {
-                        const fullPath = path.join(dir, file);
-                        if (file === 'node_modules' || file === '.git' || file === '.gemini') continue;
-                        try {
-                            const stat = fs.statSync(fullPath);
-                            if (stat && stat.isDirectory()) {
-                                walk(fullPath);
-                            } else {
-                                const ext = path.extname(file).toLowerCase();
-                                if (['.js', '.json', '.html', '.css', '.md', '.txt', '.cs', '.py', '.ts'].includes(ext)) {
-                                    const content = fs.readFileSync(fullPath, 'utf-8');
-                                    const lines = content.split('\n');
-                                    lines.forEach((line, idx) => {
-                                        if (line.toLowerCase().includes(c.pattern.toLowerCase())) {
-                                            const rel = path.relative(window.currentPath || process.cwd(), fullPath);
-                                            results.push({ file: rel, line: idx + 1, text: line.trim() });
-                                        }
-                                    });
-                                }
-                            }
-                        } catch(e) {}
-                        if (results.length > 50) break;
-                    }
-                };
-                
-                try {
-                    walk(window.currentPath || process.cwd());
-                } catch(e) {}
-                
-                const formatted = results.map(r => `${r.file}:${r.line}: ${r.text}`).join('\n') || "[No matches found]";
-                
-                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    const resBox = ChatUI.appendBubble('system', '');
-                    const resContent = resBox.querySelector('.bubble-content');
-                    if (resContent) {
-                        resContent.innerHTML = `
-                            <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.4;">
-                                <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: var(--primary); margin-bottom: 8px;">
-                                    <span>🔍 Search Results</span>
-                                    <span style="color: var(--text-muted); font-size: 10.5px; font-weight: normal;">("${c.pattern}" - ${results.length} matches)</span>
-                                </div>
-                                <pre style="margin: 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; overflow-x: auto; color: var(--text-main); font-size: 11px; max-height: 180px; white-space: pre-wrap;">${formatted.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-                            </div>
-                        `;
-                    }
-                }
-                
-                const payload = "[SYSTEM] Search results for \"" + c.pattern + "\":\n```\n" + formatted + "\n```\nProceed with next step." + window.getSystemRulesPrompt();
-                await injectWebPayload(payload, 1, 1, false, true);
-            }
-        };
-
-        if (window.autoContinueOnRead) {
-            runSearch();
-        } else {
-            const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
-            const themeColor = "#468CF6"; 
-            const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-            content.innerHTML = `
-                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">🔍</span>${displayCmd}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                </div>
-            `;
-
-            content.querySelector('.cmd-run-btn').onclick = async () => {
-                box.remove();
-                await runSearch();
-            };
-            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
-        }
-    }
-
-    if (hasResetSession) {
-        setTimeout(() => {
-            if (typeof window.triggerSessionReset === 'function') window.triggerSessionReset();
-        }, 100);
-        return;
-    }
-
-    if (hasMoveFile) {
-        const displayCmd = moveFileCmds.map(c => `move-file "${c.src}" -> "${c.dest}"`).join(', ');
-        
-        const runMoveFile = async () => {
-            const fs = require('fs');
-            const path = require('path');
-            for (const c of moveFileCmds) {
-                try {
-                    const srcAbs = path.resolve(window.currentPath || process.cwd(), c.src);
-                    const destAbs = path.resolve(window.currentPath || process.cwd(), c.dest);
-                    
-                    if (fs.existsSync(srcAbs)) {
-                        fs.mkdirSync(path.dirname(destAbs), { recursive: true });
-                        fs.renameSync(srcAbs, destAbs);
-                        
-                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                            const sysBox = ChatUI.appendBubble('system', '');
-                            const sysContent = sysBox.querySelector('.bubble-content');
-                            if (sysContent) {
-                                sysContent.innerHTML = `
-                                    <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
-                                        <span style="color: #4CAF50; font-weight: bold;">📦 File Moved</span>
-                                        <span style="color: var(--text-muted); font-size: 11px;">${c.src} ➡️ ${c.dest}</span>
-                                    </div>
-                                `;
-                            }
-                        }
-                    } else {
-                        throw new Error("Source file does not exist");
-                    }
-                } catch (err) {
-                    console.error("Failed to move file:", err);
-                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                        const sysBox = ChatUI.appendBubble('system', '');
-                        const sysContent = sysBox.querySelector('.bubble-content');
-                        if (sysContent) {
-                            sysContent.innerHTML = `
-                                <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
-                                    <span style="color: #FF5252; font-weight: bold;">❌ Operation Failed</span>
-                                    <span style="color: var(--text-muted); font-size: 11px;">Move File: ${c.src} -> ${c.dest} (${err.message})</span>
-                                </div>
-                            `;
-                        }
-                    }
-                }
-            }
-            if (typeof window.refreshFileViewer === 'function') {
-                window.refreshFileViewer();
-            }
-        };
-
-        if (window.autoContinueOnRead) {
-            runMoveFile();
-        } else {
-            const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
-            const themeColor = "#468CF6"; 
-            const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-            content.innerHTML = `
-                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">📦</span>${displayCmd}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                </div>
-            `;
-
-            content.querySelector('.cmd-run-btn').onclick = async () => {
-                box.remove();
-                await runMoveFile();
-            };
-            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
-        }
-    }
-
-    if (hasListDir) {
-        const displayCmd = listDirCmds.map(l => `list-dir "${l.path}"`).join(', ');
-        
-        const runListDir = async () => {
-            const fs = require('fs');
-            const path = require('path');
-            for (const c of listDirCmds) {
-                const getFlatDirectoryTree = (dirPath) => {
-                    let results = [];
-                    try {
-                        const list = fs.readdirSync(dirPath);
-                        list.forEach(file => {
-                            const fullPath = path.join(dirPath, file);
-                            const stat = fs.statSync(fullPath);
-                            if (stat && stat.isDirectory()) {
-                                results = results.concat(getFlatDirectoryTree(fullPath));
-                            } else {
-                                results.push(fullPath);
-                            }
-                        });
-                    } catch (e) {}
-                    return results;
-                };
-                
-                try {
-                    const absDir = path.resolve(window.currentPath || process.cwd(), c.path);
-                    if (fs.existsSync(absDir)) {
-                        const files = getFlatDirectoryTree(absDir);
-                        const relativeFiles = files.map(f => path.relative(window.currentPath || process.cwd(), f));
-                        const fileListStr = files.length > 0 
-                            ? relativeFiles.map(rf => `- ${rf.replace(/\\/g, '/')}`).join('\n') 
-                            : "(Directory is empty)";
-                        
-                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                            const resBox = ChatUI.appendBubble('system', '');
-                            const resContent = resBox.querySelector('.bubble-content');
-                            if (resContent) {
-                                resContent.innerHTML = `
-                                    <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.4;">
-                                        <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: var(--primary); margin-bottom: 8px;">
-                                            <span>📁 Directory Listing</span>
-                                            <span style="color: var(--text-muted); font-size: 10.5px; font-weight: normal;">(${c.path})</span>
-                                        </div>
-                                        <pre style="margin: 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; overflow-x: auto; color: var(--text-main); font-size: 11px; max-height: 180px; white-space: pre-wrap;">${fileListStr.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-                                    </div>
-                                `;
-                            }
-                        }
-                        
-                        const payload = "[SYSTEM] Directory listing for \"" + c.path + "\":\n" + fileListStr + "\nProceed with next step." + window.getSystemRulesPrompt();
-                        await injectWebPayload(payload, 1, 1, false, true);
-                    } else {
-                        throw new Error("Directory does not exist");
-                    }
-                } catch(err) {
-                    console.error("Failed to list directory:", err);
-                    const payload = "[SYSTEM] Directory list error: \"" + c.path + "\" does not exist.\nProceed with next step." + window.getSystemRulesPrompt();
-                    await injectWebPayload(payload, 1, 1, false, true);
-                }
-            }
-        };
-
-        if (window.autoContinueOnRead) {
-            runListDir();
-        } else {
-            const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
-            const themeColor = "#468CF6"; 
-            const glowShadow = "rgba(70, 140, 246, 0.15)";
-
-            content.innerHTML = `
-                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">📁</span>${displayCmd}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                </div>
-            `;
-
-            content.querySelector('.cmd-run-btn').onclick = async () => {
-                box.remove();
-                await runListDir();
-            };
-            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
-        }
-    }
-
-    if (hasDeleteFile) {
-        const displayCmd = deleteCmds.map(f => `delete-file "${f.path}"`).join(', ');
-        
-        const runDelete = async () => {
-            await executeDeleteFileBatch(deleteCmds);
-        };
-
-        if (window.autoContinueOnRead) {
-            runDelete();
-        } else {
-            const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
-            const themeColor = "#ef4444"; 
-            const glowShadow = "rgba(239, 68, 68, 0.15)";
-
-            content.innerHTML = `
-                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">🗑</span>${displayCmd}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-                </div>
-            `;
-
-            content.querySelector('.cmd-run-btn').onclick = async () => {
-                box.remove();
-                await runDelete();
-            };
-            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
-        }
-    }
-
+    
     otherCmds.forEach(cleanCmd => {
         const box = ChatUI.appendBubble('system', '');
         const content = box.querySelector('.bubble-content');
@@ -4079,3 +3497,281 @@ ${window.getSystemRulesPrompt()}
         webview.loadURL('https://gemini.google.com/app');
     }
 };
+
+
+async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, listDirCmds, createDirCmds, runCommandCmds, searchKeywordCmds) {
+    let accumulatedFeedback = "";
+    
+    // 1. Create Directories
+    if (createDirCmds.length > 0) {
+        const fs = require('fs');
+        const path = require('path');
+        for (const c of createDirCmds) {
+            try {
+                const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                if (!fs.existsSync(targetPath)) {
+                    fs.mkdirSync(targetPath, { recursive: true });
+                    accumulatedFeedback += `[DIRECTORY CREATED: ${c.path}]\n`;
+                    ChatUI.appendBubble('system', `[SUCCESS] Created directory: ${c.path}`);
+                }
+            } catch(err) {
+                accumulatedFeedback += `[DIRECTORY CREATE ERROR: ${c.path} - ${err.message}]\n`;
+                ChatUI.appendBubble('system', `[ERROR] Failed to create directory ${c.path}: ${err.message}`);
+            }
+        }
+    }
+    
+    // 2. Write Files
+    if (writeCmds.length > 0) {
+        if (typeof executeWriteFileBatchSilent === 'function') {
+            const feedback = await executeWriteFileBatchSilent(writeCmds);
+            accumulatedFeedback += feedback;
+        }
+    }
+    
+    // 3. Edit Files
+    if (editCmds.length > 0) {
+        const blockCmds = editCmds.filter(c => c.type === 'block');
+        const rangeCmds = editCmds.filter(c => c.type === 'range');
+        if (blockCmds.length > 0 && typeof executeEditFileBatchSilent === 'function') {
+            const feedback = await executeEditFileBatchSilent(blockCmds);
+            accumulatedFeedback += feedback;
+        }
+        if (rangeCmds.length > 0 && typeof executeEditFileRangeBatchSilent === 'function') {
+            const feedback = await executeEditFileRangeBatchSilent(rangeCmds);
+            accumulatedFeedback += feedback;
+        }
+    }
+    
+    // 4. Delete Files
+    if (deleteCmds.length > 0) {
+        const fs = require('fs');
+        const path = require('path');
+        for (const c of deleteCmds) {
+            try {
+                const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                if (fs.existsSync(targetPath)) {
+                    const stat = fs.statSync(targetPath);
+                    if (stat.isDirectory()) {
+                        fs.rmSync(targetPath, { recursive: true, force: true });
+                    } else {
+                        fs.unlinkSync(targetPath);
+                    }
+                    accumulatedFeedback += `[FILE DELETE SUCCESS: ${c.path}]\n`;
+                    ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path}`);
+                } else {
+                    accumulatedFeedback += `[FILE DELETE SUCCESS: ${c.path} (Already gone)]\n`;
+                    ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path} (Already gone)`);
+                }
+            } catch (err) {
+                accumulatedFeedback += `[FILE DELETE ERROR: ${c.path} - ${err.message}]\n`;
+                ChatUI.appendBubble('system', `[ERROR] Failed to delete ${c.path}: ${err.message}`);
+            }
+        }
+        if (typeof window.loadDirectory === 'function' && window.currentPath) {
+            window.loadDirectory(window.currentPath);
+        }
+    }
+    
+    // 5. Move Files
+    if (moveCmds.length > 0) {
+        const fs = require('fs');
+        const path = require('path');
+        for (const c of moveCmds) {
+            try {
+                const srcPath = path.resolve(window.currentPath || process.cwd(), c.src);
+                const destPath = path.resolve(window.currentPath || process.cwd(), c.dest);
+                if (fs.existsSync(srcPath)) {
+                    const parentDir = path.dirname(destPath);
+                    if (!fs.existsSync(parentDir)) {
+                        fs.mkdirSync(parentDir, { recursive: true });
+                    }
+                    fs.renameSync(srcPath, destPath);
+                    accumulatedFeedback += `[FILE MOVE SUCCESS: ${c.src} to ${c.dest}]\n`;
+                    ChatUI.appendBubble('system', `[SUCCESS] Moved ${c.src} to ${c.dest}`);
+                } else {
+                    accumulatedFeedback += `[FILE MOVE ERROR: ${c.src} (File not found)]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to move ${c.src}: File not found`);
+                }
+            } catch (err) {
+                accumulatedFeedback += `[FILE MOVE ERROR: ${c.src} - ${err.message}]\n`;
+                ChatUI.appendBubble('system', `[ERROR] Failed to move ${c.src}: ${err.message}`);
+            }
+        }
+        if (typeof window.loadDirectory === 'function' && window.currentPath) {
+            window.loadDirectory(window.currentPath);
+        }
+    }
+    
+    // 6. List Directory
+    if (listDirCmds.length > 0) {
+        const fs = require('fs');
+        const path = require('path');
+        for (const c of listDirCmds) {
+            try {
+                const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                if (fs.existsSync(targetPath)) {
+                    const files = fs.readdirSync(targetPath);
+                    const listText = files.map(f => `- ${f}`).join('\n') || "(Directory is empty)";
+                    accumulatedFeedback += `[DIRECTORY LIST FOR ${c.path}]:\n${listText}\n\n`;
+                    ChatUI.appendBubble('system', `[SUCCESS] Listed directory: ${c.path}`);
+                } else {
+                    accumulatedFeedback += `[DIRECTORY LIST ERROR: ${c.path} (Directory not found)]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to list directory ${c.path}: Directory not found`);
+                }
+            } catch (err) {
+                accumulatedFeedback += `[DIRECTORY LIST ERROR: ${c.path} - ${err.message}]\n`;
+                ChatUI.appendBubble('system', `[ERROR] Failed to list directory ${c.path}: ${err.message}`);
+            }
+        }
+    }
+    
+    // 7. Search Keyword
+    if (searchKeywordCmds.length > 0) {
+        const fs = require('fs');
+        const path = require('path');
+        for (const c of searchKeywordCmds) {
+            const results = [];
+            const walk = (dir) => {
+                const list = fs.readdirSync(dir);
+                for (const file of list) {
+                    const fullPath = path.join(dir, file);
+                    if (file === 'node_modules' || file === '.git' || file === '.gemini') continue;
+                    try {
+                        const stat = fs.statSync(fullPath);
+                        if (stat && stat.isDirectory()) {
+                            walk(fullPath);
+                        } else {
+                            const ext = path.extname(file).toLowerCase();
+                            if (['.js', '.json', '.html', '.css', '.md', '.txt', '.cs', '.py', '.ts'].includes(ext)) {
+                                const content = fs.readFileSync(fullPath, 'utf-8');
+                                const lines = content.split('\n');
+                                lines.forEach((line, idx) => {
+                                    if (line.toLowerCase().includes(c.pattern.toLowerCase())) {
+                                        const rel = path.relative(window.currentPath || process.cwd(), fullPath);
+                                        results.push({ file: rel, line: idx + 1, text: line.trim() });
+                                    }
+                                });
+                            }
+                        }
+                    } catch(e) {}
+                    if (results.length > 50) break;
+                }
+            };
+            try {
+                walk(window.currentPath || process.cwd());
+                accumulatedFeedback += `[SEARCH RESULTS FOR "${c.pattern}"]: \n`;
+                if (results.length === 0) {
+                    accumulatedFeedback += `No matches found.\n\n`;
+                } else {
+                    results.forEach(r => {
+                        accumulatedFeedback += `${r.file}:${r.line}: ${r.text}\n`;
+                    });
+                    accumulatedFeedback += `\n`;
+                }
+                ChatUI.appendBubble('system', `[SUCCESS] Searched keyword: ${c.pattern}`);
+            } catch(e) {
+                accumulatedFeedback += `[SEARCH ERROR: ${e.message}]\n`;
+                ChatUI.appendBubble('system', `[ERROR] Search failed: ${e.message}`);
+            }
+        }
+    }
+    
+    // 8. Run Shell Command (if any, requires security confirmation)
+    if (runCommandCmds.length > 0) {
+        const displayCmd = runCommandCmds.map(c => `run-command "${c.command}"`).join(', ');
+        
+        const box = ChatUI.appendBubble('system', '');
+        const content = box.querySelector('.bubble-content');
+        const themeColor = "#ef4444"; 
+        const glowShadow = "rgba(239, 68, 68, 0.15)";
+
+        content.innerHTML = `
+            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                <div style="font-weight: bold; color: #ff4444; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <span>⚠️ SECURITY WARNING</span>
+                </div>
+                <span>Allow Web AI to execute: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayCmd}</strong>?</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
+                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">DENY</button>
+            </div>
+        `;
+
+        content.querySelector('.cmd-run-btn').onclick = async () => {
+            box.remove();
+            
+            const { exec } = require('child_process');
+            for (const c of runCommandCmds) {
+                ChatUI.appendBubble('system', `[SYSTEM] Running command: ${c.command}...\n`);
+                
+                let loaderBox = ChatUI.appendBubble('system', '');
+                const loaderContent = loaderBox.querySelector('.bubble-content');
+                if (loaderContent) {
+                    loaderContent.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-muted);">
+                            <div class="terminal-loading-spinner" style="width: 12px; height: 12px; border-width: 1.5px;"></div>
+                            <span>Executing: ${c.command}</span>
+                        </div>
+                    `;
+                }
+                
+                await new Promise(resolve => {
+                    exec(c.command, { cwd: window.currentPath || process.cwd(), timeout: 45000 }, async (err, stdout, stderr) => {
+                        if (loaderBox) loaderBox.remove();
+                        const output = (stdout + '\n' + stderr).trim() || "[No output]";
+                        
+                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                            const resBox = ChatUI.appendBubble('system', '');
+                            const resContent = resBox.querySelector('.bubble-content');
+                            if (resContent) {
+                                resContent.innerHTML = `
+                                    <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.4;">
+                                        <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: ${err ? '#FF5252' : '#4CAF50'}; margin-bottom: 8px;">
+                                            <span>${err ? '❌ Command Failed' : '✅ Command Succeeded'}</span>
+                                            <span style="color: var(--text-muted); font-size: 10.5px; font-weight: normal;">(&quot;${c.command}&quot;)</span>
+                                        </div>
+                                        <pre style="margin: 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; overflow-x: auto; color: var(--text-main); font-size: 11px; max-height: 200px; white-space: pre-wrap;">${output.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                    </div>
+                                `;
+                            }
+                        }
+                        accumulatedFeedback += `[COMMAND EXECUTION RESULT FOR "${c.command}"]: \n${output}\n\n`;
+                        resolve();
+                    });
+                });
+            }
+            
+            await submitConsolidatedFeedback(accumulatedFeedback);
+        };
+        
+        content.querySelector('.cmd-cancel-btn').onclick = () => {
+            box.remove();
+            accumulatedFeedback += `[COMMAND EXECUTION CANCELLED BY USER]\n`;
+            submitConsolidatedFeedback(accumulatedFeedback);
+        };
+        return;
+    }
+    
+    await submitConsolidatedFeedback(accumulatedFeedback);
+}
+
+async function submitConsolidatedFeedback(feedback) {
+    if (!feedback.trim()) return;
+    
+    const finalMessage = `${feedback}\nProceed to next step.${window.getSystemRulesPrompt()}`;
+    await injectWebPayload(finalMessage, 0);
+    
+    window.currentBatchFileCount = 0;
+    const response = await runExperimentalEngine('/marktag', finalMessage, null);
+    if (!window.autoContinueOnRead) {
+        document.getElementById('tab-local-agent')?.click();
+    }
+    if (response) {
+        if (typeof window.finalizeAiBubble === 'function') {
+            window.finalizeAiBubble(response);
+        }
+        detectAndAskCommand(response);
+    }
+}

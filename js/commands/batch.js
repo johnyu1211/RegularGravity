@@ -575,3 +575,168 @@ function verifySyntax(filePath, targetPath) {
     }
     return null;
 }
+
+
+async function executeWriteFileBatchSilent(writeCmds) {
+    const fs = require('fs');
+    const path = require('path');
+    let feedbackContent = "";
+    writeCmds.forEach(fileObj => {
+        const filePath = fileObj.path;
+        const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+        try {
+            const parentDir = path.dirname(targetPath);
+            if (!fs.existsSync(parentDir)) {
+                fs.mkdirSync(parentDir, { recursive: true });
+            }
+            fs.writeFileSync(targetPath, fileObj.code, 'utf-8');
+            const syntaxError = verifySyntax(filePath, targetPath);
+            if (syntaxError) {
+                feedbackContent += "[FILE WRITE SUCCESS BUT SYNTAX ERROR DETECTED: " + filePath + " - " + syntaxError + "]\n";
+                ChatUI.appendBubble('system', "[WARNING] Syntax error in " + filePath + ": " + syntaxError);
+            } else {
+                feedbackContent += "[FILE WRITE SUCCESS: " + filePath + "]\n";
+                ChatUI.appendBubble('system', "[SUCCESS] Wrote " + filePath + " content.");
+            }
+        } catch (err) {
+            feedbackContent += "[FILE WRITE ERROR: " + filePath + " - " + err.message + "]\n";
+            ChatUI.appendBubble('system', "[ERROR] Failed to write " + filePath + ": " + err.message);
+        }
+    });
+    if (typeof window.loadDirectory === 'function' && window.currentPath) {
+        window.loadDirectory(window.currentPath);
+    }
+    return feedbackContent;
+}
+
+async function executeEditFileBatchSilent(editCmds) {
+    const fs = require('fs');
+    const path = require('path');
+    let feedbackContent = "";
+    editCmds.forEach(fileObj => {
+        const filePath = fileObj.path;
+        const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+        try {
+            if (!fs.existsSync(targetPath)) {
+                feedbackContent += "[FILE EDIT ERROR: " + filePath + " - File not found]\n";
+                ChatUI.appendBubble('system', "[ERROR] Failed to edit " + filePath + ": File not found");
+                return;
+            }
+            let originalContent = fs.readFileSync(targetPath, 'utf-8');
+            const isCRLF = originalContent.includes('\r\n');
+            let content = originalContent.replace(/\r/g, '');
+            let searchStr = fileObj.search.replace(/\r/g, '');
+            let replaceStr = fileObj.replace.replace(/\r/g, '');
+            if (!searchStr) {
+                feedbackContent += "[FILE EDIT ERROR: " + filePath + " - Empty SEARCH block]\n";
+                ChatUI.appendBubble('system', "[ERROR] Failed to edit " + filePath + ": Empty SEARCH block");
+                return;
+            }
+            let idx = content.indexOf(searchStr);
+            let matchedLength = searchStr.length;
+            if (idx === -1) {
+                const normSearch = searchStr.replace(/\s+/g, '');
+                const normContent = content.replace(/\s+/g, '');
+                const normIdx = normContent.indexOf(normSearch);
+                if (normIdx !== -1) {
+                    let cNormIdx = 0;
+                    let startIdx = -1;
+                    let endIdx = -1;
+                    for (let j = 0; j < content.length; j++) {
+                        const char = content[j];
+                        if (/\s/.test(char)) continue;
+                        if (cNormIdx === normIdx) {
+                            startIdx = j;
+                        }
+                        if (cNormIdx === normIdx + normSearch.length - 1) {
+                            endIdx = j + 1;
+                            break;
+                        }
+                        cNormIdx++;
+                    }
+                    if (startIdx !== -1 && startIdx < endIdx) {
+                        idx = startIdx;
+                        matchedLength = endIdx - startIdx;
+                    }
+                }
+            }
+            if (idx === -1) {
+                const fuzzyRange = findFuzzyMatchIndexRange(content, searchStr);
+                if (fuzzyRange) {
+                    idx = fuzzyRange.start;
+                    matchedLength = fuzzyRange.end - fuzzyRange.start;
+                }
+            }
+            if (idx === -1) {
+                feedbackContent += "[FILE EDIT ERROR: " + filePath + " - SEARCH block not found]\n";
+                ChatUI.appendBubble('system', "[ERROR] Failed to edit " + filePath + ": SEARCH block not found in file");
+                return;
+            }
+            const before = content.substring(0, idx);
+            const after = content.substring(idx + matchedLength);
+            let newContent = before + replaceStr + after;
+            if (isCRLF) {
+                newContent = newContent.replace(/\n/g, '\r\n');
+            }
+            fs.writeFileSync(targetPath, newContent, 'utf-8');
+            const syntaxError = verifySyntax(filePath, targetPath);
+            if (syntaxError) {
+                feedbackContent += "[FILE EDIT SUCCESS BUT SYNTAX ERROR DETECTED: " + filePath + " - " + syntaxError + "]\n";
+                ChatUI.appendBubble('system', "[WARNING] Syntax error in " + filePath + ": " + syntaxError);
+            } else {
+                feedbackContent += "[FILE EDIT SUCCESS: " + filePath + "]\n";
+                ChatUI.appendBubble('system', "[SUCCESS] Edited " + filePath + " successfully.");
+            }
+        } catch (err) {
+            feedbackContent += "[FILE EDIT ERROR: " + filePath + " - " + err.message + "]\n";
+            ChatUI.appendBubble('system', "[ERROR] Failed to edit " + filePath + ": " + err.message);
+        }
+    });
+    if (typeof window.openFileInEditor === 'function' && window.currentEditingPath) {
+        const hasModifiedOpen = editCmds.some(f => path.resolve(window.currentPath || process.cwd(), f.path) === path.resolve(window.currentEditingPath));
+        if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
+    }
+    return feedbackContent;
+}
+
+async function executeEditFileRangeBatchSilent(editCmds) {
+    const fs = require('fs');
+    const path = require('path');
+    let feedbackContent = "";
+    editCmds.forEach(fileObj => {
+        const filePath = fileObj.path;
+        const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+        try {
+            if (!fs.existsSync(targetPath)) {
+                feedbackContent += "[FILE EDIT ERROR: " + filePath + " - File not found]\n";
+                ChatUI.appendBubble('system', "[ERROR] Failed to edit " + filePath + ": File not found");
+                return;
+            }
+            const content = fs.readFileSync(targetPath, 'utf-8');
+            const isCRLF = content.includes('\r\n');
+            const lines = content.replace(/\r/g, '').split('\n');
+            const startLine = Math.max(1, fileObj.start);
+            const endLine = Math.min(lines.length, fileObj.end);
+            const newLines = fileObj.code.replace(/\r/g, '').split('\n');
+            lines.splice(startLine - 1, endLine - startLine + 1, ...newLines);
+            const joined = lines.join(isCRLF ? '\r\n' : '\n');
+            fs.writeFileSync(targetPath, joined, 'utf-8');
+            const syntaxError = verifySyntax(filePath, targetPath);
+            if (syntaxError) {
+                feedbackContent += "[FILE EDIT SUCCESS BUT SYNTAX ERROR DETECTED: " + filePath + " - " + syntaxError + "]\n";
+                ChatUI.appendBubble('system', "[WARNING] Syntax error in " + filePath + ": " + syntaxError);
+            } else {
+                feedbackContent += "[FILE EDIT SUCCESS: " + filePath + " range " + startLine + "-" + endLine + "]\n";
+                ChatUI.appendBubble('system', "[SUCCESS] Edited " + filePath + " successfully.");
+            }
+        } catch (err) {
+            feedbackContent += "[FILE EDIT ERROR: " + filePath + " - " + err.message + "]\n";
+            ChatUI.appendBubble('system', "[ERROR] Failed to edit " + filePath + ": " + err.message);
+        }
+    });
+    if (typeof window.openFileInEditor === 'function' && window.currentEditingPath) {
+        const hasModifiedOpen = editCmds.some(f => path.resolve(window.currentPath || process.cwd(), f.path) === path.resolve(window.currentEditingPath));
+        if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
+    }
+    return feedbackContent;
+}

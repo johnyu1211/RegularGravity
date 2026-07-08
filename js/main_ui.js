@@ -795,10 +795,20 @@ async function setupBoot() {
                         style = document.createElement('style');
                         style.id = styleId;
                         style.textContent = \`
-                            .input-area, .input-area-container, [class*="input-area"], [class*="composer-parent"], [class*="PromptTextarea"], [class*="input-container"], [class*="input_container"] {
-                                padding-top: 8px !important;
+                            .input-area-container > *:not(.input-area) {
+                                display: none !important;
+                            }
+                            .input-area-container, [class*="composer-parent"], [class*="PromptTextarea"], [class*="input-container"], [class*="input_container"] {
+                                padding-top: 10px !important;
+                                padding-bottom: 10px !important;
                                 margin-top: 0px !important;
-                                padding-bottom: 8px !important;
+                                margin-bottom: 0px !important;
+                            }
+                            .input-area {
+                                margin-top: 0px !important;
+                                margin-bottom: 0px !important;
+                                padding-top: 0px !important;
+                                padding-bottom: 0px !important;
                             }
                         \`;
                         document.head.appendChild(style);

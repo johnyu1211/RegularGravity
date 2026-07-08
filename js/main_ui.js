@@ -345,7 +345,9 @@ window.updateDragDropQueueUI = function() {
                     const { execFile } = require('child_process');
                     const exePath = pathModule.join(process.cwd(), 'js', 'drag_sim.exe');
                     
+                    document.body.classList.add('hide-cursor');
                     execFile(exePath, [startX.toString(), startY.toString(), endX.toString(), endY.toString()], (err) => {
+                        document.body.classList.remove('hide-cursor');
                         if (err) {
                             console.error("Drag simulation failed:", err);
                         }

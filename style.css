@@ -1272,3 +1272,7 @@ input:checked + .slider:before {
 #inspector-local-chat {
     transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
+
+body.hide-cursor, body.hide-cursor * {
+    cursor: none !important;
+}

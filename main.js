@@ -542,7 +542,15 @@ ipcMain.on('show-context-menu', (event, params) => {
     }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    try {
+        const transparentPngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+        fs.writeFileSync(path.join(__dirname, 'png.png'), Buffer.from(transparentPngBase64, 'base64'));
+    } catch (e) {
+        console.error("Failed to write transparent png.png:", e);
+    }
+    createWindow();
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();

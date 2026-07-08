@@ -2735,9 +2735,12 @@ function setupUI() {
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
                     </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:12px;">
+                <div style="display:flex; align-items:center; gap:10px;">
                     <span class="git-wv-minimize" style="cursor:pointer; color:var(--text-muted); display:flex; align-items:center;" title="Minimize Window">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </span>
+                    <span class="git-wv-close" style="cursor:pointer; color:var(--text-muted); display:flex; align-items:center;" title="Close Window">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </span>
                 </div>
             </div>
@@ -2759,6 +2762,7 @@ function setupUI() {
         const forwardBtn = popover.querySelector('.git-wv-forward');
         const reloadBtn = popover.querySelector('.git-wv-reload');
         const minimizeBtn = popover.querySelector('.git-wv-minimize');
+        const closeBtn = popover.querySelector('.git-wv-close');
 
         backBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoBack()) webview.goBack(); };
         forwardBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoForward()) webview.goForward(); };
@@ -2766,6 +2770,26 @@ function setupUI() {
         minimizeBtn.onclick = (e) => {
             e.stopPropagation();
             popover.style.display = 'none';
+            if (key === 'github') {
+                if (gitToggleBtn) {
+                    gitToggleBtn.style.color = '';
+                    gitToggleBtn.style.background = '';
+                }
+            } else if (key === 'gemini-usage') {
+                if (geminiUsageToggleBtn) {
+                    geminiUsageToggleBtn.style.background = '';
+                    geminiUsageToggleBtn.style.borderColor = '';
+                }
+            } else {
+                if (buttonEl) {
+                    buttonEl.style.background = '';
+                    buttonEl.style.borderColor = '';
+                }
+            }
+        };
+        closeBtn.onclick = (e) => {
+            e.stopPropagation();
+            popover.remove();
             if (key === 'github') {
                 if (gitToggleBtn) {
                     gitToggleBtn.style.color = '';

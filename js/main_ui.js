@@ -1495,12 +1495,7 @@ ${startPrompt}`.trim();
                             if (lastUserBubble) {
                                 const contentEl = lastUserBubble.querySelector('.bubble-content');
                                 const oldText = contentEl.dataset.rawText;
-                                let newText = oldText;
-                                if (oldText.includes('\n | ')) {
-                                    newText = oldText + ' | ' + baseName;
-                                } else {
-                                    newText = oldText + '\n | ' + baseName;
-                                }
+                                let newText = oldText + ' | ' + baseName;
                                 contentEl.dataset.rawText = newText;
                                 const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(newText) : newText;
                                 if (typeof marked !== 'undefined') {

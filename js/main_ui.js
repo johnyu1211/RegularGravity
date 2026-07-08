@@ -799,6 +799,8 @@ function detectAndAskCommand(text) {
     const createDirCmds = [];
     const runCommandCmds = [];
     const searchKeywordCmds = [];
+    const moveFileCmds = [];
+    const listDirCmds = [];
     const searchCmds = [];
     const otherCmds = [];
 
@@ -980,6 +982,13 @@ function detectAndAskCommand(text) {
                 pattern = pattern.slice(1, -1);
             }
             searchKeywordCmds.push({ pattern: pattern });
+        } else if (moveFileMatch) {
+            const srcPath = (moveFileMatch[1] || moveFileMatch[2] || moveFileMatch[3]).trim();
+            const destPath = (moveFileMatch[4] || moveFileMatch[5] || moveFileMatch[6]).trim();
+            moveFileCmds.push({ src: srcPath, dest: destPath });
+        } else if (listDirMatch) {
+            const dirPath = (listDirMatch[1] || listDirMatch[2] || listDirMatch[3]).trim();
+            listDirCmds.push({ path: dirPath });
         } else {
             otherCmds.push(cmd);
         }
@@ -992,6 +1001,8 @@ function detectAndAskCommand(text) {
     const hasCreateDir = (createDirCmds.length > 0);
     const hasRunCommand = (runCommandCmds.length > 0);
     const hasSearchKeyword = (searchKeywordCmds.length > 0);
+    const hasMoveFile = (moveFileCmds.length > 0);
+    const hasListDir = (listDirCmds.length > 0);
 
     if (!hasReadFile && !hasWriteFile && !hasEditFile && !hasDeleteFile && window.autoContinueOnRead) {
         const toast = document.getElementById('injection-toast');
@@ -1649,6 +1660,169 @@ function detectAndAskCommand(text) {
             content.querySelector('.cmd-run-btn').onclick = async () => {
                 box.remove();
                 await runSearch();
+            };
+            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        }
+    }
+
+    if (hasMoveFile) {
+        const displayCmd = moveFileCmds.map(c => `move-file "${c.src}" -> "${c.dest}"`).join(', ');
+        
+        const runMoveFile = async () => {
+            const fs = require('fs');
+            const path = require('path');
+            for (const c of moveFileCmds) {
+                try {
+                    const srcAbs = path.resolve(window.currentPath || process.cwd(), c.src);
+                    const destAbs = path.resolve(window.currentPath || process.cwd(), c.dest);
+                    
+                    if (fs.existsSync(srcAbs)) {
+                        fs.mkdirSync(path.dirname(destAbs), { recursive: true });
+                        fs.renameSync(srcAbs, destAbs);
+                        
+                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                            const sysBox = ChatUI.appendBubble('system', '');
+                            const sysContent = sysBox.querySelector('.bubble-content');
+                            if (sysContent) {
+                                sysContent.innerHTML = `
+                                    <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
+                                        <span style="color: #4CAF50; font-weight: bold;">📦 File Moved</span>
+                                        <span style="color: var(--text-muted); font-size: 11px;">${c.src} ➡️ ${c.dest}</span>
+                                    </div>
+                                `;
+                            }
+                        }
+                    } else {
+                        throw new Error("Source file does not exist");
+                    }
+                } catch (err) {
+                    console.error("Failed to move file:", err);
+                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                        const sysBox = ChatUI.appendBubble('system', '');
+                        const sysContent = sysBox.querySelector('.bubble-content');
+                        if (sysContent) {
+                            sysContent.innerHTML = `
+                                <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
+                                    <span style="color: #FF5252; font-weight: bold;">❌ Operation Failed</span>
+                                    <span style="color: var(--text-muted); font-size: 11px;">Move File: ${c.src} -> ${c.dest} (${err.message})</span>
+                                </div>
+                            `;
+                        }
+                    }
+                }
+            }
+            if (typeof window.refreshFileViewer === 'function') {
+                window.refreshFileViewer();
+            }
+        };
+
+        if (window.autoContinueOnRead) {
+            runMoveFile();
+        } else {
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#468CF6"; 
+            const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">📦</span>${displayCmd}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                </div>
+            `;
+
+            content.querySelector('.cmd-run-btn').onclick = async () => {
+                box.remove();
+                await runMoveFile();
+            };
+            content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        }
+    }
+
+    if (hasListDir) {
+        const displayCmd = listDirCmds.map(l => `list-dir "${l.path}"`).join(', ');
+        
+        const runListDir = async () => {
+            const fs = require('fs');
+            const path = require('path');
+            for (const c of listDirCmds) {
+                const getFlatDirectoryTree = (dirPath) => {
+                    let results = [];
+                    try {
+                        const list = fs.readdirSync(dirPath);
+                        list.forEach(file => {
+                            const fullPath = path.join(dirPath, file);
+                            const stat = fs.statSync(fullPath);
+                            if (stat && stat.isDirectory()) {
+                                results = results.concat(getFlatDirectoryTree(fullPath));
+                            } else {
+                                results.push(fullPath);
+                            }
+                        });
+                    } catch (e) {}
+                    return results;
+                };
+                
+                try {
+                    const absDir = path.resolve(window.currentPath || process.cwd(), c.path);
+                    if (fs.existsSync(absDir)) {
+                        const files = getFlatDirectoryTree(absDir);
+                        const relativeFiles = files.map(f => path.relative(window.currentPath || process.cwd(), f));
+                        const fileListStr = relativeFiles.map(rf => `- ${rf.replace(/\\/g, '/')}`).join('\n');
+                        
+                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                            const resBox = ChatUI.appendBubble('system', '');
+                            const resContent = resBox.querySelector('.bubble-content');
+                            if (resContent) {
+                                resContent.innerHTML = `
+                                    <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.4;">
+                                        <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: var(--primary); margin-bottom: 8px;">
+                                            <span>📁 Directory Listing</span>
+                                            <span style="color: var(--text-muted); font-size: 10.5px; font-weight: normal;">(${c.path})</span>
+                                        </div>
+                                        <pre style="margin: 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; overflow-x: auto; color: var(--text-main); font-size: 11px; max-height: 180px; white-space: pre-wrap;">${fileListStr.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                    </div>
+                                `;
+                            }
+                        }
+                        
+                        const payload = "[SYSTEM] Directory listing for \"" + c.path + "\":\n" + fileListStr + "\nProceed with next step." + window.getSystemRulesPrompt();
+                        await injectWebPayload(payload, 1, 1, false, true);
+                    } else {
+                        throw new Error("Directory does not exist");
+                    }
+                } catch(err) {
+                    console.error("Failed to list directory:", err);
+                    const payload = "[SYSTEM] Directory list error: \"" + c.path + "\" does not exist.\nProceed with next step." + window.getSystemRulesPrompt();
+                    await injectWebPayload(payload, 1, 1, false, true);
+                }
+            }
+        };
+
+        if (window.autoContinueOnRead) {
+            runListDir();
+        } else {
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#468CF6"; 
+            const glowShadow = "rgba(70, 140, 246, 0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <span style="color: var(--primary); font-weight: bold; margin-right: 6px;">📁</span>${displayCmd}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                </div>
+            `;
+
+            content.querySelector('.cmd-run-btn').onclick = async () => {
+                box.remove();
+                await runListDir();
             };
             content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
         }

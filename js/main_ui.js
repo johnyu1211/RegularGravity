@@ -2714,13 +2714,7 @@ function setupUI() {
                 }
 
                 const vLC = document.getElementById('inspector-local-chat');
-                if (vLC) {
-                    vLC.style.height = 'calc(100% - 44px)';
-                    vLC.style.zIndex = '';
-                }
-                const vT = document.getElementById('inspector-terminal');
-                if (vT) vT.style.zIndex = '';
-                
+                const vBH = document.getElementById('inspector-browser-hub');
                 const arrowIndicator = document.getElementById('drag-drop-arrow-indicator');
                 if (arrowIndicator) arrowIndicator.remove();
                 
@@ -2731,15 +2725,18 @@ function setupUI() {
                     inputContainer.style.height = '';
                 }
                 
-                const vBH = document.getElementById('inspector-browser-hub');
+                if (vLC) {
+                    vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight || 220}px)`;
+                    vLC.style.zIndex = '150';
+                }
                 if (vBH) {
-                    vBH.style.position = '';
-                    vBH.style.top = '';
-                    vBH.style.height = '';
-                    vBH.style.width = '';
-                    vBH.style.zIndex = '';
-                    vBH.style.opacity = '';
-                    vBH.style.pointerEvents = '';
+                    vBH.style.position = 'absolute';
+                    vBH.style.top = '0';
+                    vBH.style.height = 'calc(100% - 44px)';
+                    vBH.style.width = '100%';
+                    vBH.style.zIndex = '100';
+                    vBH.style.opacity = '1';
+                    vBH.style.pointerEvents = 'auto';
                 }
             };
 

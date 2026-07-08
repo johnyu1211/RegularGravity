@@ -1207,10 +1207,8 @@ ${startPrompt}`.trim();
                     const pathModule = require('path');
                     const droppedName = pathModule.basename(filePath).toLowerCase();
                     
-                    const requestedNames = readCmds.map(f => {
-                        const parts = f.path.split(/[\\/]/);
-                        return parts[parts.length - 1].toLowerCase();
-                    });
+                    const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+                    const requestedNames = pendingItems.map(item => item.relativePath.split(/[\\/]/).pop().toLowerCase());
                     
                     if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
                         const { showAlert } = require('./ui/dialogs.js');
@@ -1222,8 +1220,12 @@ ${startPrompt}`.trim();
                         return;
                     }
                     
-                    if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-                    if (window.activeDragDropContinue) window.activeDragDropContinue();
+                    window.readFilesSet.add(filePath);
+                    
+                    const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+                    if (stillPending.length === 0) {
+                        if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+                    }
                 } else {
                     const fs = require('fs');
                     const pathModule = require('path');
@@ -1282,14 +1284,7 @@ ${startPrompt}`.trim();
                 }
                 return;
             }
-            if (e.message === '[WEBVIEW_DROP_DETECTED]') {
-                if (typeof window.activeDragDropCleanup === 'function' && typeof window.activeDragDropContinue === 'function') {
-                    const runCont = window.activeDragDropContinue;
-                    window.activeDragDropCleanup();
-                    runCont();
-                }
-                return;
-            }
+
             if (e.message.startsWith('[BACKGROUND_AI_RESP]:')) {
                 if (!window.activeAiResponding) return;
                 if (window.currentBatchFileCount === -1 && window.autoContinueOnRead) return;
@@ -2000,10 +1995,8 @@ ${startPrompt}`.trim();
                     const pathModule = require('path');
                     const droppedName = pathModule.basename(filePath).toLowerCase();
                     
-                    const requestedNames = readCmds.map(f => {
-                        const parts = f.path.split(/[\\/]/);
-                        return parts[parts.length - 1].toLowerCase();
-                    });
+                    const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+                    const requestedNames = pendingItems.map(item => item.relativePath.split(/[\\/]/).pop().toLowerCase());
                     
                     if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
                         const { showAlert } = require('./ui/dialogs.js');
@@ -2015,8 +2008,12 @@ ${startPrompt}`.trim();
                         return;
                     }
                     
-                    if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-                    if (window.activeDragDropContinue) window.activeDragDropContinue();
+                    window.readFilesSet.add(filePath);
+                    
+                    const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
+                    if (stillPending.length === 0) {
+                        if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+                    }
                 } else {
                     const fs = require('fs');
                     const pathModule = require('path');

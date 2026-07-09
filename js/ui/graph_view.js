@@ -310,6 +310,11 @@
                 radius: calculateRadius(parentDispName, false, true)
             };
             nodes.push(parentNode);
+            links.push({
+                source: centralNode,
+                target: parentNode,
+                isParentLink: true
+            });
         }
 
         // 3. Read current folder contents
@@ -352,6 +357,15 @@
                 };
                 nodes.push(childNode);
                 childNodesMap[child.fullPath] = childNode;
+
+                // Push structural link for folders to center
+                if (child.isDir) {
+                    links.push({
+                        source: centralNode,
+                        target: childNode,
+                        isFolderLink: true
+                    });
+                }
             });
 
             // 4. Scan file dependencies and create directed import links
@@ -360,34 +374,36 @@
 
                 const targets = extractImports(sourceNode.fullPath);
                 targets.forEach(targetPath => {
+                    let targetNode = null;
+
                     // Scenario A: target is a child file node in the same directory
                     if (childNodesMap[targetPath]) {
-                        links.push({
-                            source: sourceNode,
-                            target: childNodesMap[targetPath],
-                            isDependency: true
-                        });
+                        targetNode = childNodesMap[targetPath];
                     } 
                     // Scenario B: target is inside a subfolder of the current directory
                     else {
                         const relToCurrent = path.relative(dir, targetPath);
                         if (relToCurrent && !relToCurrent.startsWith('..') && !path.isAbsolute(relToCurrent)) {
                             // Find which immediate subfolder this target path resides in
-                            const firstSub = relToCurrent.split(path.sep)[0];
+                            const firstSub = relToCurrent.split(/[\\/]/)[0];
                             const subfolderAbsPath = path.join(dir, firstSub);
                             if (childNodesMap[subfolderAbsPath]) {
-                                links.push({
-                                    source: sourceNode,
-                                    target: childNodesMap[subfolderAbsPath],
-                                    isDependency: true
-                                });
+                                targetNode = childNodesMap[subfolderAbsPath];
                             }
                         }
                         // Scenario C: target is outside current directory (parent folder linkage)
                         else if (parentNode) {
+                            targetNode = parentNode;
+                        }
+                    }
+
+                    if (targetNode) {
+                        // Prevent duplicate dependency links
+                        const exists = links.some(l => l.source === sourceNode && l.target === targetNode && !l.isParentLink && !l.isFolderLink);
+                        if (!exists) {
                             links.push({
                                 source: sourceNode,
-                                target: parentNode,
+                                target: targetNode,
                                 isDependency: true
                             });
                         }
@@ -578,9 +594,17 @@
         // Draw Links/Edges with directed arrows (pointing to dependency target)
         for (const link of links) {
             const isHighlighted = hoveredNode && (link.source === hoveredNode || link.target === hoveredNode);
-            const strokeColor = isHighlighted ? 'rgba(70, 140, 246, 0.75)' : 'rgba(255, 255, 255, 0.08)';
+            const strokeColor = isHighlighted 
+                ? 'rgba(70, 140, 246, 0.75)' 
+                : (link.isParentLink || link.isFolderLink ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.08)');
             ctx.strokeStyle = strokeColor;
             ctx.lineWidth = isHighlighted ? 1.6 : 1.1;
+
+            if (link.isParentLink || link.isFolderLink) {
+                ctx.setLineDash([3, 3]);
+            } else {
+                ctx.setLineDash([]);
+            }
 
             const dx = link.target.x - link.source.x;
             const dy = link.target.y - link.source.y;
@@ -595,23 +619,26 @@
             ctx.lineTo(targetBorderX, targetBorderY);
             ctx.stroke();
 
-            // Draw directed arrowhead
-            const arrowSize = 6;
-            const angle = Math.atan2(dy, dx);
-            ctx.fillStyle = strokeColor;
-            ctx.beginPath();
-            ctx.moveTo(targetBorderX, targetBorderY);
-            ctx.lineTo(
-                targetBorderX - arrowSize * Math.cos(angle - Math.PI / 6),
-                targetBorderY - arrowSize * Math.sin(angle - Math.PI / 6)
-            );
-            ctx.lineTo(
-                targetBorderX - arrowSize * Math.cos(angle + Math.PI / 6),
-                targetBorderY - arrowSize * Math.sin(angle + Math.PI / 6)
-            );
-            ctx.closePath();
-            ctx.fill();
+            // Draw directed arrowhead ONLY for dependency links (structural links have no arrows)
+            if (!link.isParentLink && !link.isFolderLink) {
+                const arrowSize = 6;
+                const angle = Math.atan2(dy, dx);
+                ctx.fillStyle = strokeColor;
+                ctx.beginPath();
+                ctx.moveTo(targetBorderX, targetBorderY);
+                ctx.lineTo(
+                    targetBorderX - arrowSize * Math.cos(angle - Math.PI / 6),
+                    targetBorderY - arrowSize * Math.sin(angle - Math.PI / 6)
+                );
+                ctx.lineTo(
+                    targetBorderX - arrowSize * Math.cos(angle + Math.PI / 6),
+                    targetBorderY - arrowSize * Math.sin(angle + Math.PI / 6)
+                );
+                ctx.closePath();
+                ctx.fill();
+            }
         }
+        ctx.setLineDash([]); // Restore solid lines
 
         // Draw Nodes
         for (const node of nodes) {

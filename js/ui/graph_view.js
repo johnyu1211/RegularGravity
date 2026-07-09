@@ -29,9 +29,9 @@
     let lastMouseY = 0;
 
     // Physics parameters
-    const kRepulsion = 1500;
-    const kAttraction = 0.05;
-    const springLength = 70;
+    const kRepulsion = 1600;
+    const kAttraction = 0.055;
+    const springLength = 80;
     const kGravity = 0.02;
     const damping = 0.85;
 
@@ -81,6 +81,22 @@
         }
     });
 
+    // Truncate name helper for inside circles
+    function getDisplayName(name, isParent) {
+        if (isParent) return '.. (Up)';
+        
+        const maxLen = 12;
+        if (name.length <= maxLen) return name;
+        
+        const extIdx = name.lastIndexOf('.');
+        if (extIdx !== -1 && (name.length - extIdx) <= 5) {
+            const ext = name.substring(extIdx);
+            const base = name.substring(0, extIdx);
+            return base.substring(0, maxLen - ext.length - 3) + '...' + ext;
+        }
+        return name.substring(0, maxLen - 3) + '...';
+    }
+
     // Build breadcrumbs path indicator in header
     function updateBreadcrumbs(dir) {
         if (!breadcrumbs) return;
@@ -129,12 +145,19 @@
         }
     }
 
+    // Calculate node radius based on text width to fit text inside the circle
+    function calculateRadius(text, isCentral) {
+        const tempCtx = canvas.getContext('2d');
+        tempCtx.font = isCentral ? 'bold 11px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
+        const width = tempCtx.measureText(text).width;
+        return Math.max(isCentral ? 25 : 20, width / 2 + 12);
+    }
+
     // Build Graph for the targeted directory
     function buildGraph(dir) {
         nodes = [];
         links = [];
         
-        // Keep zoom/pan centered
         zoom = 1.0;
         panX = 0;
         panY = 0;
@@ -143,9 +166,11 @@
 
         // 1. Create central node for the current folder
         const folderName = path.basename(dir) || dir;
+        const centralDispName = `📂 ${getDisplayName(folderName, false)}`;
         const centralNode = {
             id: dir,
             name: folderName,
+            displayName: centralDispName,
             fullPath: dir,
             isDir: true,
             isCentral: true,
@@ -154,7 +179,7 @@
             y: canvas.height / 2,
             vx: 0,
             vy: 0,
-            radius: 22
+            radius: calculateRadius(centralDispName, true)
         };
         nodes.push(centralNode);
 
@@ -163,18 +188,20 @@
         let parentNode = null;
         if (!isRoot) {
             const parentDir = path.dirname(dir);
+            const parentDispName = getDisplayName(parentDir, true);
             parentNode = {
                 id: 'PARENT_NODE',
                 name: '.. (Up)',
+                displayName: parentDispName,
                 fullPath: parentDir,
                 isDir: true,
                 isCentral: false,
                 isParent: true,
                 x: canvas.width / 2,
-                y: canvas.height / 2 - 120, // positioned slightly above center initially
+                y: canvas.height / 2 - 140,
                 vx: 0,
                 vy: 0,
-                radius: 16
+                radius: calculateRadius(parentDispName, false)
             };
             nodes.push(parentNode);
             links.push({
@@ -202,14 +229,15 @@
                 children.push({ name: item, fullPath: fullPath, isDir: isDir });
             }
 
-            // Distribute children in a circle around the center
             const angleStep = (Math.PI * 2) / (children.length || 1);
             children.forEach((child, index) => {
                 const angle = index * angleStep;
-                const distance = 80 + Math.random() * 40;
+                const distance = 100 + Math.random() * 40;
+                const nodeDispName = child.isDir ? `📁 ${getDisplayName(child.name, false)}` : getDisplayName(child.name, false);
                 const childNode = {
                     id: child.fullPath,
                     name: child.name,
+                    displayName: nodeDispName,
                     fullPath: child.fullPath,
                     isDir: child.isDir,
                     isCentral: false,
@@ -218,7 +246,7 @@
                     y: canvas.height / 2 + Math.sin(angle) * distance,
                     vx: 0,
                     vy: 0,
-                    radius: child.isDir ? 14 : 9
+                    radius: calculateRadius(nodeDispName, false)
                 };
                 nodes.push(childNode);
                 links.push({
@@ -268,7 +296,8 @@
                 const distSq = dx * dx + dy * dy + 0.01;
                 const dist = Math.sqrt(distSq);
                 
-                const minDistance = u.radius + v.radius + 35;
+                // Repulsion adjusted for text-sized radii
+                const minDistance = u.radius + v.radius + 40;
                 if (dist < minDistance * 3) {
                     const force = kRepulsion / distSq;
                     const fx = (dx / dist) * force;
@@ -294,8 +323,7 @@
             const dy = v.y - u.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
             
-            // Parent links are slightly longer/stronger to differentiate
-            const currentSpringLength = link.isParentLink ? springLength * 1.5 : springLength;
+            const currentSpringLength = link.isParentLink ? springLength * 1.6 : springLength;
             const force = (dist - currentSpringLength) * kAttraction;
             const fx = (dx / dist) * force;
             const fy = (dy / dist) * force;
@@ -338,7 +366,6 @@
         ctx.scale(zoom, zoom);
         ctx.translate(-canvas.width / 2, -canvas.height / 2);
 
-        // Draw background grid lines (panning-aware)
         drawGrid(ctx);
 
         // Draw Links/Edges
@@ -347,7 +374,7 @@
             const isHighlighted = hoveredNode && (link.source === hoveredNode || link.target === hoveredNode);
             if (link.isParentLink) {
                 ctx.strokeStyle = isHighlighted ? 'rgba(163, 230, 53, 0.65)' : 'rgba(255, 255, 255, 0.03)';
-                ctx.setLineDash([4, 4]); // parent link is dashed
+                ctx.setLineDash([4, 4]);
             } else {
                 ctx.strokeStyle = isHighlighted ? 'rgba(70, 140, 246, 0.65)' : 'rgba(255, 255, 255, 0.06)';
                 ctx.setLineDash([]);
@@ -366,10 +393,10 @@
             // Outer glow ring
             if (isHovered) {
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, node.radius + 5, 0, Math.PI * 2);
+                ctx.arc(node.x, node.y, node.radius + 6, 0, Math.PI * 2);
                 ctx.fillStyle = node.isParent 
                     ? 'rgba(163, 230, 53, 0.2)' 
-                    : (node.isDir ? 'rgba(70, 140, 246, 0.25)' : 'rgba(255, 255, 255, 0.15)');
+                    : (node.isDir ? 'rgba(70, 140, 246, 0.25)' : 'rgba(255, 255, 255, 0.12)');
                 ctx.fill();
             }
 
@@ -378,13 +405,13 @@
             ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
             
             if (node.isParent) {
-                ctx.fillStyle = '#65a30d'; // Parent folder: green
+                ctx.fillStyle = isHovered ? '#84cc16' : '#65a30d'; // Parent folder: green
             } else if (node.isCentral) {
-                ctx.fillStyle = '#1e3a8a'; // Current central folder: dark blue
+                ctx.fillStyle = isHovered ? '#2563eb' : '#1e3a8a'; // Current central folder: dark blue
             } else if (node.isDir) {
-                ctx.fillStyle = '#468CF6'; // Sub folder: cool primary blue
+                ctx.fillStyle = isHovered ? '#60a5fa' : '#468CF6'; // Sub folder: cool primary blue
             } else {
-                ctx.fillStyle = '#3f3f46'; // File: charcoal gray
+                ctx.fillStyle = isHovered ? '#3f3f46' : '#27272a'; // File: charcoal gray
             }
             ctx.fill();
 
@@ -392,20 +419,15 @@
             ctx.lineWidth = 1.5;
             ctx.strokeStyle = node.isParent 
                 ? '#a3e635' 
-                : (node.isCentral ? '#60a5fa' : (node.isDir ? '#93c5fd' : '#71717a'));
+                : (node.isCentral ? '#60a5fa' : (node.isDir ? '#93c5fd' : '#52525b'));
             ctx.stroke();
 
-            // Label positioning
+            // Draw text centered inside the circle node
             ctx.fillStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.85)';
-            ctx.font = node.isCentral ? 'bold 11.5px "Outfit", sans-serif' : '10px "Outfit", sans-serif';
+            ctx.font = node.isCentral ? 'bold 11px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
             ctx.textAlign = 'center';
-            
-            let label = node.name;
-            if (node.isCentral) label = `📂 ${node.name}`;
-            else if (node.isDir && !node.isParent) label = `📁 ${node.name}`;
-            else if (node.isParent) label = `↩️ ${node.name}`;
-            
-            ctx.fillText(label, node.x, node.y + node.radius + 15);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(node.displayName, node.x, node.y);
         }
 
         ctx.restore();
@@ -471,6 +493,7 @@
             draggedNode.vy = 0;
         } else {
             isPanning = true;
+            canvas.style.cursor = 'grabbing';
             startDragX = e.clientX - panX;
             startDragY = e.clientY - panY;
         }
@@ -502,6 +525,7 @@
             if (currentHovered !== hoveredNode) {
                 hoveredNode = currentHovered;
                 if (hoveredNode) {
+                    canvas.style.cursor = 'pointer';
                     tooltip.style.display = 'block';
                     tooltip.textContent = hoveredNode.isParent 
                         ? `Parent folder: ${hoveredNode.fullPath}` 
@@ -509,6 +533,7 @@
                     tooltip.style.left = `${mouse.rawX + 15}px`;
                     tooltip.style.top = `${mouse.rawY + 15}px`;
                 } else {
+                    canvas.style.cursor = 'default';
                     tooltip.style.display = 'none';
                 }
             } else if (hoveredNode) {
@@ -524,10 +549,14 @@
             draggedNode = null;
         }
         isPanning = false;
+        if (hoveredNode) {
+            canvas.style.cursor = 'pointer';
+        } else {
+            canvas.style.cursor = 'default';
+        }
     });
 
     canvas.onclick = (e) => {
-        // Prevent click events when dragging/panning
         if (e.movementX !== 0 || e.movementY !== 0) return;
 
         const mouse = screenToWorld(e.clientX, e.clientY);
@@ -544,19 +573,17 @@
         }
 
         if (clickedNode) {
-            if (clickedNode.isCentral) {
-                // Clicked central directory node: do nothing
-                return;
-            }
+            if (clickedNode.isCentral) return;
 
             if (clickedNode.isDir) {
-                // Folder node clicked: drill down or up!
+                // Open Folder
                 currentGraphPath = clickedNode.fullPath;
                 buildGraph(currentGraphPath);
                 tooltip.style.display = 'none';
                 hoveredNode = null;
+                canvas.style.cursor = 'default';
             } else {
-                // File node clicked: open in editor and close modal
+                // Open File
                 window.currentFilePath = clickedNode.fullPath;
                 if (window.openFileInEditor) {
                     window.openFileInEditor(clickedNode.fullPath);

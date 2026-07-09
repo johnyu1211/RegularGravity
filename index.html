@@ -540,7 +540,67 @@
             let isFixtureActive = false;
             let originalInspectorDisplay = '';
             let originalResizerDisplay = '';
-            
+            let monitorProcess = null;
+
+            function startDockMonitor() {
+                stopDockMonitor();
+                const overlay = document.getElementById('editor-fixture-overlay');
+                if (!overlay) return;
+                
+                ipc.invoke('get-content-bounds').then(winBounds => {
+                    const rect = overlay.getBoundingClientRect();
+                    const titlebarHeight = 30; // height of the custom titlebar
+                    
+                    const x = Math.round(winBounds.x + rect.left);
+                    const y = Math.round(winBounds.y + titlebarHeight + rect.top);
+                    const w = Math.round(rect.width);
+                    const h = Math.round(rect.height);
+                    
+                    const { spawn } = require('child_process');
+                    const path = require('path');
+                    const scriptPath = path.join(__dirname, 'js/ui/dock_monitor.ps1');
+                    const ourPid = process.pid;
+                    
+                    monitorProcess = spawn('powershell.exe', [
+                        '-NoProfile',
+                        '-ExecutionPolicy', 'Bypass',
+                        '-File', scriptPath,
+                        x.toString(),
+                        y.toString(),
+                        w.toString(),
+                        h.toString(),
+                        ourPid.toString()
+                    ]);
+                    
+                    monitorProcess.stdout.on('data', (data) => {
+                        const msg = data.toString().trim();
+                        console.log("[DockMonitor]", msg);
+                        if (msg.includes("DOCKED:")) {
+                            // Restart monitor after short delay to allow further docking or redocking
+                            setTimeout(() => {
+                                if (isFixtureActive) startDockMonitor();
+                            }, 500);
+                        }
+                    });
+                });
+            }
+
+            function stopDockMonitor() {
+                if (monitorProcess) {
+                    try { monitorProcess.kill(); } catch(e) {}
+                    monitorProcess = null;
+                }
+            }
+
+            window.addEventListener('resize', () => {
+                if (isFixtureActive) {
+                    clearTimeout(window._dockMonitorResizeTimeout);
+                    window._dockMonitorResizeTimeout = setTimeout(() => {
+                        if (isFixtureActive) startDockMonitor();
+                    }, 200);
+                }
+            });
+
             document.getElementById('win-fixture').onclick = () => {
                 isFixtureActive = !isFixtureActive;
                 
@@ -573,7 +633,13 @@
                         const cursor = icon.querySelector('path');
                         if (cursor) cursor.setAttribute('fill', '#10b981');
                     }
+
+                    // Start background drag-and-drop monitor
+                    startDockMonitor();
                 } else {
+                    // Stop monitor
+                    stopDockMonitor();
+
                     // Restore ChatCover right sidebar
                     if (inspector) inspector.style.display = originalInspectorDisplay;
                     if (resizer) resizer.style.display = originalResizerDisplay;

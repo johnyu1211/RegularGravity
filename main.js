@@ -271,12 +271,6 @@ ipcMain.handle('get-our-hwnd', async () => {
     return process.arch === 'x64' ? buf.readBigInt64LE().toString() : buf.readInt32LE().toString();
 });
 
-ipcMain.handle('get-display-bounds', async () => {
-    if (!mainWindow) return null;
-    const { screen } = require('electron');
-    const display = screen.getDisplayMatching(mainWindow.getBounds());
-    return display.bounds;
-});
 
 function setWindowState(hwnd, state) {
     if (!hwnd) return;

@@ -620,10 +620,7 @@
                     const overlay = document.getElementById('editor-fixture-overlay');
                     if (!overlay) return;
                     
-                    Promise.all([
-                        ipc.invoke('get-content-bounds'),
-                        ipc.invoke('get-display-bounds')
-                    ]).then(([winBounds, displayBounds]) => {
+                    ipc.invoke('get-content-bounds').then(winBounds => {
                         const rect = overlay.getBoundingClientRect();
                         
                         // Absolute screen target coordinates with Windows 10/11 invisible border adjustments
@@ -631,10 +628,8 @@
                         const targetY = Math.round(winBounds.y + rect.top);
                         const targetW = Math.round(rect.width) - 14;
                         
-                        // Stretch height to the absolute bottom of the screen matching the current monitor
-                        const targetH = (displayBounds && displayBounds.height) 
-                            ? Math.round(displayBounds.y + displayBounds.height - targetY) + 7
-                            : Math.round(rect.height) - 7;
+                        // Add 40px taskbar offset to height to cover the taskbar perfectly
+                        const targetH = Math.round(rect.height) - 7 + 40;
                         
                         if (targetX !== lastTargetX || targetY !== lastTargetY || targetW !== lastTargetW || targetH !== lastTargetH) {
                             lastTargetX = targetX;
@@ -663,19 +658,14 @@
                 const overlay = document.getElementById('editor-fixture-overlay');
                 if (!overlay || !window.dockedHwnd) return;
                 
-                Promise.all([
-                    ipc.invoke('get-content-bounds'),
-                    ipc.invoke('get-display-bounds')
-                ]).then(([winBounds, displayBounds]) => {
+                ipc.invoke('get-content-bounds').then(winBounds => {
                     const rect = overlay.getBoundingClientRect();
                     
                     // Windows 10/11 invisible border adjustments (approx 7px left/right/bottom)
                     const x = Math.round(winBounds.x + rect.left) + 7;
                     const y = Math.round(winBounds.y + rect.top);
                     const w = Math.round(rect.width) - 14;
-                    const h = (displayBounds && displayBounds.height)
-                        ? Math.round(displayBounds.y + displayBounds.height - y) + 7
-                        : Math.round(rect.height) - 7;
+                    const h = Math.round(rect.height) - 7 + 40;
                     
                     ipc.send('move-docked-window', { x, y, w, h });
                 });

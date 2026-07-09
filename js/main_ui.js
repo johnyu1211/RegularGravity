@@ -1599,7 +1599,7 @@ async function setupBoot() {
                     const inKeywords = ["message", "ask", "prompt", "type", "question", "conversation", "input", "chat", "command", "send", "help you today", "search", "write", "say"];
                     
                     const findInput = () => {
-                        const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                        const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || (el.getClientRects && el.getClientRects().length));
                         const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
                         for (let el of mainCandidates) {
                             const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
@@ -1629,8 +1629,12 @@ async function setupBoot() {
                         
                         if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
                             const proto = input.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-                            const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
-                            setter.call(input, fullText);
+                            const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+                            if (desc && desc.set) {
+                                desc.set.call(input, fullText);
+                            } else {
+                                input.value = fullText;
+                            }
                         } else {
                             const escapeHtml = (t) => {
                                 return t

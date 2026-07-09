@@ -73,12 +73,12 @@
         }
         
         // Save original width before expanding
-        if (sidebarLeft.style.width && sidebarLeft.style.width !== '50vw') {
+        if (sidebarLeft.style.width && sidebarLeft.style.width !== '35vw') {
             originalSidebarWidth = sidebarLeft.style.width;
         }
         
         // Modify UI
-        sidebarLeft.style.width = '50vw';
+        sidebarLeft.style.width = '35vw';
         if (fileTree) fileTree.style.display = 'none';
         if (fileTreeActionBar) fileTreeActionBar.style.display = 'none';
 

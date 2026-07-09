@@ -14,6 +14,9 @@
     let currentGraphPath = '';
     let projectRoot = '';
 
+    // Global dependency cache
+    let projectDependencies = {}; // { [sourceFile]: [targetFiles] }
+
     // Viewport transform
     let zoom = 1.0;
     let panX = 0;
@@ -36,9 +39,9 @@
     let alpha = 1.0;
     const alphaDecay = 0.98;
     const kRepulsion = 7500;
-    const kAttraction = 0.06; // Slightly stronger attraction for dependency links
-    const springLength = 110;
-    const kGravity = 0.012; // Centering gravity
+    const kAttraction = 0.055;
+    const springLength = 120;
+    const kGravity = 0.01; // Centering gravity
     const damping = 0.72;
 
     const modal = document.getElementById('graph-view-modal');
@@ -60,6 +63,9 @@
         projectRoot = window.currentPath;
         currentGraphPath = window.currentPath;
         
+        // Scan all dependencies once on load
+        scanAllProjectDependencies();
+
         modal.style.display = 'flex';
         resizeCanvas();
         buildGraph(currentGraphPath);
@@ -171,20 +177,16 @@
         const sourceDir = path.dirname(sourceFile);
         let cleanImport = importString.split('?')[0].split('#')[0].trim();
         
-        // Ignore external absolute urls (http, https, //)
         if (/^(https?:)?\/\//.test(cleanImport)) return null;
         
-        // Try resolving relative to sourceDir (handles both "./js/foo.js" and "js/foo.js")
         let resolved = path.resolve(sourceDir, cleanImport);
         if (fs.existsSync(resolved) && !fs.statSync(resolved).isDirectory()) return resolved;
 
-        // Try resolving relative to projectRoot
         if (projectRoot) {
             let resolvedRoot = path.resolve(projectRoot, cleanImport);
             if (fs.existsSync(resolvedRoot) && !fs.statSync(resolvedRoot).isDirectory()) return resolvedRoot;
         }
 
-        // Try appending extensions
         const exts = ['.js', '.ts', '.jsx', '.tsx', '.json', '.html', '.css'];
         for (const ext of exts) {
             let resExt = resolved + ext;
@@ -196,7 +198,6 @@
             }
         }
 
-        // Try resolving directory index
         if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
             for (const ext of exts) {
                 const indexFile = path.join(resolved, 'index' + ext);
@@ -221,7 +222,7 @@
         const imports = [];
         try {
             const stat = fs.statSync(filePath);
-            if (stat.isDirectory() || stat.size > 150 * 1024) return []; // Skip folders/large files (>150KB)
+            if (stat.isDirectory() || stat.size > 150 * 1024) return [];
             
             const ext = path.extname(filePath).toLowerCase();
             const scannableExts = ['.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.py'];
@@ -230,13 +231,13 @@
             const content = fs.readFileSync(filePath, 'utf-8');
 
             const patterns = [
-                /import\s+[^'"]*from\s+['"]([^'"]+)['"]/g,             // ES6 Import
-                /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,                 // ES6 Dynamic
-                /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,                // CommonJS require
-                /@import\s+(?:url\s*\(\s*)?['"]?([^'")]+)['"]?\s*\)?/g, // CSS import (comprehensive)
-                /<(?:link|script)[^>]*(?:href|src)=['"]([^'"]+)['"]/g,  // HTML scripts/css
-                /^\s*import\s+([a-zA-Z0-9_\.]+)/gm,                    // Python import style A
-                /^\s*from\s+([a-zA-Z0-9_\.]+)\s+import/gm              // Python import style B
+                /import\s+[^'"]*from\s+['"]([^'"]+)['"]/g,
+                /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+                /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+                /@import\s+(?:url\s*\(\s*)?['"]?([^'")]+)['"]?\s*\)?/g,
+                /<(?:link|script)[^>]*(?:href|src)=['"]([^'"]+)['"]/g,
+                /^\s*import\s+([a-zA-Z0-9_\.]+)/gm,
+                /^\s*from\s+([a-zA-Z0-9_\.]+)\s+import/gm
             ];
 
             for (const regex of patterns) {
@@ -256,6 +257,45 @@
             console.error("Error extracting imports for:", filePath, e);
         }
         return [...new Set(imports)];
+    }
+
+    // Traverse directory and get all scannable files
+    function getAllProjectFiles(dir, fileList = []) {
+        try {
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+                if (file.startsWith('.') || file === 'node_modules' || file.startsWith('_project_rules')) {
+                    continue;
+                }
+                const fullPath = path.join(dir, file);
+                let stat;
+                try {
+                    stat = fs.statSync(fullPath);
+                } catch(e) { continue; }
+
+                if (stat.isDirectory()) {
+                    getAllProjectFiles(fullPath, fileList);
+                } else {
+                    const ext = path.extname(file).toLowerCase();
+                    const scannableExts = ['.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.py'];
+                    if (scannableExts.includes(ext) && stat.size <= 150 * 1024) {
+                        fileList.push(fullPath);
+                    }
+                }
+            }
+        } catch(e) {
+            console.error("Error getting all project files:", e);
+        }
+        return fileList;
+    }
+
+    // Scan all project dependencies once
+    function scanAllProjectDependencies() {
+        projectDependencies = {};
+        const allFiles = getAllProjectFiles(projectRoot);
+        for (const file of allFiles) {
+            projectDependencies[file] = extractImports(file);
+        }
     }
 
     // Build Graph for the targeted directory
@@ -368,48 +408,58 @@
                 }
             });
 
-            // 4. Scan file dependencies and create directed import links
-            nodes.forEach(sourceNode => {
-                if (sourceNode.isDir) return; // Only files have imports
-
-                const targets = extractImports(sourceNode.fullPath);
+            // 4. Resolve global dependencies into the current folder view
+            for (const sourcePath in projectDependencies) {
+                const targets = projectDependencies[sourcePath] || [];
+                
                 targets.forEach(targetPath => {
+                    let sourceNode = null;
                     let targetNode = null;
 
-                    // Scenario A: target is a child file node in the same directory
-                    if (childNodesMap[targetPath]) {
-                        targetNode = childNodesMap[targetPath];
-                    } 
-                    // Scenario B: target is inside a subfolder of the current directory
-                    else {
-                        const relToCurrent = path.relative(dir, targetPath);
+                    // Resolve source node in current view
+                    if (childNodesMap[sourcePath]) {
+                        sourceNode = childNodesMap[sourcePath];
+                    } else {
+                        const relToCurrent = path.relative(dir, sourcePath);
                         if (relToCurrent && !relToCurrent.startsWith('..') && !path.isAbsolute(relToCurrent)) {
-                            // Find which immediate subfolder this target path resides in
                             const firstSub = relToCurrent.split(/[\\/]/)[0];
                             const subfolderAbsPath = path.join(dir, firstSub);
-                            if (childNodesMap[subfolderAbsPath]) {
-                                targetNode = childNodesMap[subfolderAbsPath];
-                            }
+                            if (childNodesMap[subfolderAbsPath]) sourceNode = childNodesMap[subfolderAbsPath];
+                        } else if (parentNode) {
+                            sourceNode = parentNode;
                         }
-                        // Scenario C: target is outside current directory (parent folder linkage)
-                        else if (parentNode) {
+                    }
+
+                    // Resolve target node in current view
+                    if (childNodesMap[targetPath]) {
+                        targetNode = childNodesMap[targetPath];
+                    } else {
+                        const relToCurrent = path.relative(dir, targetPath);
+                        if (relToCurrent && !relToCurrent.startsWith('..') && !path.isAbsolute(relToCurrent)) {
+                            const firstSub = relToCurrent.split(/[\\/]/)[0];
+                            const subfolderAbsPath = path.join(dir, firstSub);
+                            if (childNodesMap[subfolderAbsPath]) targetNode = childNodesMap[subfolderAbsPath];
+                        } else if (parentNode) {
                             targetNode = parentNode;
                         }
                     }
 
-                    if (targetNode) {
-                        // Prevent duplicate dependency links
-                        const exists = links.some(l => l.source === sourceNode && l.target === targetNode && !l.isParentLink && !l.isFolderLink);
-                        if (!exists) {
-                            links.push({
-                                source: sourceNode,
-                                target: targetNode,
-                                isDependency: true
-                            });
+                    // Draw solid dependency link if both nodes resolved, are distinct, and at least one is a file node
+                    if (sourceNode && targetNode && sourceNode !== targetNode) {
+                        const isStructural = sourceNode.isDir && targetNode.isDir;
+                        if (!isStructural) {
+                            const exists = links.some(l => l.source === sourceNode && l.target === targetNode && !l.isParentLink && !l.isFolderLink);
+                            if (!exists) {
+                                links.push({
+                                    source: sourceNode,
+                                    target: targetNode,
+                                    isDependency: true
+                                });
+                            }
                         }
                     }
                 });
-            });
+            }
 
         } catch (err) {
             console.error("Failed to build dependency graph:", err);

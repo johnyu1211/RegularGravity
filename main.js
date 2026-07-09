@@ -250,17 +250,32 @@ function stopDockMover() {
     }
 }
 
-function bringDockedWindowToFront() {
-    if (!dockedHwnd) return;
-    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags); }'; [W]::SetWindowPos([IntPtr][int64]${dockedHwnd}, [IntPtr]0, 0, 0, 0, 0, 19)"`;
+function setWindowOwner(hwnd, ownerHwnd) {
+    if (!hwnd) return;
+    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongPtrW\\")] public static extern IntPtr SetWindowLongPtr64(IntPtr h, int idx, IntPtr val); [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongW\\")] public static extern IntPtr SetWindowLong32(IntPtr h, int idx, IntPtr val); }'; if ([IntPtr]::Size -eq 8) { [W]::SetWindowLongPtr64([IntPtr][int64]${hwnd}, -8, [IntPtr][int64]${ownerHwnd}) } else { [W]::SetWindowLong32([IntPtr][int64]${hwnd}, -8, [IntPtr][int64]${ownerHwnd}) }"`;
     spawn('cmd.exe', ['/c', cmd]);
 }
 
 ipcMain.on('register-docked-hwnd', (event, hwnd) => {
     if (dockedHwnd && !hwnd) {
+        // Restore owner of the previously docked window to independent (0)
+        setWindowOwner(dockedHwnd, 0);
         stopDockMover();
     }
     dockedHwnd = hwnd;
+});
+
+ipcMain.handle('get-our-hwnd', async () => {
+    if (!mainWindow) return '0';
+    const buf = mainWindow.getNativeWindowHandle();
+    return process.arch === 'x64' ? buf.readBigInt64LE().toString() : buf.readInt32LE().toString();
+});
+
+ipcMain.handle('get-display-bounds', async () => {
+    if (!mainWindow) return null;
+    const { screen } = require('electron');
+    const display = screen.getDisplayMatching(mainWindow.getBounds());
+    return display.bounds;
 });
 
 function setWindowState(hwnd, state) {
@@ -299,16 +314,7 @@ function createWindow() {
         if (dockedHwnd) setWindowState(dockedHwnd, 6); // SW_MINIMIZE = 6
     });
     mainWindow.on('restore', () => {
-        if (dockedHwnd) {
-            setWindowState(dockedHwnd, 9); // SW_RESTORE = 9
-            setTimeout(bringDockedWindowToFront, 100);
-        }
-    });
-    mainWindow.on('focus', () => {
-        bringDockedWindowToFront();
-    });
-    mainWindow.on('show', () => {
-        bringDockedWindowToFront();
+        if (dockedHwnd) setWindowState(dockedHwnd, 9); // SW_RESTORE = 9
     });
 
     let moveTimeout = null;

@@ -297,6 +297,7 @@
     // Main graph builder
     function buildGraph(dir) {
         currentGraphPath = norm(dir);
+        nodes = [];
         links = [];
         
         zoom = 1.0;

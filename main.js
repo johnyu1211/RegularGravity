@@ -231,7 +231,7 @@ let dockedHwnd = null;
 
 function setWindowOwner(hwnd, ownerHwnd) {
     if (!hwnd) return;
-    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongPtr\\")] public static extern IntPtr SetWindowLongPtr64(IntPtr h, int idx, IntPtr val); [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLong\\")] public static extern int SetWindowLong32(IntPtr h, int idx, int val); }'; if ([IntPtr]::Size -eq 8) { [W]::SetWindowLongPtr64([IntPtr]${hwnd}, -8, [IntPtr]${ownerHwnd}) } else { [W]::SetWindowLong32([IntPtr]${hwnd}, -8, [int]${ownerHwnd}) }"`;
+    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongPtrW\\")] public static extern IntPtr SetWindowLongPtr64(IntPtr h, int idx, IntPtr val); [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongW\\")] public static extern IntPtr SetWindowLong32(IntPtr h, int idx, IntPtr val); }'; if ([IntPtr]::Size -eq 8) { [W]::SetWindowLongPtr64([IntPtr][int64]${hwnd}, -8, [IntPtr][int64]${ownerHwnd}) } else { [W]::SetWindowLong32([IntPtr][int64]${hwnd}, -8, [IntPtr][int64]${ownerHwnd}) }"`;
     spawn('cmd.exe', ['/c', cmd]);
 }
 
@@ -251,13 +251,13 @@ ipcMain.handle('get-our-hwnd', async () => {
 
 function setWindowState(hwnd, state) {
     if (!hwnd) return;
-    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\")] public static extern bool ShowWindow(IntPtr h, int m); }'; [W]::ShowWindow([IntPtr]${hwnd}, ${state})"`;
+    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\")] public static extern bool ShowWindow(IntPtr h, int m); }'; [W]::ShowWindow([IntPtr][int64]${hwnd}, ${state})"`;
     spawn('cmd.exe', ['/c', cmd]);
 }
 
 function setWindowBounds(hwnd, x, y, w, h) {
     if (!hwnd) return;
-    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int h, bool r); }'; [W]::MoveWindow([IntPtr]${hwnd}, ${x}, ${y}, ${w}, ${h}, $true)"`;
+    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int h, bool r); }'; [W]::MoveWindow([IntPtr][int64]${hwnd}, ${x}, ${y}, ${w}, ${h}, $true)"`;
     spawn('cmd.exe', ['/c', cmd]);
 }
 

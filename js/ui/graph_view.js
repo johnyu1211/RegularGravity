@@ -60,12 +60,28 @@
         return path.resolve(p).replace(/\\/g, '/');
     }
 
-    // Open Modal
+    let originalSidebarWidth = '320px';
+    const sidebarLeft = document.getElementById('sidebar-left');
+    const fileTree = document.getElementById('file-tree');
+    const fileTreeActionBar = document.getElementById('file-tree-action-bar');
+
+    // Open Graph View
     openBtn.onclick = () => {
         if (!window.currentPath) {
             alert("Please select a project folder first!");
             return;
         }
+        
+        // Save original width before expanding
+        if (sidebarLeft.style.width && sidebarLeft.style.width !== '50vw') {
+            originalSidebarWidth = sidebarLeft.style.width;
+        }
+        
+        // Modify UI
+        sidebarLeft.style.width = '50vw';
+        if (fileTree) fileTree.style.display = 'none';
+        if (fileTreeActionBar) fileTreeActionBar.style.display = 'none';
+
         projectRoot = norm(window.currentPath);
         currentGraphPath = norm(window.currentPath);
         
@@ -84,15 +100,18 @@
         }, 280);
     };
 
-    // Close Modal
+    // Close Graph View
     const closeModal = () => {
         modal.style.display = 'none';
+        
+        // Restore UI
+        sidebarLeft.style.width = originalSidebarWidth;
+        if (fileTree) fileTree.style.display = 'block';
+        if (fileTreeActionBar) fileTreeActionBar.style.display = 'flex';
+        
         stopSimulation();
     };
     closeBtn.onclick = closeModal;
-    modal.onclick = (e) => {
-        if (e.target === modal) closeModal();
-    };
 
     function resizeCanvas() {
         const rect = container.getBoundingClientRect();

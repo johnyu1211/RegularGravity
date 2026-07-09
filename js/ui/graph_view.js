@@ -118,12 +118,23 @@
         canvas.width = rect.width;
         canvas.height = rect.height;
     }
-    window.addEventListener('resize', () => {
+
+    // Auto-resize canvas when its container bounds change (e.g. sidebar drag, window resize)
+    const resizeObserver = new ResizeObserver(() => {
         if (modal.style.display === 'flex') {
             resizeCanvas();
-            alpha = 1.0;
+            // wake up physics simulation to adjust layout
+            if (alpha < 0.2) {
+                alpha = 0.2;
+                if (!isSimulationRunning) startSimulation();
+            } else if (!isSimulationRunning) {
+                draw();
+            }
         }
     });
+    if (container) {
+        resizeObserver.observe(container);
+    }
 
     // Truncate name helper for inside circles
     function getDisplayName(name, isParent) {

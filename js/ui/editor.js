@@ -238,7 +238,7 @@ window.openFileInEditor = (filePath) => {
                         let syncId = `mini-block-${blockCounter++}`;
                         blockStack.push({ title: titleName, id: syncId, start: i });
 
-                        finalHTML += `<div class="pormsg-block"><details class="editor-detail" data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<span class="caret">▶</span><div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine}</div></summary><div class="pormsg-body" id="body-${syncId}">`;
+                        finalHTML += `<div class="pormsg-block"><details class="editor-detail" data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine}</div><span class="caret" style="color:var(--text-muted)">▶</span></summary><div class="pormsg-body" id="body-${syncId}">`;
                         minimapHTML += `<details id="${syncId}" class="mini-detail"><summary class="mini-summary">${mmLine}</summary><div class="mini-body">`;
                     } else if (net < 0 && blockStack.length > 0) {
                         let popped = blockStack.pop();
@@ -275,7 +275,7 @@ window.openFileInEditor = (filePath) => {
                         .box-paste-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; flex-shrink: 0; }
                         .pormsg-header:hover .box-paste-btn { opacity: 1; } .box-paste-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
                         
-                        .caret { display: inline-block; color: #0078d4; font-size: 10px; margin-right: 8px; transition: transform 0.2s ease; flex-shrink: 0; } details[open] > .pormsg-header .caret { transform: rotate(90deg); }
+                        .caret { display: inline-block; color: var(--text-muted); font-size: 10px; margin-left: 8px; transition: transform 0.2s ease; flex-shrink: 0; } details[open] > .pormsg-header .caret { transform: rotate(90deg); }
                         
                         .pormsg-body { padding: 0; border-top: 1px solid #222; overflow-x: auto; overflow-y: hidden; width: 100%; box-sizing: border-box; }
                         .pormsg-body::-webkit-scrollbar { height: 6px; } .pormsg-body::-webkit-scrollbar-track { background: transparent; }

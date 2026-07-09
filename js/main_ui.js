@@ -16,6 +16,8 @@ console.log = function(...args) {
     writeToLogFile('LOG', args);
 };
 console.error = function(...args) {
+    const msgStr = args.map(arg => typeof arg === 'object' ? (arg instanceof Error ? arg.message : JSON.stringify(arg)) : String(arg)).join(' ');
+    if (msgStr.includes('GUEST_VIEW_MANAGER_CALL') || msgStr.includes('Failed to inject guest interceptor')) return;
     originalConsoleError.apply(console, args);
     writeToLogFile('ERROR', args);
 };

@@ -81,6 +81,15 @@
     <div class="app-container" style="display: flex; height: calc(100vh - 30px); width: 100vw; background: #0c0c0e; overflow: hidden; font-size: 13.5px;">
         <!-- Explorer (Left) -->
         <aside class="sidebar" id="sidebar-left" style="width: 320px; height: 100%; border-right: none; display: flex; flex-direction: column;">
+            <!-- Select Project Folder Button placed above path -->
+            <div style="padding: 12px 12px 4px 12px; background: var(--surface-lowest); border-bottom: none; box-sizing: border-box; flex-shrink: 0;">
+                <button id="select-project-btn" style="width: 100%; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-muted); font-weight: 500; font-size: 11.5px; text-align: center; padding: 8px 12px; cursor: pointer; transition: all 0.15s ease; outline: none; box-sizing: border-box;"
+                        onmouseover="this.style.background='var(--surface-high)'; this.style.color='var(--text-main)'; this.style.borderColor='rgba(255, 255, 255, 0.15)';"
+                        onmouseout="this.style.background='var(--surface-color)'; this.style.color='var(--text-muted)'; this.style.borderColor='var(--border-color)';">
+                    Select Project Folder
+                </button>
+            </div>
+
             <!-- Path bar is merged directly as the header instead of "EXPLORER" text -->
             <div class="section-header" style="height: 38px; min-height: 38px; display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 0 12px 6px 12px; border-bottom: none; background: var(--surface-lowest);">
                 <div id="path-display-container" style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; position: relative; margin-top: 6px;" title="Click to copy path">
@@ -96,7 +105,7 @@
                 </span>
             </div>
             
-            <!-- Action bar panel (unified search & select project action) -->
+            <!-- Action bar panel (unified search) -->
             <div style="padding: 4px 12px 14px 12px; background: var(--surface-lowest); border-bottom: none; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <input type="text" id="file-search" placeholder="Search files..." class="search-input" style="flex: 1; background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 6px; color: #eee; font-size: 11.5px; padding: 6px 10px; outline: none; min-width: 0;">
@@ -110,11 +119,6 @@
                         </span>
                     </div>
                 </div>
-                <button id="select-project-btn" style="width: 100%; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-muted); font-weight: 500; font-size: 11.5px; text-align: center; padding: 8px 12px; margin-top: 4px; cursor: pointer; transition: all 0.15s ease; outline: none; box-sizing: border-box;"
-                        onmouseover="this.style.background='var(--surface-high)'; this.style.color='var(--text-main)'; this.style.borderColor='rgba(255, 255, 255, 0.15)';"
-                        onmouseout="this.style.background='var(--surface-color)'; this.style.color='var(--text-muted)'; this.style.borderColor='var(--border-color)';">
-                    Select Project Folder
-                </button>
             </div>
             
             <div id="file-tree" class="file-tree" style="flex: 1; overflow-y: auto;"></div>

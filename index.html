@@ -100,6 +100,15 @@
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                     </span>
                 </div>
+                <span id="graph-view-btn" class="header-btn" title="Project Graph View" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-dark); background: transparent; border: none; transition: all 0.2s; flex-shrink: 0;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;">
+                        <circle cx="18" cy="5" r="3"></circle>
+                        <circle cx="6" cy="12" r="3"></circle>
+                        <circle cx="18" cy="19" r="3"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                    </svg>
+                </span>
                 <span id="reveal-btn" class="header-btn" title="Reveal in Windows Explorer" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-dark); background: transparent; border: none; transition: all 0.2s; flex-shrink: 0;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 </span>
@@ -497,12 +506,36 @@
     <script src="js/commands/payload.js"></script>
     <script src="js/commands/batch.js"></script>
 
+    <!-- ====== GRAPH VIEW MODAL ====== -->
+    <div id="graph-view-modal" style="display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); align-items: center; justify-content: center; font-family: 'DM Sans', 'Outfit', sans-serif;">
+        <div style="background: #111113; border: 1px solid var(--border-color); border-radius: 16px; width: 90vw; height: 85vh; max-width: 1000px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0, 0, 0, 0.8); overflow: hidden; animation: scaleIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+            <!-- Header -->
+            <div style="padding: 18px 24px; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
+                <span style="font-size: 14px; font-weight: 800; color: #fff; letter-spacing: 0.5px;">PROJECT GRAPH VIEW</span>
+                <span id="close-graph-view" style="cursor: pointer; color: var(--text-muted); font-size: 24px; font-weight: bold; line-height: 1; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">&times;</span>
+            </div>
+            <!-- Canvas Container -->
+            <div id="graph-canvas-container" style="flex: 1; position: relative; background: #09090b; overflow: hidden;">
+                <canvas id="graph-canvas" style="display: block; width: 100%; height: 100%;"></canvas>
+                <!-- Tooltip -->
+                <div id="graph-tooltip" style="position: absolute; display: none; background: rgba(0,0,0,0.85); border: 1px solid var(--primary); padding: 6px 12px; border-radius: 6px; color: #fff; font-size: 11.5px; font-family: 'JetBrains Mono', monospace; pointer-events: none; z-index: 10010; box-shadow: 0 4px 12px rgba(0,0,0,0.5);"></div>
+                <!-- Control instructions -->
+                <div style="position: absolute; bottom: 12px; left: 16px; font-size: 10.5px; color: var(--text-muted); pointer-events: none; line-height: 1.5; font-family: 'DM Sans', sans-serif;">
+                    🖱️ Scroll to Zoom / Drag background to Pan<br>
+                    🔵 Click and Drag nodes to arrange<br>
+                    📄 Click file node to open in editor
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- UI Modules -->
     <script src="js/ui/dialogs.js"></script>
     <script src="js/ui/project.js"></script>
     <script src="js/ui/terminal.js"></script>
     <script src="js/ui/editor.js"></script>
     <script src="js/ui/chat.js"></script>
+    <script src="js/ui/graph_view.js"></script>
     <script src="js/main_ui.js"></script>
 </body>
 </html>

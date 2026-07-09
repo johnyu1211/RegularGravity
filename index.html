@@ -547,10 +547,7 @@
                 const overlay = document.getElementById('editor-fixture-overlay');
                 if (!overlay) return;
                 
-                Promise.all([
-                    ipc.invoke('get-content-bounds'),
-                    ipc.invoke('get-our-hwnd')
-                ]).then(([winBounds, ourHwnd]) => {
+                ipc.invoke('get-content-bounds').then(winBounds => {
                     const rect = overlay.getBoundingClientRect();
                     
                     // Windows 10/11 invisible border adjustments (approx 7px left/right/bottom)
@@ -572,8 +569,7 @@
                         y.toString(),
                         w.toString(),
                         h.toString(),
-                        ourPid.toString(),
-                        ourHwnd.toString()
+                        ourPid.toString()
                     ]);
                     
                     monitorProcess.stdout.on('data', (data) => {

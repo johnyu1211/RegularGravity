@@ -141,49 +141,20 @@
         return name.substring(0, maxLen - 3) + '...';
     }
 
-    // Build breadcrumbs path indicator in header
-    function updateBreadcrumbs(dir) {
-        if (!breadcrumbs) return;
-        breadcrumbs.innerHTML = '';
-        
-        const relative = path.relative(projectRoot, dir);
-        const parts = relative ? relative.split(path.sep) : [];
-        
-        const rootSpan = document.createElement('span');
-        rootSpan.textContent = path.basename(projectRoot) || projectRoot;
-        rootSpan.style.cursor = 'pointer';
-        rootSpan.style.color = 'var(--primary)';
-        rootSpan.style.fontWeight = 'bold';
-        rootSpan.onclick = () => {
-            currentGraphPath = projectRoot;
-            buildGraph(currentGraphPath);
-        };
-        breadcrumbs.appendChild(rootSpan);
-
-        let accumulated = projectRoot;
-        for (const part of parts) {
-            if (!part) continue;
-            accumulated = path.join(accumulated, part);
-            const currentPathVal = norm(accumulated);
-
-            const sep = document.createElement('span');
-            sep.textContent = ' > ';
-            sep.style.margin = '0 2px';
-            sep.style.color = '#555';
-            breadcrumbs.appendChild(sep);
-
-            const span = document.createElement('span');
-            span.textContent = part;
-            span.style.cursor = 'pointer';
-            span.style.transition = 'color 0.2s';
-            span.onmouseenter = () => span.style.color = '#fff';
-            span.onmouseleave = () => span.style.color = 'var(--text-muted)';
-            span.onclick = () => {
-                currentGraphPath = currentPathVal;
-                buildGraph(currentGraphPath);
-            };
-            breadcrumbs.appendChild(span);
-        }
+    // Bind search input
+    window.graphSearchQuery = '';
+    const searchInput = document.getElementById('graph-search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            window.graphSearchQuery = e.target.value.toLowerCase().trim();
+            // Trigger redraw manually by waking up alpha slightly
+            if (alpha < 0.1) {
+                alpha = 0.1;
+                if (!isSimulationRunning) startSimulation();
+            } else if (!isSimulationRunning) {
+                draw();
+            }
+        });
     }
 
     // Calculate node radius based on text width to fit text inside the circle
@@ -323,10 +294,9 @@
         }
     }
 
-    // Build Graph for the targeted directory
+    // Main graph builder
     function buildGraph(dir) {
-        dir = norm(dir);
-        nodes = [];
+        currentGraphPath = norm(dir);
         links = [];
         
         zoom = 1.0;
@@ -718,14 +688,20 @@
         // Draw Nodes
         for (const node of nodes) {
             const isHovered = node === hoveredNode;
+            const isMatch = window.graphSearchQuery && node.displayName.toLowerCase().includes(window.graphSearchQuery);
+            const fadeOut = window.graphSearchQuery && !isMatch;
+            
+            ctx.globalAlpha = fadeOut ? 0.25 : 1.0;
             
             // Outer glow ring
-            if (isHovered) {
+            if (isHovered || isMatch) {
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, node.radius + 6, 0, Math.PI * 2);
-                ctx.fillStyle = node.isParent 
-                    ? 'rgba(163, 230, 53, 0.2)' 
-                    : (node.isDir ? 'rgba(70, 140, 246, 0.25)' : 'rgba(255, 255, 255, 0.12)');
+                ctx.fillStyle = isMatch 
+                    ? 'rgba(250, 204, 21, 0.4)' 
+                    : (node.isParent 
+                        ? 'rgba(163, 230, 53, 0.2)' 
+                        : (node.isDir ? 'rgba(70, 140, 246, 0.25)' : 'rgba(255, 255, 255, 0.12)'));
                 ctx.fill();
             }
 
@@ -737,17 +713,17 @@
             let fillColor = '';
 
             if (node.isParent) {
-                fillColor = isHovered ? '#84cc16' : '#65a30d';
-                strokeColor = '#a3e635';
+                fillColor = (isHovered || isMatch) ? '#84cc16' : '#65a30d';
+                strokeColor = isMatch ? '#facc15' : '#a3e635';
             } else if (node.isCentral) {
-                fillColor = isHovered ? '#2563eb' : '#1e3a8a';
-                strokeColor = '#60a5fa';
+                fillColor = (isHovered || isMatch) ? '#2563eb' : '#1e3a8a';
+                strokeColor = isMatch ? '#facc15' : '#60a5fa';
             } else if (node.isDir) {
-                fillColor = isHovered ? '#60a5fa' : '#468CF6';
-                strokeColor = '#93c5fd';
+                fillColor = (isHovered || isMatch) ? '#60a5fa' : '#468CF6';
+                strokeColor = isMatch ? '#facc15' : '#93c5fd';
             } else {
-                fillColor = isHovered ? '#3f3f46' : '#27272a';
-                strokeColor = '#52525b';
+                fillColor = (isHovered || isMatch) ? '#3f3f46' : '#27272a';
+                strokeColor = isMatch ? '#facc15' : '#52525b';
             }
 
             ctx.fillStyle = fillColor;
@@ -760,25 +736,27 @@
 
             // Draw content inside the circle node
             if (node.isDir) {
-                const iconStroke = isHovered ? '#fff' : strokeColor;
+                const iconStroke = (isHovered || isMatch) ? '#fff' : strokeColor;
                 const iconFill = node.isParent 
                     ? 'rgba(163, 230, 53, 0.2)' 
                     : (node.isCentral ? 'rgba(96, 165, 250, 0.15)' : 'rgba(147, 197, 253, 0.12)');
                 
                 drawFolderIcon(ctx, node.x, node.y - 7, 16, 12, iconStroke, iconFill);
                 
-                ctx.fillStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.85)';
+                ctx.fillStyle = (isHovered || isMatch) ? '#fff' : 'rgba(255, 255, 255, 0.85)';
                 ctx.font = node.isCentral ? 'bold 10.5px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(node.displayName, node.x, node.y + 8);
             } else {
-                ctx.fillStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.85)';
+                ctx.fillStyle = (isHovered || isMatch) ? '#fff' : 'rgba(255, 255, 255, 0.85)';
                 ctx.font = '9px "Outfit", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(node.displayName, node.x, node.y);
             }
+            
+            ctx.globalAlpha = 1.0;
         }
 
         ctx.restore();

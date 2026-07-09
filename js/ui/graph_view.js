@@ -10,12 +10,12 @@
     let isSimulationRunning = false;
     let animationId = null;
 
-    // Drill down path tracking
+    // Drill down path tracking (Normalized with forward slashes)
     let currentGraphPath = '';
     let projectRoot = '';
 
     // Global dependency cache
-    let projectDependencies = {}; // { [sourceFile]: [targetFiles] }
+    let projectDependencies = {}; // { [norm(sourceFile)]: [norm(targetFiles)] }
 
     // Viewport transform
     let zoom = 1.0;
@@ -41,7 +41,7 @@
     const kRepulsion = 7500;
     const kAttraction = 0.055;
     const springLength = 120;
-    const kGravity = 0.01; // Centering gravity
+    const kGravity = 0.01; 
     const damping = 0.72;
 
     const modal = document.getElementById('graph-view-modal');
@@ -54,14 +54,20 @@
 
     if (!modal || !canvas || !openBtn) return;
 
+    // Path normalizer helper (Forces absolute paths with forward slashes)
+    function norm(p) {
+        if (!p) return '';
+        return path.resolve(p).replace(/\\/g, '/');
+    }
+
     // Open Modal
     openBtn.onclick = () => {
         if (!window.currentPath) {
             alert("Please select a project folder first!");
             return;
         }
-        projectRoot = window.currentPath;
-        currentGraphPath = window.currentPath;
+        projectRoot = norm(window.currentPath);
+        currentGraphPath = norm(window.currentPath);
         
         // Scan all dependencies once on load
         scanAllProjectDependencies();
@@ -139,7 +145,7 @@
         for (const part of parts) {
             if (!part) continue;
             accumulated = path.join(accumulated, part);
-            const currentPathVal = accumulated;
+            const currentPathVal = norm(accumulated);
 
             const sep = document.createElement('span');
             sep.textContent = ' > ';
@@ -180,28 +186,28 @@
         if (/^(https?:)?\/\//.test(cleanImport)) return null;
         
         let resolved = path.resolve(sourceDir, cleanImport);
-        if (fs.existsSync(resolved) && !fs.statSync(resolved).isDirectory()) return resolved;
+        if (fs.existsSync(resolved) && !fs.statSync(resolved).isDirectory()) return norm(resolved);
 
         if (projectRoot) {
             let resolvedRoot = path.resolve(projectRoot, cleanImport);
-            if (fs.existsSync(resolvedRoot) && !fs.statSync(resolvedRoot).isDirectory()) return resolvedRoot;
+            if (fs.existsSync(resolvedRoot) && !fs.statSync(resolvedRoot).isDirectory()) return norm(resolvedRoot);
         }
 
         const exts = ['.js', '.ts', '.jsx', '.tsx', '.json', '.html', '.css'];
         for (const ext of exts) {
             let resExt = resolved + ext;
-            if (fs.existsSync(resExt)) return resExt;
+            if (fs.existsSync(resExt)) return norm(resExt);
 
             if (projectRoot) {
                 let resRootExt = path.resolve(projectRoot, cleanImport) + ext;
-                if (fs.existsSync(resRootExt)) return resRootExt;
+                if (fs.existsSync(resRootExt)) return norm(resRootExt);
             }
         }
 
         if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
             for (const ext of exts) {
                 const indexFile = path.join(resolved, 'index' + ext);
-                if (fs.existsSync(indexFile)) return indexFile;
+                if (fs.existsSync(indexFile)) return norm(indexFile);
             }
         }
         if (projectRoot) {
@@ -209,7 +215,7 @@
             if (fs.existsSync(resolvedRoot) && fs.statSync(resolvedRoot).isDirectory()) {
                 for (const ext of exts) {
                     const indexFile = path.join(resolvedRoot, 'index' + ext);
-                    if (fs.existsSync(indexFile)) return indexFile;
+                    if (fs.existsSync(indexFile)) return norm(indexFile);
                 }
             }
         }
@@ -248,7 +254,7 @@
                     if (importStr) {
                         const resolved = resolveImportPath(filePath, importStr);
                         if (resolved && resolved !== filePath) {
-                            imports.push(resolved);
+                            imports.push(norm(resolved));
                         }
                     }
                 }
@@ -279,7 +285,7 @@
                     const ext = path.extname(file).toLowerCase();
                     const scannableExts = ['.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.py'];
                     if (scannableExts.includes(ext) && stat.size <= 150 * 1024) {
-                        fileList.push(fullPath);
+                        fileList.push(norm(fullPath));
                     }
                 }
             }
@@ -294,12 +300,13 @@
         projectDependencies = {};
         const allFiles = getAllProjectFiles(projectRoot);
         for (const file of allFiles) {
-            projectDependencies[file] = extractImports(file);
+            projectDependencies[norm(file)] = extractImports(file).map(norm);
         }
     }
 
     // Build Graph for the targeted directory
     function buildGraph(dir) {
+        dir = norm(dir);
         nodes = [];
         links = [];
         
@@ -333,7 +340,7 @@
         const isRoot = (dir === projectRoot);
         let parentNode = null;
         if (!isRoot) {
-            const parentDir = path.dirname(dir);
+            const parentDir = norm(path.dirname(dir));
             const parentDispName = getDisplayName(parentDir, true);
             parentNode = {
                 id: 'PARENT_NODE',
@@ -367,7 +374,7 @@
                 if (item.startsWith('.') || item === 'node_modules' || item.startsWith('_project_rules')) {
                     continue;
                 }
-                const fullPath = path.join(dir, item);
+                const fullPath = norm(path.join(dir, item));
                 let isDir = false;
                 try {
                     isDir = fs.statSync(fullPath).isDirectory();
@@ -423,7 +430,7 @@
                         const relToCurrent = path.relative(dir, sourcePath);
                         if (relToCurrent && !relToCurrent.startsWith('..') && !path.isAbsolute(relToCurrent)) {
                             const firstSub = relToCurrent.split(/[\\/]/)[0];
-                            const subfolderAbsPath = path.join(dir, firstSub);
+                            const subfolderAbsPath = norm(path.join(dir, firstSub));
                             if (childNodesMap[subfolderAbsPath]) sourceNode = childNodesMap[subfolderAbsPath];
                         } else if (parentNode) {
                             sourceNode = parentNode;
@@ -437,7 +444,7 @@
                         const relToCurrent = path.relative(dir, targetPath);
                         if (relToCurrent && !relToCurrent.startsWith('..') && !path.isAbsolute(relToCurrent)) {
                             const firstSub = relToCurrent.split(/[\\/]/)[0];
-                            const subfolderAbsPath = path.join(dir, firstSub);
+                            const subfolderAbsPath = norm(path.join(dir, firstSub));
                             if (childNodesMap[subfolderAbsPath]) targetNode = childNodesMap[subfolderAbsPath];
                         } else if (parentNode) {
                             targetNode = parentNode;
@@ -572,7 +579,6 @@
                 const dx = centralNode.x - node.x;
                 const dy = centralNode.y - node.y;
                 const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-                // Very weak spring force
                 const force = (dist - 140) * 0.006 * alpha;
                 node.vx += (dx / dist) * force;
                 node.vy += (dy / dist) * force;

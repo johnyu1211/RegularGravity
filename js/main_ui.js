@@ -1486,6 +1486,10 @@ async function setupBoot() {
         wv.style = "width:100%; height:100%; border:none;"; wv.setAttribute('allowpopups', '');
         wv.addEventListener('contextmenu', () => wv.openDevTools());
         wv.addEventListener('dom-ready', () => {
+            const currentUrl = wv.getURL();
+            if (!currentUrl || currentUrl === 'about:blank' || !currentUrl.startsWith('http')) {
+                return;
+            }
             wv.executeJavaScript(`
                 window.addEventListener('keydown', (e) => {
                     const key = e.key.toLowerCase();

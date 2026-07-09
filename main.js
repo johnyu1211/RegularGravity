@@ -229,8 +229,24 @@ ipcMain.handle('vault-snapshot', async (event, message) => {
 let mainWindow;
 let dockedHwnd = null;
 
+function setWindowOwner(hwnd, ownerHwnd) {
+    if (!hwnd) return;
+    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongPtr\\")] public static extern IntPtr SetWindowLongPtr64(IntPtr h, int idx, IntPtr val); [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLong\\")] public static extern int SetWindowLong32(IntPtr h, int idx, int val); }'; if ([IntPtr]::Size -eq 8) { [W]::SetWindowLongPtr64([IntPtr]${hwnd}, -8, [IntPtr]${ownerHwnd}) } else { [W]::SetWindowLong32([IntPtr]${hwnd}, -8, [int]${ownerHwnd}) }"`;
+    spawn('cmd.exe', ['/c', cmd]);
+}
+
 ipcMain.on('register-docked-hwnd', (event, hwnd) => {
+    if (dockedHwnd && !hwnd) {
+        // Restore owner of the previously docked window to independent (0)
+        setWindowOwner(dockedHwnd, 0);
+    }
     dockedHwnd = hwnd;
+});
+
+ipcMain.handle('get-our-hwnd', async () => {
+    if (!mainWindow) return '0';
+    const buf = mainWindow.getNativeWindowHandle();
+    return process.arch === 'x64' ? buf.readBigInt64LE().toString() : buf.readInt32LE().toString();
 });
 
 function setWindowState(hwnd, state) {

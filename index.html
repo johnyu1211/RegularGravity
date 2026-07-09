@@ -675,8 +675,8 @@
                         const targetY = Math.round(winBounds.y + rect.top);
                         const targetW = Math.round(rect.width) - 14;
                         
-                        // Add 40px taskbar offset to height to cover the taskbar perfectly
-                        const targetH = Math.round(rect.height) - 7 + 40;
+                        // Fit height exactly to the client viewport overlay area
+                        const targetH = Math.round(rect.height) - 7;
                         
                         if (targetX !== lastTargetX || targetY !== lastTargetY || targetW !== lastTargetW || targetH !== lastTargetH) {
                             lastTargetX = targetX;
@@ -712,18 +712,11 @@
                     const x = Math.round(winBounds.x + rect.left) + 7;
                     const y = Math.round(winBounds.y + rect.top);
                     const w = Math.round(rect.width) - 14;
-                    const h = Math.round(rect.height) - 7 + 40;
+                    const h = Math.round(rect.height) - 7;
                     
                     ipc.send('move-docked-window', { x, y, w, h });
                 });
             }
-
-            // Sync docked window position on parent window move/resize
-            ipc.on('parent-window-moved-or-resized', () => {
-                if (isFixtureActive && window.dockedHwnd) {
-                    repositionDockedWindow();
-                }
-            });
 
             window.addEventListener('resize', () => {
                 if (isFixtureActive) {
@@ -731,7 +724,6 @@
                     window._dockMonitorResizeTimeout = setTimeout(() => {
                         if (isFixtureActive) {
                             startDockMonitor();
-                            repositionDockedWindow();
                         }
                     }, 200);
                 }

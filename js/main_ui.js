@@ -3891,14 +3891,13 @@ function setupUI() {
                 ? `${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim()
                 : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${tree}\n\n${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim();
             
-            if (isEmpty) {
-                // Empty folder: inject text directly without file attachment
+            if (!window.dragDropMode) {
+                // DragDrop Mode is OFF: inject text directly without file attachment
                 window.requestedFilesQueue = [];
                 window.activeDragDropCleanup = null;
                 window.activeDragDropContinue = async () => {};
 
                 chatOverlay.style.display = 'none';
-                projBtn.style.display = 'flex';
                 if (chatIn) chatIn.focus();
 
                 window.sessionBriefed = true;

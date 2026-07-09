@@ -310,6 +310,12 @@ function createWindow() {
     mainWindow.on('restore', () => {
         if (dockedHwnd) setWindowState(dockedHwnd, 9); // SW_RESTORE = 9
     });
+    mainWindow.on('close', () => {
+        if (dockedHwnd) {
+            setWindowOwner(dockedHwnd, 0);
+        }
+        stopDockMover();
+    });
 
     let moveTimeout = null;
     const syncDockedPosition = () => {

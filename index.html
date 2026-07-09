@@ -91,8 +91,8 @@
             </div>
 
             <!-- Path bar is merged directly as the header instead of "EXPLORER" text -->
-            <div class="section-header" style="height: 38px; min-height: 38px; display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 0 12px 6px 12px; border-bottom: none; background: var(--surface-lowest);">
-                <div id="path-display-container" style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; position: relative; margin-top: 6px;" title="Click to copy path">
+            <div class="section-header" style="height: 44px; min-height: 44px; display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 0 12px; border-bottom: none; background: var(--surface-lowest);">
+                <div id="path-display-container" style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; position: relative;" title="Click to copy path">
                     <div id="path-display" style="font-size: 11px; font-family: 'DM Sans', 'Outfit', sans-serif; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; line-height: 1.2;">
                         <span class="path-segment">/root</span>
                     </div>
@@ -100,7 +100,7 @@
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                     </span>
                 </div>
-                <span id="reveal-btn" class="header-btn" title="Reveal in Windows Explorer" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-dark); background: transparent; border: none; transition: all 0.2s; margin-top: 6px; flex-shrink: 0;">
+                <span id="reveal-btn" class="header-btn" title="Reveal in Windows Explorer" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-dark); background: transparent; border: none; transition: all 0.2s; flex-shrink: 0;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 </span>
             </div>
@@ -129,7 +129,7 @@
         <div class="resizer-v" id="resizer-left"></div>
 
         <main class="main-view" id="editor-container" style="flex: 1; position: relative; display: flex; flex-direction: column; overflow: hidden;">
-            <div class="section-header" id="editor-header" style="border-bottom: none; height: 38px; min-height: 38px; display: flex; align-items: center; padding: 0 15px;">
+            <div class="section-header" id="editor-header" style="border-bottom: none; height: 44px; min-height: 44px; display: flex; align-items: center; padding: 0 15px;">
                 <h3 id="editor-header-title" style="margin:0; flex-shrink:0;">TEXT VIEWER</h3>
                 <div style="margin-left: auto; display: flex; gap: 8px; align-items:center;">
                     <div id="editor-search-box" style="display:flex; align-items:center; background:var(--surface-low); border:1px solid var(--border-color); border-radius:6px; padding:4px 10px; transition: 0.2s; gap: 8px;">
@@ -178,7 +178,7 @@
 
             <!-- Floating Terminal Popover Window -->
             <div id="terminal-popover" style="position: absolute; right: 15px; bottom: 50px; width: 500px; height: 350px; display: none; flex-direction: column; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.75); z-index: 1000; overflow: hidden; transition: opacity 0.2s, transform 0.2s;">
-                <div class="terminal-view-header" style="height:38px; min-height:38px; border-bottom: none; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #000;">
+                <div class="terminal-view-header" style="height:44px; min-height:44px; border-bottom: none; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #000;">
                     <div id="terminal-sub-tabs" style="flex:1; height:100%; display:flex; overflow:hidden; padding:0 2px; gap: 4px;">
                          <!-- Dynamic Sub-tabs now live here -->
                     </div>
@@ -228,7 +228,7 @@
             </div>
             <!-- LOCAL Chat View (For logs & execution proposals) -->
             <div id="inspector-local-chat" class="agent-hub-view" style="display: flex; position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 44px); z-index: 100; flex-direction: column; background: var(--bg-color); overflow: hidden; transition: opacity 0.2s ease;">
-                <div id="active-project-header" style="height: 38px; min-height: 38px; padding: 0 12px; background: var(--surface-lowest); box-sizing: border-box; display: flex; align-items: center; justify-content: space-between;">
+                <div id="active-project-header" style="height: 44px; min-height: 44px; padding: 0 12px; background: var(--surface-lowest); box-sizing: border-box; display: flex; align-items: center; justify-content: space-between;">
                     <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif;">CHAT COVER</span>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <button id="btn-local-search" style="background:none; border:none; color:var(--text-dark); cursor:pointer; display:flex; align-items:center; transition:color 0.2s; padding: 0;" title="Search History">
@@ -266,7 +266,7 @@
                 </div>
 
                 <!-- Glassmorphism overlay covering the entire local chat area on boot -->
-                <div id="local-chat-overlay" style="position: absolute; top: 38px; left: 0; right: 0; bottom: 0; background: rgba(12, 12, 14, 0.65); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; transition: opacity 0.25s ease;">
+                <div id="local-chat-overlay" style="position: absolute; top: 44px; left: 0; right: 0; bottom: 0; background: rgba(12, 12, 14, 0.65); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; transition: opacity 0.25s ease;">
                 </div>
 
                 <div id="local-input-container" style="padding: 12px; border-top: 1px solid var(--border-color); background:var(--surface-lowest); position: relative; z-index: 40; box-sizing: border-box; max-width: 100%; width: 100%;">
@@ -314,7 +314,7 @@
                 </div>
                 
                 <div id="agent-hub-webview" style="display: none; height: 100%; flex-direction: column;">
-                    <div id="agent-hub-nav" style="display: flex; height: 38px; min-height: 38px; background: var(--surface-lowest); align-items: center; padding: 0 10px; gap: 10px; box-sizing: border-box;">
+                    <div id="agent-hub-nav" style="display: flex; height: 44px; min-height: 44px; background: var(--surface-lowest); align-items: center; padding: 0 10px; gap: 10px; box-sizing: border-box;">
                         <span id="back-to-hub" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Back to Grid">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                         </span>

@@ -638,7 +638,7 @@ body {
 
 /* Sections */
 .section-header {
-    height: 35px;
+    height: 44px;
     padding: 0 15px;
 
     display: flex;
@@ -677,8 +677,8 @@ body {
 /* Resizers - RAGistry Glow benchmark */
 .resizer-v {
     width: 6px;
-    margin: 38px -3px 0 -3px;
-    height: calc(100% - 38px);
+    margin: 44px -3px 0 -3px;
+    height: calc(100% - 44px);
     background: transparent;
     cursor: col-resize;
     position: relative;

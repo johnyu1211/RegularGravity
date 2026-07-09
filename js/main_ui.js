@@ -2836,7 +2836,7 @@ function setupUI() {
         }
 
         popover.innerHTML = `
-            <div class="git-view-header" style="height:38px; min-height:38px; border-bottom: 1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #000; user-select: none;">
+            <div class="git-view-header" style="height:44px; min-height:44px; border-bottom: 1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #000; user-select: none;">
                 <div style="display:flex; align-items:center; gap:12px; flex: 1; overflow: hidden; margin-right: 12px;">
                     <!-- WebView Navigation Controls -->
                     <div style="display:flex; align-items:center; gap:10px; flex-shrink: 0; margin-right: 4px;">

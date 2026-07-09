@@ -512,8 +512,11 @@
         <div style="background: #111113; border: 1px solid var(--border-color); border-radius: 16px; width: 90vw; height: 85vh; max-width: 1000px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0, 0, 0, 0.8); overflow: hidden; animation: scaleIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
             <!-- Header -->
             <div style="padding: 18px 24px; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
-                <span style="font-size: 14px; font-weight: 800; color: #fff; letter-spacing: 0.5px;">PROJECT GRAPH VIEW</span>
-                <span id="close-graph-view" style="cursor: pointer; color: var(--text-muted); font-size: 24px; font-weight: bold; line-height: 1; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">&times;</span>
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; margin-right: 16px;">
+                    <span style="font-size: 14px; font-weight: 800; color: #fff; letter-spacing: 0.5px; flex-shrink: 0;">PROJECT GRAPH VIEW</span>
+                    <div id="graph-breadcrumbs" style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); font-family: 'DM Sans', sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: none;"></div>
+                </div>
+                <span id="close-graph-view" style="cursor: pointer; color: var(--text-muted); font-size: 24px; font-weight: bold; line-height: 1; transition: color 0.2s; flex-shrink: 0;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">&times;</span>
             </div>
             <!-- Canvas Container -->
             <div id="graph-canvas-container" style="flex: 1; position: relative; background: #09090b; overflow: hidden;">

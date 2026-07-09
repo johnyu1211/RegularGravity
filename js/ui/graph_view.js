@@ -1,5 +1,5 @@
-// Force-Directed Graph View for Poor man's Gravity IDE
-// Fully interactive vanilla canvas physics visualization
+// Drill-Down interactive Force-Directed Graph View for Poor man's Gravity IDE
+// Pure vanilla JS HTML5 canvas physics layout
 
 (function() {
     const fs = require('fs');
@@ -9,6 +9,10 @@
     let links = [];
     let isSimulationRunning = false;
     let animationId = null;
+
+    // Drill down path tracking
+    let currentGraphPath = '';
+    let projectRoot = '';
 
     // Viewport transform
     let zoom = 1.0;
@@ -25,10 +29,10 @@
     let lastMouseY = 0;
 
     // Physics parameters
-    const kRepulsion = 1600;
-    const kAttraction = 0.04;
-    const springLength = 65;
-    const kGravity = 0.015;
+    const kRepulsion = 1500;
+    const kAttraction = 0.05;
+    const springLength = 70;
+    const kGravity = 0.02;
     const damping = 0.85;
 
     const modal = document.getElementById('graph-view-modal');
@@ -37,6 +41,7 @@
     const tooltip = document.getElementById('graph-tooltip');
     const closeBtn = document.getElementById('close-graph-view');
     const openBtn = document.getElementById('graph-view-btn');
+    const breadcrumbs = document.getElementById('graph-breadcrumbs');
 
     if (!modal || !canvas || !openBtn) return;
 
@@ -46,9 +51,12 @@
             alert("Please select a project folder first!");
             return;
         }
+        projectRoot = window.currentPath;
+        currentGraphPath = window.currentPath;
+        
         modal.style.display = 'flex';
         resizeCanvas();
-        buildGraph();
+        buildGraph(currentGraphPath);
         startSimulation();
     };
 
@@ -73,103 +81,155 @@
         }
     });
 
-    // Build Graph from Project files
-    function buildGraph() {
+    // Build breadcrumbs path indicator in header
+    function updateBreadcrumbs(dir) {
+        if (!breadcrumbs) return;
+        breadcrumbs.innerHTML = '';
+        
+        const relative = path.relative(projectRoot, dir);
+        const parts = relative ? relative.split(path.sep) : [];
+        
+        // Add project root segment
+        const rootSpan = document.createElement('span');
+        rootSpan.textContent = path.basename(projectRoot) || projectRoot;
+        rootSpan.style.cursor = 'pointer';
+        rootSpan.style.color = 'var(--primary)';
+        rootSpan.style.fontWeight = 'bold';
+        rootSpan.onclick = () => {
+            currentGraphPath = projectRoot;
+            buildGraph(currentGraphPath);
+        };
+        breadcrumbs.appendChild(rootSpan);
+
+        let accumulated = projectRoot;
+        for (const part of parts) {
+            if (!part) continue;
+            accumulated = path.join(accumulated, part);
+            const currentPathVal = accumulated; // closure capture
+
+            // Separator
+            const sep = document.createElement('span');
+            sep.textContent = ' > ';
+            sep.style.margin = '0 2px';
+            sep.style.color = '#555';
+            breadcrumbs.appendChild(sep);
+
+            // Path segment
+            const span = document.createElement('span');
+            span.textContent = part;
+            span.style.cursor = 'pointer';
+            span.style.transition = 'color 0.2s';
+            span.onmouseenter = () => span.style.color = '#fff';
+            span.onmouseleave = () => span.style.color = 'var(--text-muted)';
+            span.onclick = () => {
+                currentGraphPath = currentPathVal;
+                buildGraph(currentGraphPath);
+            };
+            breadcrumbs.appendChild(span);
+        }
+    }
+
+    // Build Graph for the targeted directory
+    function buildGraph(dir) {
         nodes = [];
         links = [];
+        
+        // Keep zoom/pan centered
         zoom = 1.0;
         panX = 0;
         panY = 0;
 
-        const projectRoot = window.currentPath;
-        const fileList = [];
-        
-        // Helper to recursively collect files (capped to avoid performance issues on massive projects)
-        const cap = 200;
-        let count = 0;
+        updateBreadcrumbs(dir);
 
-        function traverse(dir) {
-            if (count > cap) return;
-            try {
-                const files = fs.readdirSync(dir);
-                for (const file of files) {
-                    if (count > cap) break;
-                    if (file.startsWith('.') || file === 'node_modules' || file.startsWith('_project_rules')) {
-                        continue;
-                    }
-                    const fullPath = path.join(dir, file);
-                    let isDir = false;
-                    try {
-                        isDir = fs.statSync(fullPath).isDirectory();
-                    } catch(e) { continue; }
-
-                    fileList.push({
-                        name: file,
-                        fullPath: fullPath,
-                        parentPath: dir,
-                        isDir: isDir
-                    });
-                    count++;
-
-                    if (isDir) {
-                        traverse(fullPath);
-                    }
-                }
-            } catch(e) {
-                console.error("Graph build traversal error:", e);
-            }
-        }
-
-        // Add root node
-        const rootName = path.basename(projectRoot) || projectRoot;
-        const rootNode = {
-            id: projectRoot,
-            name: rootName,
-            fullPath: projectRoot,
+        // 1. Create central node for the current folder
+        const folderName = path.basename(dir) || dir;
+        const centralNode = {
+            id: dir,
+            name: folderName,
+            fullPath: dir,
             isDir: true,
-            isRoot: true,
+            isCentral: true,
+            isParent: false,
             x: canvas.width / 2,
             y: canvas.height / 2,
             vx: 0,
             vy: 0,
-            radius: 20
+            radius: 22
         };
-        nodes.push(rootNode);
+        nodes.push(centralNode);
 
-        traverse(projectRoot);
-
-        // Map path string to node object for link creation
-        const nodeMap = {};
-        nodeMap[projectRoot] = rootNode;
-
-        // Create remaining nodes
-        for (const file of fileList) {
-            const node = {
-                id: file.fullPath,
-                name: file.name,
-                fullPath: file.fullPath,
-                isDir: file.isDir,
-                isRoot: false,
-                x: canvas.width / 2 + (Math.random() - 0.5) * 150,
-                y: canvas.height / 2 + (Math.random() - 0.5) * 150,
+        // 2. Add special parent node (../) if we are not at the root
+        const isRoot = (dir === projectRoot);
+        let parentNode = null;
+        if (!isRoot) {
+            const parentDir = path.dirname(dir);
+            parentNode = {
+                id: 'PARENT_NODE',
+                name: '.. (Up)',
+                fullPath: parentDir,
+                isDir: true,
+                isCentral: false,
+                isParent: true,
+                x: canvas.width / 2,
+                y: canvas.height / 2 - 120, // positioned slightly above center initially
                 vx: 0,
                 vy: 0,
-                radius: file.isDir ? 14 : 9
+                radius: 16
             };
-            nodes.push(node);
-            nodeMap[file.fullPath] = node;
+            nodes.push(parentNode);
+            links.push({
+                source: centralNode,
+                target: parentNode,
+                isParentLink: true
+            });
         }
 
-        // Create links
-        for (const file of fileList) {
-            const childNode = nodeMap[file.fullPath];
-            const parentNode = nodeMap[file.parentPath];
-            if (childNode && parentNode) {
-                links.push({
-                    source: parentNode,
-                    target: childNode
-                });
+        // 3. Read current folder contents
+        try {
+            const items = fs.readdirSync(dir);
+            const children = [];
+
+            for (const item of items) {
+                if (item.startsWith('.') || item === 'node_modules' || item.startsWith('_project_rules')) {
+                    continue;
+                }
+                const fullPath = path.join(dir, item);
+                let isDir = false;
+                try {
+                    isDir = fs.statSync(fullPath).isDirectory();
+                } catch(e) { continue; }
+
+                children.push({ name: item, fullPath: fullPath, isDir: isDir });
             }
+
+            // Distribute children in a circle around the center
+            const angleStep = (Math.PI * 2) / (children.length || 1);
+            children.forEach((child, index) => {
+                const angle = index * angleStep;
+                const distance = 80 + Math.random() * 40;
+                const childNode = {
+                    id: child.fullPath,
+                    name: child.name,
+                    fullPath: child.fullPath,
+                    isDir: child.isDir,
+                    isCentral: false,
+                    isParent: false,
+                    x: canvas.width / 2 + Math.cos(angle) * distance,
+                    y: canvas.height / 2 + Math.sin(angle) * distance,
+                    vx: 0,
+                    vy: 0,
+                    radius: child.isDir ? 14 : 9
+                };
+                nodes.push(childNode);
+                links.push({
+                    source: centralNode,
+                    target: childNode,
+                    isParentLink: false
+                });
+            });
+
+        } catch (err) {
+            console.error("Failed to build drill-down graph:", err);
         }
     }
 
@@ -208,7 +268,6 @@
                 const distSq = dx * dx + dy * dy + 0.01;
                 const dist = Math.sqrt(distSq);
                 
-                // Active radius-dependent repulsion
                 const minDistance = u.radius + v.radius + 35;
                 if (dist < minDistance * 3) {
                     const force = kRepulsion / distSq;
@@ -234,7 +293,10 @@
             const dx = v.x - u.x;
             const dy = v.y - u.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-            const force = (dist - springLength) * kAttraction;
+            
+            // Parent links are slightly longer/stronger to differentiate
+            const currentSpringLength = link.isParentLink ? springLength * 1.5 : springLength;
+            const force = (dist - currentSpringLength) * kAttraction;
             const fx = (dx / dist) * force;
             const fy = (dy / dist) * force;
 
@@ -283,12 +345,19 @@
         ctx.lineWidth = 1.2;
         for (const link of links) {
             const isHighlighted = hoveredNode && (link.source === hoveredNode || link.target === hoveredNode);
-            ctx.strokeStyle = isHighlighted ? 'rgba(70, 140, 246, 0.65)' : 'rgba(255, 255, 255, 0.06)';
+            if (link.isParentLink) {
+                ctx.strokeStyle = isHighlighted ? 'rgba(163, 230, 53, 0.65)' : 'rgba(255, 255, 255, 0.03)';
+                ctx.setLineDash([4, 4]); // parent link is dashed
+            } else {
+                ctx.strokeStyle = isHighlighted ? 'rgba(70, 140, 246, 0.65)' : 'rgba(255, 255, 255, 0.06)';
+                ctx.setLineDash([]);
+            }
             ctx.beginPath();
             ctx.moveTo(link.source.x, link.source.y);
             ctx.lineTo(link.target.x, link.target.y);
             ctx.stroke();
         }
+        ctx.setLineDash([]); // Restore line dash
 
         // Draw Nodes
         for (const node of nodes) {
@@ -298,7 +367,9 @@
             if (isHovered) {
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, node.radius + 5, 0, Math.PI * 2);
-                ctx.fillStyle = node.isDir ? 'rgba(70, 140, 246, 0.25)' : 'rgba(255, 255, 255, 0.15)';
+                ctx.fillStyle = node.isParent 
+                    ? 'rgba(163, 230, 53, 0.2)' 
+                    : (node.isDir ? 'rgba(70, 140, 246, 0.25)' : 'rgba(255, 255, 255, 0.15)');
                 ctx.fill();
             }
 
@@ -306,10 +377,12 @@
             ctx.beginPath();
             ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
             
-            if (node.isRoot) {
-                ctx.fillStyle = '#65a30d'; // Root node: distinct green
+            if (node.isParent) {
+                ctx.fillStyle = '#65a30d'; // Parent folder: green
+            } else if (node.isCentral) {
+                ctx.fillStyle = '#1e3a8a'; // Current central folder: dark blue
             } else if (node.isDir) {
-                ctx.fillStyle = '#468CF6'; // Dir: cool primary blue
+                ctx.fillStyle = '#468CF6'; // Sub folder: cool primary blue
             } else {
                 ctx.fillStyle = '#3f3f46'; // File: charcoal gray
             }
@@ -317,16 +390,22 @@
 
             // Node border/stroke
             ctx.lineWidth = 1.5;
-            ctx.strokeStyle = node.isRoot ? '#a3e635' : (node.isDir ? '#93c5fd' : '#71717a');
+            ctx.strokeStyle = node.isParent 
+                ? '#a3e635' 
+                : (node.isCentral ? '#60a5fa' : (node.isDir ? '#93c5fd' : '#71717a'));
             ctx.stroke();
 
-            // Draw text labels for directory/root nodes directly, files only when hovered or zoomed close
-            if (node.isDir || node.isRoot || isHovered || zoom > 1.3) {
-                ctx.fillStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.85)';
-                ctx.font = node.isRoot ? 'bold 12px "Outfit", sans-serif' : '10px "Outfit", sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(node.name, node.x, node.y + node.radius + 15);
-            }
+            // Label positioning
+            ctx.fillStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.85)';
+            ctx.font = node.isCentral ? 'bold 11.5px "Outfit", sans-serif' : '10px "Outfit", sans-serif';
+            ctx.textAlign = 'center';
+            
+            let label = node.name;
+            if (node.isCentral) label = `📂 ${node.name}`;
+            else if (node.isDir && !node.isParent) label = `📁 ${node.name}`;
+            else if (node.isParent) label = `↩️ ${node.name}`;
+            
+            ctx.fillText(label, node.x, node.y + node.radius + 15);
         }
 
         ctx.restore();
@@ -335,7 +414,6 @@
     function drawGrid(ctx) {
         const gridSpacing = 40;
         
-        // Calculate viewport bounds to cover only visible area
         const left = (-panX - canvas.width / 2) / zoom + canvas.width / 2;
         const right = (-panX + canvas.width / 2) / zoom + canvas.width / 2;
         const top = (-panY - canvas.height / 2) / zoom + canvas.height / 2;
@@ -365,7 +443,6 @@
         const mouseX = clientX - rect.left;
         const mouseY = clientY - rect.top;
 
-        // Apply inverse scaling & translation
         const worldX = (mouseX - canvas.width / 2 - panX) / zoom + canvas.width / 2;
         const worldY = (mouseY - canvas.height / 2 - panY) / zoom + canvas.height / 2;
 
@@ -376,7 +453,6 @@
     canvas.onmousedown = (e) => {
         const mouse = screenToWorld(e.clientX, e.clientY);
         
-        // Find clicked node
         let clickedNode = null;
         for (let i = nodes.length - 1; i >= 0; i--) {
             const node = nodes[i];
@@ -389,13 +465,11 @@
         }
 
         if (clickedNode) {
-            // Drag node
             draggedNode = clickedNode;
             draggedNode.isDragging = true;
             draggedNode.vx = 0;
             draggedNode.vy = 0;
         } else {
-            // Pan viewport
             isPanning = true;
             startDragX = e.clientX - panX;
             startDragY = e.clientY - panY;
@@ -414,7 +488,6 @@
             panX = e.clientX - startDragX;
             panY = e.clientY - startDragY;
         } else {
-            // Find hovered node
             let currentHovered = null;
             for (let i = nodes.length - 1; i >= 0; i--) {
                 const node = nodes[i];
@@ -429,16 +502,16 @@
             if (currentHovered !== hoveredNode) {
                 hoveredNode = currentHovered;
                 if (hoveredNode) {
-                    // Show Tooltip
                     tooltip.style.display = 'block';
-                    tooltip.textContent = hoveredNode.isDir ? `📁 ${hoveredNode.name}` : `📄 ${hoveredNode.name}`;
+                    tooltip.textContent = hoveredNode.isParent 
+                        ? `Parent folder: ${hoveredNode.fullPath}` 
+                        : (hoveredNode.isDir ? `Folder: ${hoveredNode.name}` : `File: ${hoveredNode.name}`);
                     tooltip.style.left = `${mouse.rawX + 15}px`;
                     tooltip.style.top = `${mouse.rawY + 15}px`;
                 } else {
                     tooltip.style.display = 'none';
                 }
             } else if (hoveredNode) {
-                // Update Tooltip position
                 tooltip.style.left = `${mouse.rawX + 15}px`;
                 tooltip.style.top = `${mouse.rawY + 15}px`;
             }
@@ -454,7 +527,7 @@
     });
 
     canvas.onclick = (e) => {
-        // Prevent trigger click on drag end
+        // Prevent click events when dragging/panning
         if (e.movementX !== 0 || e.movementY !== 0) return;
 
         const mouse = screenToWorld(e.clientX, e.clientY);
@@ -470,21 +543,34 @@
             }
         }
 
-        if (clickedNode && !clickedNode.isDir) {
-            // File node clicked: open in editor and close modal
-            window.currentFilePath = clickedNode.fullPath;
-            if (window.openFileInEditor) {
-                window.openFileInEditor(clickedNode.fullPath);
+        if (clickedNode) {
+            if (clickedNode.isCentral) {
+                // Clicked central directory node: do nothing
+                return;
             }
-            // Highlight in tree view
-            document.querySelectorAll('.file-item').forEach(el => {
-                if (el.dataset.path === clickedNode.fullPath) {
-                    el.classList.add('active');
-                } else {
-                    el.classList.remove('active');
+
+            if (clickedNode.isDir) {
+                // Folder node clicked: drill down or up!
+                currentGraphPath = clickedNode.fullPath;
+                buildGraph(currentGraphPath);
+                tooltip.style.display = 'none';
+                hoveredNode = null;
+            } else {
+                // File node clicked: open in editor and close modal
+                window.currentFilePath = clickedNode.fullPath;
+                if (window.openFileInEditor) {
+                    window.openFileInEditor(clickedNode.fullPath);
                 }
-            });
-            closeModal();
+                
+                document.querySelectorAll('.file-item').forEach(el => {
+                    if (el.dataset.path === clickedNode.fullPath) {
+                        el.classList.add('active');
+                    } else {
+                        el.classList.remove('active');
+                    }
+                });
+                closeModal();
+            }
         }
     };
 
@@ -501,7 +587,6 @@
             zoom = Math.max(zoom * (1 - zoomIntensity), 0.35);
         }
 
-        // Adjust pan to zoom relative to mouse cursor
         const mouseAfterZoom = screenToWorld(e.clientX, e.clientY);
         panX += (mouseAfterZoom.x - mouseBeforeZoom.x) * zoom;
         panY += (mouseAfterZoom.y - mouseBeforeZoom.y) * zoom;

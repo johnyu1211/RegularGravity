@@ -227,6 +227,29 @@ ipcMain.handle('vault-snapshot', async (event, message) => {
 });
 
 let mainWindow;
+let dockedHwnd = null;
+
+ipcMain.on('register-docked-hwnd', (event, hwnd) => {
+    dockedHwnd = hwnd;
+});
+
+function setWindowState(hwnd, state) {
+    if (!hwnd) return;
+    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\")] public static extern bool ShowWindow(IntPtr h, int m); }'; [W]::ShowWindow([IntPtr]${hwnd}, ${state})"`;
+    spawn('cmd.exe', ['/c', cmd]);
+}
+
+function setWindowBounds(hwnd, x, y, w, h) {
+    if (!hwnd) return;
+    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int h, bool r); }'; [W]::MoveWindow([IntPtr]${hwnd}, ${x}, ${y}, ${w}, ${h}, $true)"`;
+    spawn('cmd.exe', ['/c', cmd]);
+}
+
+ipcMain.on('move-docked-window', (event, bounds) => {
+    if (dockedHwnd) {
+        setWindowBounds(dockedHwnd, bounds.x, bounds.y, bounds.w, bounds.h);
+    }
+});
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -243,6 +266,29 @@ function createWindow() {
     });
 
     mainWindow.maximize();
+
+    // Sync docked window minimize, restore, move, and resize
+    mainWindow.on('minimize', () => {
+        if (dockedHwnd) setWindowState(dockedHwnd, 6); // SW_MINIMIZE = 6
+    });
+    mainWindow.on('restore', () => {
+        if (dockedHwnd) setWindowState(dockedHwnd, 9); // SW_RESTORE = 9
+    });
+
+    let moveTimeout = null;
+    const syncDockedPosition = () => {
+        if (dockedHwnd && mainWindow) {
+            mainWindow.webContents.send('parent-window-moved-or-resized');
+        }
+    };
+    mainWindow.on('move', () => {
+        clearTimeout(moveTimeout);
+        moveTimeout = setTimeout(syncDockedPosition, 150);
+    });
+    mainWindow.on('resize', () => {
+        clearTimeout(moveTimeout);
+        moveTimeout = setTimeout(syncDockedPosition, 150);
+    });
 
     // 기본 상단 메뉴 제거
     Menu.setApplicationMenu(null);

@@ -576,6 +576,11 @@
                         const msg = data.toString().trim();
                         console.log("[DockMonitor]", msg);
                         if (msg.includes("DOCKED:")) {
+                            const parts = msg.split(":");
+                            const hwnd = parts[1].trim();
+                            window.dockedHwnd = hwnd;
+                            ipc.send('register-docked-hwnd', hwnd);
+                            
                             // Restart monitor after short delay to allow further docking or redocking
                             setTimeout(() => {
                                 if (isFixtureActive) startDockMonitor();
@@ -592,11 +597,38 @@
                 }
             }
 
+            function repositionDockedWindow() {
+                const overlay = document.getElementById('editor-fixture-overlay');
+                if (!overlay || !window.dockedHwnd) return;
+                
+                ipc.invoke('get-content-bounds').then(winBounds => {
+                    const rect = overlay.getBoundingClientRect();
+                    const titlebarHeight = 30; // custom titlebar height
+                    
+                    const x = Math.round(winBounds.x + rect.left);
+                    const y = Math.round(winBounds.y + titlebarHeight + rect.top);
+                    const w = Math.round(rect.width);
+                    const h = Math.round(rect.height);
+                    
+                    ipc.send('move-docked-window', { x, y, w, h });
+                });
+            }
+
+            // Sync docked window position on parent window move/resize
+            ipc.on('parent-window-moved-or-resized', () => {
+                if (isFixtureActive && window.dockedHwnd) {
+                    repositionDockedWindow();
+                }
+            });
+
             window.addEventListener('resize', () => {
                 if (isFixtureActive) {
                     clearTimeout(window._dockMonitorResizeTimeout);
                     window._dockMonitorResizeTimeout = setTimeout(() => {
-                        if (isFixtureActive) startDockMonitor();
+                        if (isFixtureActive) {
+                            startDockMonitor();
+                            repositionDockedWindow();
+                        }
                     }, 200);
                 }
             });
@@ -637,8 +669,10 @@
                     // Start background drag-and-drop monitor
                     startDockMonitor();
                 } else {
-                    // Stop monitor
+                    // Stop monitor and clear docked window tracking
                     stopDockMonitor();
+                    window.dockedHwnd = null;
+                    ipc.send('register-docked-hwnd', null);
 
                     // Restore ChatCover right sidebar
                     if (inspector) inspector.style.display = originalInspectorDisplay;

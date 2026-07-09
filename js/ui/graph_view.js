@@ -933,7 +933,6 @@
                         el.classList.remove('active');
                     }
                 });
-                closeModal();
             }
         }
     };

@@ -607,24 +607,35 @@
             }
 
             let positionSyncInterval = null;
-            let lastWinX = null;
-            let lastWinY = null;
-            let lastWinW = null;
-            let lastWinH = null;
+            let lastTargetX = null;
+            let lastTargetY = null;
+            let lastTargetW = null;
+            let lastTargetH = null;
 
             function startPositionSync() {
                 stopPositionSync();
                 positionSyncInterval = setInterval(() => {
                     if (!isFixtureActive || !window.dockedHwnd) return;
                     
+                    const overlay = document.getElementById('editor-fixture-overlay');
+                    if (!overlay) return;
+                    
                     ipc.invoke('get-content-bounds').then(winBounds => {
-                        if (winBounds.x !== lastWinX || winBounds.y !== lastWinY || winBounds.width !== lastWinW || winBounds.height !== lastWinH) {
-                            lastWinX = winBounds.x;
-                            lastWinY = winBounds.y;
-                            lastWinW = winBounds.width;
-                            lastWinH = winBounds.height;
+                        const rect = overlay.getBoundingClientRect();
+                        
+                        // Absolute screen target coordinates with Windows 10/11 invisible border adjustments
+                        const targetX = Math.round(winBounds.x + rect.left) + 7;
+                        const targetY = Math.round(winBounds.y + rect.top);
+                        const targetW = Math.round(rect.width) - 14;
+                        const targetH = Math.round(rect.height) - 7;
+                        
+                        if (targetX !== lastTargetX || targetY !== lastTargetY || targetW !== lastTargetW || targetH !== lastTargetH) {
+                            lastTargetX = targetX;
+                            lastTargetY = targetY;
+                            lastTargetW = targetW;
+                            lastTargetH = targetH;
                             
-                            repositionDockedWindow();
+                            ipc.send('move-docked-window', { x: targetX, y: targetY, w: targetW, h: targetH });
                         }
                     });
                 }, 50);
@@ -635,10 +646,10 @@
                     clearInterval(positionSyncInterval);
                     positionSyncInterval = null;
                 }
-                lastWinX = null;
-                lastWinY = null;
-                lastWinW = null;
-                lastWinH = null;
+                lastTargetX = null;
+                lastTargetY = null;
+                lastTargetW = null;
+                lastTargetH = null;
             }
 
             function repositionDockedWindow() {

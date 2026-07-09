@@ -304,8 +304,6 @@
         panY = 0;
         alpha = 1.0;
 
-        updateBreadcrumbs(dir);
-
         // 1. Create central node for the current folder
         const folderName = path.basename(dir) || dir;
         const centralDispName = getDisplayName(folderName, false);

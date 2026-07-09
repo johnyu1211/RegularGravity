@@ -28,12 +28,16 @@
     let lastMouseX = 0;
     let lastMouseY = 0;
 
-    // Physics parameters
-    const kRepulsion = 1600;
-    const kAttraction = 0.055;
-    const springLength = 80;
-    const kGravity = 0.02;
-    const damping = 0.85;
+    // Click tracking to prevent jitter issues
+    let mouseDownX = 0;
+    let mouseDownY = 0;
+
+    // Physics parameters - Optimized for wider spacing and breathing room
+    const kRepulsion = 4500;
+    const kAttraction = 0.05;
+    const springLength = 110;
+    const kGravity = 0.008; // Weaker gravity lets nodes spread out widely
+    const damping = 0.82;
 
     const modal = document.getElementById('graph-view-modal');
     const canvas = document.getElementById('graph-canvas');
@@ -121,7 +125,7 @@
         for (const part of parts) {
             if (!part) continue;
             accumulated = path.join(accumulated, part);
-            const currentPathVal = accumulated; // closure capture
+            const currentPathVal = accumulated;
 
             // Separator
             const sep = document.createElement('span');
@@ -150,7 +154,7 @@
         const tempCtx = canvas.getContext('2d');
         tempCtx.font = isCentral ? 'bold 11px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
         const width = tempCtx.measureText(text).width;
-        return Math.max(isCentral ? 25 : 20, width / 2 + 12);
+        return Math.max(isCentral ? 26 : 22, width / 2 + 12);
     }
 
     // Build Graph for the targeted directory
@@ -198,7 +202,7 @@
                 isCentral: false,
                 isParent: true,
                 x: canvas.width / 2,
-                y: canvas.height / 2 - 140,
+                y: canvas.height / 2 - 160, // Spaced further initially
                 vx: 0,
                 vy: 0,
                 radius: calculateRadius(parentDispName, false)
@@ -232,7 +236,7 @@
             const angleStep = (Math.PI * 2) / (children.length || 1);
             children.forEach((child, index) => {
                 const angle = index * angleStep;
-                const distance = 100 + Math.random() * 40;
+                const distance = 140 + Math.random() * 50; // Spaced further out
                 const nodeDispName = child.isDir ? `📁 ${getDisplayName(child.name, false)}` : getDisplayName(child.name, false);
                 const childNode = {
                     id: child.fullPath,
@@ -296,8 +300,7 @@
                 const distSq = dx * dx + dy * dy + 0.01;
                 const dist = Math.sqrt(distSq);
                 
-                // Repulsion adjusted for text-sized radii
-                const minDistance = u.radius + v.radius + 40;
+                const minDistance = u.radius + v.radius + 60; // Increased spacing buffer
                 if (dist < minDistance * 3) {
                     const force = kRepulsion / distSq;
                     const fx = (dx / dist) * force;
@@ -384,7 +387,7 @@
             ctx.lineTo(link.target.x, link.target.y);
             ctx.stroke();
         }
-        ctx.setLineDash([]); // Restore line dash
+        ctx.setLineDash([]);
 
         // Draw Nodes
         for (const node of nodes) {
@@ -405,13 +408,13 @@
             ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
             
             if (node.isParent) {
-                ctx.fillStyle = isHovered ? '#84cc16' : '#65a30d'; // Parent folder: green
+                ctx.fillStyle = isHovered ? '#84cc16' : '#65a30d';
             } else if (node.isCentral) {
-                ctx.fillStyle = isHovered ? '#2563eb' : '#1e3a8a'; // Current central folder: dark blue
+                ctx.fillStyle = isHovered ? '#2563eb' : '#1e3a8a';
             } else if (node.isDir) {
-                ctx.fillStyle = isHovered ? '#60a5fa' : '#468CF6'; // Sub folder: cool primary blue
+                ctx.fillStyle = isHovered ? '#60a5fa' : '#468CF6';
             } else {
-                ctx.fillStyle = isHovered ? '#3f3f46' : '#27272a'; // File: charcoal gray
+                ctx.fillStyle = isHovered ? '#3f3f46' : '#27272a';
             }
             ctx.fill();
 
@@ -473,6 +476,9 @@
 
     // Interaction Handlers
     canvas.onmousedown = (e) => {
+        mouseDownX = e.clientX;
+        mouseDownY = e.clientY;
+
         const mouse = screenToWorld(e.clientX, e.clientY);
         
         let clickedNode = null;
@@ -557,7 +563,11 @@
     });
 
     canvas.onclick = (e) => {
-        if (e.movementX !== 0 || e.movementY !== 0) return;
+        // Track exact movement distance between mousedown and mouseup (allow up to 6px jitter)
+        const dx = e.clientX - mouseDownX;
+        const dy = e.clientY - mouseDownY;
+        const moveDist = Math.sqrt(dx * dx + dy * dy);
+        if (moveDist > 6) return; // This is a pan/drag action, not a click
 
         const mouse = screenToWorld(e.clientX, e.clientY);
         

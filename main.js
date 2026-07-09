@@ -228,7 +228,6 @@ ipcMain.handle('vault-snapshot', async (event, message) => {
 
 let mainWindow;
 let dockedHwnd = null;
-let dockedOriginalStyle = null;
 let moverProcess = null;
 
 function startDockMover() {
@@ -257,30 +256,13 @@ function setWindowOwner(hwnd, ownerHwnd) {
     spawn('cmd.exe', ['/c', cmd]);
 }
 
-function restoreWindowStyle(hwnd, style) {
-    if (!hwnd || !style) return;
-    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongPtrW\\")] public static extern IntPtr SetWindowLongPtr64(IntPtr h, int idx, IntPtr val); [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongW\\")] public static extern IntPtr SetWindowLong32(IntPtr h, int idx, IntPtr val); [DllImport(\\"user32.dll\\")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags); }'; if ([IntPtr]::Size -eq 8) { [W]::SetWindowLongPtr64([IntPtr][int64]${hwnd}, -16, [IntPtr][int64]${style}) } else { [W]::SetWindowLong32([IntPtr][int64]${hwnd}, -16, [IntPtr][int64]${style}) }; [W]::SetWindowPos([IntPtr][int64]${hwnd}, [IntPtr]0, 0, 0, 0, 0, 39)"`;
-    spawn('cmd.exe', ['/c', cmd]);
-}
-
 ipcMain.on('register-docked-hwnd', (event, hwnd) => {
     if (dockedHwnd && !hwnd) {
         // Restore owner of the previously docked window to independent (0)
         setWindowOwner(dockedHwnd, 0);
-        
-        // Restore original window style
-        if (dockedOriginalStyle) {
-            restoreWindowStyle(dockedHwnd, dockedOriginalStyle);
-        }
-        
         stopDockMover();
-        dockedOriginalStyle = null;
     }
     dockedHwnd = hwnd;
-});
-
-ipcMain.on('register-docked-original-style', (event, style) => {
-    dockedOriginalStyle = style;
 });
 
 ipcMain.handle('get-our-hwnd', async () => {

@@ -579,10 +579,6 @@
                     monitorProcess.stdout.on('data', (data) => {
                         const msg = data.toString().trim();
                         console.log("[DockMonitor]", msg);
-                        if (msg.includes("STYLE:")) {
-                            const style = msg.split(":")[1].trim();
-                            ipc.send('register-docked-original-style', style);
-                        }
                         if (msg.includes("DOCKED:")) {
                             const parts = msg.split(":");
                             const hwnd = parts[1].trim();

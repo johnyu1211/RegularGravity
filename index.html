@@ -551,10 +551,11 @@
                     const rect = overlay.getBoundingClientRect();
                     const titlebarHeight = 30; // height of the custom titlebar
                     
-                    const x = Math.round(winBounds.x + rect.left);
+                    // Windows 10/11 invisible border adjustments (approx 7px left/right/bottom)
+                    const x = Math.round(winBounds.x + rect.left) + 7;
                     const y = Math.round(winBounds.y + titlebarHeight + rect.top);
-                    const w = Math.round(rect.width);
-                    const h = Math.round(rect.height);
+                    const w = Math.round(rect.width) - 14;
+                    const h = Math.round(rect.height) - 7;
                     
                     const { spawn } = require('child_process');
                     const path = require('path');
@@ -605,10 +606,11 @@
                     const rect = overlay.getBoundingClientRect();
                     const titlebarHeight = 30; // custom titlebar height
                     
-                    const x = Math.round(winBounds.x + rect.left);
+                    // Windows 10/11 invisible border adjustments (approx 7px left/right/bottom)
+                    const x = Math.round(winBounds.x + rect.left) + 7;
                     const y = Math.round(winBounds.y + titlebarHeight + rect.top);
-                    const w = Math.round(rect.width);
-                    const h = Math.round(rect.height);
+                    const w = Math.round(rect.width) - 14;
+                    const h = Math.round(rect.height) - 7;
                     
                     ipc.send('move-docked-window', { x, y, w, h });
                 });

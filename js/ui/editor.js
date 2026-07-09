@@ -315,11 +315,11 @@ window.openFileInEditor = (filePath) => {
                     searchInput.onfocus = () => { document.getElementById('editor-search-box').style.borderColor = 'var(--primary)'; };
                     searchInput.onblur = () => { document.getElementById('editor-search-box').style.borderColor = 'var(--border-color)'; };
                     searchInput.value = '';
-                    if (searchResult) searchResult.innerText = '0/0';
+                    if (searchResult) searchResult.innerText = '';
                     
                     let matchedElements = [];
                     let currentMatchIndex = -1;
-
+ 
                     const scrollToCurrentMatch = () => {
                         if (currentMatchIndex >= 0 && currentMatchIndex < matchedElements.length) {
                             const el = matchedElements[currentMatchIndex];
@@ -332,7 +332,7 @@ window.openFileInEditor = (filePath) => {
                             setTimeout(updateThumb, 50);
                         }
                     };
-
+ 
                     searchInput.onkeydown = (e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
@@ -342,7 +342,7 @@ window.openFileInEditor = (filePath) => {
                             }
                         }
                     };
-
+ 
                     searchInput.oninput = () => {
                         clearTimeout(searchTimer);
                         searchTimer = setTimeout(() => {
@@ -357,7 +357,7 @@ window.openFileInEditor = (filePath) => {
                             currentMatchIndex = -1;
                             
                             if (!query.trim()) { 
-                                searchResult.innerText = '0/0'; 
+                                searchResult.innerText = ''; 
                                 return; 
                             }
                             

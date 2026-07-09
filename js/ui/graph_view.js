@@ -156,11 +156,15 @@
     }
 
     // Calculate node radius based on text width to fit text inside the circle
-    function calculateRadius(text, isCentral) {
+    function calculateRadius(text, isCentral, isDir) {
         const tempCtx = canvas.getContext('2d');
         tempCtx.font = isCentral ? 'bold 11px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
         const width = tempCtx.measureText(text).width;
-        return Math.max(isCentral ? 26 : 22, width / 2 + 12);
+        if (isDir) {
+            // Folders need more vertical space to fit folder icon above text
+            return Math.max(isCentral ? 32 : 28, width / 2 + 12);
+        }
+        return Math.max(20, width / 2 + 10);
     }
 
     // Build Graph for the targeted directory
@@ -177,7 +181,7 @@
 
         // 1. Create central node for the current folder
         const folderName = path.basename(dir) || dir;
-        const centralDispName = `📂 ${getDisplayName(folderName, false)}`;
+        const centralDispName = getDisplayName(folderName, false);
         const centralNode = {
             id: dir,
             name: folderName,
@@ -190,7 +194,7 @@
             y: canvas.height / 2,
             vx: 0,
             vy: 0,
-            radius: calculateRadius(centralDispName, true)
+            radius: calculateRadius(centralDispName, true, true)
         };
         nodes.push(centralNode);
 
@@ -212,7 +216,7 @@
                 y: canvas.height / 2 - 165,
                 vx: 0,
                 vy: 0,
-                radius: calculateRadius(parentDispName, false)
+                radius: calculateRadius(parentDispName, false, true)
             };
             nodes.push(parentNode);
             links.push({
@@ -244,7 +248,7 @@
             children.forEach((child, index) => {
                 const angle = index * angleStep;
                 const distance = 150 + Math.random() * 50;
-                const nodeDispName = child.isDir ? `📁 ${getDisplayName(child.name, false)}` : getDisplayName(child.name, false);
+                const nodeDispName = getDisplayName(child.name, false);
                 const childNode = {
                     id: child.fullPath,
                     name: child.name,
@@ -257,7 +261,7 @@
                     y: canvas.height / 2 + Math.sin(angle) * distance,
                     vx: 0,
                     vy: 0,
-                    radius: calculateRadius(nodeDispName, false)
+                    radius: calculateRadius(nodeDispName, false, child.isDir)
                 };
                 nodes.push(childNode);
                 links.push({
@@ -313,7 +317,6 @@
                 const v = nodes[j];
                 const dx = v.x - u.x;
                 const dy = v.y - u.y;
-                // Add smoothing offset (300) to denominator to prevent divide-by-zero singularities
                 const distSq = dx * dx + dy * dy + 300;
                 const dist = Math.sqrt(distSq);
                 
@@ -335,7 +338,7 @@
 
                 // Smooth overlap correction
                 if (dist < minDistance) {
-                    const overlapForce = (minDistance - dist) * 0.18 * alpha; // Scaled by alpha
+                    const overlapForce = (minDistance - dist) * 0.18 * alpha;
                     const ox = (dx / dist) * overlapForce;
                     const oy = (dy / dist) * overlapForce;
                     if (!u.isDragging) {
@@ -393,6 +396,35 @@
         alpha *= alphaDecay;
     }
 
+    // Helper to draw vector folder icon above text inside folder nodes
+    function drawFolderIcon(ctx, cx, cy, w, h, strokeColor, fillColor) {
+        ctx.save();
+        ctx.beginPath();
+        const x = cx - w / 2;
+        const y = cy - h / 2;
+        const r = 2; // rounded corner radius
+        
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w * 0.4, y);
+        ctx.lineTo(x + w * 0.5, y + 3);
+        ctx.lineTo(x + w - r, y + 3);
+        ctx.quadraticCurveTo(x + w, y + 3, x + w, y + 3 + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = strokeColor;
+        ctx.stroke();
+        ctx.restore();
+    }
+
     // Render Canvas
     function draw() {
         const ctx = canvas.getContext('2d');
@@ -442,30 +474,56 @@
             ctx.beginPath();
             ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
             
+            let strokeColor = '';
+            let fillColor = '';
+
             if (node.isParent) {
-                ctx.fillStyle = isHovered ? '#84cc16' : '#65a30d';
+                fillColor = isHovered ? '#84cc16' : '#65a30d';
+                strokeColor = '#a3e635';
             } else if (node.isCentral) {
-                ctx.fillStyle = isHovered ? '#2563eb' : '#1e3a8a';
+                fillColor = isHovered ? '#2563eb' : '#1e3a8a';
+                strokeColor = '#60a5fa';
             } else if (node.isDir) {
-                ctx.fillStyle = isHovered ? '#60a5fa' : '#468CF6';
+                fillColor = isHovered ? '#60a5fa' : '#468CF6';
+                strokeColor = '#93c5fd';
             } else {
-                ctx.fillStyle = isHovered ? '#3f3f46' : '#27272a';
+                fillColor = isHovered ? '#3f3f46' : '#27272a';
+                strokeColor = '#52525b';
             }
+
+            ctx.fillStyle = fillColor;
             ctx.fill();
 
             // Node border/stroke
             ctx.lineWidth = 1.5;
-            ctx.strokeStyle = node.isParent 
-                ? '#a3e635' 
-                : (node.isCentral ? '#60a5fa' : (node.isDir ? '#93c5fd' : '#52525b'));
+            ctx.strokeStyle = strokeColor;
             ctx.stroke();
 
-            // Draw text centered inside the circle node
-            ctx.fillStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.85)';
-            ctx.font = node.isCentral ? 'bold 11px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(node.displayName, node.x, node.y);
+            // Draw content inside the circle node
+            if (node.isDir) {
+                // Vector folder icon at the top of the folder circle node
+                const iconStroke = isHovered ? '#fff' : strokeColor;
+                const iconFill = node.isParent 
+                    ? 'rgba(163, 230, 53, 0.2)' 
+                    : (node.isCentral ? 'rgba(96, 165, 250, 0.15)' : 'rgba(147, 197, 253, 0.12)');
+                
+                // Draw folder icon 7px above center
+                drawFolderIcon(ctx, node.x, node.y - 7, 16, 12, iconStroke, iconFill);
+                
+                // Draw text label below the icon (8px below center)
+                ctx.fillStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.85)';
+                ctx.font = node.isCentral ? 'bold 10.5px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(node.displayName, node.x, node.y + 8);
+            } else {
+                // File node: name centered exactly in the middle (no icon)
+                ctx.fillStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.85)';
+                ctx.font = '9px "Outfit", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(node.displayName, node.x, node.y);
+            }
         }
 
         ctx.restore();

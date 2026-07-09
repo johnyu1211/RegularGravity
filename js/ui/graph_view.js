@@ -1,5 +1,5 @@
 // Drill-Down interactive Force-Directed Graph View for Poor man's Gravity IDE
-// Pure vanilla JS HTML5 canvas physics layout
+// Pure vanilla JS HTML5 canvas physics layout with alpha cooling
 
 (function() {
     const fs = require('fs');
@@ -32,12 +32,14 @@
     let mouseDownX = 0;
     let mouseDownY = 0;
 
-    // Physics parameters - Optimized for wider spacing and breathing room
-    const kRepulsion = 6000;
-    const kAttraction = 0.045;
+    // Physics parameters - Optimized with alpha cooling to prevent shaking
+    let alpha = 1.0;
+    const alphaDecay = 0.98; // Cools down over ~150 frames
+    const kRepulsion = 7500;
+    const kAttraction = 0.055;
     const springLength = 120;
-    const kGravity = 0.006; // Weaker gravity lets nodes spread out widely
-    const damping = 0.8;
+    const kGravity = 0.01;
+    const damping = 0.72; // Higher damping absorbs kinetic energy faster
 
     const modal = document.getElementById('graph-view-modal');
     const canvas = document.getElementById('graph-canvas');
@@ -63,10 +65,10 @@
         buildGraph(currentGraphPath);
         startSimulation();
 
-        // Recalculate canvas size after modal scaleIn transition completes (280ms)
         setTimeout(() => {
             resizeCanvas();
             buildGraph(currentGraphPath);
+            alpha = 1.0; // Reset heat
         }, 280);
     };
 
@@ -88,6 +90,7 @@
     window.addEventListener('resize', () => {
         if (modal.style.display === 'flex') {
             resizeCanvas();
+            alpha = 1.0; // Wake up simulation on resize
         }
     });
 
@@ -115,7 +118,6 @@
         const relative = path.relative(projectRoot, dir);
         const parts = relative ? relative.split(path.sep) : [];
         
-        // Add project root segment
         const rootSpan = document.createElement('span');
         rootSpan.textContent = path.basename(projectRoot) || projectRoot;
         rootSpan.style.cursor = 'pointer';
@@ -133,14 +135,12 @@
             accumulated = path.join(accumulated, part);
             const currentPathVal = accumulated;
 
-            // Separator
             const sep = document.createElement('span');
             sep.textContent = ' > ';
             sep.style.margin = '0 2px';
             sep.style.color = '#555';
             breadcrumbs.appendChild(sep);
 
-            // Path segment
             const span = document.createElement('span');
             span.textContent = part;
             span.style.cursor = 'pointer';
@@ -171,6 +171,7 @@
         zoom = 1.0;
         panX = 0;
         panY = 0;
+        alpha = 1.0; // Reset heat/energy
 
         updateBreadcrumbs(dir);
 
@@ -293,6 +294,15 @@
     }
 
     function updatePhysics() {
+        // Stop simulation when cooled down to prevent vibration/CPU drain
+        if (alpha < 0.008) {
+            for (const node of nodes) {
+                node.vx = 0;
+                node.vy = 0;
+            }
+            return;
+        }
+
         const width = canvas.width;
         const height = canvas.height;
 
@@ -303,13 +313,13 @@
                 const v = nodes[j];
                 const dx = v.x - u.x;
                 const dy = v.y - u.y;
-                const distSq = dx * dx + dy * dy + 0.01;
+                // Add smoothing offset (300) to denominator to prevent divide-by-zero singularities
+                const distSq = dx * dx + dy * dy + 300;
                 const dist = Math.sqrt(distSq);
                 
-                // Base repulsion
                 const minDistance = u.radius + v.radius + 65;
                 if (dist < minDistance * 3) {
-                    const force = kRepulsion / distSq;
+                    const force = (kRepulsion / distSq) * alpha;
                     const fx = (dx / dist) * force;
                     const fy = (dy / dist) * force;
                     
@@ -323,9 +333,9 @@
                     }
                 }
 
-                // Hard collision: prevent overlap completely
+                // Smooth overlap correction
                 if (dist < minDistance) {
-                    const overlapForce = (minDistance - dist) * 0.75;
+                    const overlapForce = (minDistance - dist) * 0.18 * alpha; // Scaled by alpha
                     const ox = (dx / dist) * overlapForce;
                     const oy = (dy / dist) * overlapForce;
                     if (!u.isDragging) {
@@ -349,7 +359,7 @@
             const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
             
             const currentSpringLength = link.isParentLink ? springLength * 1.6 : springLength;
-            const force = (dist - currentSpringLength) * kAttraction;
+            const force = (dist - currentSpringLength) * kAttraction * alpha;
             const fx = (dx / dist) * force;
             const fy = (dy / dist) * force;
 
@@ -369,8 +379,8 @@
         for (const node of nodes) {
             if (node.isDragging) continue;
 
-            node.vx += (centerX - node.x) * kGravity;
-            node.vy += (centerY - node.y) * kGravity;
+            node.vx += (centerX - node.x) * kGravity * alpha;
+            node.vy += (centerY - node.y) * kGravity * alpha;
 
             node.x += node.vx;
             node.y += node.vy;
@@ -378,6 +388,9 @@
             node.vx *= damping;
             node.vy *= damping;
         }
+
+        // Cooling decay
+        alpha *= alphaDecay;
     }
 
     // Render Canvas
@@ -488,7 +501,6 @@
     function screenToWorld(clientX, clientY) {
         const rect = canvas.getBoundingClientRect();
         
-        // Correctly calculate mouse coordinates considering dynamic stretching
         const mouseX = (clientX - rect.left) * (canvas.width / (rect.width || 1));
         const mouseY = (clientY - rect.top) * (canvas.height / (rect.height || 1));
 
@@ -521,6 +533,7 @@
             draggedNode.isDragging = true;
             draggedNode.vx = 0;
             draggedNode.vy = 0;
+            alpha = 1.0; // Heat up simulation on node drag
         } else {
             isPanning = true;
             canvas.style.cursor = 'grabbing';
@@ -537,6 +550,7 @@
         if (draggedNode) {
             draggedNode.x = mouse.x;
             draggedNode.y = mouse.y;
+            alpha = 1.0; // Keep simulation active while dragging
         } else if (isPanning) {
             panX = e.clientX - startDragX;
             panY = e.clientY - startDragY;
@@ -650,5 +664,6 @@
         const mouseAfterZoom = screenToWorld(e.clientX, e.clientY);
         panX += (mouseAfterZoom.x - mouseBeforeZoom.x) * zoom;
         panY += (mouseAfterZoom.y - mouseBeforeZoom.y) * zoom;
+        alpha = 1.0; // Wake up simulation on zoom
     };
 })();

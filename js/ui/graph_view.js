@@ -147,13 +147,9 @@
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
             window.graphSearchQuery = e.target.value.toLowerCase().trim();
-            // Trigger redraw manually by waking up alpha slightly
-            if (alpha < 0.1) {
-                alpha = 0.1;
-                if (!isSimulationRunning) startSimulation();
-            } else if (!isSimulationRunning) {
-                draw();
-            }
+            buildGraph(currentGraphPath);
+            alpha = 1.0;
+            if (!isSimulationRunning) startSimulation();
         });
     }
 
@@ -294,9 +290,110 @@
         }
     }
 
+    // Recursive search graph builder
+    function buildSearchGraph(query) {
+        nodes = [];
+        links = [];
+        
+        zoom = 1.0;
+        panX = 0;
+        panY = 0;
+        alpha = 1.0;
+
+        const matches = [];
+        
+        function traverse(dir) {
+            try {
+                const items = fs.readdirSync(dir);
+                for (const item of items) {
+                    if (item.startsWith('.') || item === 'node_modules' || item.startsWith('_project_rules')) {
+                        continue;
+                    }
+                    const fullPath = norm(path.join(dir, item));
+                    let stat;
+                    try {
+                        stat = fs.statSync(fullPath);
+                    } catch(e) { continue; }
+                    
+                    const isDir = stat.isDirectory();
+                    if (item.toLowerCase().includes(query)) {
+                        matches.push({ name: item, fullPath: fullPath, isDir: isDir });
+                    }
+                    if (isDir) {
+                        traverse(fullPath);
+                    }
+                }
+            } catch(e) {}
+        }
+        traverse(projectRoot);
+
+        if (matches.length === 0) {
+            nodes.push({
+                id: 'NO_RESULTS',
+                name: 'No Results',
+                displayName: 'No Results',
+                fullPath: '',
+                isDir: false,
+                isCentral: true,
+                isParent: false,
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                vx: 0,
+                vy: 0,
+                radius: 40
+            });
+            return;
+        }
+
+        const limitedMatches = matches.slice(0, 100);
+        const childNodesMap = {};
+        const angleStep = (Math.PI * 2) / (limitedMatches.length || 1);
+        
+        limitedMatches.forEach((match, index) => {
+            const angle = index * angleStep;
+            const distance = 150 + Math.random() * 50;
+            const nodeDispName = getDisplayName(match.name, false);
+            const node = {
+                id: match.fullPath,
+                name: match.name,
+                displayName: nodeDispName,
+                fullPath: match.fullPath,
+                isDir: match.isDir,
+                isCentral: false,
+                isParent: false,
+                x: canvas.width / 2 + Math.cos(angle) * distance,
+                y: canvas.height / 2 + Math.sin(angle) * distance,
+                vx: 0,
+                vy: 0,
+                radius: calculateRadius(nodeDispName, false, match.isDir)
+            };
+            nodes.push(node);
+            childNodesMap[match.fullPath] = node;
+        });
+
+        // Add dependency links between resolved matches
+        for (const sourcePath in projectDependencies) {
+            if (!childNodesMap[sourcePath]) continue;
+            const targets = projectDependencies[sourcePath] || [];
+            targets.forEach(targetPath => {
+                if (childNodesMap[targetPath]) {
+                    links.push({
+                        source: childNodesMap[sourcePath],
+                        target: childNodesMap[targetPath],
+                        isDependency: true
+                    });
+                }
+            });
+        }
+    }
+
     // Main graph builder
     function buildGraph(dir) {
         currentGraphPath = norm(dir);
+        if (window.graphSearchQuery) {
+            buildSearchGraph(window.graphSearchQuery);
+            return;
+        }
         nodes = [];
         links = [];
         
@@ -913,6 +1010,11 @@
             if (clickedNode.isCentral) return;
 
             if (clickedNode.isDir) {
+                // Clear search when jumping to folder
+                if (searchInput) {
+                    searchInput.value = '';
+                    window.graphSearchQuery = '';
+                }
                 // Open Folder
                 currentGraphPath = clickedNode.fullPath;
                 buildGraph(currentGraphPath);

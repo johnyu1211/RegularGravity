@@ -228,6 +228,27 @@ ipcMain.handle('vault-snapshot', async (event, message) => {
 
 let mainWindow;
 let dockedHwnd = null;
+let moverProcess = null;
+
+function startDockMover() {
+    if (moverProcess && !moverProcess.killed) return;
+    const scriptPath = path.join(__dirname, 'js/ui/dock_mover.ps1');
+    moverProcess = spawn('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', scriptPath
+    ]);
+}
+
+function stopDockMover() {
+    if (moverProcess) {
+        try {
+            moverProcess.stdin.write("exit\n");
+            moverProcess.kill();
+        } catch(e) {}
+        moverProcess = null;
+    }
+}
 
 function setWindowOwner(hwnd, ownerHwnd) {
     if (!hwnd) return;
@@ -239,6 +260,7 @@ ipcMain.on('register-docked-hwnd', (event, hwnd) => {
     if (dockedHwnd && !hwnd) {
         // Restore owner of the previously docked window to independent (0)
         setWindowOwner(dockedHwnd, 0);
+        stopDockMover();
     }
     dockedHwnd = hwnd;
 });
@@ -255,15 +277,12 @@ function setWindowState(hwnd, state) {
     spawn('cmd.exe', ['/c', cmd]);
 }
 
-function setWindowBounds(hwnd, x, y, w, h) {
-    if (!hwnd) return;
-    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int h, bool r); }'; [W]::MoveWindow([IntPtr][int64]${hwnd}, ${x}, ${y}, ${w}, ${h}, $true)"`;
-    spawn('cmd.exe', ['/c', cmd]);
-}
-
 ipcMain.on('move-docked-window', (event, bounds) => {
     if (dockedHwnd) {
-        setWindowBounds(dockedHwnd, bounds.x, bounds.y, bounds.w, bounds.h);
+        startDockMover();
+        if (moverProcess && moverProcess.stdin && moverProcess.stdin.writable) {
+            moverProcess.stdin.write(`${dockedHwnd},${bounds.x},${bounds.y},${bounds.w},${bounds.h}\n`);
+        }
     }
 });
 

@@ -584,6 +584,7 @@
                             const hwnd = parts[1].trim();
                             window.dockedHwnd = hwnd;
                             ipc.send('register-docked-hwnd', hwnd);
+                            startPositionSync();
                             
                             // Change header text to FIXTURE (FIXED)
                             const titleEl = document.getElementById('editor-header-title');
@@ -603,6 +604,41 @@
                     try { monitorProcess.kill(); } catch(e) {}
                     monitorProcess = null;
                 }
+            }
+
+            let positionSyncInterval = null;
+            let lastWinX = null;
+            let lastWinY = null;
+            let lastWinW = null;
+            let lastWinH = null;
+
+            function startPositionSync() {
+                stopPositionSync();
+                positionSyncInterval = setInterval(() => {
+                    if (!isFixtureActive || !window.dockedHwnd) return;
+                    
+                    ipc.invoke('get-content-bounds').then(winBounds => {
+                        if (winBounds.x !== lastWinX || winBounds.y !== lastWinY || winBounds.width !== lastWinW || winBounds.height !== lastWinH) {
+                            lastWinX = winBounds.x;
+                            lastWinY = winBounds.y;
+                            lastWinW = winBounds.width;
+                            lastWinH = winBounds.height;
+                            
+                            repositionDockedWindow();
+                        }
+                    });
+                }, 50);
+            }
+
+            function stopPositionSync() {
+                if (positionSyncInterval) {
+                    clearInterval(positionSyncInterval);
+                    positionSyncInterval = null;
+                }
+                lastWinX = null;
+                lastWinY = null;
+                lastWinW = null;
+                lastWinH = null;
             }
 
             function repositionDockedWindow() {
@@ -679,6 +715,7 @@
                 } else {
                     // Stop monitor and clear docked window tracking
                     stopDockMonitor();
+                    stopPositionSync();
                     window.dockedHwnd = null;
                     ipc.send('register-docked-hwnd', null);
 

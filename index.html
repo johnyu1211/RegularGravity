@@ -139,7 +139,10 @@
                 <div style="padding: 10px 14px; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; background: var(--surface-lowest);">
                     <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; margin-right: 12px;">
                         <span style="font-size: 11px; font-weight: 800; color: #fff; letter-spacing: 0.5px; flex-shrink: 0;">GRAPH</span>
-                        <div id="graph-breadcrumbs" style="display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); font-family: 'DM Sans', sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: none;"></div>
+                        <div style="display: flex; align-items: center; background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px; flex: 1; max-width: 200px; gap: 4px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="graph-search-input" placeholder="Search nodes..." style="background: transparent; border: none; color: #ccc; font-size: 11px; width: 100%; outline: none; font-family: 'DM Sans', sans-serif;">
+                        </div>
                     </div>
                     <span id="close-graph-view" style="cursor: pointer; color: var(--text-muted); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s; flex-shrink: 0;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">&times;</span>
                 </div>

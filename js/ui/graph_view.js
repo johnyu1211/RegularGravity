@@ -123,12 +123,13 @@
     const resizeObserver = new ResizeObserver(() => {
         if (modal.style.display === 'flex') {
             resizeCanvas();
+            // Force synchronous redraw immediately to prevent screen clear flicker
+            draw();
+            
             // wake up physics simulation to adjust layout
             if (alpha < 0.2) {
                 alpha = 0.2;
                 if (!isSimulationRunning) startSimulation();
-            } else if (!isSimulationRunning) {
-                draw();
             }
         }
     });

@@ -1,5 +1,5 @@
-// Drill-Down interactive Force-Directed Graph View for Poor man's Gravity IDE
-// Pure vanilla JS HTML5 canvas physics layout with alpha cooling
+// Drill-Down interactive Dependency Graph View for Poor man's Gravity IDE
+// Pure vanilla JS HTML5 canvas physics layout with alpha cooling and code import parser
 
 (function() {
     const fs = require('fs');
@@ -32,14 +32,14 @@
     let mouseDownX = 0;
     let mouseDownY = 0;
 
-    // Physics parameters - Optimized with alpha cooling to prevent shaking
+    // Physics parameters
     let alpha = 1.0;
-    const alphaDecay = 0.98; // Cools down over ~150 frames
+    const alphaDecay = 0.98;
     const kRepulsion = 7500;
-    const kAttraction = 0.055;
-    const springLength = 120;
-    const kGravity = 0.01;
-    const damping = 0.72; // Higher damping absorbs kinetic energy faster
+    const kAttraction = 0.06; // Slightly stronger attraction for dependency links
+    const springLength = 110;
+    const kGravity = 0.012; // Centering gravity
+    const damping = 0.72;
 
     const modal = document.getElementById('graph-view-modal');
     const canvas = document.getElementById('graph-canvas');
@@ -68,7 +68,7 @@
         setTimeout(() => {
             resizeCanvas();
             buildGraph(currentGraphPath);
-            alpha = 1.0; // Reset heat
+            alpha = 1.0;
         }, 280);
     };
 
@@ -90,7 +90,7 @@
     window.addEventListener('resize', () => {
         if (modal.style.display === 'flex') {
             resizeCanvas();
-            alpha = 1.0; // Wake up simulation on resize
+            alpha = 1.0;
         }
     });
 
@@ -161,10 +161,101 @@
         tempCtx.font = isCentral ? 'bold 11px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
         const width = tempCtx.measureText(text).width;
         if (isDir) {
-            // Folders need more vertical space to fit folder icon above text
             return Math.max(isCentral ? 32 : 28, width / 2 + 12);
         }
         return Math.max(20, width / 2 + 10);
+    }
+
+    // High-performance relative import path resolver
+    function resolveImportPath(sourceFile, importString) {
+        const sourceDir = path.dirname(sourceFile);
+        let cleanImport = importString.split('?')[0].split('#')[0].trim();
+        
+        // Ignore external absolute urls (http, https, //)
+        if (/^(https?:)?\/\//.test(cleanImport)) return null;
+        
+        // Try resolving relative to sourceDir (handles both "./js/foo.js" and "js/foo.js")
+        let resolved = path.resolve(sourceDir, cleanImport);
+        if (fs.existsSync(resolved) && !fs.statSync(resolved).isDirectory()) return resolved;
+
+        // Try resolving relative to projectRoot
+        if (projectRoot) {
+            let resolvedRoot = path.resolve(projectRoot, cleanImport);
+            if (fs.existsSync(resolvedRoot) && !fs.statSync(resolvedRoot).isDirectory()) return resolvedRoot;
+        }
+
+        // Try appending extensions
+        const exts = ['.js', '.ts', '.jsx', '.tsx', '.json', '.html', '.css'];
+        for (const ext of exts) {
+            let resExt = resolved + ext;
+            if (fs.existsSync(resExt)) return resExt;
+
+            if (projectRoot) {
+                let resRootExt = path.resolve(projectRoot, cleanImport) + ext;
+                if (fs.existsSync(resRootExt)) return resRootExt;
+            }
+        }
+
+        // Try resolving directory index
+        if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+            for (const ext of exts) {
+                const indexFile = path.join(resolved, 'index' + ext);
+                if (fs.existsSync(indexFile)) return indexFile;
+            }
+        }
+        if (projectRoot) {
+            let resolvedRoot = path.resolve(projectRoot, cleanImport);
+            if (fs.existsSync(resolvedRoot) && fs.statSync(resolvedRoot).isDirectory()) {
+                for (const ext of exts) {
+                    const indexFile = path.join(resolvedRoot, 'index' + ext);
+                    if (fs.existsSync(indexFile)) return indexFile;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // Extract import dependency paths from a file
+    function extractImports(filePath) {
+        const imports = [];
+        try {
+            const stat = fs.statSync(filePath);
+            if (stat.isDirectory() || stat.size > 150 * 1024) return []; // Skip folders/large files (>150KB)
+            
+            const ext = path.extname(filePath).toLowerCase();
+            const scannableExts = ['.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.py'];
+            if (!scannableExts.includes(ext)) return [];
+
+            const content = fs.readFileSync(filePath, 'utf-8');
+
+            const patterns = [
+                /import\s+[^'"]*from\s+['"]([^'"]+)['"]/g,             // ES6 Import
+                /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,                 // ES6 Dynamic
+                /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,                // CommonJS require
+                /@import\s+(?:url\s*\(\s*)?['"]?([^'")]+)['"]?\s*\)?/g, // CSS import (comprehensive)
+                /<(?:link|script)[^>]*(?:href|src)=['"]([^'"]+)['"]/g,  // HTML scripts/css
+                /^\s*import\s+([a-zA-Z0-9_\.]+)/gm,                    // Python import style A
+                /^\s*from\s+([a-zA-Z0-9_\.]+)\s+import/gm              // Python import style B
+            ];
+
+            for (const regex of patterns) {
+                let match;
+                regex.lastIndex = 0;
+                while ((match = regex.exec(content)) !== null) {
+                    const importStr = match[1];
+                    if (importStr) {
+                        const resolved = resolveImportPath(filePath, importStr);
+                        if (resolved && resolved !== filePath) {
+                            imports.push(resolved);
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error extracting imports for:", filePath, e);
+        }
+        return [...new Set(imports)];
     }
 
     // Build Graph for the targeted directory
@@ -175,7 +266,7 @@
         zoom = 1.0;
         panX = 0;
         panY = 0;
-        alpha = 1.0; // Reset heat/energy
+        alpha = 1.0;
 
         updateBreadcrumbs(dir);
 
@@ -219,14 +310,10 @@
                 radius: calculateRadius(parentDispName, false, true)
             };
             nodes.push(parentNode);
-            links.push({
-                source: centralNode,
-                target: parentNode,
-                isParentLink: true
-            });
         }
 
         // 3. Read current folder contents
+        const childNodesMap = {};
         try {
             const items = fs.readdirSync(dir);
             const children = [];
@@ -264,15 +351,52 @@
                     radius: calculateRadius(nodeDispName, false, child.isDir)
                 };
                 nodes.push(childNode);
-                links.push({
-                    source: centralNode,
-                    target: childNode,
-                    isParentLink: false
+                childNodesMap[child.fullPath] = childNode;
+            });
+
+            // 4. Scan file dependencies and create directed import links
+            nodes.forEach(sourceNode => {
+                if (sourceNode.isDir) return; // Only files have imports
+
+                const targets = extractImports(sourceNode.fullPath);
+                targets.forEach(targetPath => {
+                    // Scenario A: target is a child file node in the same directory
+                    if (childNodesMap[targetPath]) {
+                        links.push({
+                            source: sourceNode,
+                            target: childNodesMap[targetPath],
+                            isDependency: true
+                        });
+                    } 
+                    // Scenario B: target is inside a subfolder of the current directory
+                    else {
+                        const relToCurrent = path.relative(dir, targetPath);
+                        if (relToCurrent && !relToCurrent.startsWith('..') && !path.isAbsolute(relToCurrent)) {
+                            // Find which immediate subfolder this target path resides in
+                            const firstSub = relToCurrent.split(path.sep)[0];
+                            const subfolderAbsPath = path.join(dir, firstSub);
+                            if (childNodesMap[subfolderAbsPath]) {
+                                links.push({
+                                    source: sourceNode,
+                                    target: childNodesMap[subfolderAbsPath],
+                                    isDependency: true
+                                });
+                            }
+                        }
+                        // Scenario C: target is outside current directory (parent folder linkage)
+                        else if (parentNode) {
+                            links.push({
+                                source: sourceNode,
+                                target: parentNode,
+                                isDependency: true
+                            });
+                        }
+                    }
                 });
             });
 
         } catch (err) {
-            console.error("Failed to build drill-down graph:", err);
+            console.error("Failed to build dependency graph:", err);
         }
     }
 
@@ -298,7 +422,6 @@
     }
 
     function updatePhysics() {
-        // Stop simulation when cooled down to prevent vibration/CPU drain
         if (alpha < 0.008) {
             for (const node of nodes) {
                 node.vx = 0;
@@ -353,7 +476,7 @@
             }
         }
 
-        // 2. Attraction force (spring links)
+        // 2. Attraction force along dependency links
         for (const link of links) {
             const u = link.source;
             const v = link.target;
@@ -361,8 +484,7 @@
             const dy = v.y - u.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
             
-            const currentSpringLength = link.isParentLink ? springLength * 1.6 : springLength;
-            const force = (dist - currentSpringLength) * kAttraction * alpha;
+            const force = (dist - springLength) * kAttraction * alpha;
             const fx = (dx / dist) * force;
             const fy = (dy / dist) * force;
 
@@ -376,7 +498,22 @@
             }
         }
 
-        // 3. Gravity/Center force & Update positions
+        // 3. Central spring attraction for all child nodes to keep unlinked items grouped around center
+        const centralNode = nodes.find(n => n.isCentral);
+        if (centralNode) {
+            for (const node of nodes) {
+                if (node === centralNode || node.isDragging) continue;
+                const dx = centralNode.x - node.x;
+                const dy = centralNode.y - node.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+                // Very weak spring force
+                const force = (dist - 140) * 0.006 * alpha;
+                node.vx += (dx / dist) * force;
+                node.vy += (dy / dist) * force;
+            }
+        }
+
+        // 4. Gravity/Center force & Update positions
         const centerX = width / 2;
         const centerY = height / 2;
         for (const node of nodes) {
@@ -402,7 +539,7 @@
         ctx.beginPath();
         const x = cx - w / 2;
         const y = cy - h / 2;
-        const r = 2; // rounded corner radius
+        const r = 2;
         
         ctx.moveTo(x + r, y);
         ctx.lineTo(x + w * 0.4, y);
@@ -438,23 +575,43 @@
 
         drawGrid(ctx);
 
-        // Draw Links/Edges
-        ctx.lineWidth = 1.2;
+        // Draw Links/Edges with directed arrows (pointing to dependency target)
         for (const link of links) {
             const isHighlighted = hoveredNode && (link.source === hoveredNode || link.target === hoveredNode);
-            if (link.isParentLink) {
-                ctx.strokeStyle = isHighlighted ? 'rgba(163, 230, 53, 0.65)' : 'rgba(255, 255, 255, 0.03)';
-                ctx.setLineDash([4, 4]);
-            } else {
-                ctx.strokeStyle = isHighlighted ? 'rgba(70, 140, 246, 0.65)' : 'rgba(255, 255, 255, 0.06)';
-                ctx.setLineDash([]);
-            }
+            const strokeColor = isHighlighted ? 'rgba(70, 140, 246, 0.75)' : 'rgba(255, 255, 255, 0.08)';
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = isHighlighted ? 1.6 : 1.1;
+
+            const dx = link.target.x - link.source.x;
+            const dy = link.target.y - link.source.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+
+            // Stop line exactly at the target node's boundary to render clean arrowhead
+            const targetBorderX = link.target.x - (dx / dist) * link.target.radius;
+            const targetBorderY = link.target.y - (dy / dist) * link.target.radius;
+
             ctx.beginPath();
             ctx.moveTo(link.source.x, link.source.y);
-            ctx.lineTo(link.target.x, link.target.y);
+            ctx.lineTo(targetBorderX, targetBorderY);
             ctx.stroke();
+
+            // Draw directed arrowhead
+            const arrowSize = 6;
+            const angle = Math.atan2(dy, dx);
+            ctx.fillStyle = strokeColor;
+            ctx.beginPath();
+            ctx.moveTo(targetBorderX, targetBorderY);
+            ctx.lineTo(
+                targetBorderX - arrowSize * Math.cos(angle - Math.PI / 6),
+                targetBorderY - arrowSize * Math.sin(angle - Math.PI / 6)
+            );
+            ctx.lineTo(
+                targetBorderX - arrowSize * Math.cos(angle + Math.PI / 6),
+                targetBorderY - arrowSize * Math.sin(angle + Math.PI / 6)
+            );
+            ctx.closePath();
+            ctx.fill();
         }
-        ctx.setLineDash([]);
 
         // Draw Nodes
         for (const node of nodes) {
@@ -501,23 +658,19 @@
 
             // Draw content inside the circle node
             if (node.isDir) {
-                // Vector folder icon at the top of the folder circle node
                 const iconStroke = isHovered ? '#fff' : strokeColor;
                 const iconFill = node.isParent 
                     ? 'rgba(163, 230, 53, 0.2)' 
                     : (node.isCentral ? 'rgba(96, 165, 250, 0.15)' : 'rgba(147, 197, 253, 0.12)');
                 
-                // Draw folder icon 7px above center
                 drawFolderIcon(ctx, node.x, node.y - 7, 16, 12, iconStroke, iconFill);
                 
-                // Draw text label below the icon (8px below center)
                 ctx.fillStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.85)';
                 ctx.font = node.isCentral ? 'bold 10.5px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(node.displayName, node.x, node.y + 8);
             } else {
-                // File node: name centered exactly in the middle (no icon)
                 ctx.fillStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.85)';
                 ctx.font = '9px "Outfit", sans-serif';
                 ctx.textAlign = 'center';
@@ -591,7 +744,7 @@
             draggedNode.isDragging = true;
             draggedNode.vx = 0;
             draggedNode.vy = 0;
-            alpha = 1.0; // Heat up simulation on node drag
+            alpha = 1.0;
         } else {
             isPanning = true;
             canvas.style.cursor = 'grabbing';
@@ -608,7 +761,7 @@
         if (draggedNode) {
             draggedNode.x = mouse.x;
             draggedNode.y = mouse.y;
-            alpha = 1.0; // Keep simulation active while dragging
+            alpha = 1.0;
         } else if (isPanning) {
             panX = e.clientX - startDragX;
             panY = e.clientY - startDragY;
@@ -722,6 +875,6 @@
         const mouseAfterZoom = screenToWorld(e.clientX, e.clientY);
         panX += (mouseAfterZoom.x - mouseBeforeZoom.x) * zoom;
         panY += (mouseAfterZoom.y - mouseBeforeZoom.y) * zoom;
-        alpha = 1.0; // Wake up simulation on zoom
+        alpha = 1.0;
     };
 })();

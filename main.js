@@ -256,10 +256,17 @@ function setWindowOwner(hwnd, ownerHwnd) {
     spawn('cmd.exe', ['/c', cmd]);
 }
 
+function restoreTaskbarButton(hwnd) {
+    if (!hwnd) return;
+    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; [ComImport, Guid(\\"56fdf344-fd6d-11d0-958a-006097c9a090\\"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] public interface ITaskbarList { void HrInit(); void AddTab(IntPtr h); void DeleteTab(IntPtr h); } [ComImport, Guid(\\"56fdf342-fd6d-11d0-958a-006097c9a090\\")] public class TaskbarList {} public class T { public static void Show(IntPtr h) { var tbl = (ITaskbarList)new TaskbarList(); tbl.HrInit(); tbl.AddTab(h); } }'; [T]::Show([IntPtr][int64]${hwnd})"`;
+    spawn('cmd.exe', ['/c', cmd]);
+}
+
 ipcMain.on('register-docked-hwnd', (event, hwnd) => {
     if (dockedHwnd && !hwnd) {
         // Restore owner of the previously docked window to independent (0)
         setWindowOwner(dockedHwnd, 0);
+        restoreTaskbarButton(dockedHwnd);
         stopDockMover();
     }
     dockedHwnd = hwnd;
@@ -313,6 +320,7 @@ function createWindow() {
     mainWindow.on('close', () => {
         if (dockedHwnd) {
             setWindowOwner(dockedHwnd, 0);
+            restoreTaskbarButton(dockedHwnd);
         }
         stopDockMover();
     });

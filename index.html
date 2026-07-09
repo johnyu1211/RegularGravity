@@ -549,11 +549,10 @@
                 
                 ipc.invoke('get-content-bounds').then(winBounds => {
                     const rect = overlay.getBoundingClientRect();
-                    const titlebarHeight = 30; // height of the custom titlebar
                     
                     // Windows 10/11 invisible border adjustments (approx 7px left/right/bottom)
                     const x = Math.round(winBounds.x + rect.left) + 7;
-                    const y = Math.round(winBounds.y + titlebarHeight + rect.top);
+                    const y = Math.round(winBounds.y + rect.top);
                     const w = Math.round(rect.width) - 14;
                     const h = Math.round(rect.height) - 7;
                     
@@ -604,11 +603,10 @@
                 
                 ipc.invoke('get-content-bounds').then(winBounds => {
                     const rect = overlay.getBoundingClientRect();
-                    const titlebarHeight = 30; // custom titlebar height
                     
                     // Windows 10/11 invisible border adjustments (approx 7px left/right/bottom)
                     const x = Math.round(winBounds.x + rect.left) + 7;
-                    const y = Math.round(winBounds.y + titlebarHeight + rect.top);
+                    const y = Math.round(winBounds.y + rect.top);
                     const w = Math.round(rect.width) - 14;
                     const h = Math.round(rect.height) - 7;
                     

@@ -33,11 +33,11 @@
     let mouseDownY = 0;
 
     // Physics parameters - Optimized for wider spacing and breathing room
-    const kRepulsion = 4500;
-    const kAttraction = 0.05;
-    const springLength = 110;
-    const kGravity = 0.008; // Weaker gravity lets nodes spread out widely
-    const damping = 0.82;
+    const kRepulsion = 6000;
+    const kAttraction = 0.045;
+    const springLength = 120;
+    const kGravity = 0.006; // Weaker gravity lets nodes spread out widely
+    const damping = 0.8;
 
     const modal = document.getElementById('graph-view-modal');
     const canvas = document.getElementById('graph-canvas');
@@ -62,6 +62,12 @@
         resizeCanvas();
         buildGraph(currentGraphPath);
         startSimulation();
+
+        // Recalculate canvas size after modal scaleIn transition completes (280ms)
+        setTimeout(() => {
+            resizeCanvas();
+            buildGraph(currentGraphPath);
+        }, 280);
     };
 
     // Close Modal
@@ -202,7 +208,7 @@
                 isCentral: false,
                 isParent: true,
                 x: canvas.width / 2,
-                y: canvas.height / 2 - 160, // Spaced further initially
+                y: canvas.height / 2 - 165,
                 vx: 0,
                 vy: 0,
                 radius: calculateRadius(parentDispName, false)
@@ -236,7 +242,7 @@
             const angleStep = (Math.PI * 2) / (children.length || 1);
             children.forEach((child, index) => {
                 const angle = index * angleStep;
-                const distance = 140 + Math.random() * 50; // Spaced further out
+                const distance = 150 + Math.random() * 50;
                 const nodeDispName = child.isDir ? `📁 ${getDisplayName(child.name, false)}` : getDisplayName(child.name, false);
                 const childNode = {
                     id: child.fullPath,
@@ -300,7 +306,8 @@
                 const distSq = dx * dx + dy * dy + 0.01;
                 const dist = Math.sqrt(distSq);
                 
-                const minDistance = u.radius + v.radius + 60; // Increased spacing buffer
+                // Base repulsion
+                const minDistance = u.radius + v.radius + 65;
                 if (dist < minDistance * 3) {
                     const force = kRepulsion / distSq;
                     const fx = (dx / dist) * force;
@@ -313,6 +320,21 @@
                     if (!v.isDragging) {
                         v.vx += fx;
                         v.vy += fy;
+                    }
+                }
+
+                // Hard collision: prevent overlap completely
+                if (dist < minDistance) {
+                    const overlapForce = (minDistance - dist) * 0.75;
+                    const ox = (dx / dist) * overlapForce;
+                    const oy = (dy / dist) * overlapForce;
+                    if (!u.isDragging) {
+                        u.vx -= ox;
+                        u.vy -= oy;
+                    }
+                    if (!v.isDragging) {
+                        v.vx += ox;
+                        v.vy += oy;
                     }
                 }
             }
@@ -465,8 +487,10 @@
     // Coordinates conversion (screen to canvas world coordinates)
     function screenToWorld(clientX, clientY) {
         const rect = canvas.getBoundingClientRect();
-        const mouseX = clientX - rect.left;
-        const mouseY = clientY - rect.top;
+        
+        // Correctly calculate mouse coordinates considering dynamic stretching
+        const mouseX = (clientX - rect.left) * (canvas.width / (rect.width || 1));
+        const mouseY = (clientY - rect.top) * (canvas.height / (rect.height || 1));
 
         const worldX = (mouseX - canvas.width / 2 - panX) / zoom + canvas.width / 2;
         const worldY = (mouseY - canvas.height / 2 - panY) / zoom + canvas.height / 2;
@@ -563,11 +587,10 @@
     });
 
     canvas.onclick = (e) => {
-        // Track exact movement distance between mousedown and mouseup (allow up to 6px jitter)
         const dx = e.clientX - mouseDownX;
         const dy = e.clientY - mouseDownY;
         const moveDist = Math.sqrt(dx * dx + dy * dy);
-        if (moveDist > 6) return; // This is a pan/drag action, not a click
+        if (moveDist > 6) return;
 
         const mouse = screenToWorld(e.clientX, e.clientY);
         

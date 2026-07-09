@@ -63,6 +63,12 @@
             <span class="titlebar-logo-text">POORMAN'S GRAVITY</span>
         </div>
         <div class="titlebar-controls">
+            <button class="titlebar-btn" id="win-fixture" title="Toggle Window Fixture Mode">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="win-fixture-icon">
+                    <rect x="2" y="2" width="20" height="20" rx="5" stroke-dasharray="4 3" />
+                    <path d="M12 12l5 5-2 1 2 3.5-1.5 0.8-2-3.5-2 2v-8.8z" fill="#9aa0a6" stroke="none"/>
+                </svg>
+            </button>
             <button class="titlebar-btn" id="win-reload" title="Reload App">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"/></svg>
             </button>
@@ -248,6 +254,13 @@
                 <div class="popover-resizer-l"></div>
                 <div class="popover-resizer-t"></div>
                 <div class="popover-resizer-tl"></div>
+            </div>
+            
+            <!-- ====== DOCKING GUIDE OVERLAY ====== -->
+            <div id="editor-fixture-overlay" style="display: none; position: absolute; left: 0; right: 0; top: 44px; bottom: 0; padding: 15px; box-sizing: border-box; background: rgba(12, 12, 14, 0.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 10000; pointer-events: none;">
+                <div style="width: 100%; height: 100%; border: 2px dashed #3b82f6; background: rgba(59, 130, 246, 0.08); border-radius: 12px; display: flex; justify-content: center; align-items: center; box-sizing: border-box;">
+                    <span style="color: #3b82f6; font-family: 'DM Sans', 'Outfit', sans-serif; font-size: 15px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase;">Drag window here</span>
+                </div>
             </div>
         </main>
 
@@ -524,6 +537,69 @@
     <script>
         (() => {
             const ipc = require('electron').ipcRenderer;
+            let isFixtureActive = false;
+            let originalInspectorDisplay = '';
+            let originalResizerDisplay = '';
+            
+            document.getElementById('win-fixture').onclick = () => {
+                isFixtureActive = !isFixtureActive;
+                
+                const inspector = document.getElementById('inspector-right');
+                const resizer = document.getElementById('resizer-inspector');
+                const overlay = document.getElementById('editor-fixture-overlay');
+                const titleEl = document.getElementById('editor-header-title');
+                const icon = document.getElementById('win-fixture-icon');
+                
+                if (isFixtureActive) {
+                    // Hide ChatCover right sidebar
+                    if (inspector) {
+                        originalInspectorDisplay = inspector.style.display || 'flex';
+                        inspector.style.display = 'none';
+                    }
+                    if (resizer) {
+                        originalResizerDisplay = resizer.style.display || 'block';
+                        resizer.style.display = 'none';
+                    }
+                    
+                    // Show guide overlay
+                    if (overlay) overlay.style.display = 'block';
+                    
+                    // Change header text to FIXTURE
+                    if (titleEl) titleEl.innerText = 'FIXTURE';
+                    
+                    // Style icon active (green)
+                    if (icon) {
+                        icon.setAttribute('stroke', '#10b981');
+                        const cursor = icon.querySelector('path');
+                        if (cursor) cursor.setAttribute('fill', '#10b981');
+                    }
+                } else {
+                    // Restore ChatCover right sidebar
+                    if (inspector) inspector.style.display = originalInspectorDisplay;
+                    if (resizer) resizer.style.display = originalResizerDisplay;
+                    
+                    // Hide guide overlay
+                    if (overlay) overlay.style.display = 'none';
+                    
+                    // Restore header text
+                    if (titleEl) {
+                        if (window.currentEditingPath) {
+                            const pathModule = require('path');
+                            titleEl.innerText = `FILE VIEWER - ${pathModule.basename(window.currentEditingPath)}`;
+                        } else {
+                            titleEl.innerText = 'FILE VIEWER';
+                        }
+                    }
+                    
+                    // Style icon inactive (gray)
+                    if (icon) {
+                        icon.setAttribute('stroke', '#9aa0a6');
+                        const cursor = icon.querySelector('path');
+                        if (cursor) cursor.setAttribute('fill', '#9aa0a6');
+                    }
+                }
+            };
+
             document.getElementById('win-reload').onclick = () => ipc.send('relaunch-app');
             document.getElementById('win-min').onclick = () => ipc.send('window-minimize');
             document.getElementById('win-max').onclick = () => ipc.send('window-maximize');

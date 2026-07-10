@@ -32,7 +32,7 @@ window.readFilesSet = new Set();
 window.currentBatchFileCount = 0;
 window.currentPath = process.cwd();
 window.currentSplitHeight = 0;
-window.pendingSplitHeight = 220;
+window.pendingSplitHeight = 120;
 window.requestedFilesQueue = [];
 
 // Hook ipcRenderer.send to capture currentlyDraggedFilePath on dragstart
@@ -363,9 +363,15 @@ window.updateDragDropQueueUI = function() {
         if (window.dragDropMode && hasItems) {
             containerEl.style.display = 'flex';
             window.toggleBackdropBlur(true);
+            if (typeof window.setCoverLifted === 'function') {
+                window.setCoverLifted(true);
+            }
         } else {
             containerEl.style.display = 'none';
             window.toggleBackdropBlur(false);
+            if (typeof window.setCoverLifted === 'function') {
+                window.setCoverLifted(false);
+            }
         }
     }
     
@@ -374,6 +380,10 @@ window.updateDragDropQueueUI = function() {
         closeBtn.onclick = () => {
             containerEl.style.display = 'none';
             window.toggleBackdropBlur(false);
+            window.dragDropMode = false;
+            if (typeof window.setCoverLifted === 'function') {
+                window.setCoverLifted(false);
+            }
         };
     }
     
@@ -614,12 +624,10 @@ window.autoClickPendingQueueItems = async function() {
 window.updateSplitLayoutHeight = function(newHeight) {
     if (newHeight < 40 || newHeight > 500) return;
     window.pendingSplitHeight = newHeight;
-    if (window.sessionBriefed || window.briefingInProgress) {
-        window.currentSplitHeight = newHeight;
-        const vLC = document.getElementById('inspector-local-chat');
-        if (vLC && (window.activeSubTabId === 'local' || !window.activeSubTabId || vLC.style.zIndex === '150')) {
-            vLC.style.height = `calc(100% - 44px - ${newHeight}px)`;
-        }
+    window.currentSplitHeight = newHeight;
+    const vLC = document.getElementById('inspector-local-chat');
+    if (vLC && (window.activeSubTabId === 'local' || !window.activeSubTabId || vLC.style.zIndex === '150')) {
+        vLC.style.height = `calc(100% - 44px - ${newHeight}px)`;
     }
 };
 
@@ -1014,6 +1022,7 @@ function detectAndAskCommand(text) {
     // Combined files bundling logic for Drag & Drop
     const filesToBundle = readCmds.filter(f => f.exists !== false && !f.isDirectory);
     if (filesToBundle.length > 0) {
+        const path = require('path');
         let mergedContent = "# Requested Files Bundle\n\n";
         filesToBundle.forEach(f => {
             const absPath = path.resolve(window.currentPath || process.cwd(), f.path);
@@ -1255,28 +1264,6 @@ function detectAndAskCommand(text) {
                     vBH.style.pointerEvents = 'auto';
                 }
 
-                const wrapper = inputContainer.firstElementChild;
-                if (wrapper) wrapper.style.display = 'none';
-
-                inputContainer.dataset.originalHeight = inputContainer.style.height || '';
-                inputContainer.dataset.originalPadding = inputContainer.style.padding || '';
-                inputContainer.dataset.originalBackground = inputContainer.style.background || '';
-                inputContainer.dataset.originalDisplay = inputContainer.style.display || '';
-                inputContainer.dataset.originalAlignItems = inputContainer.style.alignItems || '';
-                inputContainer.dataset.originalJustifyContent = inputContainer.style.justifyContent || '';
-
-                inputContainer.style.height = '30px';
-                inputContainer.style.padding = '0';
-                inputContainer.style.display = 'flex';
-                inputContainer.style.alignItems = 'center';
-                inputContainer.style.justifyContent = 'center';
-                inputContainer.style.background = 'var(--surface-low)';
-
-                const fileNames = readCmds.map(f => {
-                    const parts = f.path.split(/[\\/]/);
-                    return parts[parts.length - 1];
-                }).join(', ');
-
                 let fileBox = null;
                 if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
                     fileBox = ChatUI.appendBubble('system', '');
@@ -1286,32 +1273,10 @@ function detectAndAskCommand(text) {
                     }
                 }
 
-                if (!document.getElementById('bounce-arrow-style')) {
-                    const styleNode = document.createElement('style');
-                    styleNode.id = 'bounce-arrow-style';
-                    styleNode.innerHTML = "@keyframes bounce-arrow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }";
-                    document.head.appendChild(styleNode);
-                }
-
-                const arrowIndicator = document.createElement('div');
-                arrowIndicator.id = 'drag-drop-arrow-indicator';
-                arrowIndicator.style.cssText = "font-size: 20px; color: var(--primary); font-weight: bold; animation: bounce-arrow 1s infinite; text-align: center; line-height: 1; pointer-events: none;";
-                arrowIndicator.innerText = "↓";
-
                 const cleanupDragDrop = () => {
-                    arrowIndicator.remove();
                     if (fileBox) fileBox.remove();
                     window.activeDragDropCleanup = null;
                     window.activeDragDropContinue = null;
-                    
-                    if (wrapper) wrapper.style.display = '';
-                    
-                    inputContainer.style.height = inputContainer.dataset.originalHeight || '';
-                    inputContainer.style.padding = inputContainer.dataset.originalPadding || '';
-                    inputContainer.style.background = inputContainer.dataset.originalBackground || '';
-                    inputContainer.style.display = inputContainer.dataset.originalDisplay || '';
-                    inputContainer.style.alignItems = inputContainer.dataset.originalAlignItems || '';
-                    inputContainer.style.justifyContent = inputContainer.dataset.originalJustifyContent || '';
                     
                     if (vLC) {
                         vLC.style.height = "calc(100% - 44px - " + window.currentSplitHeight + "px)";
@@ -1327,25 +1292,28 @@ function detectAndAskCommand(text) {
                         vBH.style.pointerEvents = 'auto';
                     }
                     
-                    // Clean up temporary files on cleanup
-                    try {
-                        const fs = require('fs');
-                        const path = require('path');
-                        const dir = window.projectRoot || window.currentPath;
-                        if (dir && fs.existsSync(dir)) {
-                            const files = fs.readdirSync(dir);
-                            files.forEach(file => {
-                                if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
-                                    try {
-                                        fs.unlinkSync(path.join(dir, file));
-                                    } catch(e) {}
+                    // Clean up temporary files on cleanup (only if all files in the queue were successfully uploaded)
+                    const isAllUploaded = window.requestedFilesQueue.length > 0 && window.requestedFilesQueue.every(f => f.status === 'COMPLETED');
+                    if (isAllUploaded) {
+                        try {
+                            const fs = require('fs');
+                            const path = require('path');
+                            const dir = window.projectRoot || window.currentPath;
+                            if (dir && fs.existsSync(dir)) {
+                                const files = fs.readdirSync(dir);
+                                files.forEach(file => {
+                                    if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
+                                        try {
+                                            fs.unlinkSync(path.join(dir, file));
+                                        } catch(e) {}
+                                    }
+                                });
+                                if (typeof window.refreshTree === 'function') {
+                                    window.refreshTree();
                                 }
-                            });
-                            if (typeof window.refreshTree === 'function') {
-                                window.refreshTree();
                             }
-                        }
-                    } catch(e) {}
+                        } catch(e) {}
+                    }
                 };
 
                 window.activeDragDropCleanup = cleanupDragDrop;
@@ -1356,8 +1324,6 @@ function detectAndAskCommand(text) {
                 if (typeof window.injectGuestDropInterceptor === 'function') {
                     window.injectGuestDropInterceptor();
                 }
-
-                inputContainer.appendChild(arrowIndicator);
             }
         }
     }
@@ -1487,6 +1453,16 @@ async function setupBoot() {
         wv.useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
         wv.style = "width:100%; height:100%; border:none;"; wv.setAttribute('allowpopups', '');
         wv.addEventListener('contextmenu', () => wv.openDevTools());
+        wv.addEventListener('did-navigate', () => {
+            if (typeof window.injectGuestDropInterceptor === 'function') {
+                window.injectGuestDropInterceptor();
+            }
+        });
+        wv.addEventListener('did-navigate-in-page', () => {
+            if (typeof window.injectGuestDropInterceptor === 'function') {
+                window.injectGuestDropInterceptor();
+            }
+        });
         wv.addEventListener('dom-ready', () => {
             const currentUrl = wv.getURL();
             if (!currentUrl || currentUrl === 'about:blank' || !currentUrl.startsWith('http')) {
@@ -3706,12 +3682,21 @@ function setupUI() {
             vLC.style.opacity = '1';
             vLC.style.pointerEvents = 'auto';
             vLC.style.zIndex = '150';
-            vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight}px)`;
+            vLC.style.position = 'absolute';
+            vLC.style.top = '0';
+            vLC.style.bottom = '';
+            vLC.style.left = '0';
+            vLC.style.width = '100%';
+            
+            const splitH = window.currentSplitHeight || window.pendingSplitHeight || 180;
+            vLC.style.height = `calc(100% - 44px - ${splitH}px)`;
             
             vBH.style.position = 'absolute';
             vBH.style.top = '0';
-            vBH.style.height = 'calc(100% - 44px)';
+            vBH.style.bottom = '';
+            vBH.style.left = '0';
             vBH.style.width = '100%';
+            vBH.style.height = 'calc(100% - 44px)';
             vBH.style.zIndex = '100';
             vBH.style.opacity = '1';
             vBH.style.pointerEvents = 'auto';
@@ -3720,24 +3705,32 @@ function setupUI() {
             vLC.style.pointerEvents = 'none';
             vLC.style.zIndex = '100';
             vLC.style.height = 'calc(100% - 44px)';
+            vLC.style.position = 'absolute';
+            vLC.style.top = '0';
+            vLC.style.bottom = '';
             
-            vBH.style.position = '';
-            vBH.style.top = '';
-            vBH.style.height = 'calc(100% - 44px)';
+            vBH.style.position = 'absolute';
+            vBH.style.top = '0';
+            vBH.style.bottom = '';
+            vBH.style.left = '0';
             vBH.style.width = '100%';
+            vBH.style.height = 'calc(100% - 44px)';
             vBH.style.zIndex = '150';
             vBH.style.opacity = '1';
             vBH.style.pointerEvents = 'auto';
         }
-        tLA.classList.toggle('active-tab', (m === 'local')); tBH.classList.toggle('active-tab', (m !== 'local'));
-        if (m === 'local') {
-            const chatLog = document.getElementById('local-chat-messages');
-            if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
-            if (document.hasFocus()) { const ci = document.getElementById('local-agent-input'); if (ci) setTimeout(() => ci.focus(), 100); }
-        }
+        if (tLA) tLA.classList.toggle('active-tab', (m === 'local'));
+        if (tBH) tBH.classList.toggle('active-tab', (m !== 'local'));
+
+        const chatLog = document.getElementById('local-chat-messages');
+        if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+        if (typeof syncBrowserView === 'function') syncBrowserView();
     };
     window.swi = swi;
     if (tLA) tLA.onclick = () => swi('local'); if (tBH) tBH.onclick = () => swi('browser');
+    
+    // Default to COVER tab on startup
+    setTimeout(() => swi('local'), 50);
 
     const searchBtn = document.getElementById('btn-local-search');
     const searchContainer = document.getElementById('local-chat-search-container');
@@ -3966,7 +3959,7 @@ function setupUI() {
                     const inputContainer = document.getElementById('local-input-container');
                     if (inputContainer) {
                         inputContainer.style.background = '';
-                        inputContainer.style.display = '';
+                        inputContainer.style.display = 'none';
                         inputContainer.style.height = '';
                     }
                     
@@ -3984,10 +3977,11 @@ function setupUI() {
                         vBH.style.pointerEvents = 'auto';
                     }
                     
-                    // Clean up temporary rules file after a 10 seconds delay
+                    // Clean up temporary rules file after a 10 seconds delay (only if successfully uploaded)
                     setTimeout(() => {
                         try {
-                            if (fs.existsSync(tempRulesPath)) {
+                            const isAllUploaded = window.requestedFilesQueue.length > 0 && window.requestedFilesQueue.every(f => f.status === 'COMPLETED');
+                            if (isAllUploaded && fs.existsSync(tempRulesPath)) {
                                 fs.unlinkSync(tempRulesPath);
                                 if (typeof window.refreshTree === 'function') {
                                     window.refreshTree();
@@ -4386,50 +4380,184 @@ ${window.getSystemRulesPrompt()}
 
 async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, listDirCmds, createDirCmds, runCommandCmds, searchKeywordCmds) {
     let accumulatedFeedback = "";
-    
-    // 1. Create Directories
-    if (createDirCmds.length > 0) {
-        const fs = require('fs');
-        const path = require('path');
-        for (const c of createDirCmds) {
-            try {
-                const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
-                if (!fs.existsSync(targetPath)) {
-                    fs.mkdirSync(targetPath, { recursive: true });
-                    accumulatedFeedback += `[DIRECTORY CREATED: ${c.path}]\n`;
-                    ChatUI.appendBubble('system', `[SUCCESS] Created directory: ${c.path}`);
+    let isDeleteApproved = true;
+    let isWriteEditApproved = true;
+
+    const submitConsolidatedFeedback = async (feedback) => {
+        if (!feedback.trim()) return;
+        const finalMessage = `${feedback}\nProceed to next step.${window.getSystemRulesPrompt()}`;
+        await injectWebPayload(finalMessage, 0);
+        window.currentBatchFileCount = 0;
+        const response = await runExperimentalEngine('/marktag', finalMessage, null);
+        if (!window.autoContinueOnRead) {
+            document.getElementById('tab-local-agent')?.click();
+        }
+        if (response) {
+            if (typeof window.finalizeAiBubble === 'function') {
+                window.finalizeAiBubble(response);
+            }
+            detectAndAskCommand(response);
+        }
+    };
+
+    const startDeleteOrchestration = () => {
+        if (deleteCmds.length > 0) {
+            const displayDelete = deleteCmds.map(c => c.path).join(', ');
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#ef4444"; 
+            const glowShadow = "rgba(0,0,0,0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <div style="font-weight: bold; color: #ff4444; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                        <span>⚠️ DELETE CONFIRMATION</span>
+                    </div>
+                    <span>Allow Web AI to delete: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayDelete}</strong>?</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
+                </div>
+            `;
+
+            content.querySelector('.cmd-run-btn').onclick = () => {
+                box.remove();
+                isDeleteApproved = true;
+                startWriteEditOrchestration();
+            };
+
+            content.querySelector('.cmd-cancel-btn').onclick = () => {
+                box.remove();
+                isDeleteApproved = false;
+                deleteCmds.forEach(c => {
+                    accumulatedFeedback += `[FILE DELETE ERROR: ${c.path} - User denied permission]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Deletion of ${c.path} denied by user.`);
+                });
+                startWriteEditOrchestration();
+            };
+        } else {
+            startWriteEditOrchestration();
+        }
+    };
+
+    const startWriteEditOrchestration = () => {
+        if (writeCmds.length > 0 || editCmds.length > 0) {
+            const displayModify = [
+                ...writeCmds.map(c => `[NEW] ${c.path}`),
+                ...editCmds.map(c => `[MODIFY] ${c.path}`)
+            ].join(', ');
+
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#3b82f6";
+            const glowShadow = "rgba(59,130,246,0.15)";
+
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <div style="font-weight: bold; color: #3b82f6; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                        <span>⚠️ FILE MODIFICATION CONFIRMATION</span>
+                    </div>
+                    <span>Allow Web AI to write/edit: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayModify}</strong>?</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
+                </div>
+            `;
+
+            content.querySelector('.cmd-run-btn').onclick = () => {
+                box.remove();
+                isWriteEditApproved = true;
+                runDiskModifications();
+            };
+
+            content.querySelector('.cmd-cancel-btn').onclick = () => {
+                box.remove();
+                isWriteEditApproved = false;
+                const writePaths = writeCmds.map(c => c.path).join(', ');
+                const editPaths = editCmds.map(c => c.path).join(', ');
+                if (writePaths) {
+                    accumulatedFeedback += `[FILE WRITE DENIED BY USER: ${writePaths}]\n`;
+                    ChatUI.appendBubble('system', `[DENIED] Blocked writing to: ${writePaths}`);
                 }
-            } catch(err) {
-                accumulatedFeedback += `[DIRECTORY CREATE ERROR: ${c.path} - ${err.message}]\n`;
-                ChatUI.appendBubble('system', `[ERROR] Failed to create directory ${c.path}: ${err.message}`);
+                if (editPaths) {
+                    accumulatedFeedback += `[FILE EDIT DENIED BY USER: ${editPaths}]\n`;
+                    ChatUI.appendBubble('system', `[DENIED] Blocked editing: ${editPaths}`);
+                }
+                runDiskModifications();
+            };
+        } else {
+            runDiskModifications();
+        }
+    };
+
+    const runDiskModifications = async () => {
+        if (createDirCmds.length > 0) {
+            const fs = require('fs');
+            const path = require('path');
+            for (const c of createDirCmds) {
+                try {
+                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                    if (!fs.existsSync(targetPath)) {
+                        fs.mkdirSync(targetPath, { recursive: true });
+                        accumulatedFeedback += `[DIRECTORY CREATED: ${c.path}]\n`;
+                        ChatUI.appendBubble('system', `[SUCCESS] Created directory: ${c.path}`);
+                    }
+                } catch(err) {
+                    accumulatedFeedback += `[DIRECTORY CREATE ERROR: ${c.path} - ${err.message}]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to create directory ${c.path}: ${err.message}`);
+                }
             }
         }
-    }
-    
-    // 2. Write Files
-    if (writeCmds.length > 0) {
-        if (typeof executeWriteFileBatchSilent === 'function') {
-            const feedback = await executeWriteFileBatchSilent(writeCmds);
-            accumulatedFeedback += feedback;
+
+        if (deleteCmds.length > 0 && isDeleteApproved) {
+            const fs = require('fs');
+            const path = require('path');
+            for (const c of deleteCmds) {
+                try {
+                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                    if (fs.existsSync(targetPath)) {
+                        const stat = fs.statSync(targetPath);
+                        if (stat.isDirectory()) {
+                            fs.rmSync(targetPath, { recursive: true, force: true });
+                        } else {
+                            fs.unlinkSync(targetPath);
+                        }
+                        accumulatedFeedback += `[FILE DELETE SUCCESS: ${c.path}]\n`;
+                        ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path}`);
+                    } else {
+                        accumulatedFeedback += `[FILE DELETE SUCCESS: ${c.path} (Already gone)]\n`;
+                        ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path} (Already gone)`);
+                    }
+                } catch (err) {
+                    accumulatedFeedback += `[FILE DELETE ERROR: ${c.path} - ${err.message}]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to delete ${c.path}: ${err.message}`);
+                }
+            }
         }
-    }
-    
-    // 3. Edit Files
-    if (editCmds.length > 0) {
-        const blockCmds = editCmds.filter(c => c.type === 'block');
-        const rangeCmds = editCmds.filter(c => c.type === 'range');
-        if (blockCmds.length > 0 && typeof executeEditFileBatchSilent === 'function') {
-            const feedback = await executeEditFileBatchSilent(blockCmds);
-            accumulatedFeedback += feedback;
+
+        if (isWriteEditApproved) {
+            if (writeCmds.length > 0) {
+                if (typeof executeWriteFileBatchSilent === 'function') {
+                    const feedback = await executeWriteFileBatchSilent(writeCmds);
+                    accumulatedFeedback += feedback;
+                }
+            }
+            if (editCmds.length > 0) {
+                const blockCmds = editCmds.filter(c => c.type === 'block');
+                const rangeCmds = editCmds.filter(c => c.type === 'range');
+                if (blockCmds.length > 0 && typeof executeEditFileBatchSilent === 'function') {
+                    const feedback = await executeEditFileBatchSilent(blockCmds);
+                    accumulatedFeedback += feedback;
+                }
+                if (rangeCmds.length > 0 && typeof executeEditFileRangeBatchSilent === 'function') {
+                    const feedback = await executeEditFileRangeBatchSilent(rangeCmds);
+                    accumulatedFeedback += feedback;
+                }
+            }
         }
-        if (rangeCmds.length > 0 && typeof executeEditFileRangeBatchSilent === 'function') {
-            const feedback = await executeEditFileRangeBatchSilent(rangeCmds);
-            accumulatedFeedback += feedback;
-        }
-    }
-    
-    const proceedAfterDelete = async () => {
-        // 5. Move Files
+
         if (moveCmds.length > 0) {
             const fs = require('fs');
             const path = require('path');
@@ -4454,12 +4582,12 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                     ChatUI.appendBubble('system', `[ERROR] Failed to move ${c.src}: ${err.message}`);
                 }
             }
-            if (typeof window.loadDirectory === 'function' && window.currentPath) {
-                window.loadDirectory(window.currentPath);
-            }
         }
-        
-        // 6. List Directory
+
+        if (typeof window.loadDirectory === 'function' && window.currentPath) {
+            window.loadDirectory(window.currentPath);
+        }
+
         if (listDirCmds.length > 0) {
             const fs = require('fs');
             const path = require('path');
@@ -4481,8 +4609,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 }
             }
         }
-        
-        // 7. Search Keyword
+
         if (searchKeywordCmds.length > 0) {
             const fs = require('fs');
             const path = require('path');
@@ -4532,11 +4659,13 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 }
             }
         }
-        
-        // 8. Run Shell Command (if any, requires security confirmation)
+
+        startCommandOrchestration();
+    };
+
+    const startCommandOrchestration = () => {
         if (runCommandCmds.length > 0) {
             const displayCmd = runCommandCmds.map(c => `run-command "${c.command}"`).join(', ');
-            
             const box = ChatUI.appendBubble('system', '');
             const content = box.querySelector('.bubble-content');
             const themeColor = "#ef4444"; 
@@ -4557,11 +4686,9 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
 
             content.querySelector('.cmd-run-btn').onclick = async () => {
                 box.remove();
-                
                 const { exec } = require('child_process');
                 for (const c of runCommandCmds) {
                     ChatUI.appendBubble('system', `[SYSTEM] Running command: ${c.command}...\n`);
-                    
                     let loaderBox = ChatUI.appendBubble('system', '');
                     const loaderContent = loaderBox.querySelector('.bubble-content');
                     if (loaderContent) {
@@ -4577,7 +4704,6 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                         exec(c.command, { cwd: window.currentPath || process.cwd(), timeout: 45000 }, async (err, stdout, stderr) => {
                             if (loaderBox) loaderBox.remove();
                             const output = (stdout + '\n' + stderr).trim() || "[No output]";
-                            
                             if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
                                 const resBox = ChatUI.appendBubble('system', '');
                                 const resContent = resBox.querySelector('.bubble-content');
@@ -4598,92 +4724,20 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                         });
                     });
                 }
-                
                 await submitConsolidatedFeedback(accumulatedFeedback);
             };
-            
+
             content.querySelector('.cmd-cancel-btn').onclick = () => {
                 box.remove();
                 accumulatedFeedback += `[COMMAND EXECUTION CANCELLED BY USER]\n`;
                 submitConsolidatedFeedback(accumulatedFeedback);
             };
-            return;
+        } else {
+            submitConsolidatedFeedback(accumulatedFeedback);
         }
-        
-        await submitConsolidatedFeedback(accumulatedFeedback);
     };
 
-    // 4. Delete Files (Requires security confirmation)
-    if (deleteCmds.length > 0) {
-        const displayDelete = deleteCmds.map(c => c.path).join(', ');
-        
-        const box = ChatUI.appendBubble('system', '');
-        const content = box.querySelector('.bubble-content');
-        const themeColor = "#ef4444"; 
-        const glowShadow = "rgba(0,0,0,0.15)";
-
-        content.innerHTML = `
-            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                <div style="font-weight: bold; color: #ff4444; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                    <span>⚠️ DELETE CONFIRMATION</span>
-                </div>
-                <span>Allow Web AI to delete: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayDelete}</strong>?</span>
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
-                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
-            </div>
-        `;
-
-        content.querySelector('.cmd-run-btn').onclick = async () => {
-            box.remove();
-            
-            const fs = require('fs');
-            const path = require('path');
-            let deleteFeedback = "";
-            for (const c of deleteCmds) {
-                try {
-                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
-                    if (fs.existsSync(targetPath)) {
-                        const stat = fs.statSync(targetPath);
-                        if (stat.isDirectory()) {
-                            fs.rmSync(targetPath, { recursive: true, force: true });
-                        } else {
-                            fs.unlinkSync(targetPath);
-                        }
-                        deleteFeedback += `[FILE DELETE SUCCESS: ${c.path}]\n`;
-                        ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path}`);
-                    } else {
-                        deleteFeedback += `[FILE DELETE SUCCESS: ${c.path} (Already gone)]\n`;
-                        ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path} (Already gone)`);
-                    }
-                } catch (err) {
-                    deleteFeedback += `[FILE DELETE ERROR: ${c.path} - ${err.message}]\n`;
-                    ChatUI.appendBubble('system', `[ERROR] Failed to delete ${c.path}: ${err.message}`);
-                }
-            }
-            if (typeof window.loadDirectory === 'function' && window.currentPath) {
-                window.loadDirectory(window.currentPath);
-            }
-            
-            accumulatedFeedback += deleteFeedback;
-            await proceedAfterDelete();
-        };
-
-        content.querySelector('.cmd-cancel-btn').onclick = async () => {
-            box.remove();
-            let deleteFeedback = "";
-            deleteCmds.forEach(c => {
-                deleteFeedback += `[FILE DELETE ERROR: ${c.path} - User denied permission]\n`;
-                ChatUI.appendBubble('system', `[ERROR] Deletion of ${c.path} denied by user.`);
-            });
-            accumulatedFeedback += deleteFeedback;
-            await proceedAfterDelete();
-        };
-        return;
-    }
-    
-    await proceedAfterDelete();
+    startDeleteOrchestration();
 }
 
 async function submitConsolidatedFeedback(feedback) {
@@ -4704,3 +4758,7 @@ async function submitConsolidatedFeedback(feedback) {
         detectAndAskCommand(response);
     }
 }
+
+window.setCoverLifted = function(lifted) {
+    // No-op: Bottom BROWSER area is permanently exposed on local tab.
+};

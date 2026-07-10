@@ -102,13 +102,21 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         const item = document.createElement('div');
         item.className = `file-item ${isDir && !isParentEntry ? 'directory' : 'file'} ${window.currentFilePath === fullPath ? 'active' : ''}`;
         item.dataset.path = fullPath;
-        if (!isDir) {
+        if (!isParentEntry) {
             item.setAttribute('draggable', 'true');
             item.ondragstart = (e) => {
-                e.preventDefault();
-                console.log("[TreeDrag] Native dragstart initiated for:", fullPath);
-                const { ipcRenderer } = require('electron');
-                ipcRenderer.send('ondragstart', fullPath);
+                if (typeof window.setCoverLifted === 'function') {
+                    window.setCoverLifted(true);
+                }
+                if (isDir) {
+                    e.dataTransfer.setData('text/plain', fullPath);
+                    console.log("[TreeDrag] Folder HTML5 dragstart:", fullPath);
+                } else {
+                    e.preventDefault();
+                    console.log("[TreeDrag] File native dragstart initiated for:", fullPath);
+                    const { ipcRenderer } = require('electron');
+                    ipcRenderer.send('ondragstart', fullPath);
+                }
             };
         }
         item.style.setProperty('--level', level);

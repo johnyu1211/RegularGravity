@@ -74,6 +74,46 @@ async function openProjectModal() {
 }
 
 function bindDragAndDrop() {
+    // 1. Global folder drop handler on window
+    window.addEventListener('dragover', (e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        }
+    });
+
+    window.addEventListener('drop', async (e) => {
+        let absolutePath = '';
+        
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            absolutePath = e.dataTransfer.files[0].path;
+        } else {
+            const internalPath = e.dataTransfer.getData('text/plain');
+            if (internalPath) absolutePath = internalPath;
+        }
+
+        if (!absolutePath) return;
+
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const targetPath = path.resolve(absolutePath);
+
+            if (fs.existsSync(targetPath)) {
+                const stats = fs.statSync(targetPath);
+                if (stats.isDirectory()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log("[GlobalDrop] Directory dropped. Loading project:", targetPath);
+                    window.selectProject(targetPath);
+                }
+            }
+        } catch (err) {
+            console.error("[GlobalDrop] Error handling folder drop:", err);
+        }
+    });
+
+    // 2. File outline drop handler on hub
     const hub = document.getElementById('inspector-browser-hub');
     if (hub) {
         hub.ondragover = (e) => {
@@ -81,18 +121,17 @@ function bindDragAndDrop() {
             e.dataTransfer.dropEffect = 'copy';
         };
         hub.ondrop = async (e) => {
-            e.preventDefault();
-            
             let filePath = '';
+            let absolutePath = '';
             const internalPath = e.dataTransfer.getData('text/plain');
             if (internalPath) {
                 filePath = internalPath;
+                absolutePath = internalPath;
             } 
             else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                const fs = require('fs');
-                const path = require('path');
                 const file = e.dataTransfer.files[0];
-                const absolutePath = file.path;
+                absolutePath = file.path;
+                const path = require('path');
                 if (window.currentPath) {
                     filePath = path.relative(window.currentPath, absolutePath);
                 } else {
@@ -100,14 +139,23 @@ function bindDragAndDrop() {
                 }
             }
 
-            if (!filePath) return;
+            if (!absolutePath) return;
 
             try {
                 const fs = require('fs');
                 const path = require('path');
-                const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+                const targetPath = path.resolve(window.currentPath || process.cwd(), absolutePath);
                 
                 if (fs.existsSync(targetPath)) {
+                    const stats = fs.statSync(targetPath);
+                    if (stats.isDirectory()) {
+                        // Handled globally
+                        return;
+                    }
+
+                    e.preventDefault();
+                    e.stopPropagation();
+
                     const chatOverlay = document.getElementById('local-chat-overlay');
                     const progressBox = document.getElementById('overlay-progress-box');
                     const projBtn = document.getElementById('btn-send-project-info');

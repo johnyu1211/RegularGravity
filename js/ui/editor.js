@@ -78,9 +78,26 @@ window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) window.performRedo();
-        else window.performUndo();
     }
 });
+
+window.copyBlockContent = async (syncId, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+        const bodyEl = document.getElementById('body-' + syncId);
+        if (!bodyEl) return;
+        const text = bodyEl.innerText;
+        await navigator.clipboard.writeText(text);
+        
+        const btn = event.currentTarget;
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        setTimeout(() => { btn.innerHTML = originalHTML; }, 1000);
+    } catch (err) {
+        console.error("Copy failed:", err);
+    }
+};
 
 window.pasteToBlock = async (syncId, event) => {
     event.preventDefault();
@@ -238,7 +255,7 @@ window.openFileInEditor = (filePath) => {
                         let syncId = `mini-block-${blockCounter++}`;
                         blockStack.push({ title: titleName, id: syncId, start: i });
 
-                        finalHTML += `<div class="pormsg-block"><details class="editor-detail" data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine}</div><span class="caret" style="color:var(--text-muted)">▶</span></summary><div class="pormsg-body" id="body-${syncId}">`;
+                        finalHTML += `<div class="pormsg-block"><details class="editor-detail" data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine}</div><button class="box-copy-btn" onclick="window.copyBlockContent('${syncId}', event)" title="Copy block content"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><span class="caret" style="color:var(--text-muted)">▶</span></summary><div class="pormsg-body" id="body-${syncId}">`;
                         minimapHTML += `<details id="${syncId}" class="mini-detail"><summary class="mini-summary">${mmLine}</summary><div class="mini-body">`;
                     } else if (net < 0 && blockStack.length > 0) {
                         let popped = blockStack.pop();
@@ -274,6 +291,9 @@ window.openFileInEditor = (filePath) => {
                         
                         .box-paste-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; flex-shrink: 0; }
                         .pormsg-header:hover .box-paste-btn { opacity: 1; } .box-paste-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+                        
+                        .box-copy-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 6px; }
+                        .pormsg-header:hover .box-copy-btn { opacity: 1; } .box-copy-btn:hover { background: #333; color: #fff; border-color: #555; }
                         
                         .caret { display: inline-block; color: var(--text-muted); font-size: 10px; margin-left: 8px; transition: transform 0.2s ease; flex-shrink: 0; } details[open] > .pormsg-header .caret { transform: rotate(90deg); }
                         

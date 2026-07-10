@@ -337,6 +337,7 @@ body {
     gap: 12px;
     padding: 15px;
     overflow-y: auto;
+    transition: filter 0.3s ease, -webkit-filter 0.3s ease !important;
 }
 
 .chat-bubble {
@@ -1394,14 +1395,30 @@ input:checked + .slider:before {
     border-radius: 50%;
 }
 
+
+
 #local-input-container {
-    display: none !important;
+    transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), padding 0.35s cubic-bezier(0.4, 0, 0.2, 1), border-top-color 0.35s ease;
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 120px;
+    overflow: hidden;
+}
+#local-input-container.hidden-fade {
+    opacity: 0 !important;
+    transform: translateY(8px) !important;
+    max-height: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-top-color: transparent !important;
+    pointer-events: none !important;
 }
 
 #inspector-local-chat {
-    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s ease !important;
+    transition: height 0.1s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s ease;
 }
-#inspector-local-chat.modal-backdrop-blur {
+#inspector-local-chat.modal-backdrop-blur #local-chat-messages,
+#inspector-local-chat.modal-backdrop-blur #active-project-header {
     filter: blur(8px) brightness(0.4) !important;
     pointer-events: none !important;
 }

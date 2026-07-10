@@ -1,6 +1,43 @@
 if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 window.generating = false;
 
+window.makeCodeBlocksCollapsible = (container) => {
+    container.querySelectorAll('pre').forEach(pre => {
+        if (pre.parentElement.tagName.toLowerCase() === 'details' && pre.parentElement.classList.contains('chat-code-details')) return;
+
+        const codeEl = pre.querySelector('code');
+        let lang = 'code';
+        if (codeEl) {
+            const match = Array.from(codeEl.classList).find(c => c.startsWith('language-'));
+            if (match) lang = match.replace('language-', '').toUpperCase();
+        }
+
+        const details = document.createElement('details');
+        details.className = 'chat-code-details';
+        details.style = 'margin: 6px 0; border: 1px solid #2a2a2a; border-radius: 6px; background: #070707; overflow: hidden;';
+        
+        const summary = document.createElement('summary');
+        summary.className = 'chat-code-summary';
+        summary.style = 'cursor: pointer; padding: 6px 12px; background: #111; font-size: 11.5px; font-weight: 600; color: #aaa; font-family: "DM Sans", sans-serif; display: flex; align-items: center; justify-content: space-between; user-select: none; border-bottom: 1px solid transparent;';
+        
+        summary.innerHTML = `<span>📄 Code Block (${lang})</span><span class="chat-code-caret" style="font-size: 10px; transition: transform 0.2s ease;">▶</span>`;
+        
+        details.ontoggle = () => {
+            const caret = summary.querySelector('.chat-code-caret');
+            if (caret) caret.style.transform = details.open ? 'rotate(90deg)' : 'none';
+            summary.style.borderBottomColor = details.open ? '#2a2a2a' : 'transparent';
+        };
+
+        pre.parentNode.insertBefore(details, pre);
+        details.appendChild(summary);
+        details.appendChild(pre);
+
+        pre.style.margin = '0';
+        pre.style.borderRadius = '0';
+        pre.style.border = 'none';
+    });
+};
+
 const ChatUI = {
     appendBubble(role, text, isThinking = false, sourceIcon = null) {
         const chatLog = document.getElementById('local-chat-messages'); if (!chatLog) return;
@@ -82,17 +119,36 @@ const ChatUI = {
             if (typeof window.typewriterHTML === 'function') {
                 window.typewriterHTML(content, text, () => {
                     if (typeof hljs !== 'undefined') box.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                    if (typeof window.makeCodeBlocksCollapsible === 'function') window.makeCodeBlocksCollapsible(content);
                     chatLog.scrollTop = chatLog.scrollHeight;
+                    if (typeof window.toggleManualSendButtons === 'function') {
+                        const queue = document.getElementById('drag-drop-queue-container');
+                        const show = !((queue && queue.style.display !== 'none') || !window.sessionBriefed);
+                        window.toggleManualSendButtons(show);
+                    }
                 });
             } else {
                 const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(text) : text;
                 if (typeof marked !== 'undefined') content.innerHTML = marked.parse(formatted).trim(); else content.innerText = formatted.trim();
                 if (typeof hljs !== 'undefined') box.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+                if (typeof window.makeCodeBlocksCollapsible === 'function') window.makeCodeBlocksCollapsible(content);
+                if (typeof window.toggleManualSendButtons === 'function') {
+                    const queue = document.getElementById('drag-drop-queue-container');
+                    const show = !((queue && queue.style.display !== 'none') || !window.sessionBriefed);
+                    window.toggleManualSendButtons(show);
+                }
             }
         } else {
+            window.tempCards = [];
             const formatted = typeof window.formatChatText === 'function' ? window.formatChatText(text) : text;
-            if (typeof marked !== 'undefined') content.innerHTML = marked.parse(formatted).trim(); else content.innerText = formatted.trim();
+            if (typeof marked !== 'undefined') {
+                const html = marked.parse(formatted).trim();
+                content.innerHTML = typeof window.unpackChatPlaceholders === 'function' ? window.unpackChatPlaceholders(html) : html;
+            } else {
+                content.innerText = formatted.trim();
+            }
             if (typeof hljs !== 'undefined') box.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+            if (typeof window.makeCodeBlocksCollapsible === 'function') window.makeCodeBlocksCollapsible(content);
         }
         return box;
     },
@@ -143,7 +199,10 @@ const ChatUI = {
 };
 
 const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false, sourceIcon = null, targetBubble = null) => {
+    if (typeof window.toggleManualSendButtons === 'function') window.toggleManualSendButtons(false);
     const sendBtn = document.getElementById('send-to-local');
+    const chatIn = document.getElementById('local-agent-input');
+
     if (window.generating) { 
         ipcRenderer.send('stop-ollama'); 
         window.generating = false; 
@@ -151,7 +210,6 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
         return; 
     }
 
-    const chatIn = document.getElementById('local-agent-input');
     const promptText = (typeof overridePrompt === 'string') ? overridePrompt : (chatIn ? chatIn.value.trim() : '');
     if (!promptText) return;
 
@@ -169,129 +227,161 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
         return;
     }
 
-    const experimentalCmds = ['/marktag', '/mutation', '/spatial', '/spatialMutation', '/test'];
-    let matchedCmd = null, msg = "";
-
-    for (const c of experimentalCmds) {
-        if (promptText === c || promptText.startsWith(c + ' ')) { matchedCmd = c; msg = promptText.substring(c.length).trim(); break; }
-    }
-
-    if (matchedCmd) {
-        const isTest = (matchedCmd === '/test'); const cmd = matchedCmd; const displayCmd = msg ? `${cmd} ${msg}` : cmd;
-        ChatUI.appendBubble('user', displayCmd); if (chatIn) chatIn.value = '';
-        try {
-            if (isTest) { await injectWebPayload(msg); } 
-            else {
-                const statusBub = ChatUI.appendBubble('ai', `[SYSTEM] ${cmd} entering wait mode...`);
-                window.currentBatchFileCount = 0;
-                await injectWebPayload(msg);
-                const enginePromise = runExperimentalEngine(cmd, msg, statusBub);
-                const response = await enginePromise;
-                if (statusBub) statusBub.remove();
-
-                if (response) { ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview'))); detectAndAskCommand(response); } 
-                else {
-                    const failBub = ChatUI.appendBubble('ai', `[SYSTEM] ${cmd} automatic extraction failed.`);
-                    const content = failBub.querySelector('.bubble-content');
-                    if (content) {
-                        content.innerHTML = `
-                            <div style="margin-bottom:12px; color:#aaa;">⚠️ ${cmd} automatic extraction failed.</div>
-                            <div style="display:flex; justify-content:center; padding:5px 0;">
-                                <button class="manual-fetch-trigger-btn" style="background:#222; border:1px solid #333; color:#aaa; padding:8px 20px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s;">Manual Fetch</button>
-                            </div>
-                        `;
-                        const btn = content.querySelector('.manual-fetch-trigger-btn');
-                        btn.onmouseenter = () => { btn.style.background = '#333'; btn.style.color = '#fff'; btn.style.borderColor = '#444'; };
-                        btn.onmouseleave = () => { btn.style.background = '#222'; btn.style.color = '#aaa'; btn.style.borderColor = '#333'; };
-                        btn.onclick = async () => { const result = await showManualInputUI(failBub); if (result) { failBub.remove(); ChatUI.appendBubble('ai', result, false, getWebIcon(document.getElementById('active-agent-webview'))); } };
-                    }
-                }
-            }
-        } catch (e) { ChatUI.appendBubble('ai', `[ERROR] Injection failed: ${e.message}`); }
-        return;
-    }
-
-    if (true) {
-        if (typeof overridePrompt !== 'string') { ChatUI.appendBubble('user', promptText); if (chatIn) chatIn.value = ''; }
-        const overlay = document.getElementById('web-process-overlay'), progBar = document.getElementById('web-process-bar');
-        const steps = { scan: document.getElementById('step-scan'), analyze: document.getElementById('step-analyze'), brief: document.getElementById('step-brief'), extract: document.getElementById('step-extract') };
-        const updateProcess = (stepId, percent) => {
-            overlay.style.display = 'block'; overlay.style.pointerEvents = 'auto'; progBar.style.width = percent + '%';
-            Object.values(steps).forEach(s => s?.classList.remove('active')); if (steps[stepId]) steps[stepId].classList.add('active');
-        };
-
-        try {
-            if (typeof window.sessionTurnCount === 'undefined') window.sessionTurnCount = 0;
-            window.sessionTurnCount++;
-            
-            let webPayload = promptText.trim();
-            
-            // Check if 10-turn reminder is needed (starting from turn 10)
-            if (window.sessionTurnCount > 0 && window.sessionTurnCount % 10 === 0) {
-                const fs = require('fs');
-                const path = require('path');
-                const tempFileName = `_project_rules_reminder_${Date.now()}.md`;
-                const tempPath = path.join(window.projectRoot || window.currentPath, tempFileName);
-                try {
-                    const rulesText = typeof window.getSystemRulesPrompt === 'function' ? window.getSystemRulesPrompt(true) : '';
-                    fs.writeFileSync(tempPath, rulesText, 'utf-8');
-                    
-                    window.requestedFilesQueue = [{
-                        relativePath: tempFileName,
-                        absolutePath: tempPath,
-                        status: 'PENDING'
-                    }];
-                    
-                    if (typeof window.updateDragDropQueueUI === 'function') {
-                        window.updateDragDropQueueUI();
-                    }
-                    
-                    window.pendingUserMessageText = webPayload;
-                    
-                    if (window.autoDragging) {
-                        if (typeof window.autoClickPendingQueueItems === 'function') {
-                            window.autoClickPendingQueueItems();
-                        }
-                    }
-                    return; // Halt sending, wait for rules drop
-                } catch(e) {
-                    console.error("Failed to create temporary rules reminder file:", e);
-                }
-            }
-
-            const systemRulePrompt = typeof window.getSystemRulesPrompt === 'function' ? window.getSystemRulesPrompt() : '';
-            webPayload += systemRulePrompt;
-            window.sessionBriefed = true;
-
-            await injectWebPayload(webPayload, 0);
-            const enginePromise = runExperimentalEngine('/marktag', webPayload, null);
-
-            updateProcess('extract', 90);
-
-            const response = await enginePromise;
-            progBar.style.width = '100%'; await new Promise(r => setTimeout(r, 500));
-            overlay.style.display = 'none'; overlay.style.pointerEvents = 'none';
-
-            if (response) {
-                // Background mirror will append bubble
-                if (typeof window.finalizeAiBubble === 'function') {
-                    window.finalizeAiBubble(response);
-                }
-                if (typeof detectAndAskCommand === 'function') {
-                    detectAndAskCommand(response);
-                }
+    const setUIState = (generating) => {
+        window.generating = generating;
+        if (chatIn) {
+            chatIn.disabled = generating;
+            if (generating) {
+                chatIn.placeholder = "AI is thinking...";
             } else {
-                ChatUI.appendBubble('ai', '[SYSTEM] WebAI response extraction failed.');
-            }
-        } catch (e) { 
-            overlay.style.display = 'none'; 
-            ChatUI.appendBubble('ai', `[ERROR] WebAI Mode failed: ${e.message}`);
-        } finally {
-            if (typeof window.hideInputLoading === 'function') {
-                window.hideInputLoading();
+                chatIn.placeholder = "Type a message...";
             }
         }
-        return;
+        if (sendBtn) {
+            if (generating) {
+                sendBtn.style.opacity = '0.4';
+                sendBtn.style.pointerEvents = 'none';
+            } else {
+                sendBtn.style.opacity = '1';
+                sendBtn.style.pointerEvents = 'auto';
+            }
+        }
+    };
+
+    setUIState(true);
+
+    try {
+        const experimentalCmds = ['/marktag', '/mutation', '/spatial', '/spatialMutation', '/test'];
+        let matchedCmd = null, msg = "";
+
+        for (const c of experimentalCmds) {
+            if (promptText === c || promptText.startsWith(c + ' ')) { matchedCmd = c; msg = promptText.substring(c.length).trim(); break; }
+        }
+
+        if (matchedCmd) {
+            const isTest = (matchedCmd === '/test'); const cmd = matchedCmd; const displayCmd = msg ? `${cmd} ${msg}` : cmd;
+            ChatUI.appendBubble('user', displayCmd); if (chatIn) chatIn.value = '';
+            try {
+                if (isTest) { await injectWebPayload(msg); } 
+                else {
+                    const statusBub = ChatUI.appendBubble('ai', `[SYSTEM] ${cmd} entering wait mode...`);
+                    window.currentBatchFileCount = 0;
+                    await injectWebPayload(msg);
+                    const enginePromise = runExperimentalEngine(cmd, msg, statusBub);
+                    const response = await enginePromise;
+                    if (statusBub) statusBub.remove();
+
+                    if (response) { ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview'))); detectAndAskCommand(response); } 
+                    else {
+                        const failBub = ChatUI.appendBubble('ai', `[SYSTEM] ${cmd} automatic extraction failed.`);
+                        const content = failBub.querySelector('.bubble-content');
+                        if (content) {
+                            content.innerHTML = `
+                                <div style="margin-bottom:12px; color:#aaa;">⚠️ ${cmd} automatic extraction failed.</div>
+                                <div style="display:flex; justify-content:center; padding:5px 0;">
+                                    <button class="manual-fetch-trigger-btn" style="background:#222; border:1px solid #333; color:#aaa; padding:8px 20px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s;">Manual Fetch</button>
+                                </div>
+                            `;
+                            const btn = content.querySelector('.manual-fetch-trigger-btn');
+                            btn.onmouseenter = () => { btn.style.background = '#333'; btn.style.color = '#fff'; btn.style.borderColor = '#444'; };
+                            btn.onmouseleave = () => { btn.style.background = '#222'; btn.style.color = '#aaa'; btn.style.borderColor = '#333'; };
+                            btn.onclick = async () => { const result = await showManualInputUI(failBub); if (result) { failBub.remove(); ChatUI.appendBubble('ai', result, false, getWebIcon(document.getElementById('active-agent-webview'))); } };
+                        }
+                    }
+                }
+            } catch (e) { ChatUI.appendBubble('ai', `[ERROR] Injection failed: ${e.message}`); }
+            return;
+        }
+
+        if (true) {
+            console.log("[HostChat] handleSend triggered. promptText length:", promptText.length);
+            if (typeof overridePrompt !== 'string') { ChatUI.appendBubble('user', promptText); if (chatIn) chatIn.value = ''; }
+            const overlay = document.getElementById('web-process-overlay'), progBar = document.getElementById('web-process-bar');
+            const steps = { scan: document.getElementById('step-scan'), analyze: document.getElementById('step-analyze'), brief: document.getElementById('step-brief'), extract: document.getElementById('step-extract') };
+            const updateProcess = (stepId, percent) => {
+                overlay.style.display = 'block'; overlay.style.pointerEvents = 'auto'; progBar.style.width = percent + '%';
+                Object.values(steps).forEach(s => s?.classList.remove('active')); if (steps[stepId]) steps[stepId].classList.add('active');
+            };
+
+            try {
+                if (typeof window.sessionTurnCount === 'undefined') window.sessionTurnCount = 0;
+                window.sessionTurnCount++;
+                
+                let webPayload = promptText.trim();
+                
+                // Check if 10-turn reminder is needed (starting from turn 10)
+                if (window.sessionTurnCount > 0 && window.sessionTurnCount % 10 === 0) {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const tempFileName = `_project_rules_reminder_${Date.now()}.md`;
+                    const tempPath = path.join(window.projectRoot || window.currentPath, tempFileName);
+                    try {
+                        const rulesText = typeof window.getSystemRulesPrompt === 'function' ? window.getSystemRulesPrompt(true) : '';
+                        fs.writeFileSync(tempPath, rulesText, 'utf-8');
+                        
+                        window.requestedFilesQueue = [{
+                            relativePath: tempFileName,
+                            absolutePath: tempPath,
+                            status: 'PENDING'
+                        }];
+                        
+                        if (typeof window.updateDragDropQueueUI === 'function') {
+                            window.updateDragDropQueueUI();
+                        }
+                        
+                        window.pendingUserMessageText = webPayload;
+                        
+                        if (window.autoDragging) {
+                            if (typeof window.autoClickPendingQueueItems === 'function') {
+                                window.autoClickPendingQueueItems();
+                            }
+                        }
+                        return; // Halt sending, wait for rules drop
+                    } catch(e) {
+                        console.error("Failed to create temporary rules reminder file:", e);
+                    }
+                }
+
+                const systemRulePrompt = typeof window.getSystemRulesPrompt === 'function' ? window.getSystemRulesPrompt() : '';
+                webPayload += systemRulePrompt;
+                window.sessionBriefed = true;
+
+                console.log("[HostChat] Calling injectWebPayload with total payload length:", webPayload.length);
+                await injectWebPayload(webPayload, 0);
+                const enginePromise = runExperimentalEngine('/marktag', webPayload, null);
+
+                updateProcess('extract', 90);
+
+                const response = await enginePromise;
+                progBar.style.width = '100%'; await new Promise(r => setTimeout(r, 500));
+                overlay.style.display = 'none'; overlay.style.pointerEvents = 'none';
+
+                if (response) {
+                    // Background mirror will append bubble
+                    if (typeof window.finalizeAiBubble === 'function') {
+                        window.finalizeAiBubble(response);
+                    }
+                    if (typeof detectAndAskCommand === 'function') {
+                        detectAndAskCommand(response);
+                    }
+                } else {
+                    ChatUI.appendBubble('ai', '[SYSTEM] WebAI response extraction failed.');
+                    if (typeof window.toggleManualSendButtons === 'function') {
+                        window.toggleManualSendButtons(true);
+                    }
+                }
+            } catch (e) { 
+                overlay.style.display = 'none'; 
+                ChatUI.appendBubble('ai', `[ERROR] WebAI Mode failed: ${e.message}`);
+            } finally {
+                if (typeof window.hideInputLoading === 'function') {
+                    window.hideInputLoading();
+                }
+            }
+            return;
+        }
+    } finally {
+        setUIState(false);
     }
 };
 

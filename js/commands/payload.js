@@ -2,15 +2,20 @@ if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electro
 
 async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0, isAppend = false, clickSend = true) {
     window.isHostSending = true;
-    const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
-    const inKeywords = savedKeywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
+    const cleanPayload = webPayload.trim();
+    console.log("[HostInject] Starting injectWebPayload. cleanPayload length:", cleanPayload.length, "fileCount:", fileCount);
+    const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say, 입력, 질문, 대화, 프롬프트, 메시지';
+    let inKeywords = savedKeywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
+    const fallbackKoreans = ['입력', '질문', '대화', '프롬프트', '메시지'];
+    fallbackKoreans.forEach(k => {
+        if (!inKeywords.includes(k)) inKeywords.push(k);
+    });
 
     return new Promise((resolve, reject) => {
         const wv = document.getElementById('active-agent-webview'); if (!wv) {
             window.isHostSending = false;
             return reject("Webview not found");
         }
-        const cleanPayload = webPayload.trim();
         const base64Payload = Buffer.from(cleanPayload, 'utf-8').toString('base64');
         const totalLines = cleanPayload.split('\n').length; // 전체 라인수 산출
 
@@ -192,17 +197,7 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                     }
                     setCursorToEnd(inputEl);
 
-                    const decodedPayload = (() => {
-                        try {
-                            const bin = atob("${base64Payload}");
-                            const bytes = new Uint8Array(bin.length);
-                            for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
-                            return new TextDecoder("utf-8").decode(bytes);
-                        } catch (e) {
-                            return "";
-                        }
-                    })();
-                    
+                    const decodedPayload = decodeURIComponent(escape(atob("${base64Payload}")));
                     if (!decodedPayload) return "DECODE_ERROR";
                     
                     if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
@@ -218,15 +213,22 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                                 .replace(/>/g, "&gt;")
                                 .replace(/"/g, "&quot;")
                                 .replace(/'/g, "&#039;")
-                                .replace(/\n/g, "<br>");
+                                .replace(/\\n/g, "<br>");
                         };
                         const htmlText = escapeHtml(decodedPayload);
+                        let injected = false;
                         try {
-                            console.log("[GuestInject] Executing insertHTML...");
-                            document.execCommand('insertHTML', false, htmlText);
-                            console.log("[GuestInject] execCommand complete. InnerText: " + inputEl.innerText.substring(0, 100));
-                        } catch (cmdErr) {
-                            console.log("[GuestInject] execCommand failed, falling back to innerText. Error: " + cmdErr.message);
+                            // Try insertText first (most reliable for ProseMirror/React editors like Gemini)
+                            injected = document.execCommand('insertText', false, decodedPayload);
+                        } catch (e) {}
+
+                        if (!injected || inputEl.innerText.trim() === "") {
+                            try {
+                                injected = document.execCommand('insertHTML', false, htmlText);
+                            } catch (e) {}
+                        }
+
+                        if (!injected || inputEl.innerText.trim() === "") {
                             inputEl.innerText = decodedPayload;
                         }
                     }
@@ -242,8 +244,11 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
         `;
 
         wv.focus();
+        console.log("[HostInject] Sending injectionScript to guest webview. Script content:\n" + injectionScript);
         wv.executeJavaScript(injectionScript).then(async (status) => {
+            console.log("[HostInject] injectionScript result status:", status);
             if (status !== "SUCCESS") {
+                console.error("[HostInject] Injection failed status:", status);
                 const toastLabel = document.getElementById('project-pct-label');
                 if (toastLabel) toastLabel.innerText = "Error: " + status;
                 setTimeout(cleanup, 3000);
@@ -259,59 +264,10 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             }
 
             // 3단계: 짧은 대기 후 전송 버튼 클릭
-            await new Promise(r => setTimeout(r, 1200));
-            const clickScript = `
-                (async () => {
-                    const findInput = () => {
-                        const inKeywords = ${JSON.stringify(inKeywords)};
-                        const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-                        const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
-                        for (let el of mainCandidates) {
-                            const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
-                            if (inKeywords.some(k => text.includes(k))) return el;
-                        }
-                        if (mainCandidates.length > 0) return mainCandidates[0];
-
-                        const fallbackCandidates = Array.from(document.querySelectorAll('input[type="text"]')).filter(el => isVisible(el));
-                        for (let el of fallbackCandidates) {
-                            const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
-                            if (inKeywords.some(k => text.includes(k))) return el;
-                        }
-                        return fallbackCandidates[0] || null;
-                    };
-
-                    const input = findInput();
-                    if (!input) return false;
-
-                    input.focus();
-
-                    const dispatchEnter = (el) => {
-                        const createEvent = (type) => {
-                            const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter' });
-                            Object.defineProperty(ev, 'keyCode', { get: () => 13 });
-                            Object.defineProperty(ev, 'which', { get: () => 13 });
-                            Object.defineProperty(ev, 'charCode', { get: () => 13 });
-                            return ev;
-                        };
-                        el.dispatchEvent(createEvent('keydown'));
-                        el.dispatchEvent(createEvent('keypress'));
-                        el.dispatchEvent(createEvent('keyup'));
-                    };
-
-                    // Dispatch Enter 1
-                    dispatchEnter(input);
-
-                    // Wait 1000ms
-                    await new Promise(r => setTimeout(r, 1000));
-
-                    // Dispatch Enter 2
-                    dispatchEnter(input);
-
-                    return true;
-                })()
-            `;
-
-            await wv.executeJavaScript(clickScript).catch(() => false);
+            await new Promise(r => setTimeout(r, 1000));
+            if (typeof window.triggerGuestSend === 'function') {
+                window.triggerGuestSend();
+            }
 
             // 4단계: 발송 완료 대기 (최대 3.5초 폴링)
             for (let i = 0; i < 35; i++) {

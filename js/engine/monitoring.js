@@ -60,12 +60,18 @@ async function showManualInputUI(statusBub) {
 
 const extractScript = `(function(){
     const selectors = [
-        'message-content',
-        'model-response',
+        '[data-message-author-role="assistant"]',
+        '.font-claude-message',
         'model-response .markdown', 
         'message-content .markdown-prose', 
-        '[data-testid="message-content"]', 
-        '.response-content'
+        'div[class*="model-response"]',
+        'div[class*="message-content"]',
+        'message-content',
+        'model-response',
+        '[data-testid="message-content"]',
+        '.response-content',
+        '.markdown',
+        '.prose'
     ];
     
     let targetNode = null;
@@ -158,12 +164,7 @@ const cleanGarbage = (t) => {
     if (!t) return "";
     let cleaned = t;
 
-    // [🛠️ 강화: JS 코드 패턴 제거 (Gemini 페이지 가비지)]
-    cleaned = cleaned.replace(/\(function\(\)\{[\s\S]*?\}\.call\(this\);/gi, "");
-    cleaned = cleaned.replace(/this\.gbar_\s*=\s*this\.gbar_[\s\S]*?\}/gi, '');
-    cleaned = cleaned.replace(/'use strict';[\s\S]{0,500}/gi, '');
-    cleaned = cleaned.replace(/WIZ_global_data[\s\S]*?;/gi, '');
-    cleaned = cleaned.replace(/google\.\w+[\s\S]{0,200}\{[\s\S]{0,500}\}/gi, '');
+
 
     const footers = [
         /Gemini는 AI이며 인물 등에 관한 정보 제공 시 실수를 할 수 있습니다.*/gi,
@@ -421,10 +422,20 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                 window.updateAiStreamBubble(delta);
             }
             const isStillResponding = await wv.executeJavaScript(`(() => {
-                const stopBtn = Array.from(document.querySelectorAll('button')).find(b => b.querySelector('svg rect') || (b.getAttribute('aria-label') && (b.getAttribute('aria-label').includes('Stop') || b.getAttribute('aria-label').includes('중지'))));
-                if (stopBtn && stopBtn.offsetHeight > 0) return true;
-                const typing = document.querySelector('.typing, .loading, .generating, [class*="typing"], [class*="generating"]');
-                if (typing && typing.offsetHeight > 0) return true;
+                const isVisible = (el) => {
+                    if (!el) return false;
+                    const style = window.getComputedStyle(el);
+                    return el.offsetWidth > 0 && el.offsetHeight > 0 && style.visibility !== 'hidden' && style.opacity !== '0' && style.display !== 'none';
+                };
+
+                const stopBtn = Array.from(document.querySelectorAll('button')).find(b => b.querySelector('svg rect') || (b.getAttribute('aria-label') && (b.getAttribute('aria-label').includes('Stop') || b.getAttribute('aria-label').includes('중지') || b.getAttribute('aria-label').includes('중단'))));
+                if (isVisible(stopBtn)) return true;
+                
+                const typingSelectors = ['impl-loading-indicator', '.result-streaming', 'div[class*="streaming"]'];
+                for (const sel of typingSelectors) {
+                    const el = document.querySelector(sel);
+                    if (isVisible(el)) return true;
+                }
                 return false;
             })()`).catch(() => false);
 

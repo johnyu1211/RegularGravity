@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, ipcMain, shell, Menu, MenuItem } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, shell, Menu, MenuItem, session } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -426,6 +426,11 @@ ipcMain.handle('is-window-focused', (event) => {
     return win ? win.isFocused() : false;
 });
 
+ipcMain.handle('get-cursor-position', () => {
+    const { screen } = require('electron');
+    return screen.getCursorScreenPoint();
+});
+
 ipcMain.on('ondragstart', (event, filePath) => {
     console.log("[MainDrag] Received ondragstart for:", filePath);
     const { nativeImage } = require('electron');
@@ -636,7 +641,22 @@ ipcMain.on('show-context-menu', (event, params) => {
     }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    session.defaultSession.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+    
+    // Rewrite User-Agent on network level for Google Login to prevent infinite reload loops
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+        const url = details.url;
+        let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+        if (url.includes("accounts.google.com")) {
+            ua = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+        }
+        details.requestHeaders['User-Agent'] = ua;
+        callback({ cancel: false, requestHeaders: details.requestHeaders });
+    });
+    
+    createWindow();
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();

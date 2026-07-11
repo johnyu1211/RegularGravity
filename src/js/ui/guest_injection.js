@@ -361,13 +361,16 @@ window.updateDragDropQueueUI = function() {
         itemEl.setAttribute('data-filepath', item.absolutePath);
         
         const isCompleted = item.status === 'COMPLETED';
+        const isAuto = window.autoClickingQueue === true;
+        const bg = isCompleted ? 'rgba(255, 255, 255, 0.02)' : 'var(--surface-color)';
+        const border = isAuto ? '1px solid transparent' : (isCompleted ? 'rgba(255, 255, 255, 0.05)' : 'var(--border-color)');
         
         itemEl.style = `
             display: flex;
             align-items: center;
             padding: 8px 12px;
-            background: ${isCompleted ? 'rgba(255, 255, 255, 0.02)' : 'var(--surface-color)'};
-            border: 1px solid ${isCompleted ? 'rgba(255, 255, 255, 0.05)' : 'var(--border-color)'};
+            background: ${bg};
+            border: ${border};
             border-radius: 6px;
             cursor: ${isCompleted ? 'default' : 'pointer'};
             user-select: none;
@@ -408,32 +411,36 @@ window.updateDragDropQueueUI = function() {
                     const wv = document.getElementById('active-agent-webview');
                     if (!wv) return;
                     
-                    itemEl.scrollIntoView({ block: 'center', inline: 'nearest' });
-                    await new Promise(r => setTimeout(r, 60)); // Settle scroll quickly in 60ms
+                    // Smart scroll check to avoid jitter and coordinate mismatch
+                    const listEl = document.getElementById('drag-drop-queue-list');
+                    let needsScroll = false;
+                    if (listEl) {
+                        const listRect = listEl.getBoundingClientRect();
+                        const itemRect = itemEl.getBoundingClientRect();
+                        if (itemRect.top < listRect.top || itemRect.bottom > listRect.bottom) {
+                            needsScroll = true;
+                        }
+                    }
+                    
+                    if (needsScroll) {
+                        itemEl.scrollIntoView({ block: 'center', inline: 'nearest' });
+                        await new Promise(r => setTimeout(r, 150)); // Settle longer if scrolled
+                    }
                     
                     const bounds = await ipcRenderer.invoke('get-content-bounds');
                     if (!bounds || bounds.width === 0 || bounds.height === 0) {
-                        console.log("[DragSim] Aborted: Invalid window bounds.");
+                        console.error("[DragSim] Invalid content bounds received:", bounds);
                         return;
                     }
                     
                     const rect = itemEl.getBoundingClientRect();
-                    if (rect.width === 0 || rect.height === 0) {
-                        console.log("[DragSim] Aborted: Element is hidden.");
-                        return;
-                    }
-                    
                     const wvRect = wv.getBoundingClientRect();
-                    if (wvRect.width === 0 || wvRect.height === 0) {
-                        console.log("[DragSim] Aborted: Webview is hidden.");
-                        return;
-                    }
                     
                     // Coordinates calculation
                     const startX = Math.round(bounds.x + rect.left + rect.width / 2);
                     const startY = Math.round(bounds.y + rect.top + rect.height / 2 - 4);
                     const endX = Math.round(bounds.x + wvRect.left + wvRect.width / 2);
-                    const endY = Math.round(bounds.y + wvRect.top + wvRect.height - 90);
+                    const endY = Math.round(bounds.y + wvRect.top + wvRect.height - 75);
                     
                     // Fetch original physical mouse cursor position
                     let returnX = startX;
@@ -484,8 +491,10 @@ window.updateDragDropQueueUI = function() {
             };
         }
         
+        const textColor = isAuto ? bg : (isCompleted ? 'var(--text-muted)' : 'var(--text-main)');
+        
         itemEl.innerHTML = `
-            <span class="queue-file-name" style="font-size: 12px; color: ${isCompleted ? 'var(--text-muted)' : 'var(--text-main)'}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px; ${isCompleted ? 'text-decoration: line-through;' : ''}" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
+            <span class="queue-file-name" style="font-size: 12px; color: ${textColor}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px; ${isCompleted ? 'text-decoration: line-through;' : ''}" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
         `;
         
         listEl.appendChild(itemEl);
@@ -585,7 +594,7 @@ window.autoClickPendingQueueItems = async function() {
                         window.updateDragDropQueueUI();
                     }
                 }
-            }, 1600); // 1600ms backup timeout is enough for optimized sim, enabling fast retries
+            }, 1300); // 1300ms backup timeout is perfectly matched with C# total execution time (1.2s)
  
             console.log("[AutoClick] Clicking queue item:", item.relativePath);
             await targetEl.onclick();
@@ -602,5 +611,18 @@ window.autoClickPendingQueueItems = async function() {
         }
     }
 };
+
+ipcRenderer.on('rollback-file-status', (event, absPath) => {
+    console.log("[Guest] Received rollback request for:", absPath);
+    if (!window.requestedFilesQueue) return;
+    const item = window.requestedFilesQueue.find(x => x.absolutePath === absPath);
+    if (item) {
+        item.status = 'PENDING';
+        window.dragDropMode = true;
+        if (typeof window.updateDragDropQueueUI === 'function') {
+            window.updateDragDropQueueUI();
+        }
+    }
+});
 
 // =========================================================================

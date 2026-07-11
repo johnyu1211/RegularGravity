@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poor man's Gravity</title>
+    <link rel="icon" type="image/png" href="assets/png.png">
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script>
+        var _module = typeof module !== 'undefined' ? module : undefined;
+        var _exports = typeof exports !== 'undefined' ? exports : undefined;
+        var _require = typeof require !== 'undefined' ? require : undefined;
+        
+        if (typeof module !== 'undefined') module = undefined;
+        if (typeof exports !== 'undefined') exports = undefined;
+        if (typeof require !== 'undefined') require = undefined;
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>
+        if (typeof _module !== 'undefined') module = _module;
+        if (typeof _exports !== 'undefined') exports = _exports;
+        if (typeof _require !== 'undefined') require = _require;
+    </script>
+    <script src="js/ui/file-utils.js"></script>
+    <script src="js/ui/tree-view.js"></script>
+</head>
+<body style="margin:0; padding:0; height:100vh; overflow:hidden; background:#0c0c0e;">
+
+    <!-- ====== PROJECT PICKER MODAL ====== -->
+    <div id="project-picker-modal" style="position:fixed; inset:0; z-index:9999; background:#0c0c0e; display:flex; align-items:center; justify-content:center;">
+        <div style="background:#111113; border:1px solid #222; border-radius:16px; width:520px; max-width:90vw; box-shadow:0 32px 80px rgba(0,0,0,0.8); overflow:hidden; animation:scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275);">
+            <!-- Header -->
+            <div style="padding:24px 28px 16px; border-bottom:1px solid #1a1a1a; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px;">Select Project Folder</span>
+                <button id="picker-refresh-btn" style="background:none; border:none; color:#777; cursor:pointer; display:flex; align-items:center; transition:color 0.2s;" title="Refresh Recent Projects" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='#777'">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"></path>
+                    </svg>
+                </button>
+            </div>
+            <!-- Recent Projects -->
+            <div style="padding:16px 28px; max-height:280px; overflow-y:auto;">
+                <div style="font-size:10px; font-weight:700; color:#777; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:10px;">Recent Projects</div>
+                <div id="recent-projects-list" style="display:flex; flex-direction:column; gap:4px;">
+                    <div style="font-size:12px; color:#333; padding:8px 0; font-family:'JetBrains Mono', monospace;">Loading...</div>
+                </div>
+            </div>
+            <!-- Footer Buttons -->
+            <div style="padding:16px 28px 24px; border-top:1px solid #1a1a1a; display:flex; gap:10px; justify-content:flex-end;">
+                <button id="picker-browse-btn" style="background:#468CF6; color:#fff; border:none; padding:10px 22px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.2s; font-family:'Outfit',sans-serif;">
+                    Browse Folder
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- ====== END PROJECT PICKER MODAL ====== -->
+
+    <!-- Custom Windows Titlebar -->
+
+    <div class="custom-titlebar">
+        <div class="titlebar-drag-area">
+            <img src="assets/png.png" class="titlebar-icon">
+            <span class="titlebar-logo-text">POORMAN'S GRAVITY</span>
+        </div>
+        <div class="titlebar-controls">
+            <button class="titlebar-btn" id="win-fixture" title="Toggle Window Fixture Mode" style="display: none;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="win-fixture-icon">
+                    <rect x="2" y="2" width="20" height="20" rx="5" stroke-dasharray="4 3" />
+                    <path d="M12 12l5 5-2 1 2 3.5-1.5 0.8-2-3.5-2 2v-8.8z" fill="#9aa0a6" stroke="none"/>
+                </svg>
+            </button>
+            <button class="titlebar-btn" id="win-reload" title="Reload App">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"/></svg>
+            </button>
+            <button class="titlebar-btn" id="win-min" title="Minimize">
+                <svg width="10" height="10" viewBox="0 0 12 12"><rect x="1" y="5" width="10" height="1.5" fill="#9aa0a6"/></svg>
+            </button>
+            <button class="titlebar-btn" id="win-max" title="Maximize">
+                <svg width="10" height="10" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="#9aa0a6" stroke-width="1.5"/></svg>
+            </button>
+            <button class="titlebar-btn close" id="win-close" title="Close">
+                <svg width="10" height="10" viewBox="0 0 12 12"><path d="M1.5 1.5 L10.5 10.5 M10.5 1.5 L1.5 10.5" stroke="#9aa0a6" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="app-container" style="display: flex; height: calc(100vh - 30px); width: 100vw; background: #0c0c0e; overflow: hidden; font-size: 13.5px;">
+        <!-- Explorer (Left) -->
+        <aside class="sidebar" id="sidebar-left" style="width: 320px; height: 100%; border-right: none; display: flex; flex-direction: column;">
+            <!-- Select Project Folder Button placed above path -->
+            <div style="padding: 12px 12px 4px 12px; background: var(--surface-lowest); border-bottom: none; box-sizing: border-box; flex-shrink: 0;">
+                <button id="select-project-btn" style="width: 100%; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-muted); font-weight: 500; font-size: 11.5px; text-align: center; padding: 8px 12px; cursor: pointer; transition: all 0.15s ease; outline: none; box-sizing: border-box;"
+                        onmouseover="this.style.background='var(--surface-high)'; this.style.color='var(--text-main)'; this.style.borderColor='rgba(255, 255, 255, 0.15)';"
+                        onmouseout="this.style.background='var(--surface-color)'; this.style.color='var(--text-muted)'; this.style.borderColor='var(--border-color)';">
+                    Select Project Folder
+                </button>
+            </div>
+
+            <!-- Path bar is merged directly as the header instead of "EXPLORER" text -->
+            <div class="section-header" style="height: 44px; min-height: 44px; display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 0 12px; border-bottom: none; background: var(--surface-lowest);">
+                <div id="path-display-container" style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; position: relative;" title="Click to copy path">
+                    <div id="path-display" style="font-size: 11px; font-family: 'DM Sans', 'Outfit', sans-serif; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; line-height: 1.2;">
+                        <span class="path-segment">/root</span>
+                    </div>
+                    <span id="path-copy-btn" title="Copy path" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; color: var(--text-muted); transition: opacity 0.2s, background 0.2s, color 0.2s;">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </span>
+                </div>
+                <span id="graph-view-btn" class="header-btn" title="Project Graph View" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-dark); background: transparent; border: none; transition: all 0.2s; flex-shrink: 0;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="pointer-events:none;">
+                        <line x1="12" y1="5" x2="6" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
+                        <line x1="6" y1="17" x2="18" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
+                        <line x1="18" y1="17" x2="12" y2="5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
+                        <circle cx="12" cy="5" r="2.5" fill="var(--surface-lowest)" stroke="currentColor" stroke-width="2.5"></circle>
+                        <circle cx="6" cy="17" r="2.5" fill="var(--surface-lowest)" stroke="currentColor" stroke-width="2.5"></circle>
+                        <circle cx="18" cy="17" r="2.5" fill="var(--surface-lowest)" stroke="currentColor" stroke-width="2.5"></circle>
+                    </svg>
+                </span>
+                <span id="reveal-btn" class="header-btn" title="Reveal in Windows Explorer" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-dark); background: transparent; border: none; transition: all 0.2s; flex-shrink: 0;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </span>
+            </div>
+            
+            <!-- Action bar panel (unified search) -->
+            <div id="file-tree-action-bar" style="padding: 4px 12px 14px 12px; background: var(--surface-lowest); border-bottom: none; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="text" id="file-search" placeholder="Search files..." class="search-input" style="flex: 1; background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 6px; color: #eee; font-size: 11.5px; padding: 6px 10px; outline: none; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                        <span id="collapse-all-btn" class="header-btn" title="Collapse All" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-muted); background: var(--surface-low); border: 1px solid var(--border-color); transition: all 0.2s;">
+                            <!-- collapse icon: "><" (두 화살표 모으기) -->
+                            <svg id="collapse-all-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="17 4 12 9 7 4"></polyline>
+                                <polyline points="7 20 12 15 17 20"></polyline>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="file-tree" class="file-tree" style="flex: 1; overflow-y: auto;"></div>
+
+            <!-- ====== GRAPH VIEW SIDEBAR CONTAINER ====== -->
+            <div id="graph-view-modal" style="display: none; flex: 1; flex-direction: column; background: #0c0c0e; border-top: 1px solid var(--border-color); overflow: hidden;">
+                <!-- Header -->
+                <div style="padding: 10px 14px; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; background: var(--surface-lowest);">
+                    <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; margin-right: 12px;">
+                        <span style="font-size: 11px; font-weight: 800; color: #fff; letter-spacing: 0.5px; flex-shrink: 0;">GRAPH</span>
+                        <div style="display: flex; align-items: center; background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px; flex: 1; max-width: 200px; gap: 4px; margin-left: auto;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="graph-search-input" placeholder="Search nodes..." style="background: transparent; border: none; color: #ccc; font-size: 11px; width: 100%; outline: none; font-family: 'DM Sans', sans-serif;">
+                        </div>
+                    </div>
+                    <span id="close-graph-view" style="cursor: pointer; color: var(--text-muted); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s; flex-shrink: 0;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">&times;</span>
+                </div>
+                <!-- Canvas Container -->
+                <div id="graph-canvas-container" style="flex: 1; position: relative; background: #09090b; overflow: hidden;">
+                    <canvas id="graph-canvas" style="display: block; width: 100%; height: 100%;"></canvas>
+                    <!-- Tooltip -->
+                    <div id="graph-tooltip" style="position: absolute; display: none; background: rgba(0,0,0,0.85); border: 1px solid var(--primary); padding: 6px 12px; border-radius: 6px; color: #fff; font-size: 11.5px; font-family: 'JetBrains Mono', monospace; pointer-events: none; z-index: 10010; box-shadow: 0 4px 12px rgba(0,0,0,0.5);"></div>
+                    <!-- Control instructions -->
+                    <div style="position: absolute; bottom: 8px; left: 12px; font-size: 9.5px; color: var(--text-muted); pointer-events: none; line-height: 1.6; font-family: 'DM Sans', sans-serif; display: flex; flex-direction: column; gap: 2px;">
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);"><rect x="5" y="2" width="14" height="20" rx="7"></rect><path d="M12 6v4"></path></svg>
+                            <span>Scroll to Zoom / Drag to Pan</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+                            <span>Click and Drag to arrange</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+        </aside>
+
+        <div class="resizer-v" id="resizer-left"></div>
+
+        <main class="main-view" id="editor-container" style="flex: 1; position: relative; display: flex; flex-direction: column; overflow: hidden;">
+            <div class="section-header" id="editor-header" style="border-bottom: none; height: 44px; min-height: 44px; display: flex; align-items: center; padding: 0 15px;">
+                <h3 id="editor-header-title" style="margin:0; flex-shrink:0;">FILE VIEWER</h3>
+                <div style="margin-left: auto; display: flex; gap: 8px; align-items:center;">
+                    <div id="editor-search-box" style="display:flex; align-items:center; background:var(--surface-low); border:1px solid var(--border-color); border-radius:6px; padding:4px 10px; transition: 0.2s; gap: 8px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="editor-search-input" placeholder="Search (Ctrl+F)" style="background:transparent; border:none; color:#eee; font-size:11.5px; width:120px; outline:none; font-family:'Outfit', sans-serif;">
+                        <span id="editor-search-result" style="font-size:10px; color:var(--text-muted); min-width:15px; text-align:right;"></span>
+                    </div>
+                    <span id="btn-editor-toggle-collapse" class="header-btn" title="Collapse All" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-muted); background: var(--surface-low); border: 1px solid var(--border-color); transition: all 0.2s;">
+                        <svg id="editor-collapse-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="17 4 12 9 7 4"></polyline>
+                            <polyline points="7 20 12 15 17 20"></polyline>
+                        </svg>
+                    </span>
+                </div>
+            </div>
+            <div id="editor-content" style="flex: 1; height: 100%; position: relative; overflow: hidden;"></div>
+
+            <!-- Editor Bottom Status Bar (Taskbar-like) -->
+            <div id="editor-status-bar" style="height: 44px; min-height: 44px; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid var(--border-color); z-index: 100; box-sizing: border-box; display: flex; align-items: center; padding-right: 155px; overflow: hidden; justify-content: flex-start;">
+                <!-- Horizontal scrollable flex container for shortcuts -->
+                <div id="status-bar-shortcuts-list" style="display: flex; align-items: center; gap: 8px; overflow-x: auto; white-space: nowrap; height: 100%; flex: 1; padding: 0 12px; box-sizing: border-box; -ms-overflow-style: none; scrollbar-width: none;">
+                    <!-- Pills will be rendered dynamically here -->
+                </div>
+            </div>
+
+            <!-- Floating GitHub Popover Trigger -->
+            <!-- Floating Gemini Usage Shortcut -->
+            <div id="gemini-usage-toggle-btn" title="Google Gemini Usage" style="position: absolute; right: 101px; bottom: 5px; z-index: 1001; width: 34px; height: 34px; border-radius: 50%; background: rgba(22, 22, 28, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.75;">
+                <img src="https://www.google.com/s2/favicons?domain=gemini.google.com&sz=32" style="width: 16px; height: 16px; border-radius: 2px;">
+            </div>
+
+            <!-- Vertical Divider to separate left and right taskbars -->
+            <div style="position: absolute; right: 145px; bottom: 10px; height: 24px; width: 1px; background: var(--border-color); z-index: 1001;"></div>
+
+            <div id="git-toggle-btn" title="Toggle GitHub Git Integration" style="position: absolute; right: 58px; bottom: 5px; z-index: 1001; width: 34px; height: 34px; border-radius: 50%; background: rgba(22, 22, 28, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(255, 255, 255, 0.55); box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.75;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+            </div>
+
+            <!-- Floating Terminal Popover Trigger (Bottom-Left of Editor) -->
+            <div id="terminal-toggle-btn" title="Toggle Terminal Popover">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            </div>
+
+            <!-- Floating Terminal Popover Window -->
+            <div id="terminal-popover" style="position: absolute; right: 15px; bottom: 50px; width: 500px; height: 350px; display: none; flex-direction: column; background: rgba(12, 12, 14, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.75); z-index: 1000; overflow: hidden; transition: opacity 0.2s, transform 0.2s;">
+                <div class="terminal-view-header" style="height:44px; min-height:44px; border-bottom: none; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #000;">
+                    <div id="terminal-sub-tabs" style="flex:1; height:100%; display:flex; overflow:hidden; padding:0 2px; gap: 4px;">
+                         <!-- Dynamic Sub-tabs now live here -->
+                    </div>
+                    <div class="terminal-actions" style="display:flex; align-items:center; gap:12px; margin-left: auto; padding-left: 10px;">
+                        <span id="add-terminal" class="action-btn" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Add Terminal">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </span>
+                    </div>
+                </div>
+
+                <div id="terminal-view" class="pane-view-content" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+                    <div id="terminal-content" class="terminal-surface" style="flex: 1; overflow-y: auto; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6;">
+                        <div id="terminal-logs-wrapper"></div>
+                        <div class="terminal-input-container" style="margin-top: 6px;">
+                            <div id="terminal-prompt-path" style="color: var(--text-muted); font-size: 11px; margin-bottom: 3px; word-break: break-all; opacity: 0.65; font-family: 'JetBrains Mono', monospace;"></div>
+                            <div class="terminal-input-line" style="display: flex; align-items: center;">
+                                <span id="terminal-prompt-prefix" style="color: var(--text-muted); margin-right: 8px; display: flex; align-items: center;">> </span>
+                                <input type="text" class="terminal-main-input" id="terminal-main-input" spellcheck="false" autocomplete="off" style="flex: 1; background: transparent; border: none; color: #ccc; outline: none; font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resizers for Popover (Top/Right boundary resizing for bottom-left docked window) -->
+                <div class="popover-resizer-l"></div>
+                <div class="popover-resizer-t"></div>
+                <div class="popover-resizer-tl"></div>
+            </div>
+            
+            <!-- ====== DOCKING GUIDE OVERLAY ====== -->
+            <div id="editor-fixture-overlay" style="display: none; position: absolute; left: 0; right: 0; top: 44px; bottom: 44px; padding: 15px; box-sizing: border-box; background: rgba(12, 12, 14, 0.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 10000; pointer-events: none;">
+                <div id="editor-fixture-inner" style="width: 100%; height: 100%; border: 2px dashed #3b82f6; background: rgba(59, 130, 246, 0.08); border-radius: 12px; display: flex; justify-content: center; align-items: center; box-sizing: border-box; transition: all 0.3s ease;">
+                    <span id="editor-fixture-text" style="color: #3b82f6; font-family: 'DM Sans', 'Outfit', sans-serif; font-size: 15px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; transition: opacity 0.3s;">Drag window here</span>
+                </div>
+            </div>
+        </main>
+
+        <div class="resizer-v" id="resizer-inspector"></div>
+        <aside class="inspector" id="inspector-right" style="width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--surface-lowest); border-left: none; position: relative;">
+            <!-- LOCAL Chat View (For logs & execution proposals) -->
+            <div id="inspector-local-chat" class="agent-hub-view" style="display: flex; position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 44px); z-index: 100; flex-direction: column; background: var(--bg-color); overflow: hidden; transition: opacity 0.2s ease;">
+                <div id="active-project-header" style="height: 44px; min-height: 44px; padding: 0 12px; background: var(--surface-lowest); box-sizing: border-box; display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif;">CHAT COVER</span>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <button id="btn-header-send-project" style="background:none; border:none; color:var(--primary); cursor:pointer; display:flex; align-items:center; transition:color 0.2s; padding: 0;" title="Send Project Info to Browser" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--primary)'">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </button>
+                        <button id="btn-local-search" style="background:none; border:none; color:var(--text-dark); cursor:pointer; display:flex; align-items:center; transition:color 0.2s; padding: 0;" title="Search History">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                        </button>
+                        <button id="btn-local-settings" style="background:none; border:none; color:var(--text-dark); cursor:pointer; display:flex; align-items:center; transition:color 0.2s; padding: 0;" title="Settings">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <!-- 검색 입력 창 컨테이너 -->
+                <div id="local-chat-search-container" style="display:none; padding: 8px 14px; background: var(--surface-low); border-bottom: 1px solid var(--border-color); align-items: center; justify-content: space-between; gap: 10px;">
+                    <input type="text" id="local-chat-search-input" placeholder="Search chat logs..." style="flex: 1; background: transparent; border: none; color: #fff; font-size: 12.5px; outline: none; font-family: 'DM Sans', sans-serif;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span id="local-chat-search-count" style="font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-weight: 500;">0 found</span>
+                        <span id="close-local-search" style="cursor: pointer; color: var(--text-dark); font-size: 15px; font-weight: bold; line-height: 1;" title="Clear & Close">&times;</span>
+                    </div>
+                </div>
+                <div id="local-chat-messages" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;"></div>
+                
+                <div id="local-drop-zone" style="display: none; height: 90px; background: rgba(70, 140, 246, 0.05); border-top: 1px dashed var(--primary); padding: 12px; box-sizing: border-box; align-items: center; justify-content: center; flex-direction: column; gap: 6px; transition: all 0.2s ease; position: relative;">
+                    <span id="close-local-drop-zone" style="position: absolute; right: 10px; top: 8px; cursor: pointer; color: var(--text-muted); font-size: 15px; font-weight: bold; line-height: 1;" title="Cancel Upload">&times;</span>
+                    <div style="font-size: 11px; font-weight: 700; color: var(--primary); letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif; display: flex; align-items: center; gap: 6px; pointer-events: none;">
+                        <span>📥</span> FILE DRAG & DROP ZONE
+                    </div>
+                    <div id="local-drop-zone-text" style="font-size: 11.5px; color: var(--text-main); font-weight: 500; text-align: center; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;">
+                        Drag and drop <span id="drop-target-filename" style="color: var(--primary); font-weight: bold; text-decoration: underline;">filename</span> here to proceed
+                    </div>
+                </div>
+
+                <!-- Glassmorphism overlay covering the entire local chat area on boot -->
+                <div id="local-chat-overlay" style="position: absolute; top: 44px; left: 0; right: 0; bottom: 0; background: rgba(12, 12, 14, 0.65); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; transition: opacity 0.25s ease;">
+                </div>
+
+                <button id="btn-manual-send-project" style="position: absolute; right: 16px; bottom: 110px; z-index: 500; display: none; align-items: center; gap: 6px; background: linear-gradient(135deg, var(--primary), #2563eb); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 11.5px; font-family: 'DM Sans', sans-serif; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4); transition: all 0.2s;" onmouseenter="this.style.filter='brightness(1.1)'; this.style.transform='translateY(-1px)';" onmouseleave="this.style.filter='none'; this.style.transform='none';">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    메뉴얼 발송
+                </button>
+
+                <div id="local-input-container" style="display: none !important; padding: 12px; border-top: 1px solid var(--border-color); background:var(--surface-lowest); position: relative; z-index: 40; box-sizing: border-box; max-width: 100%; width: 100%;">
+                    <div style="position: relative; width: 100%;">
+                        <textarea id="local-agent-input" placeholder="Ask to WebAI..." style="width: 100%; height: 72px; background: var(--surface-low); color: var(--text-main); border: 1px solid var(--border-color); padding: 10px 44px 10px 12px; font-size: 13px; outline: none; resize: none; border-radius: 8px; box-sizing: border-box; max-width: 100%; font-family: inherit; line-height: 1.5;"></textarea>
+                        <div id="send-to-local" class="send-btn" style="position: absolute; right: 10px; bottom: 10px; cursor: pointer; color: #fff; background: var(--primary); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); z-index: 50;" title="Send Message">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Drag & Drop Queue Modal (Floating inside local chatbox at the bottom) -->
+                <div id="drag-drop-queue-container" style="display: none; position: absolute; bottom: -8px; left: 0; width: 100%; max-width: 100%; max-height: 320px; z-index: 1000; flex-direction: column; box-sizing: border-box; background: var(--surface-color); padding: 16px 18px 0px 18px; border: 1px solid var(--border-color); border-left: none; border-right: none; border-bottom: none; border-radius: 12px 12px 0 0; box-shadow: 0 -15px 40px rgba(0,0,0,0.6); gap: 10px; pointer-events: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; box-sizing: border-box;">
+                        <span style="font-size: 12px; font-weight: 700; color: #fff; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em;">REQUIRED FILES</span>
+                        <span id="close-drag-drop-queue" style="cursor: pointer; color: var(--text-dark); font-size: 20px; font-weight: bold; line-height: 1; transition: color 0.2s; pointer-events: auto;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-dark)'" title="Close Overlay">&times;</span>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5; font-family: 'DM Sans', sans-serif;">
+                        AI가 다음 파일들을 요구했습니다. <strong>각 항목을 클릭</strong>하면 자동 업로드됩니다.
+                    </div>
+                    <div id="drag-drop-queue-warning" style="font-size: 11px; color: var(--error); font-weight: 600; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 2px; font-family: 'DM Sans', sans-serif; opacity: 0.9;">
+                        ⚠️ 자동 업로드 진행 중에는 마우스를 움직이지 마세요.
+                    </div>
+                    <div id="drag-drop-queue-list" style="flex: 1; overflow-y: auto; padding: 2px 0; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; pointer-events: auto;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Hub -->
+            <div id="inspector-browser-hub" class="agent-hub-view" style="display: flex; height: calc(100% - 44px); width: 100%; flex-direction: column; background: var(--bg-color); position: relative; z-index: 1;">
+                <div id="agent-hub-home" style="display: flex; flex-direction: column; height: 100%; position: relative;">
+                    <div id="agent-hub-grid" style="padding: 30px; display: flex; flex-wrap: wrap; gap: 25px; justify-content: center; align-content: flex-start; overflow-y: auto; flex: 1;">
+                        <!-- Agent Cards will be injected here -->
+                        <div class="agent-app" id="add-agent-app-card">
+                             <div id="add-agent-app" style="display:flex; align-items:center; justify-content:center; width:100%; height:100%;">
+                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                             </div>
+                             <div class="agent-name">NEW AGENT</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Discovery Settings Button -->
+                    <div id="open-discovery-settings" style="position: absolute; bottom: 20px; right: 20px; width: 36px; height: 36px; background: var(--surface-high); border: 1px solid var(--border-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 10;" title="Discovery Keywords Setting">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06-.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    </div>
+                </div>
+
+                <!-- Discovery Settings Modal -->
+                <div id="discovery-settings-modal" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 100; align-items: center; justify-content: center;">
+                    <div style="width: 85%; max-width: 380px; background: var(--surface-color); border: 1px solid var(--border-color); padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px;">
+                        <h3 style="margin: 0 0 10px 0; font-size: 13px; font-weight: 500; color: #eee; letter-spacing: 1px; text-transform: uppercase;">Discovery Keywords</h3>
+                        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;">Comma-separated values used for input field auto-detection.</p>
+                        
+                        <textarea id="discovery-keywords-input" style="width: 100%; height: 140px; background: var(--surface-low); border: 1px solid var(--border-color); color: var(--text-main); font-size: 11px; padding: 12px; outline: none; resize: none; margin-bottom: 25px; font-family: 'JetBrains Mono', monospace; line-height: 1.6; border-radius: 6px;"></textarea>
+                        
+                        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                            <button id="close-discovery-settings" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 5px;">Cancel</button>
+                            <button id="save-discovery-settings" style="background: var(--surface-high); border: 1px solid var(--border-color); color: #eee; cursor: pointer; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 25px; transition: all 0.2s; border-radius: 6px;">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="agent-hub-webview" style="display: none; height: 100%; flex-direction: column;">
+                    <div id="agent-hub-nav" style="display: flex; height: 44px; min-height: 44px; background: var(--surface-lowest); align-items: center; padding: 0 10px; gap: 10px; box-sizing: border-box;">
+                        <span id="back-to-hub" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Back to Grid">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                        </span>
+                        <span id="refresh-agent" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Refresh">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"></path></svg>
+                        </span>
+                        <input type="text" id="agent-url-input" placeholder="URL..." style="flex:1; background:var(--surface-low); border:1px solid var(--border-color); color:#ccc; font-size:12px; padding:7px 14px; outline:none; border-radius:4px;">
+                        <span id="debug-agent" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Inspect Element">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        </span>
+                    </div>
+                    <div id="agent-view-dock" style="flex: 1; background:#fff; position: relative;">
+                    </div>
+
+                </div>
+                <!-- Repositioned injection-toast inside the inspector panel but outside tab content -->
+                <div id="injection-toast" class="injection-toast-overlay" style="display:none;">
+                    <div class="toast-content">
+                        <!-- 우측 상단 20x20 비상 탈출 존 (클릭 시 블러 오버레이 강제 숨김) -->
+                        <div id="toast-bailout-zone" style="position: absolute; top: 0; right: 0; width: 20px; height: 20px; z-index: 999999; cursor: pointer; background: transparent;" title="Force Close Overlay"></div>
+                        <!-- 1. Large Central Spinner -->
+                        <div class="overlay-spinner" style="width: 36px; height: 36px; border: 3px solid rgba(255,255,255,0.06); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 5px;"></div>
+                        
+                        <div style="width: 100%; display: flex; flex-direction: column; gap: 16px;">
+                            <!-- 2. Project Context & Progress Bar -->
+                            <div style="display: flex; flex-direction: column; gap: 6px; width: 100%;">
+                                <div id="project-pct-label" style="font-size: 11.5px; color: var(--text-muted); font-family: 'DM Sans', sans-serif; font-weight: 600;">
+                                    Project Context: <span style="color: var(--primary); font-weight: bold;">0% (0/0)</span>
+                                </div>
+                                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden;">
+                                    <div id="toast-project-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- 3. Context Injecting & Progress Bar -->
+                            <div id="toast-inject-container" style="display: none; flex-direction: column; gap: 6px; width: 100%;">
+                                <div id="inject-pct-label" style="font-size: 11.5px; color: var(--text-muted); font-family: 'DM Sans', sans-serif; font-weight: 600;">
+                                    Context Injecting: <span style="color: var(--primary); font-weight: bold;">0% (0/0)</span>
+                                </div>
+                                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden;">
+                                    <div id="toast-inject-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button id="toast-reset-timer-btn" style="display:none; width: 100%; background: var(--surface-high); border: 1px solid var(--border-color); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: bold; transition: 0.2s;">Extend Wait</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="inspector-tabs" style="height: 44px; display: flex; position: absolute; bottom: 0; left: 0; right: 0; z-index: 200; border-top: 1px solid var(--border-color);">
+                <div id="tab-local-agent" class="ins-tab active-tab">COVER</div>
+                <div id="tab-browser-hub" class="ins-tab">BROWSER</div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Add Shortcut Modal -->
+    <div id="add-shortcut-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:10000; align-items:center; justify-content:center;">
+        <div style="background:var(--surface-color); padding:20px; width:340px; border:1px solid var(--border-color); border-radius:12px; display:flex; flex-direction:column; gap:12px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); font-family: 'DM Sans', sans-serif;">
+            <span style="font-size: 13px; font-weight: 700; color: #fff;">Register Internet Shortcut</span>
+            <input type="text" id="shortcut-title-input" placeholder="Title (e.g. Google)..." style="width:100%; background:var(--surface-low); color:#fff; border:1px solid var(--border-color); padding:10px; border-radius:6px; font-size:12px; outline:none; box-sizing: border-box;">
+            <input type="text" id="shortcut-url-input" placeholder="URL (e.g. https://google.com)..." style="width:100%; background:var(--surface-low); color:#fff; border:1px solid var(--border-color); padding:10px; border-radius:6px; font-size:12px; outline:none; box-sizing: border-box;">
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+                <button id="close-shortcut-modal-btn" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; font-weight:700; padding:8px 12px;">Cancel</button>
+                <button id="save-shortcut-btn" style="background:linear-gradient(135deg, #3b82f6, #2563eb); color:white; border:none; padding:8px 16px; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer;">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="app-reg-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:10000; align-items:center; justify-content:center;">
+        <div style="background:var(--surface-color); padding:20px; width:340px; border:1px solid var(--border-color); border-radius:12px; display:flex; flex-direction:column; gap:10px;">
+            <input type="text" id="reg-app-url" placeholder="URL (e.g. chatgpt.com)..." style="width:100%; background:var(--surface-low); color:#fff; border:1px solid var(--border-color); padding:12px; border-radius:6px; font-size:12px; outline:none;">
+            <input type="text" id="reg-input-selector" placeholder="Input DOM Selector (Optional)" style="width:100%; background:var(--surface-low); color:#fff; border:1px solid var(--border-color); padding:12px; border-radius:6px; font-size:12px; outline:none;">
+            <input type="text" id="reg-send-selector" placeholder="Send Btn DOM Selector (Optional)" style="width:100%; background:var(--surface-low); color:#fff; border:1px solid var(--border-color); padding:12px; border-radius:6px; font-size:12px; outline:none;">
+            <input type="text" id="reg-response-selector" placeholder="Response DOM Selector (Optional)" style="width:100%; background:var(--surface-low); color:#fff; border:1px solid var(--border-color); padding:12px; border-radius:6px; font-size:12px; outline:none;">
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button id="cancel-reg" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;">Cancel</button>
+                <button id="confirm-reg" style="background:var(--primary); color:#fff; border:none; border-radius:6px; padding:6px 12px; cursor:pointer;">Register</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Local settings modal -->
+    <div id="local-settings-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:100000; align-items:center; justify-content:center;">
+        <div style="background:var(--surface-color); padding:20px; width:300px; border:1px solid var(--border-color); border-radius:12px; display:flex; flex-direction:column; gap:16px; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+            <div style="font-size:13px; font-weight:700; color:#fff; font-family:'DM Sans',sans-serif; border-bottom:1px solid var(--border-color); padding-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                <span>Agent Settings</span>
+                <span id="close-local-settings" style="cursor:pointer; color:var(--text-muted); font-size:16px;">&times;</span>
+            </div>
+            
+            <div id="local-settings-content" style="min-height:100px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:11.5px; font-family:'DM Sans',sans-serif;">
+                No settings available yet.
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="modal-overlay">
+        <div class="modal-content confirm-box">
+            <div class="modal-header">
+                <div class="modal-title">CONFIRMATION</div>
+                <div class="modal-close" id="close-confirm">&times;</div>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message">Are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-cancel" class="modal-btn secondary">Cancel</button>
+                <button id="confirm-ok" class="modal-btn primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WebAI Process Overlay -->
+    <div id="web-process-overlay">
+        <div class="process-header">
+            <div class="process-title">PROJECT ANALYZER</div>
+            <div class="spinner"></div>
+        </div>
+        <div class="process-steps">
+            <div class="step-item" id="step-scan">
+                <div class="step-icon" style="display:flex; align-items:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+                <div class="step-text">
+                    <div class="step-label">Project Scan</div>
+                    <div class="step-status">Scanning file structure...</div>
+                </div>
+            </div>
+            <div class="step-item" id="step-analyze">
+                <div class="step-icon" style="display:flex; align-items:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1 0-3.12 3 3 0 0 1 0-3.88 2.5 2.5 0 0 1 0-3.12A2.5 2.5 0 0 1 9.5 2zM14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 0-3.12 3 3 0 0 0 0-3.88 2.5 2.5 0 0 0 0-3.12A2.5 2.5 0 0 0 14.5 2z"/></svg>
+                </div>
+                <div class="step-text">
+                    <div class="step-label">Context Analysis</div>
+                    <div class="step-status">Local AI processing...</div>
+                </div>
+            </div>
+            <div class="step-item" id="step-brief">
+                <div class="step-icon" style="display:flex; align-items:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                </div>
+                <div class="step-text">
+                    <div class="step-label">Web Briefing</div>
+                    <div class="step-status">Injecting to Web AI...</div>
+                </div>
+            </div>
+            <div class="step-item" id="step-extract">
+                <div class="step-icon" style="display:flex; align-items:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <div class="step-text">
+                    <div class="step-label">Final Response</div>
+                    <div class="step-status">Waiting for expert answer...</div>
+                </div>
+            </div>
+        </div>
+        <div class="progress-container">
+            <div id="web-process-bar" class="progress-fill"></div>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            const ipc = require('electron').ipcRenderer;
+            let isFixtureActive = false;
+            let originalInspectorDisplay = '';
+            let originalResizerDisplay = '';
+            let monitorProcess = null;
+
+            function startDockMonitor() {
+                stopDockMonitor();
+                const overlay = document.getElementById('editor-fixture-overlay');
+                if (!overlay) return;
+                
+                Promise.all([
+                    ipc.invoke('get-content-bounds'),
+                    ipc.invoke('get-our-hwnd')
+                ]).then(([winBounds, ourHwnd]) => {
+                    const rect = overlay.getBoundingClientRect();
+                    
+                    // Windows 10/11 invisible border adjustments (approx 7px left/right/bottom)
+                    const x = Math.round(winBounds.x + rect.left) + 7;
+                    const y = Math.round(winBounds.y + rect.top);
+                    const w = Math.round(rect.width) - 14;
+                    const h = Math.round(rect.height) - 7;
+                    
+                    const { spawn } = require('child_process');
+                    const path = require('path');
+                    const scriptPath = path.join(__dirname, 'js/ui/dock_monitor.ps1');
+                    const ourPid = process.pid;
+                    
+                    monitorProcess = spawn('powershell.exe', [
+                        '-NoProfile',
+                        '-ExecutionPolicy', 'Bypass',
+                        '-File', scriptPath,
+                        x.toString(),
+                        y.toString(),
+                        w.toString(),
+                        h.toString(),
+                        ourPid.toString(),
+                        ourHwnd.toString()
+                    ]);
+                    
+                    monitorProcess.stdout.on('data', (data) => {
+                        const msg = data.toString().trim();
+                        console.log("[DockMonitor]", msg);
+                        if (msg.includes("DOCKED:")) {
+                            const parts = msg.split(":");
+                            const hwnd = parts[1].trim();
+                            window.dockedHwnd = hwnd;
+                            ipc.send('register-docked-hwnd', hwnd);
+                            startPositionSync();
+                            
+                            // Style overlay with theme color, solid border, glow
+                            const innerEl = document.getElementById('editor-fixture-inner');
+                            if (innerEl) {
+                                innerEl.style.border = '2px solid var(--accent-color, #3b82f6)';
+                                innerEl.style.background = 'rgba(59, 130, 246, 0.15)';
+                                innerEl.style.boxShadow = 'inset 0 0 20px rgba(59, 130, 246, 0.2), 0 0 10px rgba(59, 130, 246, 0.3)';
+                            }
+                            const textEl = document.getElementById('editor-fixture-text');
+                            if (textEl) {
+                                textEl.style.opacity = '0';
+                            }
+                            
+                            // Change header text to clickable Lock icon (theme color)
+                            const titleEl = document.getElementById('editor-header-title');
+                            if (titleEl) {
+                                titleEl.innerHTML = `
+                                    <div id="fixture-lock-btn" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--accent-color, #3b82f6); transition: all 0.2s ease; font-size: 15px; font-weight: 700; font-family: 'Outfit', sans-serif;" title="Click to Unlock/Unfix Window">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                        </svg>
+                                        <span>FIXED</span>
+                                    </div>
+                                `;
+                                
+                                const lockBtn = document.getElementById('fixture-lock-btn');
+                                if (lockBtn) {
+                                    lockBtn.onclick = (e) => {
+                                        e.stopPropagation();
+                                        
+                                        // Show unlocked state icon (open lock)
+                                        lockBtn.innerHTML = `
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);">
+                                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                                <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                                            </svg>
+                                            <span>UNLOCKED</span>
+                                        `;
+                                        lockBtn.style.color = 'var(--text-muted)';
+                                        
+                                        // Trigger unlock
+                                        setTimeout(() => {
+                                            const fixtureToolbarBtn = document.getElementById('win-fixture');
+                                            if (fixtureToolbarBtn && isFixtureActive) {
+                                                fixtureToolbarBtn.click();
+                                            }
+                                        }, 300);
+                                    };
+                                }
+                            }
+                            
+                            // Restart monitor after short delay to allow further docking or redocking
+                            setTimeout(() => {
+                                if (isFixtureActive) startDockMonitor();
+                            }, 500);
+                        }
+                    });
+                });
+            }
+
+            function stopDockMonitor() {
+                if (monitorProcess) {
+                    try { monitorProcess.kill(); } catch(e) {}
+                    monitorProcess = null;
+                }
+            }
+
+            let positionSyncInterval = null;
+            let lastTargetX = null;
+            let lastTargetY = null;
+            let lastTargetW = null;
+            let lastTargetH = null;
+
+            function startPositionSync() {
+                stopPositionSync();
+                positionSyncInterval = setInterval(() => {
+                    if (!isFixtureActive || !window.dockedHwnd) return;
+                    
+                    const overlay = document.getElementById('editor-fixture-overlay');
+                    if (!overlay) return;
+                    
+                    ipc.invoke('get-content-bounds').then(winBounds => {
+                        const rect = overlay.getBoundingClientRect();
+                        
+                        // Absolute screen target coordinates with Windows 10/11 invisible border adjustments
+                        const targetX = Math.round(winBounds.x + rect.left) + 7;
+                        const targetY = Math.round(winBounds.y + rect.top);
+                        const targetW = Math.round(rect.width) - 14;
+                        
+                        // Fit height exactly to the client viewport overlay area
+                        const targetH = Math.round(rect.height) - 7;
+                        
+                        if (targetX !== lastTargetX || targetY !== lastTargetY || targetW !== lastTargetW || targetH !== lastTargetH) {
+                            lastTargetX = targetX;
+                            lastTargetY = targetY;
+                            lastTargetW = targetW;
+                            lastTargetH = targetH;
+                            
+                            ipc.send('move-docked-window', { x: targetX, y: targetY, w: targetW, h: targetH });
+                        }
+                    });
+                }, 50);
+            }
+
+            function stopPositionSync() {
+                if (positionSyncInterval) {
+                    clearInterval(positionSyncInterval);
+                    positionSyncInterval = null;
+                }
+                lastTargetX = null;
+                lastTargetY = null;
+                lastTargetW = null;
+                lastTargetH = null;
+            }
+
+            function repositionDockedWindow() {
+                const overlay = document.getElementById('editor-fixture-overlay');
+                if (!overlay || !window.dockedHwnd) return;
+                
+                ipc.invoke('get-content-bounds').then(winBounds => {
+                    const rect = overlay.getBoundingClientRect();
+                    
+                    // Windows 10/11 invisible border adjustments (approx 7px left/right/bottom)
+                    const x = Math.round(winBounds.x + rect.left) + 7;
+                    const y = Math.round(winBounds.y + rect.top);
+                    const w = Math.round(rect.width) - 14;
+                    const h = Math.round(rect.height) - 7;
+                    
+                    ipc.send('move-docked-window', { x, y, w, h });
+                });
+            }
+
+            window.addEventListener('resize', () => {
+                if (isFixtureActive) {
+                    clearTimeout(window._dockMonitorResizeTimeout);
+                    window._dockMonitorResizeTimeout = setTimeout(() => {
+                        if (isFixtureActive) {
+                            startDockMonitor();
+                        }
+                    }, 200);
+                }
+            });
+
+            document.getElementById('win-fixture').onclick = () => {
+                isFixtureActive = !isFixtureActive;
+                
+                const inspector = document.getElementById('inspector-right');
+                const resizer = document.getElementById('resizer-inspector');
+                const overlay = document.getElementById('editor-fixture-overlay');
+                const titleEl = document.getElementById('editor-header-title');
+                const icon = document.getElementById('win-fixture-icon');
+                
+                if (isFixtureActive) {
+                    // Hide ChatCover right sidebar
+                    if (inspector) {
+                        originalInspectorDisplay = inspector.style.display || 'flex';
+                        inspector.style.display = 'none';
+                    }
+                    if (resizer) {
+                        originalResizerDisplay = resizer.style.display || 'block';
+                        resizer.style.display = 'none';
+                    }
+                    
+                    // Show guide overlay
+                    if (overlay) overlay.style.display = 'block';
+                    
+                    // Change header text to FIXTURE
+                    if (titleEl) titleEl.innerText = 'FIXTURE';
+                    
+                    // Style icon active (green)
+                    if (icon) {
+                        icon.setAttribute('stroke', '#10b981');
+                        const cursor = icon.querySelector('path');
+                        if (cursor) cursor.setAttribute('fill', '#10b981');
+                    }
+
+                    // Start background drag-and-drop monitor
+                    startDockMonitor();
+                } else {
+                    // Stop monitor and clear docked window tracking
+                    stopDockMonitor();
+                    stopPositionSync();
+                    window.dockedHwnd = null;
+                    ipc.send('register-docked-hwnd', null);
+
+                    // Restore ChatCover right sidebar
+                    if (inspector) inspector.style.display = originalInspectorDisplay;
+                    if (resizer) resizer.style.display = originalResizerDisplay;
+                    
+                    // Hide guide overlay and restore default styles
+                    if (overlay) {
+                        overlay.style.display = 'none';
+                        const innerEl = document.getElementById('editor-fixture-inner');
+                        if (innerEl) {
+                            innerEl.style.border = '2px dashed #3b82f6';
+                            innerEl.style.background = 'rgba(59, 130, 246, 0.08)';
+                            innerEl.style.boxShadow = 'none';
+                        }
+                        const textEl = document.getElementById('editor-fixture-text');
+                        if (textEl) {
+                            textEl.style.opacity = '1';
+                        }
+                    }
+                    
+                    // Restore header text
+                    if (titleEl) {
+                        if (window.currentEditingPath) {
+                            const pathModule = require('path');
+                            titleEl.innerText = `FILE VIEWER - ${pathModule.basename(window.currentEditingPath)}`;
+                        } else {
+                            titleEl.innerText = 'FILE VIEWER';
+                        }
+                    }
+                    
+                    // Style icon inactive (gray)
+                    if (icon) {
+                        icon.setAttribute('stroke', '#9aa0a6');
+                        const cursor = icon.querySelector('path');
+                        if (cursor) cursor.setAttribute('fill', '#9aa0a6');
+                    }
+                }
+            };
+
+            document.getElementById('win-reload').onclick = () => ipc.send('relaunch-app');
+            document.getElementById('win-min').onclick = () => ipc.send('window-minimize');
+            document.getElementById('win-max').onclick = () => ipc.send('window-maximize');
+            document.getElementById('win-close').onclick = () => ipc.send('window-close');
+        })();
+    </script>
+
+    <!-- Core Engines -->
+    <script src="js/engine/outline.js"></script>
+    <script src="js/engine/monitoring.js"></script>
+
+    <!-- Custom Command Handlers -->
+    <script src="js/commands/payload.js"></script>
+    <script src="js/commands/batch.js"></script>
+
+
+
+    <!-- UI Modules -->
+    <script src="js/ui/dialogs.js"></script>
+    <script src="js/ui/project.js"></script>
+    <script src="js/ui/terminal.js"></script>
+    <script src="js/ui/editor.js"></script>
+    <script src="js/ui/chat.js"></script>
+    <script src="js/ui/graph_view.js"></script>
+    <!-- Main UI Modules -->
+    <script src="js/ui/globals.js"></script>
+    <script src="js/ui/dragdrop.js"></script>
+    <script src="js/ui/guest_injection.js"></script>
+    <script src="js/ui/fs_settings.js"></script>
+    <script src="js/ui/rules_detector.js"></script>
+    <script src="js/ui/ui_agent_hub.js"></script>
+    <script src="js/ui/ui_init.js"></script>
+    <script src="js/ui/orchestration.js"></script>
+    <script src="js/ui/bootstrap.js"></script>
+</body>
+</html>

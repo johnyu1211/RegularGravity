@@ -463,6 +463,12 @@ window.updateDragDropQueueUI = function() {
                         window.setCoverLifted(true);
                     }
                     
+                    // 1. Mark file status as UPLOADING immediately before drag simulation starts
+                    item.status = 'UPLOADING';
+                    if (typeof window.updateDragDropQueueUI === 'function') {
+                        window.updateDragDropQueueUI();
+                    }
+                    
                     const { execFile } = require('child_process');
                     const exePath = path.join(process.cwd(), 'src', 'js', 'drag_sim.exe');
                     
@@ -482,6 +488,37 @@ window.updateDragDropQueueUI = function() {
                         setTimeout(() => {
                             if (typeof window.setCoverLifted === 'function') {
                                 window.setCoverLifted(false);
+                            }
+                            
+                            // [1.0s Local Damper Verification] Measure actual input area height inside the webview context
+                            const curH = getGuestInputAreaHeight();
+                            console.log(`[GuestDrop] Damper checking current input height: ${curH}`);
+                            
+                            if (curH < 80) {
+                                console.warn(`[GuestDrop] Noise detected! Height reverted to ${curH} in 1.0s. Reverting status to PENDING.`);
+                                
+                                // Rollback local status
+                                item.status = 'PENDING';
+                                window.dragDropMode = true;
+                                
+                                // Send rollback signal directly to the host using sendToHost
+                                ipcRenderer.sendToHost('rollback-completed-item', item.absolutePath);
+                                
+                                if (typeof window.updateDragDropQueueUI === 'function') {
+                                    window.updateDragDropQueueUI();
+                                }
+                            } else {
+                                console.log(`[GuestDrop] Height verified at ${curH} after 1.0s. Confirming COMPLETED for: ${filename}`);
+                                
+                                // Permanently mark completed
+                                item.status = 'COMPLETED';
+                                
+                                // Send confirmation signal directly to the host using sendToHost
+                                ipcRenderer.sendToHost('confirm-completed-item', item.absolutePath);
+                                
+                                if (typeof window.updateDragDropQueueUI === 'function') {
+                                    window.updateDragDropQueueUI();
+                                }
                             }
                         }, 1000);
                     });
@@ -624,5 +661,15 @@ ipcRenderer.on('rollback-file-status', (event, absPath) => {
         }
     }
 });
+
+function getGuestInputAreaHeight() {
+    let input = document.querySelector('textarea, [contenteditable="true"]');
+    if (!input) return 220;
+    let capsule = document.querySelector('.input-area, [class*="PromptTextarea"]');
+    if (!capsule) capsule = input;
+    const capRect = capsule.getBoundingClientRect();
+    const bottomSpace = Math.max(0, window.innerHeight - capRect.bottom);
+    return Math.ceil(capRect.height + bottomSpace * 2) + 2;
+}
 
 // =========================================================================

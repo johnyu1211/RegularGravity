@@ -361,16 +361,13 @@ window.updateDragDropQueueUI = function() {
         itemEl.setAttribute('data-filepath', item.absolutePath);
         
         const isCompleted = item.status === 'COMPLETED';
-        const isAuto = window.autoClickingQueue === true;
-        const bg = isCompleted ? 'rgba(255, 255, 255, 0.02)' : 'var(--surface-color)';
-        const border = isAuto ? '1px solid transparent' : (isCompleted ? 'rgba(255, 255, 255, 0.05)' : 'var(--border-color)');
         
         itemEl.style = `
             display: flex;
             align-items: center;
             padding: 8px 12px;
-            background: ${bg};
-            border: ${border};
+            background: ${isCompleted ? 'rgba(255, 255, 255, 0.02)' : 'var(--surface-color)'};
+            border: 1px solid ${isCompleted ? 'rgba(255, 255, 255, 0.05)' : 'var(--border-color)'};
             border-radius: 6px;
             cursor: ${isCompleted ? 'default' : 'pointer'};
             user-select: none;
@@ -396,7 +393,13 @@ window.updateDragDropQueueUI = function() {
                     e.preventDefault(); // Block Electron native drag when simulation is active
                 }
             };
-            itemEl.onclick = async () => {
+            itemEl.onclick = async (e) => {
+                // Disable drag simulation on manual user clicks to allow pure manual dragging
+                if (e && e.isTrusted) {
+                    console.log("[DragSim] User manual click ignored.");
+                    return;
+                }
+                
                 const isFocused = await ipcRenderer.invoke('is-window-focused');
                 if (!isFocused) {
                     console.log("[DragSim] Aborted drag simulation: window is in the background.");
@@ -463,12 +466,6 @@ window.updateDragDropQueueUI = function() {
                         window.setCoverLifted(true);
                     }
                     
-                    // 1. Mark file status as UPLOADING immediately before drag simulation starts
-                    item.status = 'UPLOADING';
-                    if (typeof window.updateDragDropQueueUI === 'function') {
-                        window.updateDragDropQueueUI();
-                    }
-                    
                     const { execFile } = require('child_process');
                     const exePath = path.join(process.cwd(), 'src', 'js', 'drag_sim.exe');
                     
@@ -489,37 +486,6 @@ window.updateDragDropQueueUI = function() {
                             if (typeof window.setCoverLifted === 'function') {
                                 window.setCoverLifted(false);
                             }
-                            
-                            // [1.0s Local Damper Verification] Measure actual input area height inside the webview context
-                            const curH = getGuestInputAreaHeight();
-                            console.log(`[GuestDrop] Damper checking current input height: ${curH}`);
-                            
-                            if (curH < 80) {
-                                console.warn(`[GuestDrop] Noise detected! Height reverted to ${curH} in 1.0s. Reverting status to PENDING.`);
-                                
-                                // Rollback local status
-                                item.status = 'PENDING';
-                                window.dragDropMode = true;
-                                
-                                // Send rollback signal directly to the host using sendToHost
-                                ipcRenderer.sendToHost('rollback-completed-item', item.absolutePath);
-                                
-                                if (typeof window.updateDragDropQueueUI === 'function') {
-                                    window.updateDragDropQueueUI();
-                                }
-                            } else {
-                                console.log(`[GuestDrop] Height verified at ${curH} after 1.0s. Confirming COMPLETED for: ${filename}`);
-                                
-                                // Permanently mark completed
-                                item.status = 'COMPLETED';
-                                
-                                // Send confirmation signal directly to the host using sendToHost
-                                ipcRenderer.sendToHost('confirm-completed-item', item.absolutePath);
-                                
-                                if (typeof window.updateDragDropQueueUI === 'function') {
-                                    window.updateDragDropQueueUI();
-                                }
-                            }
                         }, 1000);
                     });
                 } catch (err) {
@@ -528,10 +494,8 @@ window.updateDragDropQueueUI = function() {
             };
         }
         
-        const textColor = isAuto ? bg : (isCompleted ? 'var(--text-muted)' : 'var(--text-main)');
-        
         itemEl.innerHTML = `
-            <span class="queue-file-name" style="font-size: 12px; color: ${textColor}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px; ${isCompleted ? 'text-decoration: line-through;' : ''}" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
+            <span class="queue-file-name" style="font-size: 12px; color: ${isCompleted ? 'var(--text-muted)' : 'var(--text-main)'}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px; ${isCompleted ? 'text-decoration: line-through;' : ''}" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
         `;
         
         listEl.appendChild(itemEl);
@@ -648,28 +612,5 @@ window.autoClickPendingQueueItems = async function() {
         }
     }
 };
-
-ipcRenderer.on('rollback-file-status', (event, absPath) => {
-    console.log("[Guest] Received rollback request for:", absPath);
-    if (!window.requestedFilesQueue) return;
-    const item = window.requestedFilesQueue.find(x => x.absolutePath === absPath);
-    if (item) {
-        item.status = 'PENDING';
-        window.dragDropMode = true;
-        if (typeof window.updateDragDropQueueUI === 'function') {
-            window.updateDragDropQueueUI();
-        }
-    }
-});
-
-function getGuestInputAreaHeight() {
-    let input = document.querySelector('textarea, [contenteditable="true"]');
-    if (!input) return 220;
-    let capsule = document.querySelector('.input-area, [class*="PromptTextarea"]');
-    if (!capsule) capsule = input;
-    const capRect = capsule.getBoundingClientRect();
-    const bottomSpace = Math.max(0, window.innerHeight - capRect.bottom);
-    return Math.ceil(capRect.height + bottomSpace * 2) + 2;
-}
 
 // =========================================================================

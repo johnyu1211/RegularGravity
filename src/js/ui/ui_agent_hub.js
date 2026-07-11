@@ -806,49 +806,6 @@ async function setupBoot() {
             window.lastActiveAiBubble = ChatUI.appendBubble('ai', response, false, getWebIcon(wv));
         };
 
-        wv.addEventListener('ipc-message', (event) => {
-            const channel = event.channel;
-            const args = event.args || [];
-            
-            if (channel === 'rollback-completed-item') {
-                const absPath = args[0];
-                console.log("[Host] Direct rollback received from guest for:", absPath);
-                const item = window.requestedFilesQueue.find(x => x.absolutePath === absPath);
-                if (item) {
-                    item.status = 'PENDING';
-                }
-                window.dragDropMode = true;
-                if (typeof window.updateDragDropQueueUI === 'function') {
-                    window.updateDragDropQueueUI();
-                }
-            }
-            
-            if (channel === 'confirm-completed-item') {
-                const absPath = args[0];
-                console.log("[Host] Direct confirm received from guest for:", absPath);
-                window.markFileAsCompleted(absPath);
-                
-                const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
-                if (stillPending.length === 0) {
-                    if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-                    
-                    if (typeof window.activeDragDropContinue === 'function') {
-                        const continueFunc = window.activeDragDropContinue;
-                        window.activeDragDropContinue = null;
-                        continueFunc().catch(err => {
-                            console.error("Error executing activeDragDropContinue:", err);
-                        });
-                    }
-                    
-                    window.requestedFilesQueue = [];
-                    window.processedDropFiles = new Set();
-                    if (typeof window.updateDragDropQueueUI === 'function') {
-                        window.updateDragDropQueueUI();
-                    }
-                }
-            }
-        });
-
         let lastReceivedMirrorText = "";
         wv.addEventListener('console-message', (e) => {
             // Forward all other guest logs for debugging
@@ -1081,9 +1038,82 @@ async function setupBoot() {
             if (e.message.startsWith('[GUEST_INPUT_HEIGHT]:')) {
                 const h = parseInt(e.message.substring(21), 10);
                 if (!isNaN(h)) {
+                    const prevH = window.lastKnownInputHeight || 0;
                     window.lastKnownInputHeight = h;
+                    
                     if (typeof window.updateSplitLayoutHeight === 'function') {
                         window.updateSplitLayoutHeight(h);
+                    }
+                    
+                    // Check if the chat input area is in a lifted state (height >= 120px) which indicates active file preview attachment
+                    const isHeightLifted = h >= 120;
+                    if (window.dragDropMode && isHeightLifted) {
+                        const uploadingItem = window.requestedFilesQueue.find(item => item.status === 'UPLOADING');
+                        if (uploadingItem) {
+                            const targetPath = uploadingItem.absolutePath;
+                            const targetRel = uploadingItem.relativePath;
+                            
+                            console.log("[HostDrop] Input height increased. Temporarily marking file completed:", targetRel);
+                            window.markFileAsCompleted(targetPath);
+                            
+                            // [1.0s Damper Timer] Double-check if the height remains high to filter out temporary focus/stutter resize noise
+                            setTimeout(() => {
+                                const currentH = window.lastKnownInputHeight || 0;
+                                if (currentH < 80) {
+                                    console.warn(`[HostDrop] Noise detected! Height reverted to ${currentH} in 1.0s. Reverting ${targetRel} to PENDING.`);
+                                    
+                                    // 1. Rollback item status to PENDING
+                                    const item = window.requestedFilesQueue.find(x => x.absolutePath === targetPath);
+                                    if (item) {
+                                        item.status = 'PENDING';
+                                    }
+                                    
+                                    // 2. Reopen modal and restore drag mode
+                                    window.dragDropMode = true;
+                                    if (typeof window.updateDragDropQueueUI === 'function') {
+                                        window.updateDragDropQueueUI();
+                                    }
+                                } else {
+                                    console.log(`[HostDrop] Height verified at ${currentH} after 1.0s. Upload confirmed for ${targetRel}`);
+                                }
+                            }, 1000);
+                            
+                            const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
+                            if (stillPending.length === 0) {
+                                // Wait 1050ms to verify that the damper did not rollback the last item before proceeding
+                                setTimeout(async () => {
+                                    const finalH = window.lastKnownInputHeight || 0;
+                                    if (finalH >= 80) {
+                                        if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+                                        
+                                        if (typeof window.activeDragDropContinue === 'function') {
+                                            const continueFunc = window.activeDragDropContinue;
+                                            window.activeDragDropContinue = null;
+                                            continueFunc().catch(err => {
+                                                console.error("Error executing activeDragDropContinue:", err);
+                                            });
+                                        }
+                                        
+                                        window.requestedFilesQueue = [];
+                                        window.processedDropFiles = new Set();
+                                        if (typeof window.updateDragDropQueueUI === 'function') {
+                                            window.updateDragDropQueueUI();
+                                        }
+                                        
+                                        // Refocus the webview and its input element immediately after modal closes
+                                        const wv = document.getElementById('active-agent-webview');
+                                        if (wv) {
+                                            wv.focus();
+                                            wv.executeJavaScript(`(() => {
+                                                const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                                                const input = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).find(el => isVisible(el));
+                                                if (input) input.focus();
+                                            })()`).catch(() => {});
+                                        }
+                                    }
+                                }, 650);
+                            }
+                        }
                     }
                 }
                 return;
@@ -1147,5 +1177,3 @@ async function setupBoot() {
     if (addTermBtn) addTermBtn.onclick = () => addSubTerminal();
     window.loadDirectory(window.currentPath);
 }
-
-

@@ -918,33 +918,39 @@ function detectAndAskCommand(text) {
         const fs = require('fs');
         const path = require('path');
 
+        const resolvePathAndExists = (rawPath) => {
+            let fp = rawPath.trim();
+            let tp = path.resolve(window.currentPath || process.cwd(), fp);
+            let ex = fs.existsSync(tp);
+            if (!ex) {
+                const prefixRegex = /^SendingMD[\\/]/i;
+                if (prefixRegex.test(fp)) {
+                    const stripped = fp.replace(prefixRegex, '');
+                    const strippedTp = path.resolve(window.currentPath || process.cwd(), stripped);
+                    if (fs.existsSync(strippedTp)) {
+                        console.log(`[PathSanitizer] Stripped 'SendingMD/' prefix: ${fp} -> ${stripped}`);
+                        fp = stripped;
+                        tp = strippedTp;
+                        ex = true;
+                    }
+                }
+            }
+            let isDir = false;
+            if (ex) {
+                try { isDir = fs.statSync(tp).isDirectory(); } catch(e) {}
+            }
+            return { path: fp, exists: ex, isDirectory: isDir };
+        };
+
         if (rangeMatch) {
-            const filePath = rangeMatch[1].trim();
-            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-            const exists = fs.existsSync(targetPath);
-            let isDirectory = false;
-            if (exists) {
-                try { isDirectory = fs.statSync(targetPath).isDirectory(); } catch(e) {}
-            }
-            readCmds.push({ path: filePath, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]), exists: exists, isDirectory: isDirectory });
+            const res = resolvePathAndExists(rangeMatch[1]);
+            readCmds.push({ path: res.path, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]), exists: res.exists, isDirectory: res.isDirectory });
         } else if (fileFullMatch) {
-            const filePath = fileFullMatch[1].trim();
-            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-            const exists = fs.existsSync(targetPath);
-            let isDirectory = false;
-            if (exists) {
-                try { isDirectory = fs.statSync(targetPath).isDirectory(); } catch(e) {}
-            }
-            readCmds.push({ path: filePath, full: true, exists: exists, isDirectory: isDirectory });
+            const res = resolvePathAndExists(fileFullMatch[1]);
+            readCmds.push({ path: res.path, full: true, exists: res.exists, isDirectory: res.isDirectory });
         } else if (fileMatch) {
-            const filePath = fileMatch[1].trim();
-            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-            const exists = fs.existsSync(targetPath);
-            let isDirectory = false;
-            if (exists) {
-                try { isDirectory = fs.statSync(targetPath).isDirectory(); } catch(e) {}
-            }
-            readCmds.push({ path: filePath, full: false, exists: exists, isDirectory: isDirectory });
+            const res = resolvePathAndExists(fileMatch[1]);
+            readCmds.push({ path: res.path, full: false, exists: res.exists, isDirectory: res.isDirectory });
         } else if (writeMatch) {
             const filePath = writeMatch[1].trim();
             const cmdIdx = text.indexOf(rawCmd);

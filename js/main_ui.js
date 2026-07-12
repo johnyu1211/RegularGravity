@@ -791,7 +791,11 @@ window.getSystemRulesPrompt = function(forceFull = false) {
 4. 세션 초기화 및 맥락 인계:
    - 컨텍스트 누적으로 렉이 걸리거나 대화가 길어지면 다음 태그를 출력하여 세션을 안전하게 초기화 및 리부트 하십시오:
      * [CMD: reset-session]
-5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).`;
+5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).
+6. 트러블슈팅 규정 (오류 및 예외 처리):
+   - 중요: 요구한 파일의 절대 경로가 존재하지 않는다는 에러([FILE DATA ERROR])가 발생할 경우, 접두사에 임시 폴더명(예: SendingMD/)이 붙어있지 않은지 검사하십시오.
+   - 접두사 에러 발생 시: 접두사(SendingMD/)를 제거한 루트 기준 상대 경로로 즉시 재요청하십시오.
+   - 예: [FILE DATA ERROR: SendingMD/package.json not found] -> [REQUEST: read-file "package.json"]으로 수정하여 재요청.`;
 
     if (forceFull) {
         return fullRules;
@@ -1425,7 +1429,7 @@ function detectAndAskCommand(text) {
             }
             
             ChatUI.appendBubble('system-info', `Executed: ${cleanCmd}`);
-            const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${window.getSystemRulesPrompt()}`;
+            const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${window.getSystemRulesPrompt(true)}`;
             
             try {
                 const enginePromise = runExperimentalEngine('/marktag', payload, null);
@@ -1903,8 +1907,8 @@ async function setupBoot() {
                                     : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(반드시 위의 파일 목록에 실제로 존재하는 파일 중에서만 선택)을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오. 목록에 없는 가상의 파일은 절대 요청하지 마십시오.`;
 
                             const briefPayload = isEmpty
-                                ? `${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim()
-                                : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${projectTree}\n${window.getSystemRulesPrompt()}\n${startPrompt}`.trim();
+                                ? `${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim()
+                                : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${projectTree}\n${window.getSystemRulesPrompt(true)}\n${startPrompt}`.trim();
 
                             window.currentBatchFileCount = -1;
                             
@@ -4102,8 +4106,8 @@ function setupUI() {
                 : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 진입점 파일들(예: package.json, main.js, index.html 등 분석이 필요한 모든 진입점 파일들)을 대화 턴을 아끼기 위해 한 번에 모아서 [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"] 형태로 한 줄에 즉시 나열하여 답변하십시오. (사족 일절 금지)`;
 
             const webPayload = isEmpty
-                ? `${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim()
-                : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${tree}\n\n${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim();
+                ? `${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim()
+                : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${tree}\n\n${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim();
             
             if (!window.dragDropMode) {
                 // DragDrop Mode is OFF: inject text directly without file attachment
@@ -4550,7 +4554,7 @@ ${gitStatus || "No modified files"}
 2. 현재 프로젝트 전체 폴더/파일 구조:
 ${treeStr}
 
-${window.getSystemRulesPrompt()}
+${window.getSystemRulesPrompt(true)}
 
 이전 세션의 목표를 확인하고 다음 변경 또는 작업을 지시해주십시오.`;
 
@@ -4572,7 +4576,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
 
     const submitConsolidatedFeedback = async (feedback) => {
         if (!feedback.trim()) return;
-        const finalMessage = `${feedback}\nProceed to next step.${window.getSystemRulesPrompt()}`;
+        const finalMessage = `${feedback}\nProceed to next step.${window.getSystemRulesPrompt(true)}`;
         await injectWebPayload(finalMessage, 0);
         window.currentBatchFileCount = 0;
         const response = await runExperimentalEngine('/marktag', finalMessage, null);
@@ -4930,7 +4934,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
 async function submitConsolidatedFeedback(feedback) {
     if (!feedback.trim()) return;
     
-    const finalMessage = `${feedback}\nProceed to next step.${window.getSystemRulesPrompt()}`;
+    const finalMessage = `${feedback}\nProceed to next step.${window.getSystemRulesPrompt(true)}`;
     await injectWebPayload(finalMessage, 0);
     
     window.currentBatchFileCount = 0;

@@ -61,6 +61,7 @@ ipcMain.handle('vault-init', async () => {
     return { 
         hash: getProjectHash(), 
         activeLogPath, 
+        appPath: app.getAppPath(),
         paths: { knowledge: currentKnowledgePath, logs: currentLogsPath, global: gp } 
     };
 });

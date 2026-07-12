@@ -796,7 +796,8 @@ function detectAndAskCommand(text) {
                 }
             });
             // Clean up SendingMD folder
-            const sendingMdDir = path.join(dir, 'SendingMD');
+            const gravityRoot = window.appRootPath || process.cwd();
+            const sendingMdDir = path.join(gravityRoot, 'SendingMD');
             if (fs.existsSync(sendingMdDir)) {
                 const subfiles = fs.readdirSync(sendingMdDir);
                 subfiles.forEach(file => {
@@ -1065,9 +1066,10 @@ function detectAndAskCommand(text) {
         });
         
         const tempFileName = path.join('SendingMD', `_project_read_bundle_${Date.now()}.md`);
-        const tempPath = path.join(window.projectRoot || window.currentPath, tempFileName);
+        const gravityRoot = window.appRootPath || process.cwd();
+        const tempPath = path.join(gravityRoot, tempFileName);
         try {
-            const sendingMdDir = path.join(window.projectRoot || window.currentPath, 'SendingMD');
+            const sendingMdDir = path.join(gravityRoot, 'SendingMD');
             if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
             fs.writeFileSync(tempPath, mergedContent, 'utf-8');
             if (typeof window.addFileToRequestedQueue === 'function') {
@@ -1912,10 +1914,11 @@ async function setupBoot() {
                                 const fs = require('fs');
                                 const path = require('path');
                                 const randSuffix = Math.floor(100000 + Math.random() * 900000);
-                                 const sendingMdDir = path.join(window.currentPath || process.cwd(), 'SendingMD');
+                                 const gravityRoot = window.appRootPath || process.cwd();
+                                 const sendingMdDir = path.join(gravityRoot, 'SendingMD');
                                  if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
                                  window.tempRulesFileName = path.join('SendingMD', `_project_rules_${randSuffix}.md`);
-                                 const tempRulesPath = path.join(window.currentPath || process.cwd(), window.tempRulesFileName);
+                                 const tempRulesPath = path.join(gravityRoot, window.tempRulesFileName);
                                  try {
                                      fs.writeFileSync(tempRulesPath, briefPayload, 'utf-8');
                                     if (typeof window.refreshTree === 'function') {
@@ -4114,10 +4117,11 @@ function setupUI() {
                 }
             } else {
                 const randSuffix = Math.floor(100000 + Math.random() * 900000);
-                const sendingMdDir = path.join(window.currentPath || process.cwd(), 'SendingMD');
+                const gravityRoot = window.appRootPath || process.cwd();
+                const sendingMdDir = path.join(gravityRoot, 'SendingMD');
                 if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
                 window.tempRulesFileName = path.join('SendingMD', `_project_rules_${randSuffix}.md`);
-                const tempRulesPath = path.join(window.currentPath || process.cwd(), window.tempRulesFileName);
+                const tempRulesPath = path.join(gravityRoot, window.tempRulesFileName);
                 try {
                     fs.writeFileSync(tempRulesPath, webPayload, 'utf-8');
                     if (typeof window.refreshTree === 'function') {
@@ -4397,8 +4401,10 @@ function setupUI() {
 const GravityVault = {
     activeLogPath: null, 
     async init() {
-        const res = await ipcRenderer.invoke('vault-init'); this.activeLogPath = res.activeLogPath;
-        console.log("[Vault] Log System Initialized:", this.activeLogPath);
+        const res = await ipcRenderer.invoke('vault-init'); 
+        this.activeLogPath = res.activeLogPath;
+        window.appRootPath = res.appPath;
+        console.log("[Vault] Log System Initialized:", this.activeLogPath, "appRootPath:", window.appRootPath);
     },
     log(role, text) { if (this.activeLogPath) ipcRenderer.send('vault-log', { logPath: this.activeLogPath, role, text }); }
 };

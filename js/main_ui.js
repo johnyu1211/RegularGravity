@@ -801,6 +801,7 @@ window.getSystemRulesPrompt = function(forceFull = false) {
 
 function detectAndAskCommand(text) {
     if (!text) return;
+    console.warn('[detectAndAskCommand] Called. Text length:', text.length, 'Text preview:', text.substring(0, 200));
 
     // Clean up temporary md files from previous turns deterministically on new response
     try {

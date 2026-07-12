@@ -96,7 +96,10 @@ window.addFileToRequestedQueue = function(filePath) {
     window.dragDropAbortMessage = null;
     window.autoDraggingTempDisabled = false;
     const path = require('path');
-    const absolutePath = path.resolve(window.currentPath || process.cwd(), filePath);
+    const gravityRoot = window.appRootPath || process.cwd();
+    const isSendingMd = filePath.startsWith('SendingMD') || filePath.includes('/SendingMD/') || filePath.includes('\\SendingMD\\');
+    const baseDir = isSendingMd ? gravityRoot : (window.currentPath || process.cwd());
+    const absolutePath = path.resolve(baseDir, filePath);
     const normalizedPath = absolutePath.replace(/\//g, '\\').toLowerCase();
     const relativePath = path.relative(window.currentPath || process.cwd(), absolutePath);
     
@@ -1092,6 +1095,15 @@ function detectAndAskCommand(text) {
             console.error("Failed to write read bundle file:", e);
         }
     }
+    
+    if (window.dragDropMode) {
+        const missingFiles = readCmds.filter(f => f.exists === false && !f.isDirectory);
+        missingFiles.forEach(f => {
+            if (typeof window.addFileToRequestedQueue === 'function') {
+                window.addFileToRequestedQueue(f.path);
+            }
+        });
+    }
 
     const hasReadFile = (readCmds.length > 0);
     const hasWriteFile = (writeCmds.length > 0);
@@ -1287,8 +1299,7 @@ function detectAndAskCommand(text) {
             }
         };
 
-        const existingReadCount = readCmds.filter(f => f.exists !== false && !f.isDirectory).length;
-        if ((window.autoContinueOnRead && !window.dragDropMode) || (window.dragDropMode && existingReadCount === 0)) {
+        if (window.autoContinueOnRead && !window.dragDropMode) {
             runRead();
         } else {
             const dropZone = document.getElementById('local-drop-zone');

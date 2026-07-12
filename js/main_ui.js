@@ -541,6 +541,72 @@ window.updateDragDropQueueUI = function() {
     }
 };
 
+window.showCommandExecutionPanel = function(title, text, onContinue, onCancel) {
+    const container = document.getElementById('command-execution-container');
+    const titleEl = document.getElementById('command-execution-title');
+    const textEl = document.getElementById('command-execution-text');
+    const continueBtn = document.getElementById('command-execute-continue');
+    const cancelBtn = document.getElementById('command-execute-cancel');
+    const closeBtn = document.getElementById('close-command-execution');
+
+    if (!container || !textEl || !continueBtn || !cancelBtn) return;
+
+    if (titleEl) titleEl.innerText = title;
+    textEl.innerText = text;
+
+    container.style.display = 'flex';
+    
+    const vLC = document.getElementById('inspector-local-chat');
+    const vBH = document.getElementById('inspector-browser-hub');
+    if (vLC) {
+        vLC.style.height = `calc(100% - 44px - 180px)`;
+        vLC.style.zIndex = '100';
+    }
+    if (vBH) {
+        vBH.style.position = 'absolute';
+        vBH.style.top = '0';
+        vBH.style.height = '100%';
+        vBH.style.width = '100%';
+        vBH.style.zIndex = '150';
+        vBH.style.opacity = '1';
+        vBH.style.pointerEvents = 'auto';
+    }
+    window.toggleBackdropBlur(true);
+    if (typeof window.setCoverLifted === 'function') {
+        window.setCoverLifted(true);
+    }
+
+    const hidePanel = () => {
+        container.style.display = 'none';
+        window.toggleBackdropBlur(false);
+        if (typeof window.setCoverLifted === 'function') {
+            window.setCoverLifted(false);
+        }
+        if (vLC) {
+            vLC.style.height = '100%';
+        }
+    };
+
+    window.activeCommandCleanup = hidePanel;
+
+    continueBtn.onclick = () => {
+        hidePanel();
+        if (typeof onContinue === 'function') onContinue();
+    };
+
+    cancelBtn.onclick = () => {
+        hidePanel();
+        if (typeof onCancel === 'function') onCancel();
+    };
+
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            hidePanel();
+            if (typeof onCancel === 'function') onCancel();
+        };
+    }
+};
+
 window.dragDropAttemptCounts = {};
 window.autoClickingQueue = false;
 window.autoClickPendingQueueItems = async function() {
@@ -1396,8 +1462,9 @@ function detectAndAskCommand(text) {
             cancelBtn.onmouseleave = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.04)"; cancelBtn.style.color = "var(--text-muted)"; cancelBtn.style.borderColor = "var(--border-color)"; };
         }
 
-        content.querySelector('.cmd-run-btn').onclick = async () => {
+        const onContinue = async () => {
             box.remove();
+            if (window.activeCommandCleanup) window.activeCommandCleanup();
             
             if (window.activeSubTabId && window.terminalSessions[window.activeSubTabId]) {
                 window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
@@ -1454,7 +1521,22 @@ function detectAndAskCommand(text) {
             }
         };
 
-        content.querySelector('.cmd-cancel-btn').onclick = () => box.remove();
+        const onCancel = () => {
+            box.remove();
+            if (window.activeCommandCleanup) window.activeCommandCleanup();
+        };
+
+        content.querySelector('.cmd-run-btn').onclick = onContinue;
+        content.querySelector('.cmd-cancel-btn').onclick = onCancel;
+
+        if (typeof window.showCommandExecutionPanel === 'function') {
+            window.showCommandExecutionPanel(
+                "Pending Command",
+                cleanCmd,
+                onContinue,
+                onCancel
+            );
+        }
     });
 }
 
@@ -4633,14 +4715,16 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 </div>
             `;
 
-            content.querySelector('.cmd-run-btn').onclick = () => {
+            const onContinue = () => {
                 box.remove();
+                if (window.activeCommandCleanup) window.activeCommandCleanup();
                 isDeleteApproved = true;
                 startWriteEditOrchestration();
             };
 
-            content.querySelector('.cmd-cancel-btn').onclick = () => {
+            const onCancel = () => {
                 box.remove();
+                if (window.activeCommandCleanup) window.activeCommandCleanup();
                 isDeleteApproved = false;
                 deleteCmds.forEach(c => {
                     accumulatedFeedback += `[FILE DELETE ERROR: ${c.path} - User denied permission]\n`;
@@ -4648,6 +4732,18 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 });
                 startWriteEditOrchestration();
             };
+
+            content.querySelector('.cmd-run-btn').onclick = onContinue;
+            content.querySelector('.cmd-cancel-btn').onclick = onCancel;
+
+            if (typeof window.showCommandExecutionPanel === 'function') {
+                window.showCommandExecutionPanel(
+                    "⚠️ Delete Confirmation",
+                    `Allow Web AI to delete: ${displayDelete}?`,
+                    onContinue,
+                    onCancel
+                );
+            }
         } else {
             startWriteEditOrchestration();
         }
@@ -4678,14 +4774,16 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 </div>
             `;
 
-            content.querySelector('.cmd-run-btn').onclick = () => {
+            const onContinue = () => {
                 box.remove();
+                if (window.activeCommandCleanup) window.activeCommandCleanup();
                 isWriteEditApproved = true;
                 runDiskModifications();
             };
 
-            content.querySelector('.cmd-cancel-btn').onclick = () => {
+            const onCancel = () => {
                 box.remove();
+                if (window.activeCommandCleanup) window.activeCommandCleanup();
                 isWriteEditApproved = false;
                 const writePaths = writeCmds.map(c => c.path).join(', ');
                 const editPaths = editCmds.map(c => c.path).join(', ');
@@ -4699,6 +4797,18 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 }
                 runDiskModifications();
             };
+
+            content.querySelector('.cmd-run-btn').onclick = onContinue;
+            content.querySelector('.cmd-cancel-btn').onclick = onCancel;
+
+            if (typeof window.showCommandExecutionPanel === 'function') {
+                window.showCommandExecutionPanel(
+                    "⚠️ File Modification Confirmation",
+                    `Allow Web AI to write/edit: ${displayModify}?`,
+                    onContinue,
+                    onCancel
+                );
+            }
         } else {
             runDiskModifications();
         }

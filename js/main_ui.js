@@ -1869,7 +1869,7 @@ async function setupBoot() {
                 if (window.sessionBriefed || window.briefingInProgress) return;
                 window.briefingInProgress = true;
                 
-                const projectTree = await ipcRenderer.invoke('vault-get-tree');
+                const projectTree = await ipcRenderer.invoke('vault-get-tree', window.currentPath || window.projectRoot);
                 if (projectTree) {
                     setTimeout(async () => {
                         try {

@@ -762,40 +762,15 @@ const syncBrowserView = (() => {
 window.getSystemRulesPrompt = function(forceFull = false) {
     const fullRules = `
 [SYSTEM RULES]
-1. 탐색 단계 (추측 금지, 무조건 선행 검색 우선):
-   - 중요: 관련 파일 이름이나 역할을 절대 임의로 짐작하지 마십시오. 반드시 먼저 [CMD: search-keyword "검색어"] 또는 [CMD: list-dir "경로"]를 통해 실재 유무를 확인한 후에 읽어야 합니다.
-   - 검색 실패 시: 만약 다른 유추 검색어로 2~3회 [CMD: search-keyword]를 반복했음에도 원하는 대상을 찾지 못했다면, 짐작으로 파일명을 추측해 읽지 말고, 시도한 검색어 목록을 밝히며 유저에게 정확한 위치를 직접 질문하십시오.
-   - 대화 턴을 아끼기 위해 분석할 파일 여러 개를 한 줄에 한 번에 동시에 요청하십시오. 예: [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"]
-   - 파일 내용 분석: [REQUEST: read-file "경로"]
-   - 폴더 내부 구조 조회: [CMD: list-dir "폴더경로"]
-   - 전역 텍스트 검색: [CMD: search-keyword "검색어"]
-2. 파일 수정/관리 규격 (반드시 형식 준수):
-   - 중요: 기존 파일 코드를 수정([CMD: edit-file])하기 전에는, 반드시 대상 파일 읽기([REQUEST: read-file])를 먼저 수행하여 실제 코드와 정확한 들여쓰기(Indentation)를 완전히 파악한 후에 수정 명령을 내려야 합니다. 짐작해서 수정하는 것은 절대 금지됩니다.
-   - 기존 파일 부분수정/치환:
-     [CMD: edit-file "경로"]
-     [SEARCH]
-     수정하려는 파일 내 기존 코드 일부 (정확히 일치해야 함)
-     [REPLACE]
-     수정하여 덮어쓸 새 코드 본문
-     [END]
-   - 새 파일 생성 또는 전체 쓰기:
-     [CMD: write-file "경로"]
-     \`\`\`언어
-     전체 코드 본문
-     \`\`\`
-   - 파일/폴더 삭제: [CMD: delete-file "경로"]
-   - 빈 폴더 생성: [CMD: create-dir "경로"]
-   - 파일/폴더 이동 및 이름 변경: [CMD: move-file "원본경로" "대상경로"]
-3. 터미널 명령어 실행 (빌드, 테스트, 기타 운영체제 쉘 명령):
-   - [CMD: run-command "명령어"]
-4. 세션 초기화 및 맥락 인계:
-   - 컨텍스트 누적으로 렉이 걸리거나 대화가 길어지면 다음 태그를 출력하여 세션을 안전하게 초기화 및 리부트 하십시오:
-     * [CMD: reset-session]
-5. 대기 완료: 파악 완료 시 계획수립 금지, 현재 구조만 설명 후 대기(Wait for user instructions).
-6. 트러블슈팅 규정 (오류 및 예외 처리):
-   - 중요: 요구한 파일의 절대 경로가 존재하지 않는다는 에러([FILE DATA ERROR])가 발생할 경우, 접두사에 임시 폴더명(예: SendingMD/)이 붙어있지 않은지 검사하십시오.
-   - 접두사 에러 발생 시: 접두사(SendingMD/)를 제거한 루트 기준 상대 경로로 즉시 재요청하십시오.
-   - 예: [FILE DATA ERROR: SendingMD/package.json not found] -> [REQUEST: read-file "package.json"]으로 수정하여 재요청.`;
+1. SEARCH: Never guess names/roles. Use [CMD: search-keyword "query"] or [CMD: list-dir "path"] first. If search fails 2-3x, ask user. Request multiple files in one turn: [REQUEST: read-file "path1"] [REQUEST: read-file "path2"].
+2. FILE OPS: Always read-file before editing.
+   - Edit: [CMD: edit-file "path"] followed by [SEARCH] old_code [REPLACE] new_code [END] (Exact match).
+   - Write: [CMD: write-file "path"] followed by \`\`\`lang\ncode\n\`\`\`.
+   - Delete/CreateDir/Move: [CMD: delete-file "path"], [CMD: create-dir "path"], [CMD: move-file "src" "dest"].
+3. RUN CMD: [CMD: run-command "command"] (build, test, shell).
+4. RESET: Use [CMD: reset-session] if lagging.
+5. WAIT: Explain current state, do not plan, wait for user.
+6. TROUBLESHOOT: If [FILE DATA ERROR] (e.g. prefix "SendingMD/"), strip prefix & request root path: [FILE DATA ERROR: SendingMD/file.js] -> [REQUEST: read-file "file.js"].`;
 
     if (forceFull) {
         return fullRules;

@@ -801,7 +801,7 @@ window.getSystemRulesPrompt = function(forceFull = false) {
 
 function detectAndAskCommand(text) {
     if (!text) return;
-    console.warn('[detectAndAskCommand] Called. Text length:', text.length, 'Text preview:', text.substring(0, 200));
+    
 
     // Clean up temporary md files from previous turns deterministically on new response
     try {
@@ -1899,8 +1899,8 @@ async function setupBoot() {
                             const startPrompt = isEmpty
                                 ? `이 폴더는 완전히 비어있는 새 프로젝트입니다. 지침을 숙지했다면 유저에게 어떤 프로젝트를 만들지 간단히 물어보십시오. (파일 요청 금지, 사족 금지)`
                                 : window.dragDropMode 
-                                    ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(예: package.json, index.html 등 진입점 파일)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
-                                    : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오.`;
+                                    ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(반드시 위의 파일 목록에 실제로 존재하는 파일 중에서만 선택)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. 목록에 없는 가상의 파일은 절대 요청하지 마십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
+                                    : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(반드시 위의 파일 목록에 실제로 존재하는 파일 중에서만 선택)을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오. 목록에 없는 가상의 파일은 절대 요청하지 마십시오.`;
 
                             const briefPayload = isEmpty
                                 ? `${window.getSystemRulesPrompt()}\n\n${startPrompt}`.trim()

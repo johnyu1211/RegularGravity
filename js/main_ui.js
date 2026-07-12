@@ -849,7 +849,7 @@ window.getSystemRulesPrompt = function(forceFull = false) {
     const fullRules = `
 [SYSTEM RULES]
 1. SEARCH: Never guess names/roles. Use [CMD: search-keyword "query"] or [CMD: list-dir "path"] first. If search fails 2-3x, ask user. Request multiple files in one turn: [REQUEST: read-file "path1"] [REQUEST: read-file "path2"].
-2. FILE OPS: Always read-file before editing, and read-file/verify again after editing/writing to check correctness.
+2. FILE OPS: Always read-file before editing. Never request read-file in the same turn as write/edit. After write/edit, wait for system feedback, and only request read-file/verify in the next turn to check correctness.
    - Edit: [CMD: edit-file "path"] followed by [SEARCH] old_code [REPLACE] new_code [END] (Exact match).
    - Write: [CMD: write-file "path"] followed by \`\`\`lang\ncode\n\`\`\`.
    - Delete/CreateDir/Move: [CMD: delete-file "path"], [CMD: create-dir "path"], [CMD: move-file "src" "dest"].
@@ -1128,6 +1128,20 @@ function detectAndAskCommand(text) {
         }
     });
 
+    const hasWriteFile = (writeCmds.length > 0);
+    const hasEditFile = (editCmds.length > 0);
+    const hasDeleteFile = (deleteCmds.length > 0);
+    const hasCreateDir = (createDirCmds.length > 0);
+    const hasRunCommand = (runCommandCmds.length > 0);
+    const hasSearchKeyword = (searchKeywordCmds.length > 0);
+    const hasMoveFile = (moveFileCmds.length > 0);
+    const hasListDir = (listDirCmds.length > 0);
+    const hasAnyAction = hasWriteFile || hasEditFile || hasDeleteFile || hasCreateDir || hasRunCommand || hasSearchKeyword || hasMoveFile || hasListDir;
+
+    if (hasAnyAction) {
+        readCmds.length = 0;
+    }
+
     // Combined files bundling logic for Drag & Drop
     const filesToBundle = readCmds.filter(f => f.exists !== false && !f.isDirectory);
     if (filesToBundle.length > 0) {
@@ -1176,16 +1190,6 @@ function detectAndAskCommand(text) {
     }
 
     const hasReadFile = (readCmds.length > 0);
-    const hasWriteFile = (writeCmds.length > 0);
-    const hasEditFile = (editCmds.length > 0);
-    const hasDeleteFile = (deleteCmds.length > 0);
-    const hasCreateDir = (createDirCmds.length > 0);
-    const hasRunCommand = (runCommandCmds.length > 0);
-    const hasSearchKeyword = (searchKeywordCmds.length > 0);
-    const hasMoveFile = (moveFileCmds.length > 0);
-    const hasListDir = (listDirCmds.length > 0);
-
-    const hasAnyAction = hasWriteFile || hasEditFile || hasDeleteFile || hasCreateDir || hasRunCommand || hasSearchKeyword || hasMoveFile || hasListDir;
 
     if (hasResetSession) {
         setTimeout(() => {

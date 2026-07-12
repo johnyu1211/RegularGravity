@@ -1558,6 +1558,26 @@ async function setupBoot() {
     const grid = document.getElementById('agent-hub-grid'), addA = document.getElementById('add-agent-app-card');
     if (!grid || !addA) return;
 
+    const rulesBtn = document.getElementById('taskbar-manual-rules-btn');
+    if (rulesBtn) {
+        rulesBtn.onclick = async () => {
+            if (typeof window.getSystemRulesPrompt === 'function' && typeof injectWebPayload === 'function') {
+                const payload = `${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge that you understand and will strictly follow these system rules.`;
+                rulesBtn.style.opacity = '0.5';
+                rulesBtn.style.pointerEvents = 'none';
+                try {
+                    await injectWebPayload(payload, 0, 0, false, true);
+                    ChatUI.appendBubble('system', '[SUCCESS] System rules sent to Web AI.');
+                } catch(e) {
+                    ChatUI.appendBubble('system', `[ERROR] Failed to send system rules: ${e.message}`);
+                } finally {
+                    rulesBtn.style.opacity = '1';
+                    rulesBtn.style.pointerEvents = 'auto';
+                }
+            }
+        };
+    }
+
     grid.querySelectorAll('.agent-app:not(#add-agent-app-card)').forEach(el => el.remove());
 
     const showBrowserConfirm = () => {

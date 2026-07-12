@@ -1435,109 +1435,119 @@ function detectAndAskCommand(text) {
         }
     }
     
-    otherCmds.forEach(cleanCmd => {
-        const box = ChatUI.appendBubble('system', '');
-        const content = box.querySelector('.bubble-content');
-        const themeColor = "#468CF6"; 
-        const glowShadow = "rgba(0,0,0,0.15)";
-
-        content.innerHTML = `
-            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">$</span>${cleanCmd}
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
-                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
-            </div>
-        `;
-
-        const runBtn = content.querySelector('.cmd-run-btn');
-        const cancelBtn = content.querySelector('.cmd-cancel-btn');
-        if (runBtn) {
-            runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(0,0,0,0.35)"; };
-            runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
-        }
-        if (cancelBtn) {
-            cancelBtn.onmouseenter = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.08)"; cancelBtn.style.color = "var(--text-main)"; cancelBtn.style.borderColor = "rgba(255,255,255,0.15)"; };
-            cancelBtn.onmouseleave = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.04)"; cancelBtn.style.color = "var(--text-muted)"; cancelBtn.style.borderColor = "var(--border-color)"; };
-        }
-
-        const onContinue = async () => {
-            box.remove();
-            if (window.activeCommandCleanup) window.activeCommandCleanup();
+    if (otherCmds.length > 0) {
+        let accumulatedOtherFeedback = "";
+        let currentIndex = 0;
+        
+        const runNextOtherCommand = () => {
+            if (currentIndex >= otherCmds.length) {
+                if (accumulatedOtherFeedback.trim()) {
+                    submitConsolidatedFeedback(accumulatedOtherFeedback);
+                }
+                return;
+            }
             
-            if (window.activeSubTabId && window.terminalSessions[window.activeSubTabId]) {
-                window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
-                window.switchSubTerminal(window.activeSubTabId);
+            const cleanCmd = otherCmds[currentIndex];
+            const box = ChatUI.appendBubble('system', '');
+            const content = box.querySelector('.bubble-content');
+            const themeColor = "#468CF6"; 
+            const glowShadow = "rgba(0,0,0,0.15)";
+            
+            content.innerHTML = `
+                <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                    <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">$</span>${cleanCmd}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
+                </div>
+            `;
+            
+            const runBtn = content.querySelector('.cmd-run-btn');
+            const cancelBtn = content.querySelector('.cmd-cancel-btn');
+            if (runBtn) {
+                runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(0,0,0,0.35)"; };
+                runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
+            }
+            if (cancelBtn) {
+                cancelBtn.onmouseenter = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.08)"; cancelBtn.style.color = "var(--text-main)"; cancelBtn.style.borderColor = "rgba(255,255,255,0.15)"; };
+                cancelBtn.onmouseleave = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.04)"; cancelBtn.style.color = "var(--text-muted)"; cancelBtn.style.borderColor = "var(--border-color)"; };
+            }
+            
+            const onContinue = async () => {
+                box.remove();
+                if (window.activeCommandCleanup) window.activeCommandCleanup();
                 
-                if (cleanCmd.toLowerCase().startsWith('cd ')) {
-                    let targetDir = cleanCmd.substring(3).trim().replace(/['"]/g, '');
-                    const pathModule = require('path');
-                    try {
-                        const curCwd = window.terminalSessions[window.activeSubTabId].cwd || window.currentPath || process.cwd();
-                        let newPath = '';
-                        if (pathModule.isAbsolute(targetDir)) {
-                            newPath = targetDir;
-                        } else {
-                            newPath = pathModule.resolve(curCwd, targetDir);
+                if (window.activeSubTabId && window.terminalSessions[window.activeSubTabId]) {
+                    window.terminalSessions[window.activeSubTabId].logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
+                    window.switchSubTerminal(window.activeSubTabId);
+                    
+                    if (cleanCmd.toLowerCase().startsWith('cd ')) {
+                        let targetDir = cleanCmd.substring(3).trim().replace(/['"]/g, '');
+                        const pathModule = require('path');
+                        try {
+                            const curCwd = window.terminalSessions[window.activeSubTabId].cwd || window.currentPath || process.cwd();
+                            let newPath = '';
+                            if (pathModule.isAbsolute(targetDir)) {
+                                newPath = targetDir;
+                            } else {
+                                newPath = pathModule.resolve(curCwd, targetDir);
+                            }
+                            if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
+                                window.terminalSessions[window.activeSubTabId].cwd = newPath;
+                                if (typeof updateTerminalPrompt === 'function') updateTerminalPrompt();
+                            }
+                        } catch (err) {
+                            console.error(err);
                         }
-                        if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
-                            window.terminalSessions[window.activeSubTabId].cwd = newPath;
-                            if (typeof updateTerminalPrompt === 'function') updateTerminalPrompt();
-                        }
-                    } catch (err) {
-                        console.error(err);
+                    }
+
+                    ipcRenderer.send('execute-cmd', { 
+                        tabId: window.activeSubTabId, 
+                        command: cleanCmd, 
+                        cwd: window.terminalSessions[window.activeSubTabId].cwd || window.currentPath || process.cwd() 
+                    });
+                    
+                    const tL = document.getElementById('terminal-lower');
+                    if (tL && tL.offsetHeight <= 40) {
+                        tL.style.height = '350px';
+                        const minBtn = document.getElementById('minimize-terminal'); 
+                        if (minBtn) minBtn.innerText = '▼';
+                        if (typeof syncBrowserView === 'function') syncBrowserView();
                     }
                 }
-
-                ipcRenderer.send('execute-cmd', { 
-                    tabId: window.activeSubTabId, 
-                    command: cleanCmd, 
-                    cwd: window.terminalSessions[window.activeSubTabId].cwd || window.currentPath || process.cwd() 
-                });
                 
-                const tL = document.getElementById('terminal-lower');
-                if (tL && tL.offsetHeight <= 40) {
-                    tL.style.height = '350px';
-                    const minBtn = document.getElementById('minimize-terminal'); 
-                    if (minBtn) minBtn.innerText = '▼';
-                    if (typeof syncBrowserView === 'function') syncBrowserView();
-                }
-            }
+                ChatUI.appendBubble('system-info', `Executed: ${cleanCmd}`);
+                accumulatedOtherFeedback += `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine.\n\n`;
+                
+                currentIndex++;
+                setTimeout(runNextOtherCommand, 100);
+            };
             
-            ChatUI.appendBubble('system-info', `Executed: ${cleanCmd}`);
-            const payload = `[SYSTEM] Command \`${cleanCmd}\` executed on the local machine. Proceed with the next step.${window.getSystemRulesPrompt(true)}`;
+            const onCancel = () => {
+                box.remove();
+                if (window.activeCommandCleanup) window.activeCommandCleanup();
+                accumulatedOtherFeedback += `[SYSTEM] Command \`${cleanCmd}\` execution cancelled by user.\n\n`;
+                
+                currentIndex++;
+                setTimeout(runNextOtherCommand, 100);
+            };
             
-            try {
-                const enginePromise = runExperimentalEngine('/marktag', payload, null);
-                await injectWebPayload(payload);
-                const response = await enginePromise;
-                if (response) {
-                    ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview')));
-                    detectAndAskCommand(response);
-                }
-            } catch (e) {
-                ChatUI.appendBubble('ai', `[ERROR] Command failed: ${e.message}`);
+            content.querySelector('.cmd-run-btn').onclick = onContinue;
+            content.querySelector('.cmd-cancel-btn').onclick = onCancel;
+            
+            if (typeof window.showCommandExecutionPanel === 'function') {
+                window.showCommandExecutionPanel(
+                    "Pending Command",
+                    cleanCmd,
+                    onContinue,
+                    onCancel
+                );
             }
         };
-
-        const onCancel = () => {
-            box.remove();
-            if (window.activeCommandCleanup) window.activeCommandCleanup();
-        };
-
-        content.querySelector('.cmd-run-btn').onclick = onContinue;
-        content.querySelector('.cmd-cancel-btn').onclick = onCancel;
-
-        if (typeof window.showCommandExecutionPanel === 'function') {
-            window.showCommandExecutionPanel(
-                "Pending Command",
-                cleanCmd,
-                onContinue,
-                onCancel
-            );
-        }
-    });
+        
+        runNextOtherCommand();
+    }
 }
 
 async function setupBoot() {

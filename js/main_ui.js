@@ -579,7 +579,8 @@ window.autoClickPendingQueueItems = async function() {
                 window.autoDragging = false;
                 window.dragDropAbortMessage = `❌ 실패 3회 초과로 자동 드래그 중단: ${item.relativePath}`;
                 try {
-                    const sPath = require('path').join(window.currentPath || process.cwd(), 'Settings.json');
+                    const gravityRoot = window.appRootPath || process.cwd();
+                    const sPath = require('path').join(gravityRoot, 'Settings.json');
                     const settingsData = {
                         hideUIOverlay: window.hideUIOverlay,
                         debugMode: window.debugMode,
@@ -641,7 +642,8 @@ window.updateSplitLayoutHeight = function(newHeight) {
 window.reloadAgentSettings = function() {
     const _path = require('path');
     const _fs = require('fs');
-    const p = _path.join(window.currentPath || process.cwd(), 'Settings.json');
+    const gravityRoot = window.appRootPath || process.cwd();
+    const p = _path.join(gravityRoot, 'Settings.json');
     try {
         if (_fs.existsSync(p)) {
             const settings = JSON.parse(_fs.readFileSync(p, 'utf-8'));
@@ -3474,7 +3476,8 @@ function setupUI() {
 
     const _path = require('path');
     function getSettingsPath() {
-        return _path.join(window.currentPath || process.cwd(), 'Settings.json');
+        const gravityRoot = window.appRootPath || process.cwd();
+        return _path.join(gravityRoot, 'Settings.json');
     }
     function loadSettings() {
         try {

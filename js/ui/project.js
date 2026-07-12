@@ -33,6 +33,13 @@ window.selectProject = async (folderPath) => {
         const chatIn = document.getElementById('local-agent-input');
         if (chatIn) chatIn.focus();
     }
+
+    // Reset briefing state and trigger boot briefing for the new project
+    window.sessionBriefed = false;
+    window.briefingInProgress = false;
+    if (typeof setupBoot === 'function') {
+        setupBoot().catch(err => console.error("Failed setupBoot on selectProject:", err));
+    }
 };
 
 async function openProjectModal() {

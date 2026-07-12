@@ -2348,7 +2348,7 @@ async function setupBoot() {
                 !e.message.startsWith('[BACKGROUND_AI_RESP]:') &&
                 !e.message.startsWith('[GUEST_INPUT_HEIGHT]:') &&
                 !e.message.startsWith('[INJECT_PCT]:')) {
-                console.log('[GUEST_CONSOLE]: ' + e.message);
+                // console.log('[GUEST_CONSOLE]: ' + e.message);
             }
 
             if (e.message.startsWith('[GUEST_HTML5_DROP]:') || e.message.startsWith('[GUEST_FILE_DROP]:')) {

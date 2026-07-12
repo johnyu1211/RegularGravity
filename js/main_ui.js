@@ -1886,6 +1886,7 @@ async function setupBoot() {
                             const briefPayload = isEmpty
                                 ? `${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim()
                                 : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${projectTree}\n${window.getSystemRulesPrompt(true)}\n${startPrompt}`.trim();
+                             console.log("[BriefingPayload] Generated payload:\n", briefPayload);
 
                             window.currentBatchFileCount = -1;
                             
@@ -1921,6 +1922,7 @@ async function setupBoot() {
                                  const tempRulesPath = path.join(gravityRoot, window.tempRulesFileName);
                                  try {
                                      fs.writeFileSync(tempRulesPath, briefPayload, 'utf-8');
+                                      console.log("[BriefingPayload] (DragDrop) Saved rules file:", tempRulesPath, "\nContent:\n", briefPayload);
                                     if (typeof window.refreshTree === 'function') {
                                         window.refreshTree();
                                     }
@@ -4105,6 +4107,7 @@ function setupUI() {
                     window.updateSplitLayoutHeight(window.pendingSplitHeight || 220);
                 }
 
+                console.log("[ProjectInfoPayload] Sending payload:\n", webPayload);
                 const briefPromise = runExperimentalEngine('/marktag', webPayload, null);
                 await injectWebPayload(webPayload, -1);
                 const briefResponse = await Promise.race([
@@ -4124,6 +4127,7 @@ function setupUI() {
                 const tempRulesPath = path.join(gravityRoot, window.tempRulesFileName);
                 try {
                     fs.writeFileSync(tempRulesPath, webPayload, 'utf-8');
+                    console.log("[ProjectInfoPayload] (DragDrop) Saved rules file:", tempRulesPath, "\nContent:\n", webPayload);
                     if (typeof window.refreshTree === 'function') {
                         window.refreshTree();
                     }

@@ -128,6 +128,17 @@ function bindDragAndDrop() {
             e.dataTransfer.dropEffect = 'copy';
         };
         hub.ondrop = async (e) => {
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0 && window.dragDropMode) {
+                e.preventDefault();
+                e.stopPropagation();
+                const { showAlert } = require('./ui/dialogs.js');
+                if (typeof showAlert === 'function') {
+                    showAlert("⚠️ 파일 업로드는 우측 브라우저 AI 챗 영역에 직접 드롭하셔야 합니다.");
+                } else {
+                    alert("⚠️ 파일 업로드는 우측 브라우저 AI 챗 영역에 직접 드롭하셔야 합니다.");
+                }
+                return;
+            }
             let filePath = '';
             let absolutePath = '';
             const internalPath = e.dataTransfer.getData('text/plain');

@@ -5031,8 +5031,9 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 </div>
             `;
 
-            content.querySelector('.cmd-run-btn').onclick = async () => {
+            const onContinue = async () => {
                 box.remove();
+                if (window.activeCommandCleanup) window.activeCommandCleanup();
                 const { exec } = require('child_process');
                 for (const c of runCommandCmds) {
                     ChatUI.appendBubble('system', `[SYSTEM] Running command: ${c.command}...\n`);
@@ -5074,11 +5075,24 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 await submitConsolidatedFeedback(accumulatedFeedback);
             };
 
-            content.querySelector('.cmd-cancel-btn').onclick = () => {
+            const onCancel = () => {
                 box.remove();
+                if (window.activeCommandCleanup) window.activeCommandCleanup();
                 accumulatedFeedback += `[COMMAND EXECUTION CANCELLED BY USER]\n`;
                 submitConsolidatedFeedback(accumulatedFeedback);
             };
+
+            content.querySelector('.cmd-run-btn').onclick = onContinue;
+            content.querySelector('.cmd-cancel-btn').onclick = onCancel;
+
+            if (typeof window.showCommandExecutionPanel === 'function') {
+                window.showCommandExecutionPanel(
+                    "⚠️ Security Warning",
+                    `Allow Web AI to execute: ${displayCmd}?`,
+                    onContinue,
+                    onCancel
+                );
+            }
         } else {
             submitConsolidatedFeedback(accumulatedFeedback);
         }

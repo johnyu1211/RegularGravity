@@ -344,7 +344,12 @@ window.updateDragDropQueueUI = function() {
     const containerEl = document.getElementById('drag-drop-queue-container');
     const listEl = document.getElementById('drag-drop-queue-list');
     const countEl = document.getElementById('requested-files-count');
-    if (!listEl) return;
+    if (!listEl) {
+        console.error('[updateDragDropQueueUI] listEl not found!');
+        return;
+    }
+    
+    console.warn('[updateDragDropQueueUI] called. Queue length:', window.requestedFilesQueue?.length, 'Mode:', window.dragDropMode, 'Queue items:', JSON.stringify(window.requestedFilesQueue));
     
     const warningEl = document.getElementById('drag-drop-queue-warning');
     if (warningEl) {
@@ -358,16 +363,18 @@ window.updateDragDropQueueUI = function() {
     }
     
     // Toggle container display based on dragDropMode and presence of items in the queue
-    const hasItems = window.requestedFilesQueue.length > 0;
+    const hasItems = window.requestedFilesQueue && window.requestedFilesQueue.length > 0;
     if (containerEl) {
         if (window.dragDropMode && hasItems) {
             containerEl.style.display = 'flex';
+            console.log('[updateDragDropQueueUI] Setting container display to flex');
             window.toggleBackdropBlur(true);
             if (typeof window.setCoverLifted === 'function') {
                 window.setCoverLifted(true);
             }
         } else {
             containerEl.style.display = 'none';
+            console.log('[updateDragDropQueueUI] Setting container display to none');
             window.toggleBackdropBlur(false);
             if (typeof window.setCoverLifted === 'function') {
                 window.setCoverLifted(false);
@@ -404,7 +411,7 @@ window.updateDragDropQueueUI = function() {
         
         const isCompleted = item.status === 'COMPLETED';
         
-        itemEl.style = `
+        itemEl.style.cssText = `
             display: flex;
             align-items: center;
             padding: 8px 12px;
@@ -795,6 +802,35 @@ window.getSystemRulesPrompt = function(forceFull = false) {
 function detectAndAskCommand(text) {
     if (!text) return;
 
+    // Clean up temporary md files from previous turns deterministically on new response
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const dir = window.projectRoot || window.currentPath;
+        if (dir && fs.existsSync(dir)) {
+            // Clean up root leftovers
+            const files = fs.readdirSync(dir);
+            files.forEach(file => {
+                if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
+                    try { fs.unlinkSync(path.join(dir, file)); } catch(e) {}
+                }
+            });
+            // Clean up SendingMD folder
+            const sendingMdDir = path.join(dir, 'SendingMD');
+            if (fs.existsSync(sendingMdDir)) {
+                const subfiles = fs.readdirSync(sendingMdDir);
+                subfiles.forEach(file => {
+                    if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
+                        try { fs.unlinkSync(path.join(sendingMdDir, file)); } catch(e) {}
+                    }
+                });
+            }
+            if (typeof window.refreshTree === 'function') {
+                window.refreshTree();
+            }
+        }
+    } catch(e) {}
+
     // Reset requested files queue for the new AI response/turn
     window.requestedFilesQueue = [];
 
@@ -1042,9 +1078,11 @@ function detectAndAskCommand(text) {
             mergedContent += "## [FILE DATA: " + f.path + "]\n```" + ext + "\n" + fileContent + "\n```\n\n";
         });
         
-        const tempFileName = `_project_read_bundle_${Date.now()}.md`;
+        const tempFileName = path.join('SendingMD', `_project_read_bundle_${Date.now()}.md`);
         const tempPath = path.join(window.projectRoot || window.currentPath, tempFileName);
         try {
+            const sendingMdDir = path.join(window.projectRoot || window.currentPath, 'SendingMD');
+            if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
             fs.writeFileSync(tempPath, mergedContent, 'utf-8');
             if (typeof window.addFileToRequestedQueue === 'function') {
                 window.addFileToRequestedQueue(tempFileName);
@@ -1079,6 +1117,11 @@ function detectAndAskCommand(text) {
     }
 
     if (hasReadFile) {
+        const fileNamesList = readCmds.map(f => {
+            const p = f.path.split(/[\\/]/);
+            return p[p.length - 1];
+        }).join(', ');
+
         const displayCmd = readCmds.map(f => {
             if (f.range) return "read-file-range \"" + f.path + "\" " + f.start + "-" + f.end;
             return (f.full ? 'read-file-full' : 'read-file') + " \"" + f.path + "\"";
@@ -1097,12 +1140,8 @@ function detectAndAskCommand(text) {
                     const missingFiles = readCmds.filter(f => f.exists === false);
                     let parts = [];
                     if (existingFiles.length > 0) {
-                        const fileNames = existingFiles.map(f => {
-                            const p = f.path.split(/[\\/]/);
-                            return p[p.length - 1];
-                        }).join(', ');
                         existingFiles.forEach(f => window.readFilesSet.add(f.path));
-                        parts.push("I have uploaded the requested file contents: " + fileNames + " as attachments.");
+                        parts.push("I have uploaded the requested file contents: " + fileNamesList + " as attachments.");
                     }
                     if (directoryFiles.length > 0) {
                         const getFlatDirectoryTree = (dirPath) => {
@@ -1250,16 +1289,16 @@ function detectAndAskCommand(text) {
                 const vLC = document.getElementById('inspector-local-chat');
                 const vBH = document.getElementById('inspector-browser-hub');
                 if (vLC) {
-                    vLC.style.height = "calc(100% - 44px - " + window.currentSplitHeight + "px)";
-                    vLC.style.zIndex = '150';
+                    vLC.style.height = "100%";
+                    vLC.style.zIndex = '100';
                 }
                 
                 if (vBH) {
                     vBH.style.position = 'absolute';
                     vBH.style.top = '0';
-                    vBH.style.height = 'calc(100% - 44px)';
+                    vBH.style.height = '100%';
                     vBH.style.width = '100%';
-                    vBH.style.zIndex = '100';
+                    vBH.style.zIndex = '150';
                     vBH.style.opacity = '1';
                     vBH.style.pointerEvents = 'auto';
                 }
@@ -1269,7 +1308,7 @@ function detectAndAskCommand(text) {
                     fileBox = ChatUI.appendBubble('system', '');
                     const fileBoxContent = fileBox.querySelector('.bubble-content');
                     if (fileBoxContent) {
-                        fileBoxContent.innerHTML = "<div>Requested: <strong style=\"color: var(--primary); font-weight: bold;\">" + fileNames + "</strong></div>";
+                        fileBoxContent.innerHTML = "<div>Requested: <strong style=\"color: var(--primary); font-weight: bold;\">" + fileNamesList + "</strong></div>";
                     }
                 }
 
@@ -1279,40 +1318,17 @@ function detectAndAskCommand(text) {
                     window.activeDragDropContinue = null;
                     
                     if (vLC) {
-                        vLC.style.height = "calc(100% - 44px - " + window.currentSplitHeight + "px)";
-                        vLC.style.zIndex = '150';
+                        vLC.style.height = "100%";
+                        vLC.style.zIndex = '100';
                     }
                     if (vBH) {
                         vBH.style.position = 'absolute';
                         vBH.style.top = '0';
-                        vBH.style.height = 'calc(100% - 44px)';
+                        vBH.style.height = '100%';
                         vBH.style.width = '100%';
-                        vBH.style.zIndex = '100';
+                        vBH.style.zIndex = '150';
                         vBH.style.opacity = '1';
                         vBH.style.pointerEvents = 'auto';
-                    }
-                    
-                    // Clean up temporary files on cleanup (only if all files in the queue were successfully uploaded)
-                    const isAllUploaded = window.requestedFilesQueue.length > 0 && window.requestedFilesQueue.every(f => f.status === 'COMPLETED');
-                    if (isAllUploaded) {
-                        try {
-                            const fs = require('fs');
-                            const path = require('path');
-                            const dir = window.projectRoot || window.currentPath;
-                            if (dir && fs.existsSync(dir)) {
-                                const files = fs.readdirSync(dir);
-                                files.forEach(file => {
-                                    if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
-                                        try {
-                                            fs.unlinkSync(path.join(dir, file));
-                                        } catch(e) {}
-                                    }
-                                });
-                                if (typeof window.refreshTree === 'function') {
-                                    window.refreshTree();
-                                }
-                            }
-                        } catch(e) {}
                     }
                 };
 
@@ -1421,18 +1437,76 @@ async function setupBoot() {
     const grid = document.getElementById('agent-hub-grid'), addA = document.getElementById('add-agent-app-card');
     if (!grid || !addA) return;
 
+    const showBrowserConfirm = () => {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('browser-confirm-modal');
+            const okBtn = document.getElementById('browser-confirm-ok');
+            const cancelBtn = document.getElementById('browser-confirm-cancel');
+            if (!modal || !okBtn || !cancelBtn) return resolve(true);
+
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.firstElementChild.style.transform = 'translateY(0)';
+            }, 10);
+
+            okBtn.onclick = () => {
+                modal.firstElementChild.style.transform = 'translateY(100%)';
+                setTimeout(() => { modal.style.display = 'none'; }, 300);
+                resolve(true);
+            };
+            cancelBtn.onclick = () => {
+                modal.firstElementChild.style.transform = 'translateY(100%)';
+                setTimeout(() => { modal.style.display = 'none'; }, 300);
+                resolve(false);
+            };
+        });
+    };
+
     window.launchWebAgent = async (appData, isSilentBoot = false) => {
         window.sessionBriefed = false;
         window.briefingInProgress = false;
         let u = typeof appData === 'string' ? appData : appData.url;
         let inSel = typeof appData === 'object' ? appData.input : ''; let btnSel = typeof appData === 'object' ? appData.send : ''; let resSel = typeof appData === 'object' ? appData.response : '';
 
-        if (!isSilentBoot) {
-            const confirmed = await showAlert("현재 프로젝트 폴더의 정보를 해당 AI에게 발송합니다.");
-            if (!confirmed) return;
+        const existingWv = document.getElementById('active-agent-webview');
+        if (existingWv && existingWv.src === u) {
+            if (!isSilentBoot) {
+                const confirmed = await showBrowserConfirm();
+                if (!confirmed) return;
+                setTimeout(() => {
+                    const projBtn = document.getElementById('btn-send-project-info');
+                    if (projBtn) {
+                        console.warn('[launchWebAgent] Triggering project info send click');
+                        projBtn.click();
+                    }
+                }, 600);
+
+                document.getElementById('agent-hub-home').style.display = 'none';
+                document.getElementById('agent-hub-webview').style.display = 'flex';
+                
+                const webToggle = document.getElementById('web-ai-mode-toggle'); if (webToggle) webToggle.checked = true;
+                document.getElementById('tab-local-agent')?.click();
+                setTimeout(() => document.getElementById('local-agent-input')?.focus(), 100);
+            }
+            return;
         }
 
-        document.getElementById('agent-hub-home').style.display = 'none'; document.getElementById('agent-hub-webview').style.display = 'flex';
+        if (!isSilentBoot) {
+            const confirmed = await showBrowserConfirm();
+            if (!confirmed) return;
+            setTimeout(() => {
+                const projBtn = document.getElementById('btn-send-project-info');
+                if (projBtn) {
+                    console.warn('[launchWebAgent] Triggering project info send click');
+                    projBtn.click();
+                }
+            }, 600);
+        }
+
+        if (!isSilentBoot) {
+            document.getElementById('agent-hub-home').style.display = 'none';
+            document.getElementById('agent-hub-webview').style.display = 'flex';
+        }
         const urlInput = document.getElementById('agent-url-input');
         if (urlInput) urlInput.value = u;
 
@@ -1807,7 +1881,7 @@ async function setupBoot() {
                 if (projectTree) {
                     setTimeout(async () => {
                         try {
-                            await injectWebPayload("dont think simply answer me 'A'"); await runExperimentalEngine('/marktag', "dont think simply answer me 'A'", null);
+                            await injectWebPayload("dont think simply answer me 'A'", -1); await runExperimentalEngine('/marktag', "dont think simply answer me 'A'", null);
                             ChatUI.appendBubble('system', '[SYSTEM] INITIALIZATION COMPLETE.');
                             
                             const isEmpty = !projectTree || projectTree.trim() === '' || !projectTree.includes('- ');
@@ -1822,26 +1896,103 @@ async function setupBoot() {
                                 : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${projectTree}\n${window.getSystemRulesPrompt()}\n${startPrompt}`.trim();
 
                             window.currentBatchFileCount = -1;
-                            const briefPromise = runExperimentalEngine('/marktag', briefPayload, null);
-                            await injectWebPayload(briefPayload, -1);
                             
-                            const briefResponse = await Promise.race([
-                                briefPromise,
-                                new Promise((_, reject) => setTimeout(() => reject(new Error('Briefing response timeout')), 120000))
-                            ]);
-                            window.sessionBriefed = true;
-                            window.briefingInProgress = false;
-                            window.hideInputLoading();
-                            document.getElementById('tab-local-agent').click();
-                            if (briefResponse) {
-                                if (!window.autoContinueOnRead) {
-                                    if (typeof window.finalizeAiBubble === 'function') {
-                                        window.finalizeAiBubble(briefResponse);
+                            if (!window.dragDropMode) {
+                                const briefPromise = runExperimentalEngine('/marktag', briefPayload, null);
+                                await injectWebPayload(briefPayload, -1);
+                                
+                                const briefResponse = await Promise.race([
+                                    briefPromise,
+                                    new Promise((_, reject) => setTimeout(() => reject(new Error('Briefing response timeout')), 120000))
+                                ]);
+                                window.sessionBriefed = true;
+                                window.briefingInProgress = false;
+                                window.hideInputLoading();
+                                document.getElementById('tab-local-agent').click();
+                                if (briefResponse) {
+                                    if (!window.autoContinueOnRead) {
+                                        if (typeof window.finalizeAiBubble === 'function') {
+                                            window.finalizeAiBubble(briefResponse);
+                                        }
                                     }
+                                    detectAndAskCommand(briefResponse);
                                 }
-                                detectAndAskCommand(briefResponse);
+                                window.currentBatchFileCount = 0;
+                            } else {
+                                const fs = require('fs');
+                                const path = require('path');
+                                const randSuffix = Math.floor(100000 + Math.random() * 900000);
+                                 const sendingMdDir = path.join(window.currentPath || process.cwd(), 'SendingMD');
+                                 if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
+                                 window.tempRulesFileName = path.join('SendingMD', `_project_rules_${randSuffix}.md`);
+                                 const tempRulesPath = path.join(window.currentPath || process.cwd(), window.tempRulesFileName);
+                                 try {
+                                     fs.writeFileSync(tempRulesPath, briefPayload, 'utf-8');
+                                    if (typeof window.refreshTree === 'function') {
+                                        window.refreshTree();
+                                    }
+                                } catch (err) {
+                                    console.error("Failed to write temporary rules file during boot:", err);
+                                }
+
+                                window.requestedFilesQueue = [{
+                                    absolutePath: tempRulesPath,
+                                    relativePath: window.tempRulesFileName,
+                                    status: 'PENDING'
+                                }];
+
+                                if (typeof window.injectGuestDropInterceptor === 'function') {
+                                    window.injectGuestDropInterceptor();
+                                }
+
+                                const cleanupDragDrop = () => {
+                                    if (window.activeDragDropCleanup === cleanupDragDrop) {
+                                        window.activeDragDropCleanup = null;
+                                        window.activeDragDropContinue = null;
+                                    }
+                                    const vLC = document.getElementById('inspector-local-chat');
+                                    const vBH = document.getElementById('inspector-browser-hub');
+                                    const arrowIndicator = document.getElementById('drag-drop-arrow-indicator');
+                                    if (arrowIndicator) arrowIndicator.remove();
+                                    
+                                    const inputContainer = document.getElementById('local-input-container');
+                                    if (inputContainer) {
+                                        inputContainer.style.background = '';
+                                        inputContainer.style.display = 'none';
+                                        inputContainer.style.height = '';
+                                    }
+                                    if (vLC) {
+                                        vLC.style.height = "100%";
+                                        vLC.style.zIndex = '100';
+                                    }
+                                    if (vBH) {
+                                        vBH.style.position = 'absolute';
+                                        vBH.style.top = '0';
+                                        vBH.style.height = '100%';
+                                        vBH.style.width = '100%';
+                                        vBH.style.zIndex = '150';
+                                        vBH.style.opacity = '1';
+                                        vBH.style.pointerEvents = 'auto';
+                                    }
+
+                                };
+
+                                window.activeDragDropCleanup = cleanupDragDrop;
+                                window.activeDragDropContinue = async () => {};
+
+                                window.sessionBriefed = true;
+                                window.briefingInProgress = false;
+                                window.currentBatchFileCount = 0;
+                                window.isBriefingResponsePending = true;
+
+                                window.hideInputLoading();
+
+                                setTimeout(() => {
+                                    if (typeof window.updateDragDropQueueUI === 'function') {
+                                        window.updateDragDropQueueUI();
+                                    }
+                                }, 600);
                             }
-                            window.currentBatchFileCount = 0;
                         } catch (err) {
                             window.sessionBriefed = true;
                             window.briefingInProgress = false;
@@ -2306,6 +2457,7 @@ async function setupBoot() {
                         const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                         if (stillPending.length === 0) {
                             if (window.activeDragDropCleanup) window.activeDragDropCleanup();
+                            const filesToClean = [...window.requestedFilesQueue];
                             setTimeout(async () => {
                                 // Inject pending user message if there is one blocked by rules reminder
                                 if (window.pendingUserMessageText) {
@@ -2320,30 +2472,8 @@ async function setupBoot() {
                                     window.triggerGuestSend();
                                 }
 
-                                // Delay deletion of temp rules files to guarantee upload completes
-                                setTimeout(() => {
-                                    try {
-                                        const fs = require('fs');
-                                        const path = require('path');
-                                        const dir = window.projectRoot || window.currentPath;
-                                        if (dir && fs.existsSync(dir)) {
-                                            const files = fs.readdirSync(dir);
-                                            files.forEach(file => {
-                                                if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
-                                                    try {
-                                                        fs.unlinkSync(path.join(dir, file));
-                                                    } catch(e) {}
-                                                }
-                                            });
-                                            if (typeof window.refreshTree === 'function') {
-                                                window.refreshTree();
-                                            }
-                                        }
-                                    } catch (err) {
-                                        console.error("[ProjectInfo] Failed to delete temporary rules files after send:", err);
-                                    }
-                                }, 10000);
                                 
+                                 
                                 if (typeof runExperimentalEngine === 'function') {
                                     runExperimentalEngine('/marktag', "", null).then(response => {
                                         if (response) {
@@ -2356,7 +2486,7 @@ async function setupBoot() {
                                         }
                                     }).catch(err => console.error("Error in response monitoring:", err));
                                 }
-                                
+                                 
                                 window.requestedFilesQueue = [];
                                 if (typeof window.updateDragDropQueueUI === 'function') {
                                     window.updateDragDropQueueUI();
@@ -2542,6 +2672,19 @@ async function setupBoot() {
 function setupUI() {
     // 1. Setup Click-to-copy for .chat-cmd-badge
     document.addEventListener('click', (e) => {
+        const homeBtn = e.target.closest('#taskbar-home-btn');
+        if (homeBtn) {
+            console.log('[GlobalHomeBtn] Clicked - returning to grid');
+            e.preventDefault();
+            e.stopPropagation();
+            const webviewEl = document.getElementById('agent-hub-webview');
+            const homeEl = document.getElementById('agent-hub-home');
+            if (webviewEl) webviewEl.style.display = 'none';
+            if (homeEl) homeEl.style.display = 'flex';
+            if (typeof syncBrowserView === 'function') syncBrowserView();
+            return;
+        }
+
         const badge = e.target.closest('.chat-cmd-badge');
         if (badge) {
             let cmdText = badge.innerText.trim();
@@ -3639,6 +3782,18 @@ function setupUI() {
         const switchAgentBtn = document.getElementById('menu-switch-agent');
         if (switchAgentBtn) { switchAgentBtn.onclick = () => { document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex'; }; }
 
+        const taskbarHomeBtn = document.getElementById('taskbar-home-btn');
+        if (taskbarHomeBtn) {
+            taskbarHomeBtn.addEventListener('click', (e) => {
+                console.log('[HomeBtn] Clicked - returning to grid');
+                e.preventDefault();
+                e.stopPropagation();
+                document.getElementById('agent-hub-webview').style.display = 'none';
+                document.getElementById('agent-hub-home').style.display = 'flex';
+                if (typeof syncBrowserView === 'function') syncBrowserView();
+            });
+        }
+
         const devAgentBtn = document.getElementById('menu-debug-agent');
         if (devAgentBtn) { devAgentBtn.onclick = () => { const wv = document.getElementById('active-agent-webview'); if (wv) wv.openDevTools(); }; }
 
@@ -3655,11 +3810,45 @@ function setupUI() {
     const dsInput = document.getElementById('discovery-keywords-input');
     const defaultKeywords = 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
 
+    // Settings tab switching wiring
+    const btnAutoDrag = document.getElementById('settings-tab-btn-autodrag');
+    const btnDiscovery = document.getElementById('settings-tab-btn-discovery');
+    const contentAutoDrag = document.getElementById('settings-content-autodrag');
+    const contentDiscovery = document.getElementById('settings-content-discovery');
+
+    const switchSettingsTab = (tab) => {
+        if (tab === 'autodrag') {
+            if (btnAutoDrag) { btnAutoDrag.style.color = '#fff'; btnAutoDrag.style.borderBottomColor = 'var(--primary)'; }
+            if (btnDiscovery) { btnDiscovery.style.color = 'var(--text-muted)'; btnDiscovery.style.borderBottomColor = 'transparent'; }
+            if (contentAutoDrag) contentAutoDrag.style.display = 'flex';
+            if (contentDiscovery) contentDiscovery.style.display = 'none';
+        } else {
+            if (btnAutoDrag) { btnAutoDrag.style.color = 'var(--text-muted)'; btnAutoDrag.style.borderBottomColor = 'transparent'; }
+            if (btnDiscovery) { btnDiscovery.style.color = '#fff'; btnDiscovery.style.borderBottomColor = 'var(--primary)'; }
+            if (contentAutoDrag) contentAutoDrag.style.display = 'none';
+            if (contentDiscovery) contentDiscovery.style.display = 'flex';
+        }
+    };
+
+    if (btnAutoDrag) btnAutoDrag.onclick = () => switchSettingsTab('autodrag');
+    if (btnDiscovery) btnDiscovery.onclick = () => switchSettingsTab('discovery');
+
     const openDiscoveryBtn = document.getElementById('open-discovery-settings');
     if (openDiscoveryBtn) {
         openDiscoveryBtn.onclick = async () => {
-            const saved = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || defaultKeywords;
-            if (dsInput) dsInput.value = saved;
+            // Load current discovery keywords
+            const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || defaultKeywords;
+            if (dsInput) dsInput.value = savedKeywords;
+            
+            // Load Settings.json for checkboxes
+            const currentSettings = loadSettings();
+            const chkAutoDrag = document.getElementById('settings-auto-drag');
+            
+            const autoD = currentSettings.hasOwnProperty('autoDragging') ? !!currentSettings.autoDragging : true;
+            
+            if (chkAutoDrag) chkAutoDrag.checked = autoD;
+            
+            switchSettingsTab('autodrag'); // Start at Tab 1
             if (dsModal) dsModal.style.display = 'flex';
         };
     }
@@ -3668,9 +3857,33 @@ function setupUI() {
     const saveDiscoveryBtn = document.getElementById('save-discovery-settings');
     if (saveDiscoveryBtn) {
         saveDiscoveryBtn.onclick = () => {
+            // Save Discovery Keywords
             if (dsInput) {
                 ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: dsInput.value.trim() });
             }
+            
+            // Save Auto Dragging switches to Settings.json
+            const chkAutoDrag = document.getElementById('settings-auto-drag');
+            
+            const settingsData = loadSettings();
+            window.dragDropMode = true;
+            settingsData.dragDropMode = true;
+            if (chkAutoDrag) {
+                window.autoDragging = chkAutoDrag.checked;
+                settingsData.autoDragging = chkAutoDrag.checked;
+            }
+            saveSettings(settingsData);
+            
+            // Synchronize with active chat checkboxes if visible/loaded
+            const chatChkAutoDrag = document.getElementById('chk-auto-drag');
+            if (chatChkAutoDrag && chkAutoDrag) {
+                chatChkAutoDrag.checked = chkAutoDrag.checked;
+            }
+            
+            if (typeof window.updateDragDropQueueUI === 'function') {
+                window.updateDragDropQueueUI();
+            }
+            
             if (dsModal) dsModal.style.display = 'none';
         };
     }
@@ -3678,49 +3891,30 @@ function setupUI() {
     const tLA = document.getElementById('tab-local-agent'), tBH = document.getElementById('tab-browser-hub');
     const vLC = document.getElementById('inspector-local-chat'), vBH = document.getElementById('inspector-browser-hub');
     const swi = (m) => {
-        if (m === 'local') {
-            vLC.style.opacity = '1';
-            vLC.style.pointerEvents = 'auto';
-            vLC.style.zIndex = '150';
+        if (vLC) {
+            vLC.style.opacity = '0';
+            vLC.style.pointerEvents = 'none';
+            vLC.style.zIndex = '100';
+            vLC.style.height = '100%';
             vLC.style.position = 'absolute';
             vLC.style.top = '0';
             vLC.style.bottom = '';
             vLC.style.left = '0';
             vLC.style.width = '100%';
-            
-            const splitH = window.currentSplitHeight || window.pendingSplitHeight || 180;
-            vLC.style.height = `calc(100% - 44px - ${splitH}px)`;
-            
+        }
+        if (vBH) {
             vBH.style.position = 'absolute';
             vBH.style.top = '0';
             vBH.style.bottom = '';
             vBH.style.left = '0';
             vBH.style.width = '100%';
-            vBH.style.height = 'calc(100% - 44px)';
-            vBH.style.zIndex = '100';
-            vBH.style.opacity = '1';
-            vBH.style.pointerEvents = 'auto';
-        } else {
-            vLC.style.opacity = '0';
-            vLC.style.pointerEvents = 'none';
-            vLC.style.zIndex = '100';
-            vLC.style.height = 'calc(100% - 44px)';
-            vLC.style.position = 'absolute';
-            vLC.style.top = '0';
-            vLC.style.bottom = '';
-            
-            vBH.style.position = 'absolute';
-            vBH.style.top = '0';
-            vBH.style.bottom = '';
-            vBH.style.left = '0';
-            vBH.style.width = '100%';
-            vBH.style.height = 'calc(100% - 44px)';
+            vBH.style.height = '100%';
             vBH.style.zIndex = '150';
             vBH.style.opacity = '1';
             vBH.style.pointerEvents = 'auto';
         }
-        if (tLA) tLA.classList.toggle('active-tab', (m === 'local'));
-        if (tBH) tBH.classList.toggle('active-tab', (m !== 'local'));
+        if (tLA) tLA.classList.toggle('active-tab', false);
+        if (tBH) tBH.classList.toggle('active-tab', true);
 
         const chatLog = document.getElementById('local-chat-messages');
         if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
@@ -3729,8 +3923,8 @@ function setupUI() {
     window.swi = swi;
     if (tLA) tLA.onclick = () => swi('local'); if (tBH) tBH.onclick = () => swi('browser');
     
-    // Default to COVER tab on startup
-    setTimeout(() => swi('local'), 50);
+    // Default to BROWSER tab on startup
+    setTimeout(() => swi('browser'), 50);
 
     const searchBtn = document.getElementById('btn-local-search');
     const searchContainer = document.getElementById('local-chat-search-container');
@@ -3924,8 +4118,10 @@ function setupUI() {
                 }
             } else {
                 const randSuffix = Math.floor(100000 + Math.random() * 900000);
-                window.tempRulesFileName = `_project_rules_${randSuffix}.md`;
-                const tempRulesPath = path.join(window.currentPath, window.tempRulesFileName);
+                const sendingMdDir = path.join(window.currentPath || process.cwd(), 'SendingMD');
+                if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
+                window.tempRulesFileName = path.join('SendingMD', `_project_rules_${randSuffix}.md`);
+                const tempRulesPath = path.join(window.currentPath || process.cwd(), window.tempRulesFileName);
                 try {
                     fs.writeFileSync(tempRulesPath, webPayload, 'utf-8');
                     if (typeof window.refreshTree === 'function') {
@@ -3964,31 +4160,21 @@ function setupUI() {
                     }
                     
                     if (vLC) {
-                        vLC.style.height = `calc(100% - 44px - ${window.currentSplitHeight || 220}px)`;
-                        vLC.style.zIndex = '150';
+                        vLC.style.height = "100%";
+                        vLC.style.zIndex = '100';
                     }
                     if (vBH) {
                         vBH.style.position = 'absolute';
                         vBH.style.top = '0';
-                        vBH.style.height = 'calc(100% - 44px)';
+                        vBH.style.height = '100%';
                         vBH.style.width = '100%';
-                        vBH.style.zIndex = '100';
+                        vBH.style.zIndex = '150';
                         vBH.style.opacity = '1';
                         vBH.style.pointerEvents = 'auto';
                     }
                     
                     // Clean up temporary rules file after a 10 seconds delay (only if successfully uploaded)
-                    setTimeout(() => {
-                        try {
-                            const isAllUploaded = window.requestedFilesQueue.length > 0 && window.requestedFilesQueue.every(f => f.status === 'COMPLETED');
-                            if (isAllUploaded && fs.existsSync(tempRulesPath)) {
-                                fs.unlinkSync(tempRulesPath);
-                                if (typeof window.refreshTree === 'function') {
-                                    window.refreshTree();
-                                }
-                            }
-                        } catch (e) {}
-                    }, 10000);
+                    
                 };
 
                 window.activeDragDropCleanup = cleanupDragDrop;
@@ -4127,28 +4313,8 @@ function setupUI() {
                             }
                             
                             // Delay deletion of temp files to guarantee upload completes
-                            setTimeout(() => {
-                                try {
-                                    const fs = require('fs');
-                                    const path = require('path');
-                                    const dir = window.projectRoot || window.currentPath;
-                                    if (dir && fs.existsSync(dir)) {
-                                        const files = fs.readdirSync(dir);
-                                        files.forEach(file => {
-                                            if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
-                                                try {
-                                                    fs.unlinkSync(path.join(dir, file));
-                                                } catch(e) {}
-                                            }
-                                        });
-                                        if (typeof window.refreshTree === 'function') {
-                                            window.refreshTree();
-                                        }
-                                    }
-                                } catch (err) {
-                                    console.error("[ProjectInfo] Failed to delete temporary files after send:", err);
-                                }
-                            }, 10000);
+                            const filesToClean = [...window.requestedFilesQueue];
+
 
                             if (typeof runExperimentalEngine === 'function') {
                                 runExperimentalEngine('/marktag', "", null).then(response => {
@@ -4293,7 +4459,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chatIn = document.getElementById('local-agent-input');
     if (chatIn) {
         setTimeout(() => {
-            if (typeof window.swi === 'function') window.swi('local');
+            if (typeof window.swi === 'function') window.swi('browser');
             chatIn.focus();
             chatIn.click();
         }, 300);

@@ -349,7 +349,7 @@ window.updateDragDropQueueUI = function() {
         return;
     }
     
-    console.warn('[updateDragDropQueueUI] called. Queue length:', window.requestedFilesQueue?.length, 'Mode:', window.dragDropMode, 'Queue items:', JSON.stringify(window.requestedFilesQueue));
+
     
     const warningEl = document.getElementById('drag-drop-queue-warning');
     if (warningEl) {
@@ -367,14 +367,14 @@ window.updateDragDropQueueUI = function() {
     if (containerEl) {
         if (window.dragDropMode && hasItems) {
             containerEl.style.display = 'flex';
-            console.log('[updateDragDropQueueUI] Setting container display to flex');
+
             window.toggleBackdropBlur(true);
             if (typeof window.setCoverLifted === 'function') {
                 window.setCoverLifted(true);
             }
         } else {
             containerEl.style.display = 'none';
-            console.log('[updateDragDropQueueUI] Setting container display to none');
+
             window.toggleBackdropBlur(false);
             if (typeof window.setCoverLifted === 'function') {
                 window.setCoverLifted(false);
@@ -1468,7 +1468,7 @@ async function setupBoot() {
                 setTimeout(() => {
                     const projBtn = document.getElementById('btn-send-project-info');
                     if (projBtn) {
-                        console.warn('[launchWebAgent] Triggering project info send click');
+
                         projBtn.click();
                     }
                 }, 600);
@@ -1489,7 +1489,7 @@ async function setupBoot() {
             setTimeout(() => {
                 const projBtn = document.getElementById('btn-send-project-info');
                 if (projBtn) {
-                    console.warn('[launchWebAgent] Triggering project info send click');
+
                     projBtn.click();
                 }
             }, 600);

@@ -1135,6 +1135,9 @@ function detectAndAskCommand(text) {
         }).join(', ');
 
         const runRead = async () => {
+            const injectContainer = document.getElementById('toast-inject-container');
+            const projLbl = document.getElementById('project-pct-label');
+            const projBar = document.getElementById('toast-project-progress-bar');
             try {
                 const fs = require('fs');
                 const path = require('path');

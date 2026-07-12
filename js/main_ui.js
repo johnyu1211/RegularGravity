@@ -1429,7 +1429,7 @@ async function setupBoot() {
     const grid = document.getElementById('agent-hub-grid'), addA = document.getElementById('add-agent-app-card');
     if (!grid || !addA) return;
 
-    grid.querySelectorAll('.agent-app').forEach(el => el.remove());
+    grid.querySelectorAll('.agent-app:not(#add-agent-app-card)').forEach(el => el.remove());
 
     const showBrowserConfirm = () => {
         return new Promise((resolve) => {

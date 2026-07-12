@@ -11,8 +11,31 @@ function writeToLogFile(type, args) {
     } catch(e) {}
 }
 
+const isUploadRelated = (args) => {
+    try {
+        const msg = args.map(arg => {
+            if (!arg) return "";
+            if (typeof arg === 'object') {
+                if (arg instanceof Error) return arg.stack || arg.message;
+                try { return JSON.stringify(arg); } catch(e) { return "[Object]"; }
+            }
+            return String(arg);
+        }).join(' ').toLowerCase();
+        
+        const patterns = [
+            'upload', 'drop', 'drag', 'file', 'inject', 'payload', 
+            'progress', 'sent', 'prepared', 'comple', 'auto', 'click'
+        ];
+        return patterns.some(p => msg.includes(p));
+    } catch(e) {
+        return false;
+    }
+};
+
 console.log = function(...args) {
-    originalConsoleLog.apply(console, args);
+    if (isUploadRelated(args)) {
+        originalConsoleLog.apply(console, args);
+    }
     writeToLogFile('LOG', args);
 };
 console.error = function(...args) {
@@ -22,7 +45,9 @@ console.error = function(...args) {
     writeToLogFile('ERROR', args);
 };
 console.warn = function(...args) {
-    originalConsoleWarn.apply(console, args);
+    if (isUploadRelated(args)) {
+        originalConsoleWarn.apply(console, args);
+    }
     writeToLogFile('WARN', args);
 };
 if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }

@@ -69,6 +69,7 @@ window.markFileAsCompleted = function(filePath) {
 
 window.addFileToRequestedQueue = function(filePath) {
     window.dragDropAbortMessage = null;
+    window.autoDraggingTempDisabled = false;
     const path = require('path');
     const absolutePath = path.resolve(window.currentPath || process.cwd(), filePath);
     const normalizedPath = absolutePath.replace(/\//g, '\\').toLowerCase();
@@ -518,8 +519,8 @@ window.dragDropAttemptCounts = {};
 window.autoClickingQueue = false;
 window.autoClickPendingQueueItems = async function() {
     if (window.autoClickingQueue) return;
-    if (!window.autoDragging) {
-        console.log("[AutoClick] Auto-dragging is disabled. Skipping auto-clicks.");
+    if (!window.autoDragging || window.autoDraggingTempDisabled) {
+        console.log("[AutoClick] Auto-dragging is disabled or temporarily suspended. Skipping auto-clicks.");
         return;
     }
     const modal = document.getElementById('local-settings-modal');
@@ -576,21 +577,8 @@ window.autoClickPendingQueueItems = async function() {
             
             if (window.dragDropAttemptCounts[key] > 3) {
                 console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 3 consecutive upload attempts.`);
-                window.autoDragging = false;
-                window.dragDropAbortMessage = `❌ 실패 3회 초과로 자동 드래그 중단: ${item.relativePath}`;
-                try {
-                    const gravityRoot = window.appRootPath || process.cwd();
-                    const sPath = require('path').join(gravityRoot, 'Settings.json');
-                    const settingsData = {
-                        hideUIOverlay: window.hideUIOverlay,
-                        debugMode: window.debugMode,
-                        dragDropMode: true,
-                        autoDragging: false
-                    };
-                    require('fs').writeFileSync(sPath, JSON.stringify(settingsData, null, 2), 'utf-8');
-                } catch(e) {}
-                const chkAutoDrag = document.getElementById('chk-auto-drag');
-                if (chkAutoDrag) chkAutoDrag.checked = false;
+                window.autoDraggingTempDisabled = true;
+                window.dragDropAbortMessage = `❌ 실패 3회 초과로 자동 드래그 중단: ${item.relativePath} (수동 드래그로 업로드 진행 가능)`;
                 
                 window.autoClickingQueue = false;
                 if (typeof window.updateDragDropQueueUI === 'function') {

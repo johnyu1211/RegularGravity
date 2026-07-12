@@ -4892,6 +4892,17 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                     accumulatedFeedback += feedback;
                 }
             }
+
+            const modifiedFilesList = [];
+            writeCmds.forEach(c => modifiedFilesList.push(c.path));
+            editCmds.forEach(c => {
+                if (!modifiedFilesList.includes(c.path)) {
+                    modifiedFilesList.push(c.path);
+                }
+            });
+            if (modifiedFilesList.length > 0) {
+                accumulatedFeedback += `\n[SYSTEM] Please use the \`read-file\` or \`read-file-range\` command to inspect the modified files and verify your edits: ${modifiedFilesList.join(', ')}\n`;
+            }
         }
 
         if (moveCmds.length > 0) {

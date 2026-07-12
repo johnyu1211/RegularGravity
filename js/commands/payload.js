@@ -155,7 +155,11 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
                     }
                     console.log("[GuestInject] Found element: " + inputEl.tagName + ", class: " + inputEl.className + ", id: " + inputEl.id + ", placeholder: " + inputEl.placeholder);
                     
-                    inputEl.focus();
+                    for (let i = 0; i < 3; i++) {
+                        inputEl.focus();
+                        if (document.activeElement === inputEl) break;
+                        await new Promise(r => setTimeout(r, 50));
+                    }
 
                     const setCursorToEnd = (el) => {
                         el.focus();

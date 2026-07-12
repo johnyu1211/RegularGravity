@@ -145,7 +145,11 @@ window.triggerGuestSend = function() {
             const input = findInput();
             if (!input) return false;
 
-            input.focus();
+            for (let i = 0; i < 3; i++) {
+                input.focus();
+                if (document.activeElement === input) break;
+                await new Promise(r => setTimeout(r, 50));
+            }
             
             const dispatchEnter = (el) => {
                 const createEvent = (type) => {

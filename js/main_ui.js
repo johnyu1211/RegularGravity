@@ -1343,6 +1343,7 @@ function detectAndAskCommand(text) {
                 window.activeDragDropContinue = async () => {
                     await runRead();
                 };
+                window.activeDragDropContinue.isReal = true;
 
                 if (typeof window.injectGuestDropInterceptor === 'function') {
                     window.injectGuestDropInterceptor();
@@ -2466,37 +2467,43 @@ async function setupBoot() {
                             if (window.activeDragDropCleanup) window.activeDragDropCleanup();
                             const filesToClean = [...window.requestedFilesQueue];
                             setTimeout(async () => {
-                                // Inject pending user message if there is one blocked by rules reminder
-                                if (window.pendingUserMessageText) {
-                                    const userMsg = window.pendingUserMessageText;
-                                    window.pendingUserMessageText = null;
-                                    try {
-                                        await injectWebPayload(userMsg, 0, 0, false, true);
-                                    } catch(e) {}
-                                }
+                                const continueFunc = window.activeDragDropContinue;
                                 
-                                if (typeof window.triggerGuestSend === 'function') {
-                                    window.triggerGuestSend();
-                                }
-
-                                
-                                 
-                                if (typeof runExperimentalEngine === 'function') {
-                                    runExperimentalEngine('/marktag', "", null).then(response => {
-                                        if (response) {
-                                            if (typeof window.finalizeAiBubble === 'function') {
-                                                window.finalizeAiBubble(response);
-                                            }
-                                            if (typeof detectAndAskCommand === 'function') {
-                                                detectAndAskCommand(response);
-                                            }
-                                        }
-                                    }).catch(err => console.error("Error in response monitoring:", err));
-                                }
-                                 
+                                // Clean up UI immediately for instant responsive feedback
                                 window.requestedFilesQueue = [];
                                 if (typeof window.updateDragDropQueueUI === 'function') {
                                     window.updateDragDropQueueUI();
+                                }
+
+                                if (continueFunc && continueFunc.isReal) {
+                                    // Trigger runRead asynchronously in background
+                                    continueFunc();
+                                } else {
+                                    // Inject pending user message if there is one blocked by rules reminder
+                                    if (window.pendingUserMessageText) {
+                                        const userMsg = window.pendingUserMessageText;
+                                        window.pendingUserMessageText = null;
+                                        try {
+                                            await injectWebPayload(userMsg, 0, 0, false, true);
+                                        } catch(e) {}
+                                    }
+                                    
+                                    if (typeof window.triggerGuestSend === 'function') {
+                                        window.triggerGuestSend();
+                                    }
+
+                                    if (typeof runExperimentalEngine === 'function') {
+                                        runExperimentalEngine('/marktag', "", null).then(response => {
+                                            if (response) {
+                                                if (typeof window.finalizeAiBubble === 'function') {
+                                                    window.finalizeAiBubble(response);
+                                                }
+                                                if (typeof detectAndAskCommand === 'function') {
+                                                    detectAndAskCommand(response);
+                                                }
+                                            }
+                                        }).catch(err => console.error("Error in response monitoring:", err));
+                                    }
                                 }
                             }, 500);
                         }
@@ -4315,30 +4322,34 @@ function setupUI() {
                     if (stillPending.length === 0) {
                         if (window.activeDragDropCleanup) window.activeDragDropCleanup();
                         setTimeout(() => {
-                            if (typeof window.triggerGuestSend === 'function') {
-                                window.triggerGuestSend();
-                            }
-                            
-                            // Delay deletion of temp files to guarantee upload completes
-                            const filesToClean = [...window.requestedFilesQueue];
+                            const continueFunc = window.activeDragDropContinue;
 
-
-                            if (typeof runExperimentalEngine === 'function') {
-                                runExperimentalEngine('/marktag', "", null).then(response => {
-                                    if (response) {
-                                        if (typeof window.finalizeAiBubble === 'function') {
-                                            window.finalizeAiBubble(response);
-                                        }
-                                        if (typeof detectAndAskCommand === 'function') {
-                                            detectAndAskCommand(response);
-                                        }
-                                    }
-                                }).catch(err => console.error("Error in response monitoring:", err));
-                            }
-                            
+                            // Clean up UI immediately for instant responsive feedback
                             window.requestedFilesQueue = [];
                             if (typeof window.updateDragDropQueueUI === 'function') {
-                                    window.updateDragDropQueueUI();
+                                window.updateDragDropQueueUI();
+                            }
+
+                            if (continueFunc && continueFunc.isReal) {
+                                // Trigger runRead asynchronously in background
+                                continueFunc();
+                            } else {
+                                if (typeof window.triggerGuestSend === 'function') {
+                                    window.triggerGuestSend();
+                                }
+
+                                if (typeof runExperimentalEngine === 'function') {
+                                    runExperimentalEngine('/marktag', "", null).then(response => {
+                                        if (response) {
+                                            if (typeof window.finalizeAiBubble === 'function') {
+                                                window.finalizeAiBubble(response);
+                                            }
+                                            if (typeof detectAndAskCommand === 'function') {
+                                                detectAndAskCommand(response);
+                                            }
+                                        }
+                                    }).catch(err => console.error("Error in response monitoring:", err));
+                                }
                             }
                         }, 500);
                     }

@@ -74,24 +74,22 @@ window.addFileToRequestedQueue = function(filePath) {
     const absolutePath = path.resolve(window.currentPath || process.cwd(), filePath);
     const normalizedPath = absolutePath.replace(/\//g, '\\').toLowerCase();
     const relativePath = path.relative(window.currentPath || process.cwd(), absolutePath);
-    const fs = require('fs');
-    if (fs.existsSync(absolutePath)) {
-        if (!window.requestedFilesQueue.some(x => x.absolutePath.replace(/\//g, '\\').toLowerCase() === normalizedPath)) {
-            let isCompleted = false;
-            for (let readPath of window.readFilesSet) {
-                if (path.resolve(window.currentPath || process.cwd(), readPath).replace(/\//g, '\\').toLowerCase() === normalizedPath) {
-                    isCompleted = true;
-                    break;
-                }
+    
+    if (!window.requestedFilesQueue.some(x => x.absolutePath.replace(/\//g, '\\').toLowerCase() === normalizedPath)) {
+        let isCompleted = false;
+        for (let readPath of window.readFilesSet) {
+            if (path.resolve(window.currentPath || process.cwd(), readPath).replace(/\//g, '\\').toLowerCase() === normalizedPath) {
+                isCompleted = true;
+                break;
             }
-            window.requestedFilesQueue.push({
-                absolutePath,
-                relativePath,
-                status: isCompleted ? 'COMPLETED' : 'PENDING'
-            });
-            if (typeof window.updateDragDropQueueUI === 'function') {
-                window.updateDragDropQueueUI();
-            }
+        }
+        window.requestedFilesQueue.push({
+            absolutePath,
+            relativePath,
+            status: isCompleted ? 'COMPLETED' : 'PENDING'
+        });
+        if (typeof window.updateDragDropQueueUI === 'function') {
+            window.updateDragDropQueueUI();
         }
     }
 };
@@ -1161,10 +1159,19 @@ function detectAndAskCommand(text) {
                     for (let i = 0; i < readCmds.length; i++) {
                         const fileObj = readCmds[i];
                         const filePath = fileObj.path;
-                        window.readFilesSet.add(filePath);
                         
                         let fileContentPayload = "";
-                        const targetPath = fileObj.overridePath || path.resolve(window.currentPath, filePath);
+                        let targetPath = fileObj.overridePath || path.resolve(window.currentPath, filePath);
+                        
+                        // Resolve targetPath to the actually dropped file path if present in readFilesSet
+                        const targetBase = path.basename(filePath).toLowerCase();
+                        for (let p of window.readFilesSet) {
+                            if (path.basename(p).toLowerCase() === targetBase) {
+                                targetPath = p;
+                                break;
+                            }
+                        }
+
                         if (fs.existsSync(targetPath)) {
                             const rawContent = fs.readFileSync(targetPath, 'utf-8');
                             const allLines = rawContent.replace(/\r/g, '').split('\n');

@@ -1241,7 +1241,7 @@ function detectAndAskCommand(text) {
                 const enginePromise = runExperimentalEngine('/marktag', combinedPayload, null);
                 ChatUI.appendBubble('system', "[SYSTEM] Sent all prepared " + readCmds.length + " files to Web AI.");
                 await new Promise(r => setTimeout(r, 800));
-                await injectWebPayload(combinedPayload, readCmds.length, readCmds.length, false, true);
+                await injectWebPayload(combinedPayload, readCmds.length, readCmds.length, false, window.autoDragging && !window.autoDraggingTempDisabled);
 
                 const response = await enginePromise;
                 if (response) {
@@ -2470,11 +2470,11 @@ async function setupBoot() {
                                         const userMsg = window.pendingUserMessageText;
                                         window.pendingUserMessageText = null;
                                         try {
-                                            await injectWebPayload(userMsg, 0, 0, false, true);
+                                            await injectWebPayload(userMsg, 0, 0, false, window.autoDragging && !window.autoDraggingTempDisabled);
                                         } catch(e) {}
                                     }
                                     
-                                    if (typeof window.triggerGuestSend === 'function') {
+                                    if (window.autoDragging && !window.autoDraggingTempDisabled && typeof window.triggerGuestSend === 'function') {
                                         window.triggerGuestSend();
                                     }
 
@@ -4324,7 +4324,7 @@ function setupUI() {
                                 // Trigger runRead asynchronously in background
                                 continueFunc();
                             } else {
-                                if (typeof window.triggerGuestSend === 'function') {
+                                if (window.autoDragging && !window.autoDraggingTempDisabled && typeof window.triggerGuestSend === 'function') {
                                     window.triggerGuestSend();
                                 }
 

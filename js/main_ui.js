@@ -1565,22 +1565,47 @@ async function setupBoot() {
     const rulesBtn = document.getElementById('taskbar-manual-rules-btn');
     if (rulesBtn) {
         rulesBtn.onclick = async () => {
-            if (typeof window.getSystemRulesPrompt === 'function' && typeof injectWebPayload === 'function') {
-                const payload = `${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge that you understand and will strictly follow these system rules.`;
-                rulesBtn.style.opacity = '0.5';
-                rulesBtn.style.pointerEvents = 'none';
-                try {
-                    await injectWebPayload(payload, 0, 0, false, true);
-                    ChatUI.appendBubble('system', '[SUCCESS] System rules sent to Web AI.');
-                } catch(e) {
-                    ChatUI.appendBubble('system', `[ERROR] Failed to send system rules: ${e.message}`);
-                } finally {
-                    rulesBtn.style.opacity = '1';
-                    rulesBtn.style.pointerEvents = 'auto';
+            if (typeof window.getSystemRulesPrompt !== 'function') return;
+            rulesBtn.style.opacity = '0.5';
+            rulesBtn.style.pointerEvents = 'none';
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const gravityRoot = window.appRootPath || process.cwd();
+                const sendingMdDir = path.join(gravityRoot, 'SendingMD');
+                if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
+                const randSuffix = Math.floor(100000 + Math.random() * 900000);
+                const rulesFileName = path.join('SendingMD', `_project_rules_${randSuffix}.md`);
+                const rulesFilePath = path.join(gravityRoot, rulesFileName);
+                const rulesContent = `${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge that you understand and will strictly follow these system rules.`;
+                fs.writeFileSync(rulesFilePath, rulesContent, 'utf-8');
+
+                if (typeof window.refreshTree === 'function') window.refreshTree();
+
+                window.requestedFilesQueue = [{
+                    absolutePath: rulesFilePath,
+                    relativePath: rulesFileName,
+                    status: 'PENDING'
+                }];
+
+                if (typeof window.injectGuestDropInterceptor === 'function') {
+                    window.injectGuestDropInterceptor();
                 }
+
+                if (typeof window.updateDragDropUI === 'function') {
+                    window.updateDragDropUI();
+                }
+
+                ChatUI.appendBubble('system', '[SYSTEM] System rules queued for sending. Drop the file into the AI chat.');
+            } catch(e) {
+                ChatUI.appendBubble('system', `[ERROR] Failed to prepare system rules: ${e.message}`);
+            } finally {
+                rulesBtn.style.opacity = '1';
+                rulesBtn.style.pointerEvents = 'auto';
             }
         };
     }
+
 
     grid.querySelectorAll('.agent-app:not(#add-agent-app-card)').forEach(el => el.remove());
 

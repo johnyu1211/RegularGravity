@@ -1630,6 +1630,7 @@ async function setupBoot() {
 
                 document.getElementById('agent-hub-home').style.display = 'none';
                 document.getElementById('agent-hub-webview').style.display = 'flex';
+                const _rb1 = document.getElementById('taskbar-manual-rules-btn'); if (_rb1) _rb1.style.display = 'flex';
                 
                 const webToggle = document.getElementById('web-ai-mode-toggle'); if (webToggle) webToggle.checked = true;
                 document.getElementById('tab-local-agent')?.click();
@@ -1653,6 +1654,7 @@ async function setupBoot() {
         if (!isSilentBoot) {
             document.getElementById('agent-hub-home').style.display = 'none';
             document.getElementById('agent-hub-webview').style.display = 'flex';
+            const _rb2 = document.getElementById('taskbar-manual-rules-btn'); if (_rb2) _rb2.style.display = 'flex';
         }
         const urlInput = document.getElementById('agent-url-input');
         if (urlInput) urlInput.value = u;
@@ -2837,6 +2839,7 @@ function setupUI() {
             const homeEl = document.getElementById('agent-hub-home');
             if (webviewEl) webviewEl.style.display = 'none';
             if (homeEl) homeEl.style.display = 'flex';
+            const _rb3 = document.getElementById('taskbar-manual-rules-btn'); if (_rb3) _rb3.style.display = 'none';
             if (typeof syncBrowserView === 'function') syncBrowserView();
             return;
         }
@@ -3937,7 +3940,7 @@ function setupUI() {
         });
 
         const switchAgentBtn = document.getElementById('menu-switch-agent');
-        if (switchAgentBtn) { switchAgentBtn.onclick = () => { document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex'; }; }
+        if (switchAgentBtn) { switchAgentBtn.onclick = () => { document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex'; const _rb4 = document.getElementById('taskbar-manual-rules-btn'); if (_rb4) _rb4.style.display = 'none'; }; }
 
         const taskbarHomeBtn = document.getElementById('taskbar-home-btn');
         if (taskbarHomeBtn) {
@@ -3947,6 +3950,7 @@ function setupUI() {
                 e.stopPropagation();
                 document.getElementById('agent-hub-webview').style.display = 'none';
                 document.getElementById('agent-hub-home').style.display = 'flex';
+                const _rb5 = document.getElementById('taskbar-manual-rules-btn'); if (_rb5) _rb5.style.display = 'none';
                 if (typeof syncBrowserView === 'function') syncBrowserView();
             });
         }

@@ -1592,6 +1592,20 @@ async function setupBoot() {
                     window.injectGuestDropInterceptor();
                 }
 
+                const rulesSendCleanup = () => {
+                    if (window.activeDragDropCleanup === rulesSendCleanup) {
+                        window.activeDragDropCleanup = null;
+                        window.activeDragDropContinue = null;
+                    }
+                    window.dragDropMode = false;
+                    window.requestedFilesQueue = [];
+                    if (typeof window.updateDragDropQueueUI === 'function') {
+                        window.updateDragDropQueueUI();
+                    }
+                };
+
+                window.activeDragDropCleanup = rulesSendCleanup;
+                window.activeDragDropContinue = async () => {};
                 window.dragDropMode = true;
 
                 if (typeof window.updateDragDropQueueUI === 'function') {

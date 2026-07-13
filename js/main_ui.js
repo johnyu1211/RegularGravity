@@ -1592,8 +1592,10 @@ async function setupBoot() {
                     window.injectGuestDropInterceptor();
                 }
 
-                if (typeof window.updateDragDropUI === 'function') {
-                    window.updateDragDropUI();
+                window.dragDropMode = true;
+
+                if (typeof window.updateDragDropQueueUI === 'function') {
+                    window.updateDragDropQueueUI();
                 }
 
                 ChatUI.appendBubble('system', '[SYSTEM] System rules queued for sending. Drop the file into the AI chat.');

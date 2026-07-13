@@ -284,8 +284,17 @@ async function executeEditFileBatch(editCmds) {
                 }
 
                 if (idx === -1) {
-                    feedbackContent += `[FILE EDIT ERROR: ${filePath} - SEARCH block not found in file]\n`;
-                    ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: SEARCH block not found in file`);
+                    // Build near-match hint: find top 3 lines most similar to first search line
+                    const searchFirstLine = searchStr.split('\n').find(l => l.trim()) || '';
+                    const contentLines = content.split('\n');
+                    const hintLines = contentLines
+                        .map((l, i) => ({ line: l.trim(), num: i + 1 }))
+                        .filter(x => x.line && searchFirstLine && x.line.includes(searchFirstLine.trim().substring(0, Math.min(20, searchFirstLine.trim().length))))
+                        .slice(0, 3)
+                        .map(x => `  L${x.num}: ${x.line.substring(0, 80)}`);
+                    const hintText = hintLines.length > 0 ? `\nNearest lines in file:\n${hintLines.join('\n')}` : '';
+                    feedbackContent += `[FILE EDIT ERROR: ${filePath} - SEARCH block not found in file. You must [CMD: read-file "${filePath}"] first and copy the EXACT text to use as SEARCH block.${hintText}]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] ${filePath}: SEARCH not found. Read the file first and use exact content.${hintText ? ' Hint: ' + hintLines[0] : ''}`);
                     return;
                 }
 
@@ -512,7 +521,7 @@ function findFuzzyMatchIndexRange(content, searchStr) {
                     if (cNorm.includes(char)) common++;
                 }
                 const sim = common / Math.max(sNorm.length, cNorm.length);
-                if (sim >= 0.6) {
+                if (sim >= 0.8) {
                     score += sim;
                     matchedCount++;
                 }
@@ -668,8 +677,16 @@ async function executeEditFileBatchSilent(editCmds) {
                 }
             }
             if (idx === -1) {
-                feedbackContent += "[FILE EDIT ERROR: " + filePath + " - SEARCH block not found]\n";
-                ChatUI.appendBubble('system', "[ERROR] Failed to edit " + filePath + ": SEARCH block not found in file");
+                const searchFirstLine = searchStr.split('\n').find(l => l.trim()) || '';
+                const contentLines = content.split('\n');
+                const hintLines = contentLines
+                    .map((l, i) => ({ line: l.trim(), num: i + 1 }))
+                    .filter(x => x.line && searchFirstLine && x.line.includes(searchFirstLine.trim().substring(0, Math.min(20, searchFirstLine.trim().length))))
+                    .slice(0, 3)
+                    .map(x => `  L${x.num}: ${x.line.substring(0, 80)}`);
+                const hintText = hintLines.length > 0 ? `\nNearest lines in file:\n${hintLines.join('\n')}` : '';
+                feedbackContent += `[FILE EDIT ERROR: ${filePath} - SEARCH block not found in file. You must [CMD: read-file "${filePath}"] first and copy the EXACT text to use as SEARCH block.${hintText}]\n`;
+                ChatUI.appendBubble('system', `[ERROR] ${filePath}: SEARCH not found. Read the file first and use exact content.${hintText ? ' Hint: ' + hintLines[0] : ''}`);
                 return;
             }
             const before = content.substring(0, idx);

@@ -1629,12 +1629,17 @@ window.fetchGeminiUsagePercent = function() {
                 try {
                     const res = await fetch('https://gemini.google.com/usage', { credentials: 'include' });
                     const html = await res.text();
-                    const matches = html.match(/(\\d{1,3})\\s*%/g);
-                    if (matches && matches.length > 0) {
-                        return matches[0].replace(/\\s+/g, '');
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    // Remove script, style, head to avoid matching CSS width:100%!
+                    doc.querySelectorAll('script, style, head, svg, link').forEach(el => el.remove());
+                    
+                    const bodyText = doc.body ? doc.body.innerText : '';
+                    const match = bodyText.match(/(\\d{1,3})\\s*%/);
+                    if (match && match[1]) {
+                        return match[1] + '%';
                     }
-                    const numMatch = html.match(/(\\d{1,3})\\s*%/);
-                    if (numMatch) return numMatch[1] + '%';
                     return null;
                 } catch(e) { return null; }
             })()

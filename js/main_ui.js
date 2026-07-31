@@ -796,7 +796,8 @@ setTimeout(() => {
 
 window.getSystemRulesPrompt = function(forceFull = false) {
     const editRule = (window.preferFullWrite !== false) ? 
-        `   - File Modification (Full Replacement): To modify or update any file, MUST output the FULL complete updated code using [CMD: write-file "path"] followed by \`\`\`lang\nfull_code\n\`\`\`. Do NOT use partial edit-file snippets.` :
+        `   - File Modification (Full Replacement): To modify or update any file, MUST output the FULL complete updated code using [CMD: write-file "path"] followed by \`\`\`lang\nfull_code\n\`\`\`. Do NOT use partial edit-file snippets.
+   - Modularization: Files up to 100-500 lines are fine. Before a file grows too large (500+ lines), proactively refactor and split code into separate modular files and folders.` :
         `   - Edit: MUST be written in one turn with all tags:
      [CMD: edit-file "path"]
      [SEARCH]

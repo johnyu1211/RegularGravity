@@ -159,7 +159,10 @@ window.toggleEditorEditMode = function() {
         editArea.value = rawContent;
         editArea.style.display = 'block';
         editArea.scrollTop = currentScroll;
-        setTimeout(() => editArea.focus(), 20);
+        setTimeout(() => {
+            editArea.focus({ preventScroll: true });
+            editArea.scrollTop = currentScroll;
+        }, 20);
 
         if (btnEdit) {
             btnEdit.style.background = '#10b981';
@@ -373,7 +376,7 @@ window.pasteToBlock = async (syncId, event) => {
     }
 };
 
-window.openFileInEditor = (filePath) => {
+window.openFileInEditor = (filePath, targetScrollTop = null) => {
     if (window.activeFileWatcherPath !== filePath) {
         try {
             if (window.activeFileWatcher) window.activeFileWatcher.close();
@@ -755,6 +758,11 @@ window.openFileInEditor = (filePath) => {
                         scrollCont.scrollTop = (e.clientY - rect.top) / rect.height * scrollCont.scrollHeight - scrollCont.clientHeight / 2;
                         updateThumb();
                     };
+                if (targetScrollTop !== null && scrollCont) {
+                    setTimeout(() => {
+                        scrollCont.scrollTop = targetScrollTop;
+                        if (typeof updateThumb === 'function') updateThumb();
+                    }, 50);
                 }
             }
         }

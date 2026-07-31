@@ -800,8 +800,7 @@ window.getSystemRulesPrompt = function(forceFull = false) {
    - Delete/CreateDir/Move: [CMD: delete-file "path"], [CMD: create-dir "path"], [CMD: move-file "src" "dest"].
 3. RUN CMD: [CMD: run-command "command"] (build, test, shell).
 4. RESET: Use [CMD: reset-session] if lagging.
-5. WAIT: Explain current state, do not plan, wait for user.
-6. TROUBLESHOOT: If [FILE DATA ERROR] (e.g. prefix "SendingMD/"), strip prefix & request root path: [FILE DATA ERROR: SendingMD/file.js] -> [REQUEST: read-file "file.js"].`;
+5. WAIT: Explain current state, do not plan, wait for user.`;
 
     if (forceFull) {
         return fullRules;

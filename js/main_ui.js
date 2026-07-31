@@ -1639,14 +1639,10 @@ window.fetchGeminiUsagePercent = function() {
                 } catch(e) { return null; }
             })()
         `).then(res => {
-            const usageVal = document.getElementById('taskbar-usage-value');
-            if (usageVal) {
-                if (res) {
-                    usageVal.innerText = res;
-                } else {
-                    usageVal.innerText = 'USAGE';
-                }
-            }
+            const el1 = document.getElementById('gemini-usage-percent-text');
+            if (el1) el1.innerText = res ? res : '--%';
+            const el2 = document.getElementById('taskbar-usage-value');
+            if (el2) el2.innerText = res ? res : '--%';
         }).catch(() => {});
     } catch(e) {}
 };

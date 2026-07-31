@@ -275,6 +275,11 @@ body {
     color: var(--text-main);
 }
 
+#editor-raw-textarea::selection {
+    background: rgba(56, 189, 248, 0.35);
+    color: transparent;
+}
+
 .header-btn:hover {
     background: var(--surface-high) !important;
     color: var(--text-main) !important;

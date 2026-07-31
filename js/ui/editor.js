@@ -169,14 +169,31 @@ window.toggleEditorEditMode = function() {
                 overflow: hidden; box-sizing: border-box; flex-shrink: 0;
             `;
 
+            const editContainer = document.createElement('div');
+            editContainer.id = 'editor-raw-container';
+            editContainer.style = `position: relative; flex: 1; height: 100%; overflow: hidden; background: #050507;`;
+
+            const rawPre = document.createElement('pre');
+            rawPre.id = 'editor-raw-pre';
+            rawPre.style = `position: absolute; inset: 0; margin: 0; padding: 16px 20px; font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 12.5px; line-height: 1.6; tab-size: 4; white-space: pre; overflow: hidden; pointer-events: none; box-sizing: border-box; background: transparent;`;
+
+            const rawCode = document.createElement('code');
+            rawCode.id = 'editor-raw-code';
+            rawCode.className = 'hljs';
+            rawCode.style = `background: transparent; padding: 0; margin: 0; font-family: inherit; font-size: inherit; line-height: inherit; white-space: pre; display: block;`;
+            rawPre.appendChild(rawCode);
+
             editArea = document.createElement('textarea');
             editArea.id = 'editor-raw-textarea';
             editArea.style = `
-                flex: 1; height: 100%; background: transparent; color: #e4e4e7;
+                position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; color: transparent; caret-color: #38bdf8;
                 font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 12.5px; line-height: 1.6;
                 padding: 16px 20px; border: none; outline: none; resize: none; box-sizing: border-box;
                 tab-size: 4; white-space: pre; overflow: auto;
             `;
+
+            editContainer.appendChild(rawPre);
+            editContainer.appendChild(editArea);
 
             let lastLineCount = 0;
             const updateGutter = () => {
@@ -192,9 +209,38 @@ window.toggleEditorEditMode = function() {
                 gutter.scrollTop = editArea.scrollTop;
             };
 
-            editArea.oninput = updateGutter;
+            const updateRawHighlight = () => {
+                const codeEl = document.getElementById('editor-raw-code');
+                const preEl = document.getElementById('editor-raw-pre');
+                if (!codeEl || !preEl) return;
+                
+                let ext = path.extname(window.currentEditingPath || '').toLowerCase().substring(1);
+                let lang = (typeof hljs !== 'undefined' && hljs.getLanguage(ext)) ? ext : 'plaintext';
+                if (ext === 'bat' || ext === 'cmd') lang = 'dos';
+                let val = editArea.value;
+                if (val.endsWith('\n')) val += ' ';
+                
+                if (typeof hljs !== 'undefined') {
+                    codeEl.innerHTML = hljs.highlight(val, { language: lang, ignoreIllegals: true }).value;
+                } else {
+                    codeEl.textContent = val;
+                }
+                preEl.scrollTop = editArea.scrollTop;
+                preEl.scrollLeft = editArea.scrollLeft;
+            };
+            window.updateRawHighlight = updateRawHighlight;
+
+            editArea.oninput = () => {
+                updateGutter();
+                updateRawHighlight();
+            };
             editArea.onscroll = () => {
                 gutter.scrollTop = editArea.scrollTop;
+                const preEl = document.getElementById('editor-raw-pre');
+                if (preEl) {
+                    preEl.scrollTop = editArea.scrollTop;
+                    preEl.scrollLeft = editArea.scrollLeft;
+                }
             };
 
             editArea.onkeydown = (e) => {
@@ -205,16 +251,18 @@ window.toggleEditorEditMode = function() {
                     editArea.value = editArea.value.substring(0, start) + '    ' + editArea.value.substring(end);
                     editArea.selectionStart = editArea.selectionEnd = start + 4;
                     updateGutter();
+                    updateRawHighlight();
                 }
             };
 
             editWrapper.appendChild(gutter);
-            editWrapper.appendChild(editArea);
+            editWrapper.appendChild(editContainer);
             editorContent.style.position = 'relative';
             editorContent.appendChild(editWrapper);
         }
 
         editArea.value = rawContent;
+        if (typeof window.updateRawHighlight === 'function') window.updateRawHighlight();
         editWrapper.style.display = 'flex';
 
         // Render line numbers in gutter

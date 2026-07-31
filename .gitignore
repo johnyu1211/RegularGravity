@@ -6,3 +6,8 @@ lib/playwright-browsers/
 *.pdb
 dist/
 out/
+renderer.log
+Settings.json
+gravity_vault/
+SendingMD/
+TestFolder/

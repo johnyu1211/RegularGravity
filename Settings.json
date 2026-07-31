@@ -1,8 +1,0 @@
-{
-  "hideUIOverlay": true,
-  "debugMode": false,
-  "dragDropMode": true,
-  "autoDragging": false,
-  "sendFormat": "md",
-  "autoGemini": true
-}

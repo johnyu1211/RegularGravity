@@ -1,1 +1,0 @@
-message, ask, prompt, type, 질문, 메시지, 입력, 대화, chat, 명령어, 보내기, 도와드릴까요, help you today, search, write, say, How can I help you today?, 물어보기, 물어,

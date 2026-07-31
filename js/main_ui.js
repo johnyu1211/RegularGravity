@@ -3568,7 +3568,7 @@ function setupUI() {
     if (geminiUsageToggleBtn) {
         geminiUsageToggleBtn.onclick = (e) => {
             e.stopPropagation();
-            const geminiUrl = 'https://gemini.google.com/usage?is_sa=1&is_sa=1&android-min-version=301356232&ios-min-version=322.0&campaign_id=bkws&utm_source=sem&utm_source=google&utm_medium=paid-media&utm_medium=cpc&utm_campaign=bkws&utm_campaign=2024koKR_gemfeb&pt=9008&mt=8&ct=p-growth-sem-bkws&gclsrc=aw.ds&gad_source=1&gad_campaignid=21109724830&gbraid=0AAAAApk5BhkxRciAUYxl8rW7UfQty0YgK&gclid=Cj0KCQiA6NTJBhDEARIsAB7QHD2o-8jsNlWaXTVpCPiRu6ZoBApTX1dwLv0FefL3sBu-hExJeoJIrJgaAuqlEALw_wcB';
+            const geminiUrl = 'https://gemini.google.com/usage';
             createWebPopover('gemini-usage', geminiUrl, 'Gemini Usage', geminiUsageToggleBtn, true);
         };
     }

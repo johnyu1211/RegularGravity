@@ -103,6 +103,7 @@ window.saveCurrentEditorFile = function() {
         window.editorHistory.push(fs.readFileSync(window.currentEditingPath, 'utf-8'));
         window.historyIndex = window.editorHistory.length - 1;
         
+        window._lastSaveTimestamp = Date.now();
         fs.writeFileSync(window.currentEditingPath, newContent, 'utf-8');
         window.isEditingMode = false;
         editorContent.classList.remove('editor-editing-active');
@@ -500,11 +501,26 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
             let watchDebounceTimer = null;
             window.activeFileWatcher = fs.watch(filePath, (eventType) => {
                 if (eventType === 'change') {
+                    if (window._lastSaveTimestamp && (Date.now() - window._lastSaveTimestamp) < 1500) {
+                        return;
+                    }
                     clearTimeout(watchDebounceTimer);
                     watchDebounceTimer = setTimeout(() => {
                         if (!window.isEditingMode && window.currentEditingPath === filePath) {
                             console.log("[FileWatcher] Real-time updating file viewer for:", filePath);
-                            window.openFileInEditor(filePath);
+                            const scrollCont = document.getElementById('editor-scroll-container');
+                            let currentLineNum = 1;
+                            if (scrollCont) {
+                                const lineSpans = document.querySelectorAll('#editor-content .line-num');
+                                for (const span of lineSpans) {
+                                    const el = span.closest('.rg-line, .rg-header, .rg-footer') || span;
+                                    if (el.offsetTop >= scrollCont.scrollTop) {
+                                        currentLineNum = parseInt(span.textContent, 10) || 1;
+                                        break;
+                                    }
+                                }
+                            }
+                            window.openFileInEditor(filePath, currentLineNum);
                         }
                     }, 150);
                 }

@@ -596,11 +596,13 @@ window.reloadAgentSettings = function() {
             window.refreshTurnCount = parseInt(settings.refreshTurnCount) || 35;
             window.sendFormat = settings.sendFormat === 'pdf' ? 'pdf' : 'md';
             window.autoGemini = !!settings.autoGemini;
+            window.preferFullWrite = settings.hasOwnProperty('preferFullWrite') ? !!settings.preferFullWrite : true;
             const homeBtn = document.getElementById('taskbar-home-btn');
             if (homeBtn) homeBtn.style.display = window.autoGemini ? 'none' : 'flex';
             return;
         }
     } catch(e) {}
+    window.preferFullWrite = true;
     window.autoContinueOnRead = true;
     window.hideUIOverlay = true;
     window.debugMode = false;
@@ -793,18 +795,22 @@ setTimeout(() => {
 }, 500);
 
 window.getSystemRulesPrompt = function(forceFull = false) {
-    const fullRules = `
-[SYSTEM RULES]
-1. SEARCH: Never guess names/roles. Use [CMD: search-keyword "query"] or [CMD: list-dir "path"] first. If search fails 2-3x, ask user. Request multiple files in one turn: [REQUEST: read-file "path1"] [REQUEST: read-file "path2"].
-2. FILE OPS: Always read-file before editing. Never request read-file in the same turn as write/edit. After write/edit, wait for system feedback, and only request read-file/verify in the next turn to check correctness.
-   - Edit: MUST be written in one turn with all tags:
+    const editRule = (window.preferFullWrite !== false) ? 
+        `   - File Modification (Full Replacement): To modify or update any file, MUST output the FULL complete updated code using [CMD: write-file "path"] followed by \`\`\`lang\nfull_code\n\`\`\`. Do NOT use partial edit-file snippets.` :
+        `   - Edit: MUST be written in one turn with all tags:
      [CMD: edit-file "path"]
      [SEARCH]
      old_code_to_find
      [REPLACE]
      new_code_to_put
      [END]
-   - Write: [CMD: write-file "path"] followed by \`\`\`lang\ncode\n\`\`\`.
+   - Write: [CMD: write-file "path"] followed by \`\`\`lang\ncode\n\`\`\`.`;
+
+    const fullRules = `
+[SYSTEM RULES]
+1. SEARCH: Never guess names/roles. Use [CMD: search-keyword "query"] or [CMD: list-dir "path"] first. If search fails 2-3x, ask user. Request multiple files in one turn: [REQUEST: read-file "path1"] [REQUEST: read-file "path2"].
+2. FILE OPS: Always read-file before editing. Never request read-file in the same turn as write/edit. After write/edit, wait for system feedback, and only request read-file/verify in the next turn to check correctness.
+${editRule}
    - Delete/CreateDir/Move: [CMD: delete-file "path"], [CMD: create-dir "path"], [CMD: move-file "src" "dest"].
 3. RUN CMD: [CMD: run-command "command"] (build, test, shell).
 4. RESET: Use [CMD: reset-session] if lagging.
@@ -813,7 +819,9 @@ window.getSystemRulesPrompt = function(forceFull = false) {
     if (forceFull) {
         return fullRules;
     }
-    return "\n[REMINDER] Follow SystemRules.md. Edit format MUST include [SEARCH], [REPLACE], and [END] tags together in one turn. Never omit [REPLACE] or [END].";
+    return (window.preferFullWrite !== false) ?
+        "\n[REMINDER] Follow SystemRules.md. ALWAYS use [CMD: write-file] with FULL updated file content for file modifications. Output ONLY commands." :
+        "\n[REMINDER] Follow SystemRules.md. Edit format MUST include [SEARCH], [REPLACE], and [END] tags together in one turn. Never omit [REPLACE] or [END].";
 };
 
 function detectAndAskCommand(text) {
@@ -4197,6 +4205,14 @@ function setupUI() {
                                 <span class="slider-toggle"></span>
                             </label>
                         </div>
+                        <!-- Prefer Full File Replace -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;" title="Force AI to output full updated file (write-file) instead of snippet edits">Full File Overwrite (write-file)</span>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="chk-prefer-full-write" ${window.preferFullWrite !== false ? 'checked' : ''}>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
                     </div>
                 `;
                 
@@ -4205,6 +4221,7 @@ function setupUI() {
                 const txtRefreshCount = document.getElementById('txt-refresh-turn-count');
                 const containerRefresh = document.getElementById('refresh-turn-container');
                 const chkAutoGemini = document.getElementById('chk-auto-gemini');
+                const chkPreferFullWrite = document.getElementById('chk-prefer-full-write');
                 
                 const selSendFormat = document.getElementById('chk-send-format');
 
@@ -4224,7 +4241,8 @@ function setupUI() {
                         autoRefreshSession: !!chkAutoRefresh.checked,
                         refreshTurnCount: parseInt(txtRefreshCount.value) || 35,
                         sendFormat: selSendFormat ? selSendFormat.value : 'md',
-                        autoGemini: chkAutoGemini ? !!chkAutoGemini.checked : false
+                        autoGemini: chkAutoGemini ? !!chkAutoGemini.checked : false,
+                        preferFullWrite: chkPreferFullWrite ? !!chkPreferFullWrite.checked : true
                     };
                     saveSettings(settingsData);
                     window.reloadAgentSettings();
@@ -4233,6 +4251,7 @@ function setupUI() {
                 if (txtRefreshCount) txtRefreshCount.onchange = updateAndSave;
                 if (chkDebug) chkDebug.onchange = updateAndSave;
                 if (chkAutoGemini) chkAutoGemini.onchange = updateAndSave;
+                if (chkPreferFullWrite) chkPreferFullWrite.onchange = updateAndSave;
                 if (selSendFormat) selSendFormat.onchange = updateAndSave;
             }
             

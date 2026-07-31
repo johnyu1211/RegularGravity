@@ -1645,17 +1645,33 @@ window.fetchGeminiUsagePercent = function() {
                 usageCrawlerWv.executeJavaScript(`
                     (() => {
                         try {
-                            const targetEl = document.querySelector('.gds-emphasized-body-l') || document.querySelector('[class*="gds-emphasized-body-l"]');
-                            if (targetEl) {
-                                const txt = targetEl.innerText || targetEl.textContent || '';
-                                return { success: true, text: txt.trim(), source: 'selector' };
+                            const candidates = Array.from(document.querySelectorAll('.gds-emphasized-body-l, [class*="gds-emphasized-body-l"], div, span, p'));
+                            
+                            // 1. Priority: Find element containing % symbol and extract number
+                            for (const el of candidates) {
+                                const txt = (el.innerText || el.textContent || '').trim();
+                                const m = txt.match(/(\\d{1,3})\\s*%/);
+                                if (m && m[1]) {
+                                    return { success: true, text: m[1] + '%', raw: txt, source: 'percent_match' };
+                                }
                             }
+                            
+                            // 2. Priority: Find .gds-emphasized-body-l element and extract pure number
+                            const empEls = Array.from(document.querySelectorAll('.gds-emphasized-body-l, [class*="gds-emphasized-body-l"]'));
+                            for (const el of empEls) {
+                                const txt = (el.innerText || el.textContent || '').trim();
+                                const m = txt.match(/(\\d+)/);
+                                if (m && m[1]) {
+                                    return { success: true, text: m[1] + '%', raw: txt, source: 'emphasized_number' };
+                                }
+                            }
+
                             const bodyText = document.body ? document.body.innerText : '';
-                            const match = bodyText.match(/(\\d{1,3})\\s*%/);
-                            if (match) {
-                                return { success: true, text: match[1] + '%', source: 'regex' };
+                            const m = bodyText.match(/(\\d{1,3})\\s*%/);
+                            if (m) {
+                                return { success: true, text: m[1] + '%', raw: bodyText.slice(0, 100), source: 'body_regex' };
                             }
-                            return { success: false, text: bodyText.slice(0, 300), source: 'none' };
+                            return { success: false, raw: bodyText.slice(0, 300) };
                         } catch(e) {
                             return { success: false, error: e.message };
                         }
@@ -1665,10 +1681,8 @@ window.fetchGeminiUsagePercent = function() {
                     const el1 = document.getElementById('gemini-usage-percent-text');
                     const el2 = document.getElementById('taskbar-usage-value');
                     if (res && res.success && res.text) {
-                        const m = res.text.match(/(\\d{1,3})\\s*%/);
-                        const val = m ? m[1] + '%' : (res.text.includes('%') ? res.text : res.text + '%');
-                        if (el1) el1.innerText = val;
-                        if (el2) el2.innerText = val;
+                        if (el1) el1.innerText = res.text;
+                        if (el2) el2.innerText = res.text;
                     } else {
                         console.warn('[GeminiUsage] Could not find percent value in rendered page.', res);
                         if (el1) el1.innerText = '--%';

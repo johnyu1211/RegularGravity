@@ -3115,23 +3115,29 @@ window.setTaskbarActionsVisible = function(visible) {
     window.loadDirectory(window.currentPath);
 }
 
+window.showNoticeModal = function(force = false) {
+    const noticeModal = document.getElementById('first-launch-notice-modal');
+    const closeBtn = document.getElementById('close-first-launch-notice');
+    if (!noticeModal) return;
+    if (force || !localStorage.getItem('rg_notice_seen')) {
+        noticeModal.style.display = 'flex';
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                noticeModal.style.display = 'none';
+                localStorage.setItem('rg_notice_seen', 'true');
+            };
+        }
+    }
+};
+
 function setupUI() {
+    // Reset seen flag for current test run if requested
+    localStorage.removeItem('rg_notice_seen');
+
     // Check first launch notice
     setTimeout(() => {
-        if (!localStorage.getItem('rg_notice_seen')) {
-            const noticeModal = document.getElementById('first-launch-notice-modal');
-            const closeBtn = document.getElementById('close-first-launch-notice');
-            if (noticeModal) {
-                noticeModal.style.display = 'flex';
-                if (closeBtn) {
-                    closeBtn.onclick = () => {
-                        noticeModal.style.display = 'none';
-                        localStorage.setItem('rg_notice_seen', 'true');
-                    };
-                }
-            }
-        }
-    }, 500);
+        window.showNoticeModal(true);
+    }, 300);
 
     // 1. Setup Click-to-copy for .chat-cmd-badge
     document.addEventListener('click', (e) => {

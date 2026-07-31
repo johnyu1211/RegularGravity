@@ -1620,9 +1620,47 @@ function detectAndAskCommand(text) {
     }
 }
 
+window.fetchGeminiUsagePercent = function() {
+    try {
+        const wv = document.getElementById('active-agent-webview');
+        if (!wv) return;
+        wv.executeJavaScript(`
+            (async () => {
+                try {
+                    const res = await fetch('https://gemini.google.com/usage', { credentials: 'include' });
+                    const html = await res.text();
+                    const matches = html.match(/(\\d{1,3})\\s*%/g);
+                    if (matches && matches.length > 0) {
+                        return matches[0].replace(/\\s+/g, '');
+                    }
+                    const numMatch = html.match(/(\\d{1,3})\\s*%/);
+                    if (numMatch) return numMatch[1] + '%';
+                    return null;
+                } catch(e) { return null; }
+            })()
+        `).then(res => {
+            const usageVal = document.getElementById('taskbar-usage-value');
+            if (usageVal) {
+                if (res) {
+                    usageVal.innerText = res;
+                } else {
+                    usageVal.innerText = 'USAGE';
+                }
+            }
+        }).catch(() => {});
+    } catch(e) {}
+};
+
 async function setupBoot() {
     const grid = document.getElementById('agent-hub-grid'), addA = document.getElementById('add-agent-app-card');
     if (!grid || !addA) return;
+
+    const geminiUsageBtn = document.getElementById('taskbar-gemini-usage-btn');
+    if (geminiUsageBtn) {
+        geminiUsageBtn.onclick = () => {
+            window.fetchGeminiUsagePercent();
+        };
+    }
 
     const manualCmdBtn = document.getElementById('taskbar-manual-cmd-input-btn');
     const manualCmdContainer = document.getElementById('manual-cmd-input-container');
@@ -2015,6 +2053,9 @@ window.setTaskbarActionsVisible = function(visible) {
         wv.addEventListener('dom-ready', () => {
             if (typeof window.injectGuestDropInterceptor === 'function') {
                 window.injectGuestDropInterceptor();
+            }
+            if (typeof window.fetchGeminiUsagePercent === 'function') {
+                window.fetchGeminiUsagePercent();
             }
             const currentUrl = wv.getURL();
             if (!currentUrl || currentUrl === 'about:blank' || !currentUrl.startsWith('http')) {
@@ -3583,9 +3624,6 @@ function setupUI() {
         };
         closeBtn.onclick = (e) => {
             e.stopPropagation();
-            if (popover.dataset.usageTimer) {
-                clearInterval(parseInt(popover.dataset.usageTimer));
-            }
             popover.remove();
             if (key === 'github') {
                 if (gitToggleBtn) {
@@ -3645,12 +3683,6 @@ function setupUI() {
                 geminiUsageToggleBtn.style.background = 'var(--primary)';
                 geminiUsageToggleBtn.style.borderColor = 'var(--primary)';
             }
-            const runScrape = () => window.scrapeGeminiUsagePercent(webview);
-            webview.addEventListener('dom-ready', runScrape);
-            webview.addEventListener('did-finish-load', runScrape);
-            webview.addEventListener('did-navigate-in-page', runScrape);
-            const usageTimer = setInterval(runScrape, 2500);
-            popover.dataset.usageTimer = usageTimer;
         } else {
             if (buttonEl) {
                 buttonEl.style.background = 'var(--primary)';
@@ -3668,68 +3700,7 @@ function setupUI() {
         };
     }
 
-window.updateGeminiUsageBadge = function(percentStr) {
-    if (!percentStr) return;
-    const badge = document.getElementById('gemini-usage-badge');
-    const btn = document.getElementById('gemini-usage-toggle-btn');
-    if (!badge || !btn) return;
-    
-    const cleanPercent = percentStr.replace(/사용됨|used/gi, '').trim();
-    badge.innerText = cleanPercent;
-    badge.style.display = 'inline-block';
-    
-    // Hide favicon image when usage % is active so ONLY the % text shows
-    const img = btn.querySelector('img');
-    if (img) img.style.display = 'none';
-};
-
-window.scrapeGeminiUsagePercent = function(wv) {
-    if (!wv) return;
-    const jsScript = `
-        (() => {
-            try {
-                const text = document.body ? document.body.innerText : '';
-                let m = text.match(/현재\s*사용량[\s\S]*?(\d+%\s*사용됨)/i) || 
-                          text.match(/(\d+%\s*사용됨)/i) || 
-                          text.match(/Current\s*usage[\s\S]*?(\d+%\s*used)/i) ||
-                          text.match(/(\d+%\s*used)/i) ||
-                          text.match(/(\d+%)/);
-                if (m && m[1]) return m[1];
-            } catch(e) {}
-            return null;
-        })()
-    `;
-    wv.executeJavaScript(jsScript).then(result => {
-        if (result && typeof window.updateGeminiUsageBadge === 'function') {
-            window.updateGeminiUsageBadge(result);
-        }
-    }).catch(() => {});
-};
-
-window.initGeminiUsageAutoFetcher = function() {
-    try {
-        let fetcherWv = document.getElementById('gemini-usage-bg-fetcher');
-        if (!fetcherWv) {
-            fetcherWv = document.createElement('webview');
-            fetcherWv.id = 'gemini-usage-bg-fetcher';
-            fetcherWv.src = 'https://gemini.google.com/usage';
-            fetcherWv.style = 'position:absolute; width:1px; height:1px; top:-9999px; left:-9999px; opacity:0; pointer-events:none;';
-            document.body.appendChild(fetcherWv);
-        }
-        const doScrape = () => {
-            if (typeof window.scrapeGeminiUsagePercent === 'function') {
-                window.scrapeGeminiUsagePercent(fetcherWv);
-            }
-        };
-        fetcherWv.addEventListener('dom-ready', doScrape);
-        fetcherWv.addEventListener('did-finish-load', doScrape);
-        fetcherWv.addEventListener('did-navigate-in-page', doScrape);
-        setInterval(doScrape, 5000);
-    } catch(e){}
-};
-
     if (geminiUsageToggleBtn) {
-        window.initGeminiUsageAutoFetcher();
         geminiUsageToggleBtn.onclick = (e) => {
             e.stopPropagation();
             const geminiUrl = 'https://gemini.google.com/usage';

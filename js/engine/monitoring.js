@@ -1,3 +1,12 @@
+async function safeExecJS(wv, script, fallback = null) {
+    if (!wv || !document.body.contains(wv)) return fallback;
+    try {
+        return await wv.executeJavaScript(script);
+    } catch (e) {
+        return fallback;
+    }
+}
+
 async function showManualInputUI(statusBub) {
     return new Promise((resolve) => {
         const content = statusBub.querySelector('.bubble-content');
@@ -300,7 +309,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     };
 
     window.activeAiResponding = true;
-    const initialText = cleanGarbage(await wv.executeJavaScript(extractScript).catch(() => ""));
+    const initialText = cleanGarbage(await safeExecJS(wv, extractScript, ""));
     let isGenerating = false;
     let lastText = "";
     let stableCount = 0;
@@ -310,7 +319,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     for (let i = 0; i < 2400; i++) { // 최대 20분 대기 (2400 * 500ms)
         await new Promise(r => setTimeout(r, 500));
 
-        const errorVal = await wv.executeJavaScript(`(() => {
+        const errorVal = await safeExecJS(wv, `(() => {
             const bodyText = document.body ? document.body.innerText : "";
             const isGemini = window.location.href.includes("gemini.google.com");
             
@@ -343,7 +352,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                 }
             }
             return null;
-        })()`).catch(() => null);
+        })()`, null);
 
         if (errorVal) {
             const hasCmd = /\[(CMD|REQUEST):\s*([^\]]+)\]/gi.test(delta);
@@ -359,7 +368,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                     if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
                         ChatUI.appendBubble('system-info', `⚠️ [Resending] Error detected (${errorVal}). Resending message in Web AI (Enter)...`);
                     }
-                    await wv.executeJavaScript(`(() => {
+                    await safeExecJS(wv, `(() => {
                         const inKeywords = ["ask", "write", "chat", "입력", "질문", "프롬프트", "prompt", "message"];
                         const findInput = () => {
                             const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
@@ -386,7 +395,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                         input.dispatchEvent(createEvent('keydown'));
                         input.dispatchEvent(createEvent('keypress'));
                         input.dispatchEvent(createEvent('keyup'));
-                    })()`).catch(() => null);
+                    })()`, null);
                 }
                 updateUI(`Error detected (${errorVal}). Retrying in 5s...`, 0, false);
             }
@@ -396,7 +405,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
 
         if (manualAbort) { hideGlobalUI(); return await manualPromise; }
 
-        delta = await wv.executeJavaScript(extractScript).catch(() => "");
+        delta = await safeExecJS(wv, extractScript, "");
         
         if (delta === "[EXTRACT_FAIL]") {
             delta = ""; 
@@ -421,7 +430,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             if (typeof window.updateAiStreamBubble === 'function' && delta.length > 0) {
                 window.updateAiStreamBubble(delta);
             }
-            const isStillResponding = await wv.executeJavaScript(`(() => {
+            const isStillResponding = await safeExecJS(wv, `(() => {
                 const isVisible = (el) => {
                     if (!el) return false;
                     const style = window.getComputedStyle(el);
@@ -437,7 +446,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                     if (isVisible(el)) return true;
                 }
                 return false;
-            })()`).catch(() => false);
+            })()`, false);
 
             if (isStillResponding) {
                 stableCount = 0;

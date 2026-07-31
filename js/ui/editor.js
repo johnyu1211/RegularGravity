@@ -74,7 +74,130 @@ window.performRedo = function() {
     }
 };
 
+window.isEditingMode = false;
+
+window.saveCurrentEditorFile = function() {
+    if (!window.currentEditingPath) return;
+    const editArea = document.getElementById('editor-raw-textarea');
+    if (!editArea) return;
+    try {
+        const fs = require('fs');
+        const newContent = editArea.value;
+
+        window.editorHistory.push(fs.readFileSync(window.currentEditingPath, 'utf-8'));
+        window.historyIndex = window.editorHistory.length - 1;
+        
+        fs.writeFileSync(window.currentEditingPath, newContent, 'utf-8');
+        window.isEditingMode = false;
+        editArea.style.display = 'none';
+
+        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+            const pathModule = require('path');
+            ChatUI.appendBubble('system', `[SUCCESS] Saved ${pathModule.basename(window.currentEditingPath)} successfully.`);
+        }
+        
+        window.openFileInEditor(window.currentEditingPath);
+    } catch (e) {
+        alert("Failed to save file: " + e.message);
+    }
+};
+
+window.toggleEditorEditMode = function() {
+    if (!window.currentEditingPath) return;
+    const editorContent = document.getElementById('editor-content');
+    const btnEdit = document.getElementById('btn-editor-edit');
+    const btnCancel = document.getElementById('btn-editor-cancel');
+    if (!editorContent) return;
+
+    if (!window.isEditingMode) {
+        window.isEditingMode = true;
+        
+        const fs = require('fs');
+        let rawContent = '';
+        try {
+            rawContent = fs.readFileSync(window.currentEditingPath, 'utf-8').replace(/\r/g, '');
+        } catch(e) {}
+
+        let editArea = document.getElementById('editor-raw-textarea');
+        if (!editArea) {
+            editArea = document.createElement('textarea');
+            editArea.id = 'editor-raw-textarea';
+            editArea.style = `
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                width: 100%;
+                height: 100%;
+                background: #0b0c0e;
+                color: #e4e4e7;
+                font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+                font-size: 12.5px;
+                line-height: 1.6;
+                padding: 16px;
+                border: none;
+                outline: none;
+                resize: none;
+                box-sizing: border-box;
+                z-index: 1000;
+                tab-size: 4;
+                white-space: pre;
+                overflow: auto;
+            `;
+            editArea.onkeydown = (e) => {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const start = editArea.selectionStart;
+                    const end = editArea.selectionEnd;
+                    editArea.value = editArea.value.substring(0, start) + '    ' + editArea.value.substring(end);
+                    editArea.selectionStart = editArea.selectionEnd = start + 4;
+                }
+            };
+            editorContent.style.position = 'relative';
+            editorContent.appendChild(editArea);
+        }
+
+        editArea.value = rawContent;
+        editArea.style.display = 'block';
+        setTimeout(() => editArea.focus(), 20);
+
+        if (btnEdit) {
+            btnEdit.style.background = '#10b981';
+            btnEdit.title = 'Save File (Ctrl+S)';
+            btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>';
+        }
+        if (btnCancel) btnCancel.style.display = 'flex';
+
+        const modeEl = document.getElementById('status-bar-mode');
+        if (modeEl) {
+            modeEl.innerText = 'EDITING (FULL EDITOR)';
+            modeEl.style.color = '#f59e0b';
+        }
+    } else {
+        window.saveCurrentEditorFile();
+    }
+};
+
+window.cancelEditorEdit = function() {
+    window.isEditingMode = false;
+    const editArea = document.getElementById('editor-raw-textarea');
+    if (editArea) editArea.style.display = 'none';
+    if (window.currentEditingPath) {
+        window.openFileInEditor(window.currentEditingPath);
+    }
+};
+
 window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (window.isEditingMode) {
+            window.saveCurrentEditorFile();
+        } else if (window.currentEditingPath) {
+            window.toggleEditorEditMode();
+        }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        window.toggleEditorEditMode();
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) window.performRedo();
@@ -97,6 +220,119 @@ window.copyBlockContent = async (syncId, event) => {
     } catch (err) {
         console.error("Copy failed:", err);
     }
+};
+
+window.editBlockContent = (syncId, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const filePath = window.currentEditingPath;
+    const detailEl = document.getElementById('editor-' + syncId);
+    if (!detailEl) return;
+
+    const footerEl = detailEl.parentElement.querySelector('.pormsg-footer');
+    const startLine = parseInt(detailEl.dataset.start);
+    const endLine = footerEl ? parseInt(footerEl.dataset.end) : startLine;
+    
+    const fs = require('fs');
+    let fileContent = '';
+    try {
+        fileContent = fs.readFileSync(filePath, 'utf-8').replace(/\r/g, '');
+    } catch(e) { return; }
+    
+    let lines = fileContent.split('\n');
+    let blockLines = lines.slice(startLine, endLine + 1);
+    let blockText = blockLines.join('\n');
+
+    let modal = document.getElementById('block-edit-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'block-edit-modal';
+        modal.style = `
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 100000;
+            align-items: center;
+            justify-content: center;
+            font-family: 'DM Sans', sans-serif;
+        `;
+        modal.innerHTML = `
+            <div style="background: var(--surface-color); padding: 22px; width: 640px; max-width: 92vw; border: 1px solid var(--border-color); border-radius: 14px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 25px 60px rgba(0,0,0,0.7);">
+                <div style="font-size: 13px; font-weight: 700; color: #fff; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        <span id="block-edit-title">EDIT CODE BLOCK</span>
+                    </div>
+                    <span id="close-block-edit-modal" style="cursor: pointer; color: var(--text-muted); font-size: 18px; line-height: 1;">&times;</span>
+                </div>
+                <textarea id="block-edit-textarea" style="width: 100%; height: 260px; background: #0b0c0e; border: 1px solid var(--border-color); color: #e4e4e7; font-size: 11.5px; padding: 12px; outline: none; resize: vertical; border-radius: 8px; font-family: 'JetBrains Mono', monospace; line-height: 1.5; box-sizing: border-box; tab-size: 4; white-space: pre;"></textarea>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="cancel-block-edit" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 8px 16px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;">Cancel</button>
+                    <button id="save-block-edit" style="background: var(--primary); color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;">Save Block Changes</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const textarea = modal.querySelector('#block-edit-textarea');
+        textarea.onkeydown = (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                textarea.value = textarea.value.substring(0, start) + '    ' + textarea.value.substring(end);
+                textarea.selectionStart = textarea.selectionEnd = start + 4;
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                modal.querySelector('#save-block-edit').click();
+            }
+        };
+
+        const hideModal = () => { modal.style.display = 'none'; };
+        modal.querySelector('#close-block-edit-modal').onclick = hideModal;
+        modal.querySelector('#cancel-block-edit').onclick = hideModal;
+    }
+
+    const titleEl = modal.querySelector('#block-edit-title');
+    if (titleEl) titleEl.innerText = `EDIT CODE BLOCK (Lines ${startLine + 1} - ${endLine + 1})`;
+
+    const textarea = modal.querySelector('#block-edit-textarea');
+    textarea.value = blockText;
+    modal.style.display = 'flex';
+    setTimeout(() => textarea.focus(), 30);
+
+    const saveBtn = modal.querySelector('#save-block-edit');
+    saveBtn.onclick = () => {
+        try {
+            const updatedBlockText = textarea.value;
+            const updatedLines = updatedBlockText.split('\n');
+            
+            const currentFileContent = fs.readFileSync(filePath, 'utf-8').replace(/\r/g, '');
+            let currentLines = currentFileContent.split('\n');
+            
+            window.editorHistory.push(currentFileContent);
+            window.historyIndex = window.editorHistory.length - 1;
+
+            currentLines.splice(startLine, (endLine - startLine + 1), ...updatedLines);
+            
+            fs.writeFileSync(filePath, currentLines.join('\n'), 'utf-8');
+            modal.style.display = 'none';
+
+            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                const pathModule = require('path');
+                ChatUI.appendBubble('system', `[SUCCESS] Block updated in ${pathModule.basename(filePath)} (Lines ${startLine + 1} - ${endLine + 1})`);
+            }
+            
+            window.openFileInEditor(filePath);
+        } catch(err) {
+            alert("Failed to save block: " + err.message);
+        }
+    };
 };
 
 window.pasteToBlock = async (syncId, event) => {
@@ -134,10 +370,61 @@ window.pasteToBlock = async (syncId, event) => {
 };
 
 window.openFileInEditor = (filePath) => {
+    if (window.activeFileWatcherPath !== filePath) {
+        try {
+            if (window.activeFileWatcher) window.activeFileWatcher.close();
+        } catch(e){}
+        window.activeFileWatcherPath = filePath;
+        try {
+            const fs = require('fs');
+            let watchDebounceTimer = null;
+            window.activeFileWatcher = fs.watch(filePath, (eventType) => {
+                if (eventType === 'change') {
+                    clearTimeout(watchDebounceTimer);
+                    watchDebounceTimer = setTimeout(() => {
+                        if (!window.isEditingMode && window.currentEditingPath === filePath) {
+                            console.log("[FileWatcher] Real-time updating file viewer for:", filePath);
+                            window.openFileInEditor(filePath);
+                        }
+                    }, 150);
+                }
+            });
+        } catch(e) {}
+    }
+
     window.currentEditingPath = filePath;
+    window.isEditingMode = false;
+    const editArea = document.getElementById('editor-raw-textarea');
+    if (editArea) editArea.style.display = 'none';
+
+    const btnEdit = document.getElementById('btn-editor-edit');
+    const btnCancel = document.getElementById('btn-editor-cancel');
+    if (btnEdit) {
+        btnEdit.style.background = 'var(--primary)';
+        btnEdit.title = 'Edit File';
+        btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+        btnEdit.onclick = () => window.toggleEditorEditMode();
+    }
+    if (btnCancel) {
+        btnCancel.style.display = 'none';
+        btnCancel.onclick = () => window.cancelEditorEdit();
+    }
+
     const path = require('path');
     const editorContent = document.getElementById('editor-content');
     if (!editorContent) return;
+
+    let savedBlockStates = {};
+    if (window.currentEditingPath === filePath) {
+        editorContent.querySelectorAll('.editor-detail').forEach(d => {
+            const start = d.getAttribute('data-start');
+            if (start !== null) {
+                savedBlockStates[start] = d.open;
+            }
+        });
+    }
+
+    editorContent.classList.remove('editor-editing-active');
 
     try {
         const ext = path.extname(filePath).toLowerCase().substring(1);
@@ -255,17 +542,20 @@ window.openFileInEditor = (filePath) => {
                         let syncId = `mini-block-${blockCounter++}`;
                         blockStack.push({ title: titleName, id: syncId, start: i });
 
-                        finalHTML += `<div class="pormsg-block"><details class="editor-detail" data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine}</div><button class="box-copy-btn" onclick="window.copyBlockContent('${syncId}', event)" title="Copy block content"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><span class="caret" style="color:var(--text-muted)">▶</span></summary><div class="pormsg-body" id="body-${syncId}">`;
-                        minimapHTML += `<details id="${syncId}" class="mini-detail"><summary class="mini-summary">${mmLine}</summary><div class="mini-body">`;
+                        let isBlockOpen = (savedBlockStates[i] !== undefined) ? savedBlockStates[i] : true;
+                        let openAttr = isBlockOpen ? ' open' : '';
+
+                        finalHTML += `<div class="pormsg-block"><details class="editor-detail"${openAttr} data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span></div><button class="box-edit-btn" onclick="window.editBlockContent('${syncId}', event)" title="Edit this block"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="box-copy-btn" onclick="window.copyBlockContent('${syncId}', event)" title="Copy block content"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><span class="caret" style="color:var(--text-muted); display:inline-flex; align-items:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="9 18 15 12 9 6"></polyline></svg></span></summary><div class="pormsg-body" id="body-${syncId}">`;
+                        minimapHTML += `<details id="${syncId}" class="mini-detail"${openAttr}><summary class="mini-summary">${mmLine}</summary><div class="mini-body">`;
                     } else if (net < 0 && blockStack.length > 0) {
                         let popped = blockStack.pop();
                         let lineCount = i - popped.start + 1;
                         let safeTitle = popped.title.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         
-                        finalHTML += `</div></details><div class="pormsg-footer" data-end="${i}">${lineNumHTML}<div style="display:flex; align-items:center; flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;">${htmlLine} <span class="footer-tag" style="margin-left: 8px;">// ${safeTitle}</span> <span style="color:var(--text-muted); font-size:10px; font-weight:bold; margin-left:8px; background:var(--surface-low); border: 1px solid var(--border-color); padding:1px 6px; border-radius:10px;">${lineCount} lines</span></div><div class="go-top-btn" onclick="const el = document.getElementById('editor-${popped.id}'); if(el){ document.getElementById('editor-scroll-container').scrollTo({top: el.offsetTop - 20, behavior: 'smooth'}); } event.stopPropagation();" title="Go to block start">↑ Top</div></div></div>`;
+                        finalHTML += `</div></details><div class="pormsg-footer" data-end="${i}">${lineNumHTML}<div style="display:flex; align-items:center; flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span> <span class="footer-tag" style="margin-left: 8px;">// ${safeTitle}</span> <span style="color:var(--text-muted); font-size:10px; font-weight:bold; margin-left:8px; background:var(--surface-low); border: 1px solid var(--border-color); padding:1px 6px; border-radius:10px;">${lineCount} lines</span></div><div class="go-top-btn" onclick="const el = document.getElementById('editor-${popped.id}'); if(el){ document.getElementById('editor-scroll-container').scrollTo({top: el.offsetTop - 20, behavior: 'smooth'}); } event.stopPropagation();" title="Go to block start">↑ Top</div></div></div>`;
                         minimapHTML += `</div></details><div class="mini-footer">${mmLine}</div>`;
                     } else {
-                        finalHTML += `<div class="pormsg-line">${lineNumHTML} <span style="white-space:pre;">${htmlLine || ' '}</span></div>`;
+                        finalHTML += `<div class="pormsg-line">${lineNumHTML} <span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine || ' '}</span></div>`;
                         minimapHTML += mmLine;
                     }
                 }
@@ -291,6 +581,9 @@ window.openFileInEditor = (filePath) => {
                         
                         .box-paste-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; flex-shrink: 0; }
                         .pormsg-header:hover .box-paste-btn { opacity: 1; } .box-paste-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+                        
+                        .box-edit-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 4px; }
+                        .pormsg-header:hover .box-edit-btn { opacity: 1; } .box-edit-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
                         
                         .box-copy-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 6px; }
                         .pormsg-header:hover .box-copy-btn { opacity: 1; } .box-copy-btn:hover { background: #333; color: #fff; border-color: #555; }

@@ -131,7 +131,7 @@ window.triggerGuestSend = function() {
     const clickScript = `
         (async () => {
             const findInput = () => {
-                const inKeywords = ["prompt", "chat", "message", "write", "ask", "질문", "메시지"];
+                const inKeywords = ["prompt", "chat", "message", "write", "ask", "question"];
                 const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
                 const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
                 for (let el of mainCandidates) {
@@ -235,6 +235,7 @@ window.injectGuestDropInterceptor = function() {
                 
                 window.guestDropListener = (e) => {
                     try {
+                        if (window.isSyntheticDropInProgress || e.isSynthetic) return;
                         const isFiles = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0;
                         const textData = e.dataTransfer && typeof e.dataTransfer.getData === 'function' ? e.dataTransfer.getData('text/plain') : '';
                         if (textData && !isFiles) {
@@ -388,7 +389,7 @@ window.updateDragDropQueueUI = function() {
             warningEl.innerHTML = window.dragDropAbortMessage;
             warningEl.style.color = '#ff4444';
         } else {
-            warningEl.innerHTML = `⚠️ 자동 업로드 진행 중에는 마우스를 움직이지 마세요.`;
+            warningEl.innerHTML = `⚠️ Do not move the mouse during auto upload.`;
             warningEl.style.color = `var(--error)`;
         }
     }
@@ -398,6 +399,7 @@ window.updateDragDropQueueUI = function() {
     if (containerEl) {
         if (window.dragDropMode && hasItems) {
             containerEl.style.display = 'flex';
+            if (typeof syncBrowserView === 'function') syncBrowserView();
 
             window.toggleBackdropBlur(true);
             if (typeof window.setCoverLifted === 'function') {
@@ -405,6 +407,7 @@ window.updateDragDropQueueUI = function() {
             }
         } else {
             containerEl.style.display = 'none';
+            if (typeof syncBrowserView === 'function') syncBrowserView();
 
             window.toggleBackdropBlur(false);
             if (typeof window.setCoverLifted === 'function') {
@@ -417,6 +420,7 @@ window.updateDragDropQueueUI = function() {
     if (closeBtn && containerEl) {
         closeBtn.onclick = () => {
             containerEl.style.display = 'none';
+            if (typeof syncBrowserView === 'function') syncBrowserView();
             window.toggleBackdropBlur(false);
             window.dragDropMode = false;
             if (typeof window.setCoverLifted === 'function') {
@@ -614,103 +618,8 @@ window.showCommandExecutionPanel = function(title, text, onContinue, onCancel) {
 window.dragDropAttemptCounts = {};
 window.autoClickingQueue = false;
 window.autoClickPendingQueueItems = async function() {
-    if (window.autoClickingQueue) return;
-    if (!window.autoDragging || window.autoDraggingTempDisabled) {
-        console.log("[AutoClick] Auto-dragging is disabled or temporarily suspended. Skipping auto-clicks.");
-        return;
-    }
-    const modal = document.getElementById('local-settings-modal');
-    if (modal && modal.style.display === 'flex') {
-        console.log("[AutoClick] Paused: Settings modal is open.");
-        return;
-    }
-    
-    // Check if any item is already UPLOADING
-    const uploading = window.requestedFilesQueue.find(item => item.status === 'UPLOADING');
-    if (uploading) {
-        console.log("[AutoClick] Upload already in progress for:", uploading.relativePath);
-        return;
-    }
-    
-    // Find the first PENDING item
-    const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING');
-    if (pendingItems.length === 0) return;
-    
-    const item = pendingItems[0];
-    const listEl = document.getElementById('drag-drop-queue-list');
-    if (!listEl) return;
-    
-    const itemEls = listEl.querySelectorAll('.queue-item');
-    let targetEl = null;
-    for (const el of itemEls) {
-        if (el.getAttribute('data-filepath') === item.absolutePath) {
-            targetEl = el;
-            break;
-        }
-    }
-    
-    if (targetEl && targetEl.onclick) {
-        window.autoClickingQueue = true;
-        try {
-            const isFocused = await ipcRenderer.invoke('is-window-focused');
-            if (!isFocused) {
-                console.log("[AutoClick] Window is not focused. Postponing click.");
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                window.autoClickingQueue = false;
-                if (typeof window.updateDragDropQueueUI === 'function') {
-                    window.updateDragDropQueueUI();
-                }
-                return;
-            }
-            
-            const key = item.absolutePath;
-            window.dragDropAttemptCounts[key] = (window.dragDropAttemptCounts[key] || 0) + 1;
-            
-            const warningEl = document.getElementById('drag-drop-queue-warning');
-            if (warningEl) {
-                warningEl.innerHTML = `⏳ 자동 업로드 진행 중 (${item.relativePath} 시도 ${window.dragDropAttemptCounts[key]}/3)...`;
-            }
-            
-            if (window.dragDropAttemptCounts[key] > 3) {
-                console.log(`[AutoClick] Aborted: Item "${item.relativePath}" failed 3 consecutive upload attempts.`);
-                window.autoDraggingTempDisabled = true;
-                window.dragDropAbortMessage = `❌ 실패 3회 초과로 자동 드래그 중단: ${item.relativePath} (수동 드래그로 업로드 진행 가능)`;
-                
-                window.autoClickingQueue = false;
-                if (typeof window.updateDragDropQueueUI === 'function') {
-                    window.updateDragDropQueueUI();
-                }
-                return;
-            }
-            
-            item.status = 'UPLOADING';
-            
-            const currentKey = key;
-            setTimeout(() => {
-                const checkItem = window.requestedFilesQueue.find(x => x.absolutePath === currentKey);
-                if (checkItem && checkItem.status === 'UPLOADING') {
-                    console.log(`[AutoClick] Timeout reached for ${checkItem.relativePath}. Resetting to PENDING.`);
-                    checkItem.status = 'PENDING';
-                    if (typeof window.updateDragDropQueueUI === 'function') {
-                        window.updateDragDropQueueUI();
-                    }
-                }
-            }, 5000);
-
-            console.log("[AutoClick] Clicking queue item:", item.relativePath);
-            await targetEl.onclick();
-            
-            // Wait for drag simulation to fully complete before updating UI and releasing lock
-            await new Promise(resolve => setTimeout(resolve, 1400));
-        } catch (err) {
-            console.error("[AutoClick] Error in queue auto-clicker:", err);
-        } finally {
-            window.autoClickingQueue = false;
-            if (typeof window.updateDragDropQueueUI === 'function') {
-                window.updateDragDropQueueUI();
-            }
-        }
-    }
+    // Auto dragging disabled per user request. Queue UI popup remains visible for manual file drag/attachment.
+    return;
 };
 
 window.updateSplitLayoutHeight = function(newHeight) {
@@ -735,9 +644,10 @@ window.reloadAgentSettings = function() {
             window.hideUIOverlay = settings.hasOwnProperty('hideUIOverlay') ? !!settings.hideUIOverlay : true;
             window.debugMode = !!settings.debugMode;
             window.dragDropMode = true;
-            window.autoDragging = settings.hasOwnProperty('autoDragging') ? !!settings.autoDragging : true;
+            window.autoDragging = false;
             window.autoRefreshSession = !!settings.autoRefreshSession;
             window.refreshTurnCount = parseInt(settings.refreshTurnCount) || 35;
+            window.sendFormat = settings.sendFormat === 'pdf' ? 'pdf' : 'md';
             return;
         }
     } catch(e) {}
@@ -745,10 +655,37 @@ window.reloadAgentSettings = function() {
     window.hideUIOverlay = true;
     window.debugMode = false;
     window.dragDropMode = true;
-    window.autoDragging = true;
+    window.autoDragging = false;
 window.sessionTurnCount = 0;
 window.autoRefreshSession = false;
 window.refreshTurnCount = 35;
+window.sendFormat = 'md';
+};
+
+window.prepareFilePayload = async function(baseFileName, mdContent) {
+    const fs = require('fs');
+    const path = require('path');
+    const gravityRoot = window.appRootPath || process.cwd();
+    const sendingMdDir = path.join(gravityRoot, 'SendingMD');
+    if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
+
+    const mdPath = path.join(gravityRoot, baseFileName);
+    fs.writeFileSync(mdPath, mdContent, 'utf-8');
+
+    if (window.sendFormat === 'pdf') {
+        const pdfFileName = baseFileName.replace(/\.md$/, '.pdf');
+        const pdfPath = path.join(gravityRoot, pdfFileName);
+        const htmlContent = typeof marked !== 'undefined' ? marked.parse(mdContent) : `<pre>${mdContent.replace(/</g, '&lt;')}</pre>`;
+        const success = await ipcRenderer.invoke('convert-markdown-to-pdf', {
+            mdPath: mdPath,
+            pdfPath: pdfPath,
+            htmlContent: htmlContent
+        });
+        if (success && fs.existsSync(pdfPath)) {
+            return { relativePath: pdfFileName, absolutePath: pdfPath };
+        }
+    }
+    return { relativePath: baseFileName, absolutePath: mdPath };
 };
 
 window.fetchDirContent = async (p) => await ipcRenderer.invoke('get-directory-content', p);
@@ -844,6 +781,15 @@ const syncBrowserView = (() => {
         });
     };
 })();
+
+setTimeout(() => {
+    const dockEl = document.getElementById('agent-view-dock');
+    if (dockEl) {
+        new ResizeObserver(() => {
+            syncBrowserView();
+        }).observe(dockEl);
+    }
+}, 500);
 
 window.getSystemRulesPrompt = function(forceFull = false) {
     const fullRules = `
@@ -963,18 +909,17 @@ function detectAndAskCommand(text) {
         }
 
         if (cmd.startsWith('search-file') || cmd.startsWith('search-all')) {
-            // Ignore legacy search commands completely to prevent main thread freezing
             return;
         }
 
-        const fileMatch = cmd.match(/^read-file\s+["']?([^"'\s]+)["']?$/i);
-        const fileFullMatch = cmd.match(/^read-file-full\s+["']?([^"'\s]+)["']?$/i);
-        const rangeMatch = cmd.match(/^read-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
-        const writeMatch = cmd.match(/^write-file\s+["']?([^"'\s]+)["']?$/i);
-        const editRangeMatch = cmd.match(/^edit-file-range\s+["']?([^"']+)["']?\s+(\d+)-(\d+)$/i);
-        const editMatch = cmd.match(/^edit-file\s+["']?([^"'\s]+)["']?$/i);
-        const deleteMatch = cmd.match(/^delete-file\s+["']?([^"'\s]+)["']?$/i);
-        const createDirMatch = cmd.match(/^create-dir\s+["']?([^"\'\s]+)["']?$/i);
+        const fileMatch = cmd.match(/^read-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
+        const fileFullMatch = cmd.match(/^read-file-full\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
+        const rangeMatch = cmd.match(/^read-file-range\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))\s+(\d+)-(\d+)$/i);
+        const writeMatch = cmd.match(/^write-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
+        const editRangeMatch = cmd.match(/^edit-file-range\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))\s+(\d+)-(\d+)$/i);
+        const editMatch = cmd.match(/^edit-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
+        const deleteMatch = cmd.match(/^delete-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
+        const createDirMatch = cmd.match(/^create-dir\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
         const runCommandMatch = cmd.match(/^run-command\s+(.*)$/i);
         const searchKeywordMatch = cmd.match(/^search-keyword\s+(.*)$/i);
         const moveFileMatch = cmd.match(/^move-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
@@ -983,6 +928,8 @@ function detectAndAskCommand(text) {
 
         const fs = require('fs');
         const path = require('path');
+
+        const getParsedPath = (m) => m ? (m[1] || m[2] || m[3]) : '';
 
         const resolvePathAndExists = (rawPath) => {
             let fp = rawPath.trim();
@@ -1009,16 +956,19 @@ function detectAndAskCommand(text) {
         };
 
         if (rangeMatch) {
-            const res = resolvePathAndExists(rangeMatch[1]);
-            readCmds.push({ path: res.path, full: false, range: true, start: parseInt(rangeMatch[2]), end: parseInt(rangeMatch[3]), exists: res.exists, isDirectory: res.isDirectory });
+            const pathStr = getParsedPath(rangeMatch);
+            const res = resolvePathAndExists(pathStr);
+            readCmds.push({ path: res.path, full: false, range: true, start: parseInt(rangeMatch[4]), end: parseInt(rangeMatch[5]), exists: res.exists, isDirectory: res.isDirectory });
         } else if (fileFullMatch) {
-            const res = resolvePathAndExists(fileFullMatch[1]);
+            const pathStr = getParsedPath(fileFullMatch);
+            const res = resolvePathAndExists(pathStr);
             readCmds.push({ path: res.path, full: true, exists: res.exists, isDirectory: res.isDirectory });
         } else if (fileMatch) {
-            const res = resolvePathAndExists(fileMatch[1]);
+            const pathStr = getParsedPath(fileMatch);
+            const res = resolvePathAndExists(pathStr);
             readCmds.push({ path: res.path, full: false, exists: res.exists, isDirectory: res.isDirectory });
         } else if (writeMatch) {
-            const filePath = writeMatch[1].trim();
+            const filePath = getParsedPath(writeMatch).trim();
             const cmdIdx = text.indexOf(rawCmd);
             let codeVal = "";
             let hasCodeBlock = false;
@@ -1034,9 +984,9 @@ function detectAndAskCommand(text) {
                 writeCmds.push({ path: filePath, code: codeVal });
             }
         } else if (editRangeMatch) {
-            const filePath = editRangeMatch[1].trim();
-            const startLine = parseInt(editRangeMatch[2]);
-            const endLine = parseInt(editRangeMatch[3]);
+            const filePath = getParsedPath(editRangeMatch).trim();
+            const startLine = parseInt(editRangeMatch[4]);
+            const endLine = parseInt(editRangeMatch[5]);
             const cmdIdx = text.indexOf(rawCmd);
             let codeVal = "";
             let hasCodeBlock = false;
@@ -1052,7 +1002,7 @@ function detectAndAskCommand(text) {
                 editCmds.push({ type: 'range', path: filePath, start: startLine, end: endLine, code: codeVal });
             }
         } else if (editMatch) {
-            const filePath = editMatch[1].trim();
+            const filePath = getParsedPath(editMatch).trim();
             const cmdIdx = text.indexOf(rawCmd);
             if (cmdIdx !== -1) {
                 const subText = text.substring(cmdIdx);
@@ -1097,10 +1047,10 @@ function detectAndAskCommand(text) {
                 }
             }
         } else if (deleteMatch) {
-            const filePath = deleteMatch[1].trim();
+            const filePath = getParsedPath(deleteMatch).trim();
             deleteCmds.push({ path: filePath });
         } else if (createDirMatch) {
-            const dirPath = createDirMatch[1].trim();
+            const dirPath = getParsedPath(createDirMatch).trim();
             createDirCmds.push({ path: dirPath });
         } else if (runCommandMatch) {
             let cmdStr = runCommandMatch[1].trim();
@@ -1165,19 +1115,14 @@ function detectAndAskCommand(text) {
             mergedContent += "## [FILE DATA: " + f.path + "]\n```" + ext + "\n" + fileContent + "\n```\n\n";
         });
         
-        const tempFileName = path.join('SendingMD', `_project_read_bundle_${Date.now()}.md`);
-        const gravityRoot = window.appRootPath || process.cwd();
-        const tempPath = path.join(gravityRoot, tempFileName);
-        try {
-            const sendingMdDir = path.join(gravityRoot, 'SendingMD');
-            if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
-            fs.writeFileSync(tempPath, mergedContent, 'utf-8');
+        const baseFileName = path.join('SendingMD', `_project_read_bundle_${Date.now()}.md`);
+        window.prepareFilePayload(baseFileName, mergedContent).then(payload => {
             if (typeof window.addFileToRequestedQueue === 'function') {
-                window.addFileToRequestedQueue(tempFileName);
+                window.addFileToRequestedQueue(payload.relativePath);
             }
-        } catch(e) {
-            console.error("Failed to write read bundle file:", e);
-        }
+        }).catch(e => {
+            console.error("Failed to prepare read bundle file:", e);
+        });
     }
     
     if (window.dragDropMode) {
@@ -1192,9 +1137,33 @@ function detectAndAskCommand(text) {
     const hasReadFile = (readCmds.length > 0);
 
     if (hasResetSession) {
-        setTimeout(() => {
+        const box = typeof ChatUI !== 'undefined' ? ChatUI.appendBubble('system', '') : null;
+        if (box) {
+            const content = box.querySelector('.bubble-content');
+            if (content) {
+                content.innerHTML = `
+                    <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                        <div style="font-weight: bold; color: #eab308; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                            <span>⚠️ RESET SESSION CONFIRMATION</span>
+                        </div>
+                        <span>Allow Web AI to reset current chat session?</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="cmd-run-btn" style="flex: 1; background: #eab308; color: black; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif;">ALLOW RESET</button>
+                        <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif;">CANCEL</button>
+                    </div>
+                `;
+                content.querySelector('.cmd-run-btn').onclick = () => {
+                    box.remove();
+                    if (typeof window.triggerSessionReset === 'function') window.triggerSessionReset();
+                };
+                content.querySelector('.cmd-cancel-btn').onclick = () => {
+                    box.remove();
+                };
+            }
+        } else {
             if (typeof window.triggerSessionReset === 'function') window.triggerSessionReset();
-        }, 100);
+        }
         return;
     }
 
@@ -1459,14 +1428,14 @@ function detectAndAskCommand(text) {
             const box = ChatUI.appendBubble('system', '');
             const content = box.querySelector('.bubble-content');
             const themeColor = "#468CF6"; 
-            const glowShadow = "rgba(0,0,0,0.15)";
+            const glowShadow = "none";
             
             content.innerHTML = `
                 <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
                     <span style="color: var(--text-muted); font-weight: bold; margin-right: 6px;">$</span>${cleanCmd}
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">CONTINUE</button>
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s; box-shadow: none;">CONTINUE</button>
                     <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', 'Outfit', sans-serif; transition: all 0.2s;">CANCEL</button>
                 </div>
             `;
@@ -1474,8 +1443,8 @@ function detectAndAskCommand(text) {
             const runBtn = content.querySelector('.cmd-run-btn');
             const cancelBtn = content.querySelector('.cmd-cancel-btn');
             if (runBtn) {
-                runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "0 4px 12px rgba(0,0,0,0.35)"; };
-                runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = `0 2px 6px ${glowShadow}`; };
+                runBtn.onmouseenter = () => { runBtn.style.filter = "brightness(1.15)"; runBtn.style.boxShadow = "none"; };
+                runBtn.onmouseleave = () => { runBtn.style.filter = "none"; runBtn.style.boxShadow = "none"; };
             }
             if (cancelBtn) {
                 cancelBtn.onmouseenter = () => { cancelBtn.style.background = "rgba(255, 255, 255, 0.08)"; cancelBtn.style.color = "var(--text-main)"; cancelBtn.style.borderColor = "rgba(255,255,255,0.15)"; };
@@ -1520,7 +1489,7 @@ function detectAndAskCommand(text) {
                     if (tL && tL.offsetHeight <= 40) {
                         tL.style.height = '350px';
                         const minBtn = document.getElementById('minimize-terminal'); 
-                        if (minBtn) minBtn.innerText = '▼';
+                        if (minBtn) minBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
                         if (typeof syncBrowserView === 'function') syncBrowserView();
                     }
                 }
@@ -1562,18 +1531,120 @@ async function setupBoot() {
     const grid = document.getElementById('agent-hub-grid'), addA = document.getElementById('add-agent-app-card');
     if (!grid || !addA) return;
 
+    const manualCmdBtn = document.getElementById('taskbar-manual-cmd-input-btn');
+    const manualCmdContainer = document.getElementById('manual-cmd-input-container');
+    const manualCmdTextarea = document.getElementById('manual-cmd-textarea');
+    const closeManualCmd = document.getElementById('close-manual-cmd-container');
+    const cancelManualCmd = document.getElementById('cancel-manual-cmd');
+    const runManualCmd = document.getElementById('run-manual-cmd');
+
+    if (manualCmdBtn && manualCmdContainer) {
+        manualCmdBtn.onclick = async () => {
+            if (manualCmdContainer.style.display === 'flex') {
+                hideManualCmdPanel();
+                return;
+            }
+            if (manualCmdTextarea) {
+                try {
+                    const clipText = await navigator.clipboard.readText();
+                    if (clipText && (clipText.includes('[REQUEST:') || clipText.includes('[CMD:'))) {
+                        manualCmdTextarea.value = clipText;
+                    }
+                } catch(e) {}
+            }
+            manualCmdContainer.style.display = 'flex';
+            if (typeof syncBrowserView === 'function') syncBrowserView();
+            setTimeout(() => manualCmdTextarea?.focus(), 50);
+        };
+    }
+
+    const hideManualCmdPanel = () => {
+        if (manualCmdContainer) {
+            manualCmdContainer.style.display = 'none';
+            if (typeof syncBrowserView === 'function') syncBrowserView();
+        }
+    };
+
+    if (closeManualCmd) closeManualCmd.onclick = hideManualCmdPanel;
+    if (cancelManualCmd) cancelManualCmd.onclick = hideManualCmdPanel;
+
+    if (runManualCmd) {
+        runManualCmd.onclick = () => {
+            const rawText = manualCmdTextarea ? manualCmdTextarea.value.trim() : '';
+            if (!rawText) return;
+            hideManualCmdPanel();
+            if (manualCmdTextarea) manualCmdTextarea.value = '';
+            
+            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                ChatUI.appendBubble('system', '[SYSTEM] Manual CMD text submitted. Parsing commands...');
+            }
+            if (typeof detectAndAskCommand === 'function') {
+                detectAndAskCommand(rawText);
+            }
+        };
+    }
+
     const reCmdBtn = document.getElementById('taskbar-recmd-btn');
     if (reCmdBtn) {
         reCmdBtn.onclick = async () => {
-            if (typeof injectWebPayload !== 'function') return;
             reCmdBtn.style.opacity = '0.5';
             reCmdBtn.style.pointerEvents = 'none';
             try {
-                const nudge = `[REMINDER] You did not output any CMD commands in your last response. Output ONLY the appropriate [CMD: ...] commands now. No explanations, no chat — just commands.`;
-                await injectWebPayload(nudge, 0, 0, false, true);
-                ChatUI.appendBubble('system', '[SYSTEM] CMD nudge sent to Web AI.');
+                let lastAiText = null;
+
+                // 1. Try fetching text from local chat UI bubbles (latest AI response)
+                const aiBubbles = Array.from(document.querySelectorAll('.chat-bubble.ai, .chat-bubble[data-role="ai"]'));
+                if (aiBubbles.length > 0) {
+                    const lastBubble = aiBubbles[aiBubbles.length - 1];
+                    const contentEl = lastBubble.querySelector('.bubble-content');
+                    if (contentEl) {
+                        lastAiText = contentEl.dataset.rawText || contentEl.innerText || contentEl.textContent;
+                    }
+                }
+
+                // 2. If not found in local UI, attempt reading latest AI response from Webview DOM
+                if (!lastAiText || !lastAiText.trim()) {
+                    const wv = document.getElementById('active-agent-webview');
+                    if (wv) {
+                        lastAiText = await wv.executeJavaScript(`
+                            (() => {
+                                try {
+                                    const aiElems = Array.from(document.querySelectorAll('[data-is-streaming="false"], .model-response-text, .assistant-message, [data-message-author-role="assistant"]'));
+                                    if (aiElems.length > 0) {
+                                        return aiElems[aiElems.length - 1].innerText || '';
+                                    }
+                                    const matchedElems = Array.from(document.querySelectorAll('div, section, article, p')).filter(el => el.innerText && (el.innerText.includes('[REQUEST:') || el.innerText.includes('[CMD:')));
+                                    if (matchedElems.length > 0) {
+                                        return matchedElems[matchedElems.length - 1].innerText || '';
+                                    }
+                                    return '';
+                                } catch(e) { return ''; }
+                            })()
+                        `).catch(() => '');
+                    }
+                }
+
+                if (lastAiText && lastAiText.trim()) {
+                    window.dragDropMode = true;
+                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                        ChatUI.appendBubble('system', '[SYSTEM] RE-CMD: Re-parsing latest AI message for local commands...');
+                    }
+                    if (typeof detectAndAskCommand === 'function') {
+                        detectAndAskCommand(lastAiText);
+                    } else {
+                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                            ChatUI.appendBubble('system', '[ERROR] RE-CMD: detectAndAskCommand function unavailable.');
+                        }
+                    }
+                } else {
+                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                        ChatUI.appendBubble('system', '[WARN] RE-CMD: No recent AI message found to re-read.');
+                    }
+                }
             } catch(e) {
-                ChatUI.appendBubble('system', `[ERROR] RE-CMD failed: ${e.message}`);
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    ChatUI.appendBubble('system', `[ERROR] RE-CMD: ${e.message}`);
+                }
             } finally {
                 reCmdBtn.style.opacity = '1';
                 reCmdBtn.style.pointerEvents = 'auto';
@@ -1588,22 +1659,17 @@ async function setupBoot() {
             rulesBtn.style.opacity = '0.5';
             rulesBtn.style.pointerEvents = 'none';
             try {
-                const fs = require('fs');
-                const path = require('path');
-                const gravityRoot = window.appRootPath || process.cwd();
-                const sendingMdDir = path.join(gravityRoot, 'SendingMD');
-                if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
                 const randSuffix = Math.floor(100000 + Math.random() * 900000);
                 const rulesFileName = path.join('SendingMD', `_project_rules_${randSuffix}.md`);
-                const rulesFilePath = path.join(gravityRoot, rulesFileName);
                 const rulesContent = `${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge that you understand and will strictly follow these system rules.`;
-                fs.writeFileSync(rulesFilePath, rulesContent, 'utf-8');
+                
+                const payload = await window.prepareFilePayload(rulesFileName, rulesContent);
 
                 if (typeof window.refreshTree === 'function') window.refreshTree();
 
                 window.requestedFilesQueue = [{
-                    absolutePath: rulesFilePath,
-                    relativePath: rulesFileName,
+                    absolutePath: payload.absolutePath,
+                    relativePath: payload.relativePath,
                     status: 'PENDING'
                 }];
 
@@ -1641,6 +1707,61 @@ async function setupBoot() {
         };
     }
 
+    const treeBtn = document.getElementById('taskbar-manual-tree-btn');
+    if (treeBtn) {
+        treeBtn.onclick = async () => {
+            treeBtn.style.opacity = '0.5';
+            treeBtn.style.pointerEvents = 'none';
+            try {
+                const projectTree = await ipcRenderer.invoke('vault-get-tree', window.currentPath || window.projectRoot || process.cwd());
+                const randSuffix = Math.floor(100000 + Math.random() * 900000);
+                const treeFileName = path.join('SendingMD', `_project_tree_${randSuffix}.md`);
+                const treeContent = `The current project folder contains the following files:\n${projectTree || '(empty)'}\n\n${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge receipt of the updated project tree.`;
+                
+                const payload = await window.prepareFilePayload(treeFileName, treeContent);
+
+                if (typeof window.refreshTree === 'function') window.refreshTree();
+
+                window.requestedFilesQueue = [{
+                    absolutePath: payload.absolutePath,
+                    relativePath: payload.relativePath,
+                    status: 'PENDING'
+                }];
+
+                if (typeof window.injectGuestDropInterceptor === 'function') {
+                    window.injectGuestDropInterceptor();
+                }
+
+                const treeSendCleanup = () => {
+                    if (window.activeDragDropCleanup === treeSendCleanup) {
+                        window.activeDragDropCleanup = null;
+                        window.activeDragDropContinue = null;
+                    }
+                    window.dragDropMode = false;
+                    window.requestedFilesQueue = [];
+                    if (typeof window.updateDragDropQueueUI === 'function') {
+                        window.updateDragDropQueueUI();
+                    }
+                };
+
+                window.activeDragDropCleanup = treeSendCleanup;
+                window.activeDragDropContinue = async () => {};
+                window.dragDropMode = true;
+
+                if (typeof window.updateDragDropQueueUI === 'function') {
+                    window.updateDragDropQueueUI();
+                }
+
+                ChatUI.appendBubble('system', '[SYSTEM] Project Tree queued for sending. Drop the file into the AI chat.');
+            } catch(e) {
+                ChatUI.appendBubble('system', `[ERROR] Failed to prepare project tree: ${e.message}`);
+            } finally {
+                treeBtn.style.opacity = '1';
+                treeBtn.style.pointerEvents = 'auto';
+            }
+        };
+    }
+
 
     grid.querySelectorAll('.agent-app:not(#add-agent-app-card)').forEach(el => el.remove());
 
@@ -1649,25 +1770,41 @@ async function setupBoot() {
             const modal = document.getElementById('browser-confirm-modal');
             const okBtn = document.getElementById('browser-confirm-ok');
             const cancelBtn = document.getElementById('browser-confirm-cancel');
-            if (!modal || !okBtn || !cancelBtn) return resolve(true);
+            const closeBtn = document.getElementById('browser-confirm-close');
+            if (!modal || !okBtn || !cancelBtn) return resolve('continue');
 
             modal.style.display = 'flex';
             setTimeout(() => {
                 modal.firstElementChild.style.transform = 'translateY(0)';
             }, 10);
 
-            okBtn.onclick = () => {
+            const hideModal = () => {
                 modal.firstElementChild.style.transform = 'translateY(100%)';
                 setTimeout(() => { modal.style.display = 'none'; }, 300);
-                resolve(true);
+            };
+
+            okBtn.onclick = () => {
+                hideModal();
+                resolve('send');
             };
             cancelBtn.onclick = () => {
-                modal.firstElementChild.style.transform = 'translateY(100%)';
-                setTimeout(() => { modal.style.display = 'none'; }, 300);
-                resolve(false);
+                hideModal();
+                resolve('continue');
             };
+            if (closeBtn) {
+                closeBtn.onclick = () => {
+                    hideModal();
+                    resolve('abort');
+                };
+            }
         });
     };
+
+window.setTaskbarActionsVisible = function(visible) {
+    document.querySelectorAll('.taskbar-action-btn').forEach(btn => {
+        btn.style.display = visible ? 'flex' : 'none';
+    });
+};
 
     window.launchWebAgent = async (appData, isSilentBoot = false) => {
         window.sessionBriefed = false;
@@ -1675,23 +1812,25 @@ async function setupBoot() {
         let u = typeof appData === 'string' ? appData : appData.url;
         let inSel = typeof appData === 'object' ? appData.input : ''; let btnSel = typeof appData === 'object' ? appData.send : ''; let resSel = typeof appData === 'object' ? appData.response : '';
 
+        let confirmResult = 'continue';
+        if (!isSilentBoot) {
+            confirmResult = await showBrowserConfirm();
+            if (confirmResult === 'abort') return;
+        }
+
         const existingWv = document.getElementById('active-agent-webview');
         if (existingWv && existingWv.src === u) {
             if (!isSilentBoot) {
-                const confirmed = await showBrowserConfirm();
-                if (!confirmed) return;
-                setTimeout(() => {
-                    const projBtn = document.getElementById('btn-send-project-info');
-                    if (projBtn) {
-
-                        projBtn.click();
-                    }
-                }, 600);
-
                 document.getElementById('agent-hub-home').style.display = 'none';
                 document.getElementById('agent-hub-webview').style.display = 'flex';
-                const _rb1 = document.getElementById('taskbar-manual-rules-btn'); if (_rb1) _rb1.style.display = 'flex';
-                const _rc1 = document.getElementById('taskbar-recmd-btn'); if (_rc1) _rc1.style.display = 'flex';
+                window.setTaskbarActionsVisible(true);
+
+                if (confirmResult === 'send' || confirmResult === true) {
+                    setTimeout(() => {
+                        const projBtn = document.getElementById('btn-send-project-info');
+                        if (projBtn) projBtn.click();
+                    }, 600);
+                }
                 
                 const webToggle = document.getElementById('web-ai-mode-toggle'); if (webToggle) webToggle.checked = true;
                 document.getElementById('tab-local-agent')?.click();
@@ -1701,22 +1840,9 @@ async function setupBoot() {
         }
 
         if (!isSilentBoot) {
-            const confirmed = await showBrowserConfirm();
-            if (!confirmed) return;
-            setTimeout(() => {
-                const projBtn = document.getElementById('btn-send-project-info');
-                if (projBtn) {
-
-                    projBtn.click();
-                }
-            }, 600);
-        }
-
-        if (!isSilentBoot) {
             document.getElementById('agent-hub-home').style.display = 'none';
             document.getElementById('agent-hub-webview').style.display = 'flex';
-            const _rb2 = document.getElementById('taskbar-manual-rules-btn'); if (_rb2) _rb2.style.display = 'flex';
-            const _rc2 = document.getElementById('taskbar-recmd-btn'); if (_rc2) _rc2.style.display = 'flex';
+            window.setTaskbarActionsVisible(true);
         }
         const urlInput = document.getElementById('agent-url-input');
         if (urlInput) urlInput.value = u;
@@ -2097,14 +2223,14 @@ async function setupBoot() {
                             
                             const isEmpty = !projectTree || projectTree.trim() === '' || !projectTree.includes('- ');
                             const startPrompt = isEmpty
-                                ? `이 폴더는 완전히 비어있는 새 프로젝트입니다. 지침을 숙지했다면 유저에게 어떤 프로젝트를 만들지 간단히 물어보십시오. (파일 요청 금지, 사족 금지)`
+                                ? `This folder is a completely empty new project. If you understand these instructions, ask the user what project to create.`
                                 : window.dragDropMode 
-                                    ? `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(반드시 위의 파일 목록에 실제로 존재하는 파일 중에서만 선택)을 유저에게 드롭해달라고 요청하며 [REQUEST: read-file "실제파일경로"] 형태로 즉시 단답형 답변하십시오. 목록에 없는 가상의 파일은 절대 요청하지 마십시오. ("파일명"이라는 임시 단어를 그대로 출력하지 마십시오.)` 
-                                    : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 파일(반드시 위의 파일 목록에 실제로 존재하는 파일 중에서만 선택)을 [CMD: read-file "실제파일경로"] 형태로 즉시 답변하십시오. 목록에 없는 가상의 파일은 절대 요청하지 마십시오.`;
+                                    ? `If you understand these instructions, ask the user to drop the key entry file for analysis using [REQUEST: read-file "actual/file/path"]. Do not request non-existent files.` 
+                                    : `If you understand these instructions, request key entry files for analysis immediately using [CMD: read-file "actual/file/path"]. Do not request non-existent files.`;
 
                             const briefPayload = isEmpty
                                 ? `${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim()
-                                : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${projectTree}\n${window.getSystemRulesPrompt(true)}\n${startPrompt}`.trim();
+                                : `The current project folder contains the following files:\n${projectTree}\n${window.getSystemRulesPrompt(true)}\n${startPrompt}`.trim();
                              console.log("[BriefingPayload] Generated payload:\n", briefPayload);
 
                             window.currentBatchFileCount = -1;
@@ -2578,6 +2704,7 @@ async function setupBoot() {
                     const pathModule = require('path');
                     if (window.currentlyDraggedFilePath && pathModule.basename(window.currentlyDraggedFilePath).toLowerCase() === droppedName) {
                         filePath = window.currentlyDraggedFilePath;
+                        window.currentlyDraggedFilePath = null;
                     } else {
                         const match = window.requestedFilesQueue.find(x => x.relativePath.split(/[\\/]/).pop().toLowerCase() === droppedName);
                         if (match) {
@@ -2587,6 +2714,14 @@ async function setupBoot() {
                 }
                 
                 if (filePath) {
+                    const now = Date.now();
+                    if (window.lastHandledDropPath === filePath && (now - (window.lastHandledDropTime || 0)) < 1500) {
+                        console.log("[HostDrop] Ignored duplicate drop event for:", filePath);
+                        return;
+                    }
+                    window.lastHandledDropPath = filePath;
+                    window.lastHandledDropTime = now;
+                    
                     console.log("[HostDrop] Intercepted drop for path:", filePath);
                     
                     const isImage = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(filePath);
@@ -2608,9 +2743,9 @@ async function setupBoot() {
                         if (requestedNames.length > 0 && !requestedNames.includes(droppedName)) {
                             const { showAlert } = require('./ui/dialogs.js');
                             if (typeof showAlert === 'function') {
-                                showAlert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                                showAlert(`Not a requested file.\nRequested files: ${requestedNames.join(', ')}`);
                             } else {
-                                alert(`요구된 파일이 아닙니다.\n요구된 파일명: ${requestedNames.join(', ')}`);
+                                alert(`Not a requested file.\nRequested files: ${requestedNames.join(', ')}`);
                             }
                             return;
                         }
@@ -2733,29 +2868,43 @@ async function setupBoot() {
                             
                             wv.executeJavaScript(`
                                 (() => {
-                                    const b64 = "${base64Content}";
-                                    const name = "${filename}";
-                                    const mime = "${mimeType}";
-                                    
-                                    const binary = atob(b64);
-                                    const array = new Uint8Array(binary.length);
-                                    for (let i = 0; i < binary.length; i++) {
-                                        array[i] = binary.charCodeAt(i);
+                                    try {
+                                        window.isSyntheticDropInProgress = true;
+                                        const b64 = "${base64Content}";
+                                        const name = "${filename}";
+                                        const mime = "${mimeType}";
+                                        
+                                        const binary = atob(b64);
+                                        const array = new Uint8Array(binary.length);
+                                        for (let i = 0; i < binary.length; i++) {
+                                            array[i] = binary.charCodeAt(i);
+                                        }
+                                        const blob = new Blob([array], { type: mime });
+                                        const file = new File([blob], name, { type: mime });
+                                        
+                                        const dt = new DataTransfer();
+                                        dt.items.add(file);
+                                        
+                                        let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
+                                        
+                                        const options = { bubbles: true, cancelable: true, dataTransfer: dt };
+                                        const dragEnterEvt = new DragEvent('dragenter', options);
+                                        const dragOverEvt = new DragEvent('dragover', options);
+                                        const dropEvt = new DragEvent('drop', options);
+                                        dragEnterEvt.isSynthetic = true;
+                                        dragOverEvt.isSynthetic = true;
+                                        dropEvt.isSynthetic = true;
+
+                                        target.dispatchEvent(dragEnterEvt);
+                                        target.dispatchEvent(dragOverEvt);
+                                        target.dispatchEvent(dropEvt);
+                                        
+                                        console.log("[GuestDrop] Dispatched drop event for file:", name);
+                                    } catch(err) {
+                                        console.error("[GuestDrop] Error in synthetic drop:", err);
+                                    } finally {
+                                        setTimeout(() => { window.isSyntheticDropInProgress = false; }, 1000);
                                     }
-                                    const blob = new Blob([array], { type: mime });
-                                    const file = new File([blob], name, { type: mime });
-                                    
-                                    const dt = new DataTransfer();
-                                    dt.items.add(file);
-                                    
-                                    let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
-                                    
-                                    const options = { bubbles: true, cancelable: true, dataTransfer: dt };
-                                    target.dispatchEvent(new DragEvent('dragenter', options));
-                                    target.dispatchEvent(new DragEvent('dragover', options));
-                                    target.dispatchEvent(new DragEvent('drop', options));
-                                    
-                                    console.log("[GuestDrop] Dispatched drop event for file:", name);
                                 })();
                             `).catch(err => console.error("Failed to execute drop injection script:", err));
                         } catch (err) {
@@ -2836,22 +2985,30 @@ async function setupBoot() {
             }
         });
 
-        dock.appendChild(wv); if (window.updateAgentBadge) window.updateAgentBadge();
-        window.currentAgentSelectors = { input: inSel, send: btnSel, response: resSel };
-    };
+    dock.appendChild(wv); if (window.updateAgentBadge) window.updateAgentBadge();
+    window.currentAgentSelectors = { input: inSel, send: btnSel, response: resSel };
+
+    if (!isSilentBoot && (confirmResult === 'send' || confirmResult === true)) {
+        setTimeout(() => {
+            const projBtn = document.getElementById('btn-send-project-info');
+            if (projBtn) projBtn.click();
+        }, 1000);
+    }
+};
 
     const create = (appData) => {
         let u = typeof appData === 'string' ? appData : appData.url; const d = new URL(u).hostname;
+        let displayTitle = (typeof appData === 'object' && appData.title && appData.title.trim()) ? appData.title.trim() : d.split('.')[0];
         const c = document.createElement('div'); c.className = 'agent-app'; c.style.position = 'relative';
-        c.innerHTML = `<div class=\"icon-wrapper\"><img src=\"https://www.google.com/s2/favicons?domain=${d}&sz=64\"></div><div class=\"agent-name\">${d.split('.')[0]}</div>`;
+        c.innerHTML = `<div class=\"icon-wrapper\"><img src=\"https://www.google.com/s2/favicons?domain=${d}&sz=64\"></div><div class=\"agent-name\">${displayTitle}</div>`;
         c.onclick = () => window.launchWebAgent(appData, false);
 
         let hoverTimer;
         c.onmouseenter = () => {
             hoverTimer = setTimeout(() => {
                 if (c.querySelector('.agent-del-btn')) return;
-                const delBtn = document.createElement('div'); delBtn.className = 'agent-del-btn'; delBtn.innerHTML = '×';
-                delBtn.style = `position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; background: rgba(255, 59, 48, 0.9); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 16px; font-weight: bold; line-height: 1; padding-bottom: 2px; z-index: 100; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);`;
+                const delBtn = document.createElement('div'); delBtn.className = 'agent-del-btn'; delBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+                delBtn.style = `position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; background: rgba(255, 59, 48, 0.9); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 100; box-shadow: none;`;
                 delBtn.onclick = async (e) => {
                     e.stopPropagation();
                     const s = await ipcRenderer.invoke('vault-read-global', 'registry.json');
@@ -2860,12 +3017,13 @@ async function setupBoot() {
                 };
                 c.appendChild(delBtn);
 
-                const editBtn = document.createElement('div'); editBtn.className = 'agent-edit-btn'; editBtn.innerHTML = '✏️';
-                editBtn.style = `position: absolute; top: -8px; left: -8px; width: 22px; height: 22px; background: #0078d4; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 11px; z-index: 100; box-shadow: 0 4px 12px rgba(0, 120, 212, 0.4);`;
+                const editBtn = document.createElement('div'); editBtn.className = 'agent-edit-btn'; editBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+                editBtn.style = `position: absolute; top: -8px; left: -8px; width: 22px; height: 22px; background: #0078d4; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 100; box-shadow: none;`;
                 editBtn.onclick = (e) => {
                     e.stopPropagation(); const mo = document.getElementById('app-reg-modal');
+                    const tIn = document.getElementById('reg-app-title'); if (tIn) tIn.value = (typeof appData === 'object' && appData.title) ? appData.title : '';
                     document.getElementById('reg-app-url').value = u; document.getElementById('reg-input-selector').value = appData.input || ''; document.getElementById('reg-send-selector').value = appData.send || ''; document.getElementById('reg-response-selector').value = appData.response || '';
-                    mo.dataset.editingUrl = u; mo.style.display = 'flex'; document.getElementById('reg-app-url').focus();
+                    mo.dataset.editingUrl = u; mo.style.display = 'flex'; (tIn || document.getElementById('reg-app-url')).focus();
                 };
                 c.appendChild(editBtn);
             }, 500);
@@ -2902,6 +3060,7 @@ function setupUI() {
             if (webviewEl) webviewEl.style.display = 'none';
             if (homeEl) homeEl.style.display = 'flex';
             const _rb3 = document.getElementById('taskbar-manual-rules-btn'); if (_rb3) _rb3.style.display = 'none';
+            const _tb3 = document.getElementById('taskbar-manual-tree-btn'); if (_tb3) _tb3.style.display = 'none';
             const _rc3 = document.getElementById('taskbar-recmd-btn'); if (_rc3) _rc3.style.display = 'none';
             if (typeof syncBrowserView === 'function') syncBrowserView();
             return;
@@ -3736,14 +3895,6 @@ function setupUI() {
                 contentEl.style.alignItems = 'stretch';
                 contentEl.innerHTML = `
                     <div style="display:flex; flex-direction:column; gap:14px; width:100%; font-family:'DM Sans',sans-serif;">
-                        <!-- Auto Dragging -->
-                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
-                            <span style="font-weight:600; color:#eee; font-size:11.5px;">Auto Dragging (Auto Click)</span>
-                            <label class="switch-toggle">
-                                <input type="checkbox" id="chk-auto-drag" ${window.autoDragging ? 'checked' : ''}>
-                                <span class="slider-toggle"></span>
-                            </label>
-                        </div>
                         <!-- Debug Mode -->
                         <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
                             <span style="font-weight:600; color:#eee; font-size:11.5px;">Debug Mode</span>
@@ -3765,15 +3916,24 @@ function setupUI() {
                             <span style="font-weight:600; color:#eee; font-size:11.5px;">Refresh Turn Trigger</span>
                             <input type="number" id="txt-refresh-turn-count" value="${window.refreshTurnCount}" style="width:50px; background:var(--surface-low); border:1px solid var(--border-color); color:#fff; font-size:11px; padding:2px 6px; border-radius:4px; text-align:center; outline:none;">
                         </div>
+                        <!-- Sending File Format -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;">Sending File Format</span>
+                            <select id="chk-send-format" style="background:var(--surface-low); border:1px solid var(--border-color); color:#fff; font-size:11px; padding:3px 6px; border-radius:4px; outline:none;">
+                                <option value="md" ${window.sendFormat === 'pdf' ? '' : 'selected'}>MD (.md)</option>
+                                <option value="pdf" ${window.sendFormat === 'pdf' ? 'selected' : ''}>PDF (.pdf)</option>
+                            </select>
+                        </div>
                     </div>
                 `;
                 
-                const chkAutoDrag = document.getElementById('chk-auto-drag');
                 const chkDebug = document.getElementById('chk-debug-mode');
                 const chkAutoRefresh = document.getElementById('chk-auto-refresh-session');
                 const txtRefreshCount = document.getElementById('txt-refresh-turn-count');
                 const containerRefresh = document.getElementById('refresh-turn-container');
                 
+                const selSendFormat = document.getElementById('chk-send-format');
+
                 if (chkAutoRefresh && containerRefresh) {
                     chkAutoRefresh.onchange = () => {
                         containerRefresh.style.display = chkAutoRefresh.checked ? 'flex' : 'none';
@@ -3786,18 +3946,18 @@ function setupUI() {
                         hideUIOverlay: window.hideUIOverlay,
                         debugMode: !!chkDebug.checked,
                         dragDropMode: true,
-                        autoDragging: !!chkAutoDrag.checked,
+                        autoDragging: false,
                         autoRefreshSession: !!chkAutoRefresh.checked,
-                        refreshTurnCount: parseInt(txtRefreshCount.value) || 35
+                        refreshTurnCount: parseInt(txtRefreshCount.value) || 35,
+                        sendFormat: selSendFormat ? selSendFormat.value : 'md'
                     };
                     saveSettings(settingsData);
                     window.reloadAgentSettings();
                 };
                 
                 if (txtRefreshCount) txtRefreshCount.onchange = updateAndSave;
-                
-                if (chkAutoDrag) chkAutoDrag.onchange = updateAndSave;
                 if (chkDebug) chkDebug.onchange = updateAndSave;
+                if (selSendFormat) selSendFormat.onchange = updateAndSave;
             }
             
             localSettingsModal.style.display = 'flex';
@@ -3873,7 +4033,7 @@ function setupUI() {
     if (minTermBtn) {
         minTermBtn.onclick = () => {
             const im = tL.offsetHeight <= 40; tL.style.height = im ? '350px' : '35px';
-            minTermBtn.innerText = im ? '▼' : '▲'; syncBrowserView();
+            minTermBtn.innerHTML = im ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>' : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>'; syncBrowserView();
         };
     }
 
@@ -3937,12 +4097,19 @@ function setupUI() {
     }
 
     const addA = document.getElementById('add-agent-app-card'), mo = document.getElementById('app-reg-modal');
-    if (addA && mo) addA.onclick = () => { mo.style.display = 'flex'; document.getElementById('reg-app-url')?.focus(); };
+    if (addA && mo) addA.onclick = () => {
+        const tIn = document.getElementById('reg-app-title'); if (tIn) tIn.value = '';
+        const uIn = document.getElementById('reg-app-url'); if (uIn) uIn.value = '';
+        delete mo.dataset.editingUrl;
+        mo.style.display = 'flex';
+        (tIn || uIn)?.focus();
+    };
     const cancelReg = document.getElementById('cancel-reg');
     if (cancelReg) cancelReg.onclick = () => { if (mo) mo.style.display = 'none'; };
     const confirmReg = document.getElementById('confirm-reg');
     if (confirmReg) {
         confirmReg.onclick = async () => {
+            let title = document.getElementById('reg-app-title')?.value.trim() || '';
             let u = document.getElementById('reg-app-url').value.trim(); if (!u) return;
             if (!u.startsWith('http')) u = 'https://' + u;
             let inSel = document.getElementById('reg-input-selector')?.value.trim() || '';
@@ -3955,10 +4122,10 @@ function setupUI() {
 
             if (mo && editingUrl) {
                 const idx = apps.findIndex(a => (typeof a === 'string' ? a : a.url) === editingUrl);
-                if (idx > -1) apps[idx] = { url: u, input: inSel, send: btnSel, response: resSel };
+                if (idx > -1) apps[idx] = { title, url: u, input: inSel, send: btnSel, response: resSel };
                 delete mo.dataset.editingUrl;
             } else {
-                apps.push({ url: u, input: inSel, send: btnSel, response: resSel });
+                apps.push({ title, url: u, input: inSel, send: btnSel, response: resSel });
             }
             ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: JSON.stringify(apps) });
             location.reload();
@@ -4003,7 +4170,7 @@ function setupUI() {
         });
 
         const switchAgentBtn = document.getElementById('menu-switch-agent');
-        if (switchAgentBtn) { switchAgentBtn.onclick = () => { document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex'; const _rb4 = document.getElementById('taskbar-manual-rules-btn'); if (_rb4) _rb4.style.display = 'none'; const _rc4 = document.getElementById('taskbar-recmd-btn'); if (_rc4) _rc4.style.display = 'none'; }; }
+        if (switchAgentBtn) { switchAgentBtn.onclick = () => { document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex'; if (typeof window.setTaskbarActionsVisible === 'function') window.setTaskbarActionsVisible(false); }; }
 
         const taskbarHomeBtn = document.getElementById('taskbar-home-btn');
         if (taskbarHomeBtn) {
@@ -4013,8 +4180,7 @@ function setupUI() {
                 e.stopPropagation();
                 document.getElementById('agent-hub-webview').style.display = 'none';
                 document.getElementById('agent-hub-home').style.display = 'flex';
-                const _rb5 = document.getElementById('taskbar-manual-rules-btn'); if (_rb5) _rb5.style.display = 'none';
-                const _rc5 = document.getElementById('taskbar-recmd-btn'); if (_rc5) _rc5.style.display = 'none';
+                if (typeof window.setTaskbarActionsVisible === 'function') window.setTaskbarActionsVisible(false);
                 if (typeof syncBrowserView === 'function') syncBrowserView();
             });
         }
@@ -4025,7 +4191,7 @@ function setupUI() {
         const resetBtn = document.getElementById('menu-factory-reset');
         if (resetBtn) {
             resetBtn.onclick = async () => {
-                const confirmed = await showConfirm("정말 완전 초기화를 진행하시겠습니까?\n등록된 모든 에이전트와 설정이 삭제되며 제미나이 기본 상태로 돌아갑니다.");
+                const confirmed = await showConfirm("Are you sure you want to perform a factory reset?\nAll registered agents and settings will be deleted.");
                 if (confirmed) { ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: '[]' }); location.reload(); }
             };
         }
@@ -4065,14 +4231,11 @@ function setupUI() {
             const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || defaultKeywords;
             if (dsInput) dsInput.value = savedKeywords;
             
-            // Load Settings.json for checkboxes
+            // Load Settings.json for format option
             const currentSettings = loadSettings();
-            const chkAutoDrag = document.getElementById('settings-auto-drag');
-            
-            const autoD = currentSettings.hasOwnProperty('autoDragging') ? !!currentSettings.autoDragging : true;
-            
-            if (chkAutoDrag) chkAutoDrag.checked = autoD;
-            
+            const selSendFormat = document.getElementById('settings-send-format');
+            if (selSendFormat) selSendFormat.value = currentSettings.sendFormat || 'md';
+
             switchSettingsTab('autodrag'); // Start at Tab 1
             if (dsModal) dsModal.style.display = 'flex';
         };
@@ -4087,23 +4250,18 @@ function setupUI() {
                 ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: dsInput.value.trim() });
             }
             
-            // Save Auto Dragging switches to Settings.json
-            const chkAutoDrag = document.getElementById('settings-auto-drag');
-            
+            const selSendFormat = document.getElementById('settings-send-format');
             const settingsData = loadSettings();
             window.dragDropMode = true;
             settingsData.dragDropMode = true;
-            if (chkAutoDrag) {
-                window.autoDragging = chkAutoDrag.checked;
-                settingsData.autoDragging = chkAutoDrag.checked;
+            window.autoDragging = false;
+            settingsData.autoDragging = false;
+            if (selSendFormat) {
+                window.sendFormat = selSendFormat.value;
+                settingsData.sendFormat = selSendFormat.value;
             }
             saveSettings(settingsData);
-            
-            // Synchronize with active chat checkboxes if visible/loaded
-            const chatChkAutoDrag = document.getElementById('chk-auto-drag');
-            if (chatChkAutoDrag && chkAutoDrag) {
-                chatChkAutoDrag.checked = chkAutoDrag.checked;
-            }
+            window.reloadAgentSettings();
             
             if (typeof window.updateDragDropQueueUI === 'function') {
                 window.updateDragDropQueueUI();
@@ -4282,11 +4440,11 @@ function setupUI() {
             justify-content: center;
             font-size: 12.5px;
             letter-spacing: -0.01em;
-            box-shadow: 0 4px 12px rgba(70, 140, 246, 0.2);
+            box-shadow: none;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         `;
-        projBtn.onmouseenter = () => { projBtn.style.filter = 'brightness(1.1)'; projBtn.style.boxShadow = '0 4px 14px rgba(70, 140, 246, 0.3)'; };
-        projBtn.onmouseleave = () => { projBtn.style.filter = 'none'; projBtn.style.boxShadow = '0 4px 12px rgba(70, 140, 246, 0.2)'; };
+        projBtn.onmouseenter = () => { projBtn.style.filter = 'brightness(1.1)'; projBtn.style.boxShadow = 'none'; };
+        projBtn.onmouseleave = () => { projBtn.style.filter = 'none'; projBtn.style.boxShadow = 'none'; };
 
         projBtn.onclick = async () => {
             if (window.sessionBriefed || window.briefingInProgress) return;
@@ -4306,12 +4464,12 @@ function setupUI() {
             
             const isEmpty = !tree || tree.trim() === '' || !tree.includes('- ');
             const startPrompt = isEmpty
-                ? `이 폴더는 완전히 비어있는 새 프로젝트입니다. 지침을 숙지했다면 유저에게 어떤 프로젝트를 만들지 간단히 물어보십시오. (파일 요청 금지, 사족 금지)`
-                : `이 지침을 숙지했다면 분석을 위해 처음 읽을 핵심 진입점 파일들(예: package.json, main.js, index.html 등 분석이 필요한 모든 진입점 파일들)을 대화 턴을 아끼기 위해 한 번에 모아서 [REQUEST: read-file "경로1"] [REQUEST: read-file "경로2"] 형태로 한 줄에 즉시 나열하여 답변하십시오. (사족 일절 금지)`;
+                ? `This folder is a completely empty new project. If you understand these instructions, ask the user what project to create.`
+                : `If you understand these instructions, list key entry files for analysis in one line using [REQUEST: read-file "path1"] [REQUEST: read-file "path2"].`;
 
             const webPayload = isEmpty
                 ? `${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim()
-                : `현재 프로젝트 폴더에는 다음 파일들이 있습니다:\n${tree}\n\n${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim();
+                : `The current project folder contains the following files:\n${tree}\n\n${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim();
             
             if (!window.dragDropMode) {
                 // DragDrop Mode is OFF: inject text directly without file attachment
@@ -4344,24 +4502,16 @@ function setupUI() {
                 }
             } else {
                 const randSuffix = Math.floor(100000 + Math.random() * 900000);
-                const gravityRoot = window.appRootPath || process.cwd();
-                const sendingMdDir = path.join(gravityRoot, 'SendingMD');
-                if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
-                window.tempRulesFileName = path.join('SendingMD', `_project_rules_${randSuffix}.md`);
-                const tempRulesPath = path.join(gravityRoot, window.tempRulesFileName);
-                try {
-                    fs.writeFileSync(tempRulesPath, webPayload, 'utf-8');
-                    console.log("[ProjectInfoPayload] (DragDrop) Saved rules file:", tempRulesPath, "\nContent:\n", webPayload);
-                    if (typeof window.refreshTree === 'function') {
-                        window.refreshTree();
-                    }
-                } catch (err) {
-                    console.error("Failed to write temporary rules file:", err);
+                const baseFileName = path.join('SendingMD', `_project_rules_${randSuffix}.md`);
+                const payload = await window.prepareFilePayload(baseFileName, webPayload);
+
+                if (typeof window.refreshTree === 'function') {
+                    window.refreshTree();
                 }
 
                 window.requestedFilesQueue = [{
-                    absolutePath: tempRulesPath,
-                    relativePath: window.tempRulesFileName,
+                    absolutePath: payload.absolutePath,
+                    relativePath: payload.relativePath,
                     status: 'PENDING'
                 }];
 
@@ -4752,20 +4902,20 @@ window.triggerSessionReset = async () => {
     }
     
     const carryOverPrompt = `[SYSTEM REBOOTED]
-현재 세션의 대화 내역이 한도를 초과하여 초기 세션으로 안전하게 재부팅되었습니다.
-이전 작업 진행 상황을 인계하니, 규칙과 도구 규격을 준수하여 계속해서 다음 작업을 진행하십시오.
+Current session chat history exceeded limits and was safely rebooted.
+Handing over previous progress. Please follow rules and tools to continue.
 
-1. 수정 및 추가된 로컬 파일 목록 (Git Status):
+1. Modified and added local file list (Git Status):
 \`\`\`
 ${gitStatus || "No modified files"}
 \`\`\`
 
-2. 현재 프로젝트 전체 폴더/파일 구조:
+2. Current project folder/file structure:
 ${treeStr}
 
 ${window.getSystemRulesPrompt(true)}
 
-이전 세션의 목표를 확인하고 다음 변경 또는 작업을 지시해주십시오.`;
+Check previous session goals and specify next changes or tasks.`;
 
     window.carryOverPrompt = carryOverPrompt;
     window.sessionBriefed = false; // Reset session briefing state
@@ -4773,7 +4923,7 @@ ${window.getSystemRulesPrompt(true)}
     
     const webview = document.getElementById('active-agent-webview');
     if (webview) {
-        webview.loadURL('https://gemini.google.com/app');
+        webview.reload();
     }
 };
 
@@ -4806,7 +4956,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
             const box = ChatUI.appendBubble('system', '');
             const content = box.querySelector('.bubble-content');
             const themeColor = "#ef4444"; 
-            const glowShadow = "rgba(0,0,0,0.15)";
+            const glowShadow = "none";
 
             content.innerHTML = `
                 <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
@@ -4816,7 +4966,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                     <span>Allow Web AI to delete: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayDelete}</strong>?</span>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: none;">ALLOW</button>
                     <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
                 </div>
             `;
@@ -4865,7 +5015,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
             const box = ChatUI.appendBubble('system', '');
             const content = box.querySelector('.bubble-content');
             const themeColor = "#3b82f6";
-            const glowShadow = "rgba(59,130,246,0.15)";
+            const glowShadow = "none";
 
             content.innerHTML = `
                 <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
@@ -4875,7 +5025,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                     <span>Allow Web AI to write/edit: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayModify}</strong>?</span>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: none;">ALLOW</button>
                     <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
                 </div>
             `;
@@ -5108,7 +5258,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
             const box = ChatUI.appendBubble('system', '');
             const content = box.querySelector('.bubble-content');
             const themeColor = "#ef4444"; 
-            const glowShadow = "rgba(0,0,0,0.15)";
+            const glowShadow = "none";
 
             content.innerHTML = `
                 <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
@@ -5118,7 +5268,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                     <span>Allow Web AI to execute: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayCmd}</strong>?</span>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 6px ${glowShadow};">ALLOW</button>
+                    <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: none;">ALLOW</button>
                     <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
                 </div>
             `;

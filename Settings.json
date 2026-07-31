@@ -2,5 +2,6 @@
   "hideUIOverlay": true,
   "debugMode": false,
   "dragDropMode": true,
-  "autoDragging": true
+  "autoDragging": false,
+  "sendFormat": "md"
 }

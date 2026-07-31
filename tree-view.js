@@ -41,12 +41,12 @@ async function renderTree(basePath, rootFiles, searchQuery = '') {
     // Save scroll position
     const savedScrollPos = fileTree.scrollTop;
     
-    // 더블 버퍼링: 오프스크린 임시 엘리먼트에 먼저 비동기 렌더링 진행하여 깜빡임 제거
+    // Double buffering: Render asynchronously to temp container offscreen to avoid flickering
     const tempContainer = document.createElement('div');
     
     let sortedFiles = sortFiles(rootFiles);
 
-    // 최상위(project root) 여부 판단
+    // Check if at project root
     const isAtProjectRoot = window.projectRoot && basePath === window.projectRoot;
 
     if (basePath !== 'DRIVES') {
@@ -160,12 +160,12 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
             const copyPathBtn = document.createElement('span');
             copyPathBtn.className = 'copy-path-btn';
             copyPathBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
-            copyPathBtn.title = `Copy relative path`;
+            copyPathBtn.title = isDir ? `Copy relative path (directory)` : `Copy relative path`;
             copyPathBtn.onclick = async (e) => {
                 e.stopPropagation();
                 const pathModule = require('path');
                 const root = window.projectRoot || process.cwd();
-                const relPath = pathModule.relative(root, fullPath).replace(/\\/g, '/');
+                const relPath = pathModule.relative(root, fullPath).replace(/\\/g, '/') + (isDir ? ' (directory)' : '');
                 await navigator.clipboard.writeText(relPath);
                 
                 const originalIcon = copyPathBtn.innerHTML;

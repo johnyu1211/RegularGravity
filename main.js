@@ -4,11 +4,9 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const http = require('http');
 const crypto = require('crypto');
-
 let watcher = null;
 let currentLogsPath = null;
 let currentKnowledgePath = null;
-
 function setupFileWatcher(projectPath) {
     if (watcher) {
         try { watcher.close(); } catch(e) {}
@@ -26,36 +24,31 @@ function setupFileWatcher(projectPath) {
         console.error("setupFileWatcher error:", err);
     }
 }
-
 const getProjectHash = () => {
     return crypto.createHash('md5').update(process.cwd()).digest('hex');
 };
-
 const getVaultPath = (sub) => {
     const p = path.join(app.getPath('userData'), 'vault', getProjectHash(), sub);
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
     return p;
 };
-
 const getGlobalVaultPath = () => {
     const p = path.join(app.getPath('userData'), 'config');
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
     return p;
 };
-
-// 공통 날짜 포맷 함수 (Local Time)
+// Common date format function (Local Time)
 const getLocalDate = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
-
 ipcMain.handle('vault-init', async () => {
     currentKnowledgePath = getVaultPath('knowledge');
     currentLogsPath = getVaultPath('logs');
     const gp = getGlobalVaultPath();
     setupFileWatcher(process.cwd());
     
-    // 오늘 날짜의 전체 로그 파일 경로 생성
+    // Generate today's log file path
     const activeLogPath = path.join(currentLogsPath, `${getLocalDate()}.md`);
     
     return { 
@@ -65,47 +58,39 @@ ipcMain.handle('vault-init', async () => {
         paths: { knowledge: currentKnowledgePath, logs: currentLogsPath, global: gp } 
     };
 });
-
 ipcMain.on('vault-log', (event, { logPath, role, text }) => {
-    // Stub: 로컬 AI 로깅 비활성화
+    // Stub: Local AI logging disabled
 });
-
 ipcMain.handle('vault-read-global', async (event, fileName) => {
     const p = path.join(getGlobalVaultPath(), fileName);
     if (fs.existsSync(p)) return fs.readFileSync(p, 'utf-8');
     return null;
 });
-
 ipcMain.on('vault-update-global', (event, { fileName, content }) => {
     const p = path.join(getGlobalVaultPath(), fileName);
     fs.writeFileSync(p, content);
 });
-
 ipcMain.on('vault-update-priority', (event, { content }) => {
     // Stub: 로컬 AI 우선순위 학습 비활성화
 });
-
 ipcMain.handle('vault-read-knowledge', async (event, fileName) => {
     const p = path.join(getVaultPath('knowledge'), fileName);
     if (fs.existsSync(p)) return fs.readFileSync(p, 'utf-8');
     return null;
 });
-
 ipcMain.handle('vault-read-log', async (event, fileName) => {
     const p = path.join(getVaultPath('logs'), fileName);
     if (fs.existsSync(p)) return fs.readFileSync(p, 'utf-8');
     return null;
 });
-
 ipcMain.on('vault-reset-session', (event, { logPath }) => {
     // Stub: 로컬 AI 세션 초기화 비활성화
 });
-
 ipcMain.handle('vault-get-tree', async (event, projectPath) => {
     const root = projectPath || process.cwd();
     const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch', 'out', '.vs', '.idea'];
     const results = [];
-
+ 
     function traverse(dir, depth = 0) {
         if (depth > 10) return; // 최대 10단계 제한
         let items = [];
@@ -131,14 +116,13 @@ ipcMain.handle('vault-get-tree', async (event, projectPath) => {
             }
         });
     }
-
+ 
     traverse(root);
     if (results.length === 0) {
         return "[WARNING: No files or directories found in target root path]";
     }
     return results.map(p => `- ${p}`).join('\n');
 });
-
 ipcMain.handle('vault-search', async (event, { query }) => {
     if (!query || query.length < 2) return "";
     const vaultPath = path.join(process.cwd(), 'gravity_vault', getProjectHash());
@@ -169,8 +153,7 @@ ipcMain.handle('vault-search', async (event, { query }) => {
     // Limit results to top 5 unique-ish snippets to save tokens
     return results.slice(0, 5).join('\n---\n');
 });
-
-// [신규] 파일 목록을 받아서 실제 코드 내용을 읽어 반환
+// [New] Read and return actual file content for given file list
 ipcMain.handle('read-project-files', async (event, fileNames) => {
     const root = process.cwd();
     const results = [];
@@ -189,7 +172,6 @@ ipcMain.handle('read-project-files', async (event, fileNames) => {
     }
     return results.join('');
 });
-
 ipcMain.on('send-to-ollama-silent', (event, { model, prompt, tag }) => {
     const postData = JSON.stringify({ model, prompt, stream: false });
     const options = { hostname: '127.0.0.1', port: 11434, path: '/api/generate', method: 'POST' };
@@ -207,7 +189,6 @@ ipcMain.on('send-to-ollama-silent', (event, { model, prompt, tag }) => {
     req.write(postData);
     req.end();
 });
-
 ipcMain.handle('vault-snapshot', async (event, message) => {
     const timestamp = Date.now();
     const snapPath = path.join(getVaultPath('snapshots'), timestamp.toString());
@@ -226,11 +207,9 @@ ipcMain.handle('vault-snapshot', async (event, message) => {
     fs.writeFileSync(path.join(snapPath, 'commit.txt'), `[${new Date().toLocaleString()}] ${message || 'Auto Snapshot'}`);
     return { timestamp, path: snapPath };
 });
-
 let mainWindow;
 let dockedHwnd = null;
 let moverProcess = null;
-
 function startDockMover() {
     if (moverProcess && !moverProcess.killed) return;
     const scriptPath = path.join(__dirname, 'js/ui/dock_mover.ps1');
@@ -240,7 +219,6 @@ function startDockMover() {
         '-File', scriptPath
     ]);
 }
-
 function stopDockMover() {
     if (moverProcess) {
         try {
@@ -250,19 +228,16 @@ function stopDockMover() {
         moverProcess = null;
     }
 }
-
 function setWindowOwner(hwnd, ownerHwnd) {
     if (!hwnd) return;
     const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongPtrW\\")] public static extern IntPtr SetWindowLongPtr64(IntPtr h, int idx, IntPtr val); [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongW\\")] public static extern IntPtr SetWindowLong32(IntPtr h, int idx, IntPtr val); [DllImport(\\"user32.dll\\")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags); }'; if ([IntPtr]::Size -eq 8) { [W]::SetWindowLongPtr64([IntPtr][int64]${hwnd}, -8, [IntPtr][int64]${ownerHwnd}) } else { [W]::SetWindowLong32([IntPtr][int64]${hwnd}, -8, [IntPtr][int64]${ownerHwnd}) }; [W]::SetWindowPos([IntPtr][int64]${hwnd}, [IntPtr]0, 0, 0, 0, 0, 39)"`;
     spawn('cmd.exe', ['/c', cmd]);
 }
-
 function restoreDockedWindowSystemState(hwnd) {
     if (!hwnd) return;
     const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; [ComImport, Guid(\\"56fdf344-fd6d-11d0-958a-006097c9a090\\"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] public interface ITaskbarList { void HrInit(); void AddTab(IntPtr h); void DeleteTab(IntPtr h); } [ComImport, Guid(\\"56fdf342-fd6d-11d0-958a-006097c9a090\\")] public class TaskbarList {} public class Win32 { [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongPtrW\\")] public static extern IntPtr SetWindowLongPtr64(IntPtr h, int idx, IntPtr val); [DllImport(\\"user32.dll\\", EntryPoint = \\"SetWindowLongW\\")] public static extern IntPtr SetWindowLong32(IntPtr h, int idx, IntPtr val); [DllImport(\\"user32.dll\\")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags); } public class T { public static void Restore(IntPtr h) { if (IntPtr.Size == 8) { Win32.SetWindowLongPtr64(h, -8, IntPtr.Zero); } else { Win32.SetWindowLong32(h, -8, IntPtr.Zero); } Win32.SetWindowPos(h, IntPtr.Zero, 0, 0, 0, 0, 39); try { var tbl = (ITaskbarList)new TaskbarList(); tbl.HrInit(); tbl.AddTab(h); } catch {} } }'; [T]::Restore([IntPtr][int64]${hwnd})"`;
     spawn('cmd.exe', ['/c', cmd]);
 }
-
 ipcMain.on('register-docked-hwnd', (event, hwnd) => {
     if (dockedHwnd && !hwnd) {
         // Restore owner of the previously docked window to independent (0) and restore its taskbar icon
@@ -271,20 +246,16 @@ ipcMain.on('register-docked-hwnd', (event, hwnd) => {
     }
     dockedHwnd = hwnd;
 });
-
 ipcMain.handle('get-our-hwnd', async () => {
     if (!mainWindow) return '0';
     const buf = mainWindow.getNativeWindowHandle();
     return process.arch === 'x64' ? buf.readBigInt64LE().toString() : buf.readInt32LE().toString();
 });
-
-
 function setWindowState(hwnd, state) {
     if (!hwnd) return;
     const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\\"user32.dll\\")] public static extern bool ShowWindow(IntPtr h, int m); }'; [W]::ShowWindow([IntPtr][int64]${hwnd}, ${state})"`;
     spawn('cmd.exe', ['/c', cmd]);
 }
-
 ipcMain.on('move-docked-window', (event, bounds) => {
     if (dockedHwnd) {
         startDockMover();
@@ -293,7 +264,6 @@ ipcMain.on('move-docked-window', (event, bounds) => {
         }
     }
 });
-
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1400,
@@ -307,9 +277,9 @@ function createWindow() {
             webviewTag: true
         }
     });
-
+ 
     mainWindow.maximize();
-
+ 
     // Sync docked window minimize, restore, move, and resize
     mainWindow.on('minimize', () => {
         if (dockedHwnd) setWindowState(dockedHwnd, 6); // SW_MINIMIZE = 6
@@ -323,11 +293,11 @@ function createWindow() {
         }
         stopDockMover();
     });
-
-    // 기본 상단 메뉴 제거
+ 
+    // Remove default top menu
     Menu.setApplicationMenu(null);
-
-    // 단축키 제어 (Ctrl+Shift+I/F12 개발자도구, Ctrl+R/F5 새로고침 작동)
+ 
+    // Shortcut controls (Ctrl+Shift+I/F12 DevTools, Ctrl+R/F5 Reload)
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if ((input.control && input.shift && input.key.toLowerCase() === 'i') || input.key === 'F12') {
             mainWindow.webContents.toggleDevTools();
@@ -338,10 +308,9 @@ function createWindow() {
             event.preventDefault();
         }
     });
-
+ 
     mainWindow.loadFile('index.html');
 }
-
 ipcMain.on('window-minimize', () => {
     if (mainWindow) mainWindow.minimize();
 });
@@ -357,11 +326,9 @@ ipcMain.on('window-maximize', () => {
 ipcMain.on('window-close', () => {
     if (mainWindow) mainWindow.close();
 });
-
 // --- PROJECT PICKER & RECENT PROJECTS ---
 const { dialog } = require('electron');
 const RECENT_PROJECTS_FILE = path.join(app.getPath('userData'), 'recent_projects.json');
-
 function loadRecentProjects() {
     try {
         if (fs.existsSync(RECENT_PROJECTS_FILE)) return JSON.parse(fs.readFileSync(RECENT_PROJECTS_FILE, 'utf-8'));
@@ -371,29 +338,24 @@ function loadRecentProjects() {
 function saveRecentProjects(list) {
     try { fs.writeFileSync(RECENT_PROJECTS_FILE, JSON.stringify(list), 'utf-8'); } catch(e) {}
 }
-
 ipcMain.handle('select-folder-dialog', async () => {
     const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
     if (result.canceled || !result.filePaths.length) return null;
     const selected = result.filePaths[0];
-    // 최근 프로젝트 저장 (중복 제거, 최대 10개)
+    // Save recent projects (deduplicated, max 10)
     let recents = loadRecentProjects().filter(p => p !== selected);
     recents.unshift(selected);
     if (recents.length > 10) recents = recents.slice(0, 10);
     saveRecentProjects(recents);
     return selected;
 });
-
 ipcMain.handle('get-recent-projects', async () => loadRecentProjects());
-
 ipcMain.on('save-recent-project', (event, folderPath) => {
     let recents = loadRecentProjects().filter(p => p !== folderPath);
     recents.unshift(folderPath);
     if (recents.length > 10) recents = recents.slice(0, 10);
     saveRecentProjects(recents);
 });
-
-
 ipcMain.handle('get-directory-content', async (event, dirPath) => {
     try {
         const targetPath = dirPath || process.cwd();
@@ -407,31 +369,62 @@ ipcMain.handle('get-directory-content', async (event, dirPath) => {
         return [];
     }
 });
-
 ipcMain.on('reveal-in-explorer', (event, p) => {
     if (p) shell.showItemInFolder(path.resolve(p));
 });
-
 ipcMain.on('relaunch-app', () => {
     app.relaunch();
     app.exit(0);
 });
-
 ipcMain.handle('get-content-bounds', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     return win ? win.getContentBounds() : { x: 0, y: 0, width: 0, height: 0 };
 });
-
 ipcMain.handle('is-window-focused', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     return win ? win.isFocused() : false;
 });
-
 ipcMain.handle('get-cursor-position', () => {
     const { screen } = require('electron');
     return screen.getCursorScreenPoint();
 });
-
+ipcMain.handle('convert-markdown-to-pdf', async (event, { mdPath, pdfPath, htmlContent }) => {
+    try {
+        const pdfWin = new BrowserWindow({
+            show: false,
+            webPreferences: { nodeIntegration: false, contextIsolation: true }
+        });
+        const styledHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; line-height: 1.6; padding: 32px; color: #1e293b; background: #fff; }
+                    pre { background: #0f172a; color: #f8fafc; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; }
+                    code { font-family: monospace; background: #f1f5f9; color: #0f172a; padding: 2px 5px; border-radius: 4px; font-size: 11px; }
+                    pre code { background: transparent; color: inherit; padding: 0; }
+                    h1, h2, h3 { color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+                    blockquote { border-left: 4px solid #3b82f6; margin-left: 0; padding-left: 12px; color: #64748b; }
+                </style>
+            </head>
+            <body>${htmlContent || ''}</body>
+            </html>
+        `;
+        await pdfWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(styledHtml));
+        const pdfBuffer = await pdfWin.webContents.printToPDF({
+            marginsType: 1,
+            printBackground: true,
+            pageSize: 'A4'
+        });
+        fs.writeFileSync(pdfPath, pdfBuffer);
+        pdfWin.destroy();
+        return true;
+    } catch (err) {
+        console.error("PDF generation failed:", err);
+        return false;
+    }
+});
 ipcMain.on('ondragstart', (event, filePath) => {
     console.log("[MainDrag] Received ondragstart for:", filePath);
     const { nativeImage } = require('electron');
@@ -457,7 +450,7 @@ ipcMain.on('execute-cmd', (event, arg) => {
     let tabId = 'sub-1';
     let command = '';
     let cwd = process.cwd();
-
+ 
     if (typeof arg === 'string') {
         command = arg;
     } else if (arg && typeof arg === 'object') {
@@ -465,8 +458,8 @@ ipcMain.on('execute-cmd', (event, arg) => {
         command = arg.command || '';
         cwd = arg.cwd || process.cwd();
     }
-
-    // 디렉토리 경로 검증 (가상경로 DRIVES 거르기)
+ 
+    // Validate directory path (Filter out virtual DRIVES)
     const fs = require('fs');
     let safeCwd = process.cwd();
     try {
@@ -476,27 +469,27 @@ ipcMain.on('execute-cmd', (event, arg) => {
     } catch (e) {
         safeCwd = process.cwd();
     }
-
+ 
     if (!terminalProcesses[tabId]) {
         try {
             terminalProcesses[tabId] = spawn('powershell.exe', ['-NoExit', '-Command', '-'], {
                 cwd: safeCwd,
-                env: { ...process.env, PYTHONIOENCODING: 'utf-8', LANG: 'ko_KR.UTF-8' }
+                env: { ...process.env, PYTHONIOENCODING: 'utf-8', LANG: 'en_US.UTF-8' }
             });
             
             terminalProcesses[tabId].on('error', (err) => {
                 event.reply('cmd-output', { tabId, data: `[Shell Error] ${err.message}\r\n` });
             });
-
+ 
             // Force UTF-8 Encoding
             terminalProcesses[tabId].stdin.write("[Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
             terminalProcesses[tabId].stdin.write("$OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
             
-            // cd 명령어를 통해 실제 powershell의 디렉토리가 변경될 수 있으므로, 최초 cwd에 맞게 동기화
+            // Synchronize powershell cwd
             if (safeCwd) {
                 terminalProcesses[tabId].stdin.write(`cd "${safeCwd.replace(/"/g, '""')}"\r\n`);
             }
-
+ 
             terminalProcesses[tabId].stdout.on('data', (data) => {
                 event.reply('cmd-output', { tabId, data: data.toString() });
             });
@@ -504,22 +497,20 @@ ipcMain.on('execute-cmd', (event, arg) => {
                 event.reply('cmd-output', { tabId, data: data.toString() });
             });
         } catch (spawnErr) {
-            event.reply('cmd-output', { tabId, data: `[Spawn Fail] ${spawnErr.message}\r\n` });
+            event.reply('cmd-output', { tabId, data: `[Shell Spawn Error] ${spawnErr.message}\r\n` });
         }
     }
     
     if (terminalProcesses[tabId] && terminalProcesses[tabId].stdin) {
         try {
-            terminalProcesses[tabId].stdin.write(`${command}\r\n`);
+            terminalProcesses[tabId].stdin.write(command + "\r\n");
         } catch (writeErr) {
-            event.reply('cmd-output', { tabId, data: `[Write Fail] ${writeErr.message}\r\n` });
+            event.reply('cmd-output', { tabId, data: `[Shell Write Error] ${writeErr.message}\r\n` });
         }
     }
 });
-
 // 4. BROWSER VIEW SYNC (Temporarily Disabled per user request - transitioning to <webview>)
 let agentBrowserView = null;
-
 ipcMain.on('toggle-agent-view', (event, visible) => {
     // if (!mainWindow) return;
     // if (!agentBrowserView) {
@@ -532,7 +523,6 @@ ipcMain.on('toggle-agent-view', (event, visible) => {
     //     agentBrowserView.setBounds({ x: -9999, y: -9999, width: 0, height: 0 });
     // }
 });
-
 ipcMain.on('load-agent-url', (event, url) => {
     // if (!agentBrowserView) {
     //     agentBrowserView = new BrowserView();
@@ -541,12 +531,10 @@ ipcMain.on('load-agent-url', (event, url) => {
     // mainWindow.setBrowserView(agentBrowserView);
     // agentBrowserView.webContents.loadURL(url);
 });
-
 let currentAgentSelectors = { input: '', send: '' };
 ipcMain.on('set-agent-selectors', (event, sels) => {
     currentAgentSelectors = sels;
 });
-
 ipcMain.on('ask-web-ai', (event, promptText) => {
     if (!agentBrowserView) {
         event.reply('web-ai-response', "[SYSTEM ERROR] BrowserView is offline.");
@@ -557,7 +545,7 @@ ipcMain.on('ask-web-ai', (event, promptText) => {
         event.reply('web-ai-response', "[SYSTEM ERROR] No DOM selectors registered for this agent.");
         return;
     }
-
+ 
     const script = `
         (async () => {
             try {
@@ -610,11 +598,9 @@ ipcMain.on('ask-web-ai', (event, promptText) => {
         event.reply('web-ai-response', "[SYSTEM ERROR] " + err.message);
     });
 });
-
 ipcMain.on('sync-agent-view-bounds', (event, bounds) => {
     if (agentBrowserView) agentBrowserView.setBounds(bounds);
 });
-
 ipcMain.on('show-context-menu', (event, params) => {
     console.log("[DEBUG] Main Process: show-context-menu received", params);
     const menu = new Menu();
@@ -633,7 +619,7 @@ ipcMain.on('show-context-menu', (event, params) => {
         menu.append(new MenuItem({ label: 'Copy', role: 'copy', enabled: params.hasSelection }));
         menu.append(new MenuItem({ label: 'Select All', role: 'selectAll' }));
     }
-
+ 
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
         menu.popup({ window: win });
@@ -641,11 +627,12 @@ ipcMain.on('show-context-menu', (event, params) => {
         menu.popup();
     }
 });
+app.commandLine.appendSwitch('lang', 'en-US');
 
 app.whenReady().then(() => {
     session.defaultSession.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
     
-    // Rewrite User-Agent on network level for Google Login to prevent infinite reload loops
+    // Rewrite User-Agent and Accept-Language on network level for English locale
     session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
         const url = details.url;
         let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -653,16 +640,15 @@ app.whenReady().then(() => {
             ua = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
         }
         details.requestHeaders['User-Agent'] = ua;
+        details.requestHeaders['Accept-Language'] = 'en-US,en;q=0.9';
         callback({ cancel: false, requestHeaders: details.requestHeaders });
     });
     
     createWindow();
 });
-
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
-
 app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });

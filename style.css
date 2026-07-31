@@ -1561,9 +1561,75 @@ input:checked + .slider:before {
     background: var(--surface-highest) !important;
     border-color: var(--primary) !important;
     transform: scale(1.08);
-    box-shadow: 0 0 12px rgba(70, 140, 246, 0.4);
+    box-shadow: none !important;
     color: #fff !important;
 }
 #taskbar-home-btn:active {
     transform: scale(0.92);
+}
+
+/* ===== GLOBAL BUTTON GLOW REMOVAL ===== */
+button, .btn, [role="button"], input[type="button"], input[type="submit"], .send-btn, .cmd-run-btn, .box-copy-btn, .go-top-btn, .agent-del-btn, .agent-edit-btn {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+}
+button:hover, .btn:hover, [role="button"]:hover, input[type="button"]:hover, input[type="submit"]:hover, .send-btn:hover, .cmd-run-btn:hover, .box-copy-btn:hover, .go-top-btn:hover, .agent-del-btn:hover, .agent-edit-btn:hover {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+}
+button:focus, .btn:focus, [role="button"]:focus, input[type="button"]:focus, input[type="submit"]:focus, .send-btn:focus, .cmd-run-btn:focus, .box-copy-btn:focus, .go-top-btn:focus, .agent-del-btn:focus, .agent-edit-btn:focus {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    outline: none !important;
+}
+
+/* ===== TASKBAR ACTION BUTTONS (HOVER EXPAND) ===== */
+.taskbar-action-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.taskbar-action-btn .btn-text {
+    max-width: 0;
+    opacity: 0;
+    margin-left: 0;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.taskbar-action-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.15);
+    padding: 0 10px;
+}
+
+.taskbar-action-btn:hover .btn-text {
+    max-width: 90px;
+    opacity: 1;
+    margin-left: 5px;
+}
+
+#taskbar-recmd-btn:hover {
+    background: rgba(255, 165, 0, 0.15) !important;
+    color: #ffa500 !important;
+    border-color: rgba(255, 165, 0, 0.3) !important;
 }

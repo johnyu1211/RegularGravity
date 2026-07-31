@@ -85,6 +85,7 @@ window.saveCurrentEditorFile = function() {
         const fs = require('fs');
         const editArea = document.getElementById('editor-raw-textarea');
         let newContent = '';
+        let savedScroll = editArea ? editArea.scrollTop : 0;
 
         if (editArea && editArea.style.display !== 'none') {
             newContent = editArea.value;
@@ -109,7 +110,7 @@ window.saveCurrentEditorFile = function() {
             ChatUI.appendBubble('system', `[SUCCESS] Saved ${pathModule.basename(window.currentEditingPath)} successfully.`);
         }
         
-        window.openFileInEditor(window.currentEditingPath);
+        window.openFileInEditor(window.currentEditingPath, savedScroll);
     } catch (e) {
         alert("Failed to save file: " + e.message);
     }
@@ -186,9 +187,10 @@ window.cancelEditorEdit = function() {
     const editorContent = document.getElementById('editor-content');
     if (editorContent) editorContent.classList.remove('editor-editing-active');
     const editArea = document.getElementById('editor-raw-textarea');
+    let savedScroll = editArea ? editArea.scrollTop : 0;
     if (editArea) editArea.style.display = 'none';
     if (window.currentEditingPath) {
-        window.openFileInEditor(window.currentEditingPath);
+        window.openFileInEditor(window.currentEditingPath, savedScroll);
     }
 };
 

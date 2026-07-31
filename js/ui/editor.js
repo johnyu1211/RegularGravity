@@ -165,13 +165,17 @@ window.toggleEditorEditMode = function() {
                 tab-size: 4; white-space: pre; overflow: auto;
             `;
 
+            let lastLineCount = 0;
             const updateGutter = () => {
                 const lineCount = (editArea.value.match(/\n/g) || []).length + 1;
-                let html = '';
-                for (let i = 1; i <= lineCount; i++) {
-                    html += `<div>${i}</div>`;
+                if (lineCount !== lastLineCount) {
+                    lastLineCount = lineCount;
+                    let html = '';
+                    for (let i = 1; i <= lineCount; i++) {
+                        html += `<div>${i}</div>`;
+                    }
+                    gutter.innerHTML = html;
                 }
-                gutter.innerHTML = html;
                 gutter.scrollTop = editArea.scrollTop;
             };
 
@@ -836,8 +840,19 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                             miniTrack.style.transform = `translateY(-${scrollRatio * (miniTrack.scrollHeight - miniCont.clientHeight + 20)}px)`;
                         } else { miniTrack.style.transform = `translateY(0px)`; }
                     };
-                    window.updateMinimapThumb = updateThumb;
-                    scrollCont.addEventListener('scroll', updateThumb); window.addEventListener('resize', updateThumb); setTimeout(updateThumb, 50);
+                    let isMinimapRafPending = false;
+                    const updateThumbThrottled = () => {
+                        if (isMinimapRafPending) return;
+                        isMinimapRafPending = true;
+                        requestAnimationFrame(() => {
+                            isMinimapRafPending = false;
+                            updateThumb();
+                        });
+                    };
+                    window.updateMinimapThumb = updateThumbThrottled;
+                    scrollCont.addEventListener('scroll', updateThumbThrottled, { passive: true });
+                    window.addEventListener('resize', updateThumbThrottled, { passive: true });
+                    setTimeout(updateThumb, 50);
 
                     let isDragging = false;
                     miniThumb.onmousedown = (e) => { isDragging = true; miniThumb.style.cursor = 'grabbing'; e.preventDefault(); };

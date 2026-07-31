@@ -228,10 +228,7 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
             item.classList.add('active');
 
             if (isDir) {
-                if (isExpanded) window.expandedPaths.delete(fullPath);
-                else window.expandedPaths.add(fullPath);
-                // parentPath = 현재 보고있는 디렉토리. window.currentPath 대신 사용해야 파일 선택 후에도 안전
-                window.loadDirectory(window.currentPath || parentPath);
+                await toggleFolderNode(node, fullPath, level, searchQuery);
             } else {
                 window.currentFilePath = fullPath; // 파일 선택은 별도 변수
                 if (window.openFileInEditor) {
@@ -254,6 +251,47 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
     }
 }
 
+async function toggleFolderNode(node, fullPath, level, searchQuery) {
+    const isExpanded = window.expandedPaths.has(fullPath);
+    const item = node.querySelector('.file-item');
+    const arrowSpan = item ? item.querySelector('.tree-arrow') : null;
+    const iconSpan = item ? item.querySelector('.file-icon') : null;
+    const foldBtn = item ? item.querySelector('.folder-fold-btn') : null;
+    
+    let childrenContainer = node.querySelector(':scope > .tree-children');
+
+    if (isExpanded) {
+        window.expandedPaths.delete(fullPath);
+        if (childrenContainer) childrenContainer.remove();
+        if (arrowSpan) arrowSpan.classList.remove('expanded');
+        if (iconSpan) {
+            iconSpan.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+        }
+        if (foldBtn) {
+            foldBtn.title = 'Expand sub-folders';
+            foldBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 9 12 4 17 9"></polyline><polyline points="7 15 12 20 17 15"></polyline></svg>`;
+        }
+    } else {
+        window.expandedPaths.add(fullPath);
+        if (arrowSpan) arrowSpan.classList.add('expanded');
+        if (iconSpan) {
+            iconSpan.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+        }
+        if (foldBtn) {
+            foldBtn.title = 'Collapse sub-folders';
+            foldBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 4 12 9 7 4"></polyline><polyline points="7 20 12 15 17 20"></polyline></svg>`;
+        }
+
+        if (!childrenContainer) {
+            childrenContainer = document.createElement('div');
+            childrenContainer.className = 'tree-children';
+            node.appendChild(childrenContainer);
+            const subFiles = await window.fetchDirContent(fullPath);
+            await renderLevel(fullPath, subFiles, childrenContainer, level + 1, searchQuery);
+        }
+    }
+}
+
 window.renderTree = renderTree;
 window.expandedPaths = new Set();
 
@@ -271,6 +309,20 @@ window.toggleFolderSubTree = async (folderPath, event) => {
 
     if (subExpanded.length > 0) {
         subExpanded.forEach(p => window.expandedPaths.delete(p));
+        document.querySelectorAll('.file-item.directory').forEach(item => {
+            const p = item.dataset.path;
+            if (p && (p === folderPath || p.startsWith(folderPrefix))) {
+                const node = item.closest('.tree-node');
+                if (node) {
+                    const children = node.querySelector(':scope > .tree-children');
+                    if (children) children.remove();
+                    const arrow = item.querySelector('.tree-arrow');
+                    if (arrow) arrow.classList.remove('expanded');
+                    const icon = item.querySelector('.file-icon');
+                    if (icon) icon.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+                }
+            }
+        });
     } else {
         window.expandedPaths.add(folderPath);
         async function collectSubDirs(dirPath) {
@@ -289,9 +341,6 @@ window.toggleFolderSubTree = async (folderPath, event) => {
             }
         }
         await collectSubDirs(folderPath);
-    }
-
-    if (window.loadDirectory) {
-        window.loadDirectory(window.currentPath || process.cwd());
+        if (window.loadDirectory) window.loadDirectory(window.currentPath || process.cwd());
     }
 };

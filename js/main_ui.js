@@ -1627,8 +1627,10 @@ window.fetchGeminiUsagePercent = function() {
                     const el1 = document.getElementById('gemini-usage-percent-text');
                     const el2 = document.getElementById('taskbar-usage-value');
                     if (res && res.success && res.text) {
-                        if (el1) el1.innerText = res.text;
-                        if (el2) el2.innerText = res.text;
+                        const usedVal = parseInt(res.text, 10);
+                        const remainingVal = isNaN(usedVal) ? res.text : (Math.max(0, Math.min(100, 100 - usedVal)) + '%');
+                        if (el1) el1.innerText = remainingVal;
+                        if (el2) el2.innerText = remainingVal;
                     } else {
                         console.warn('[GeminiUsage] Could not find percent value in rendered page.', res);
                         if (el1) el1.innerText = '--%';

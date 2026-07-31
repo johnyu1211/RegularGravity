@@ -1893,15 +1893,12 @@ async function setupBoot() {
             }
             const badge = document.getElementById('taskbar-sendmd-count-badge');
             if (badge) {
-                badge.innerText = count;
                 if (count > 0) {
-                    badge.style.background = 'rgba(239, 68, 68, 0.25)';
-                    badge.style.color = '#f87171';
-                    badge.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                    badge.innerText = count;
+                    badge.style.display = 'inline';
                 } else {
-                    badge.style.background = 'rgba(255, 255, 255, 0.06)';
-                    badge.style.color = 'var(--text-muted)';
-                    badge.style.borderColor = 'var(--border-color)';
+                    badge.innerText = '';
+                    badge.style.display = 'none';
                 }
             }
         } catch(e) {}

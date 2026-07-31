@@ -543,40 +543,25 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
         if (toggleCollapseBtn) {
             const editorCollapseIcon = document.getElementById('editor-collapse-icon');
             toggleCollapseBtn.onclick = () => {
-                if (!window._editorCollapsed) {
-                    editorContent.querySelectorAll('.editor-detail').forEach(d => {
-                        d.open = false;
-                        const mini = document.getElementById(d.getAttribute('data-mini-id'));
-                        if (mini) mini.open = false;
-                    });
-                    window._editorCollapsed = true;
-                    toggleCollapseBtn.title = 'Expand All';
-                    if (editorCollapseIcon) {
-                        editorCollapseIcon.innerHTML = `<polyline points="7 9 12 4 17 9"></polyline><polyline points="7 15 12 20 17 15"></polyline>`;
-                        editorCollapseIcon.classList.add('rotate-left');
-                    }
-                } else {
-                    editorContent.querySelectorAll('.editor-detail').forEach(d => {
-                        d.open = true;
-                        const mini = document.getElementById(d.getAttribute('data-mini-id'));
-                        if (mini) mini.open = true;
-                    });
-                    window._editorCollapsed = false;
-                    toggleCollapseBtn.title = 'Collapse All';
-                    if (editorCollapseIcon) {
-                        editorCollapseIcon.innerHTML = `<polyline points="17 4 12 9 7 4"></polyline><polyline points="7 20 12 15 17 20"></polyline>`;
-                        editorCollapseIcon.classList.remove('rotate-left');
-                    }
+                const allDetails = Array.from(editorContent.querySelectorAll('.editor-detail'));
+                if (allDetails.length === 0) return;
+                const anyOpen = allDetails.some(d => d.open);
+                const nextState = !anyOpen;
+
+                allDetails.forEach(d => {
+                    d.open = nextState;
+                    const mini = document.getElementById(d.getAttribute('data-mini-id'));
+                    if (mini) mini.open = nextState;
+                });
+                
+                toggleCollapseBtn.title = nextState ? 'Collapse All' : 'Expand All';
+                if (editorCollapseIcon) {
+                    editorCollapseIcon.innerHTML = nextState 
+                        ? `<polyline points="17 4 12 9 7 4"></polyline><polyline points="7 20 12 15 17 20"></polyline>`
+                        : `<polyline points="7 9 12 4 17 9"></polyline><polyline points="7 15 12 20 17 15"></polyline>`;
                 }
                 setTimeout(() => { if (typeof window.updateMinimapThumb === 'function') window.updateMinimapThumb(); }, 80);
             };
-            window._editorCollapsed = true;
-            toggleCollapseBtn.title = 'Expand All';
-            if (editorCollapseIcon) {
-                editorCollapseIcon.innerHTML = `<polyline points="17 4 12 9 7 4"></polyline><polyline points="7 20 12 15 17 20"></polyline>`;
-                editorCollapseIcon.classList.remove('rotate-left');
-            }
-            setTimeout(() => { if (typeof window.updateMinimapThumb === 'function') window.updateMinimapThumb(); }, 120);
         }
 
         const binaryExts = ['exe', 'dll', 'bin', 'zip', 'rar', 'tar', 'gz', '7z', 'pdf', 'mp3', 'mp4', 'wav', 'avi', 'mov', 'iso', 'so', 'dylib', 'class', 'jar', 'war', 'db', 'sqlite'];

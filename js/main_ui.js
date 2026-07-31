@@ -4311,9 +4311,9 @@ function setupUI() {
 
     if (collapseToggleBtn) {
         collapseToggleBtn.onclick = () => {
-            if (!_treeCollapsed) {
-                window.expandedPaths && window.expandedPaths.clear();
-                _treeCollapsed = true;
+            const hasExpanded = window.expandedPaths && window.expandedPaths.size > 0;
+            if (hasExpanded) {
+                window.expandedPaths.clear();
                 collapseToggleBtn.title = 'Expand All';
                 if (collapseIcon) {
                     collapseIcon.innerHTML = SVG_EXPAND;
@@ -4324,7 +4324,6 @@ function setupUI() {
                     const p = el.dataset.path;
                     if (p && window.expandedPaths) window.expandedPaths.add(p);
                 });
-                _treeCollapsed = false;
                 collapseToggleBtn.title = 'Collapse All';
                 if (collapseIcon) {
                     collapseIcon.innerHTML = SVG_COLLAPSE;

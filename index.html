@@ -381,11 +381,11 @@
                         
                         <!-- Settings Header -->
                         <div style="font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 5px;">
-                            AGENT SETTINGS
+                            SETTINGS
                         </div>
 
                         <!-- Settings Content -->
-                        <div id="settings-content-autodrag" style="display: flex; flex-direction: column; gap: 16px; min-height: 180px; box-sizing: border-box; padding-top: 5px;">
+                        <div id="settings-content-autodrag" style="display: flex; flex-direction: column; gap: 16px; min-height: 140px; box-sizing: border-box; padding-top: 5px;">
                             <!-- Toggle: Sending File Format -->
                             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
                                 <div style="display: flex; flex-direction: column; gap: 4px; max-width: 70%;">
@@ -408,17 +408,6 @@
                                     <option value="false">OFF</option>
                                     <option value="true">ON</option>
                                 </select>
-                            </div>
-
-                            <!-- Notice / Caution Block -->
-                            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 3.5px solid #f59e0b; padding: 12px 14px; border-radius: 10px; font-size: 11px; color: #cbd5e1; line-height: 1.55; font-family: 'DM Sans', sans-serif; margin-top: 8px;">
-                                <div style="font-family: 'Outfit', sans-serif; font-weight: 700; color: #fbbf24; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; font-size: 11.5px;">
-                                    <span>⚠️ Notice & Operating Guidelines</span>
-                                </div>
-                                <ul style="margin: 0; padding-left: 16px; color: #94a3b8; display: flex; flex-direction: column; gap: 4px;">
-                                    <li>When sending files or project trees, temporary <code style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:1px 4px; border-radius:3px; color:#f59e0b; font-family:'JetBrains Mono', monospace; font-size:10px;">.md</code> files are created in <code style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:1px 4px; border-radius:3px; color:#f59e0b; font-family:'JetBrains Mono', monospace; font-size:10px;">SendingMD/</code> and delivered to Web AI.</li>
-                                    <li>Web AI session commands are executed locally after review in the bottom action deck.</li>
-                                </ul>
                             </div>
                         </div>
                         
@@ -609,7 +598,7 @@
     <div id="local-settings-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:100000; align-items:center; justify-content:center;">
         <div style="background:var(--surface-color); padding:20px; width:300px; border:1px solid var(--border-color); border-radius:12px; display:flex; flex-direction:column; gap:16px; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
             <div style="font-size:13px; font-weight:700; color:#fff; font-family:'DM Sans',sans-serif; border-bottom:1px solid var(--border-color); padding-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                <span>Agent Settings</span>
+                <span>Settings</span>
                 <span id="close-local-settings" style="cursor:pointer; color:var(--text-muted); font-size:16px;">&times;</span>
             </div>
             

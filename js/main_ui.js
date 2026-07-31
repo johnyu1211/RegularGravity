@@ -4045,10 +4045,10 @@ function setupUI() {
                             </label>
                         </div>
                         <!-- Notice / Caution Block -->
-                        <div style="background:rgba(234, 179, 8, 0.08); border:1px solid rgba(234, 179, 8, 0.3); padding:10px 12px; border-radius:8px; font-size:10.5px; color:#eee; line-height:1.5; margin-top:2px;">
-                            <div style="font-weight:700; color:#eab308; margin-bottom:4px; font-size:11px;">⚠️ Notice & Caution</div>
-                            <ul style="margin:0; padding-left:14px; color:#ccc; display:flex; flex-direction:column; gap:3px;">
-                                <li>When sending files or project data, temporary <code>.md</code> files are created in the <code>SendingMD/</code> folder and delivered to Web AI.</li>
+                        <div style="background:rgba(255, 255, 255, 0.03); border:1px solid rgba(255, 255, 255, 0.08); border-left:3px solid #f59e0b; padding:10px 12px; border-radius:8px; font-size:10.5px; color:#cbd5e1; line-height:1.5; margin-top:4px;">
+                            <div style="font-family:'Outfit', sans-serif; font-weight:700; color:#fbbf24; margin-bottom:4px; font-size:11px;">⚠️ Notice & Guidelines</div>
+                            <ul style="margin:0; padding-left:14px; color:#94a3b8; display:flex; flex-direction:column; gap:3px;">
+                                <li>When sending files or project data, temporary <code style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:1px 4px; border-radius:3px; color:#f59e0b; font-family:'JetBrains Mono', monospace; font-size:9.5px;">.md</code> files are created in <code style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:1px 4px; border-radius:3px; color:#f59e0b; font-family:'JetBrains Mono', monospace; font-size:9.5px;">SendingMD/</code> and delivered to Web AI.</li>
                                 <li>Web AI session commands are executed locally after review in the bottom action deck.</li>
                             </ul>
                         </div>

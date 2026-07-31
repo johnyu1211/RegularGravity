@@ -388,9 +388,10 @@ window.updateDragDropQueueUI = function() {
         if (window.dragDropAbortMessage) {
             warningEl.innerHTML = window.dragDropAbortMessage;
             warningEl.style.color = '#ff4444';
+            warningEl.style.display = 'flex';
         } else {
-            warningEl.innerHTML = `⚠️ Do not move the mouse during auto upload.`;
-            warningEl.style.color = `var(--error)`;
+            warningEl.innerHTML = ``;
+            warningEl.style.display = 'none';
         }
     }
     

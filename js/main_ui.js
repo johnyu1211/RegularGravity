@@ -815,7 +815,8 @@ ${editRule}
    - Delete/CreateDir/Move: [CMD: delete-file "path"], [CMD: create-dir "path"], [CMD: move-file "src" "dest"].
 3. RUN CMD: [CMD: run-command "command"] (build, test, shell).
 4. RESET: Use [CMD: reset-session] if lagging.
-5. WAIT: Explain current state, do not plan, wait for user.`;
+5. WAIT: Explain current state, do not plan, wait for user.
+6. LEAN CODE: Prefer minimal, simple implementation (YAGNI). Avoid over-engineering, redundant wrappers, or unused features. Maintain strict error handling and security.`;
 
     if (forceFull) {
         return fullRules;

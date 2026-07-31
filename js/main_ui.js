@@ -3583,6 +3583,9 @@ function setupUI() {
         };
         closeBtn.onclick = (e) => {
             e.stopPropagation();
+            if (popover.dataset.usageTimer) {
+                clearInterval(parseInt(popover.dataset.usageTimer));
+            }
             popover.remove();
             if (key === 'github') {
                 if (gitToggleBtn) {
@@ -3642,6 +3645,12 @@ function setupUI() {
                 geminiUsageToggleBtn.style.background = 'var(--primary)';
                 geminiUsageToggleBtn.style.borderColor = 'var(--primary)';
             }
+            const runScrape = () => window.scrapeGeminiUsagePercent(webview);
+            webview.addEventListener('dom-ready', runScrape);
+            webview.addEventListener('did-finish-load', runScrape);
+            webview.addEventListener('did-navigate-in-page', runScrape);
+            const usageTimer = setInterval(runScrape, 2500);
+            popover.dataset.usageTimer = usageTimer;
         } else {
             if (buttonEl) {
                 buttonEl.style.background = 'var(--primary)';
@@ -3658,6 +3667,38 @@ function setupUI() {
             createWebPopover('github', 'https://github.com', 'GitHub', gitToggleBtn, true);
         };
     }
+
+window.updateGeminiUsageBadge = function(percentStr) {
+    if (!percentStr) return;
+    const badge = document.getElementById('gemini-usage-badge');
+    const btn = document.getElementById('gemini-usage-toggle-btn');
+    if (!badge || !btn) return;
+    badge.innerText = percentStr;
+    badge.style.display = 'inline-block';
+};
+
+window.scrapeGeminiUsagePercent = function(wv) {
+    if (!wv) return;
+    const jsScript = `
+        (() => {
+            try {
+                const text = document.body ? document.body.innerText : '';
+                let m = text.match(/현재\s*사용량[\s\S]*?(\d+%\s*사용됨)/i) || 
+                          text.match(/(\d+%\s*사용됨)/i) || 
+                          text.match(/Current\s*usage[\s\S]*?(\d+%\s*used)/i) ||
+                          text.match(/(\d+%\s*used)/i) ||
+                          text.match(/(\d+%)/);
+                if (m && m[1]) return m[1];
+            } catch(e) {}
+            return null;
+        })()
+    `;
+    wv.executeJavaScript(jsScript).then(result => {
+        if (result && typeof window.updateGeminiUsageBadge === 'function') {
+            window.updateGeminiUsageBadge(result);
+        }
+    }).catch(() => {});
+};
 
     if (geminiUsageToggleBtn) {
         geminiUsageToggleBtn.onclick = (e) => {

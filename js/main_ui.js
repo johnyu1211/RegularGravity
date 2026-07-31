@@ -1785,7 +1785,7 @@ async function setupBoot() {
                         lastAiText = await wv.executeJavaScript(`
                             (() => {
                                 try {
-                                    const aiElems = Array.from(document.querySelectorAll('[data-is-streaming="false"], .model-response-text, .assistant-message, [data-message-author-role="assistant"]'));
+                                    const aiElems = Array.from(document.querySelectorAll('[data-is-streaming="false"], .model-response-text, .assistant-message, [data-message-author-role="assistant"], message-content, .message-content, model-response, [data-test-id="model-response"]'));
                                     if (aiElems.length > 0) {
                                         return aiElems[aiElems.length - 1].innerText || '';
                                     }

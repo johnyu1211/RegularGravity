@@ -222,9 +222,9 @@ window.toggleEditorEditMode = function() {
         }, 20);
 
         if (btnEdit) {
-            btnEdit.style.background = '#10b981';
-            btnEdit.title = 'Save File (Ctrl+S)';
-            btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>';
+            btnEdit.style.background = 'var(--primary)';
+            btnEdit.title = 'Edit Mode (Click to Save & Return 👁️)';
+            btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>';
         }
         if (btnCancel) btnCancel.style.display = 'flex';
 
@@ -505,9 +505,9 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
     const btnEdit = document.getElementById('btn-editor-edit');
     const btnCancel = document.getElementById('btn-editor-cancel');
     if (btnEdit) {
-        btnEdit.style.background = 'var(--primary)';
-        btnEdit.title = 'Edit File';
-        btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+        btnEdit.style.background = 'var(--surface-low)';
+        btnEdit.title = 'View Mode (Click for Code Edit Mode </ >)';
+        btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
         btnEdit.onclick = () => window.toggleEditorEditMode();
     }
     if (btnCancel) {

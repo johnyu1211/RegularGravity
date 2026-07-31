@@ -177,12 +177,31 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
             item.appendChild(copyPathBtn);
         }
 
+        // Sub-folder Fold/Unfold Toggle Button (>< / <>) - Skip for ../
+        if (isDir && !isParentEntry) {
+            const folderFoldBtn = document.createElement('span');
+            folderFoldBtn.className = 'folder-fold-btn';
+            
+            const sep = fullPath.includes('/') ? '/' : '\\';
+            const folderPrefix = fullPath.endsWith(sep) ? fullPath : fullPath + sep;
+            const hasExpandedSub = window.expandedPaths && Array.from(window.expandedPaths).some(p => p === fullPath || p.startsWith(folderPrefix));
+
+            folderFoldBtn.innerHTML = hasExpandedSub
+                ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 4 12 9 7 4"></polyline><polyline points="7 20 12 15 17 20"></polyline></svg>`
+                : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 9 12 4 17 9"></polyline><polyline points="7 15 12 20 17 15"></polyline></svg>`;
+            folderFoldBtn.title = hasExpandedSub ? 'Collapse sub-folders' : 'Expand sub-folders';
+            folderFoldBtn.onclick = (e) => {
+                window.toggleFolderSubTree(fullPath, e);
+            };
+            item.appendChild(folderFoldBtn);
+        }
+
         // Drill-down Button (→) - Skip for ../
         if (isDir && !isParentEntry) {
             const drillBtn = document.createElement('span');
             drillBtn.className = 'jump-folder-btn';
             // Override folder margin-left to stack next to copy-path-btn
-            drillBtn.style.marginLeft = '0';
+            drillBtn.style.marginLeft = '2px';
             drillBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`; 
             drillBtn.title = `Navigate into this folder`;
             drillBtn.onclick = (e) => {
@@ -237,3 +256,42 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
 
 window.renderTree = renderTree;
 window.expandedPaths = new Set();
+
+window.toggleFolderSubTree = async (folderPath, event) => {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    if (!window.expandedPaths) window.expandedPaths = new Set();
+    
+    const sep = folderPath.includes('/') ? '/' : '\\';
+    const folderPrefix = folderPath.endsWith(sep) ? folderPath : folderPath + sep;
+
+    const subExpanded = Array.from(window.expandedPaths).filter(p => p === folderPath || p.startsWith(folderPrefix));
+
+    if (subExpanded.length > 0) {
+        subExpanded.forEach(p => window.expandedPaths.delete(p));
+    } else {
+        window.expandedPaths.add(folderPath);
+        async function collectSubDirs(dirPath) {
+            try {
+                const files = await window.fetchDirContent(dirPath);
+                if (!Array.isArray(files)) return;
+                for (const f of files) {
+                    if (f && f.isDir && !f.isParentEntry && !f.name.toLowerCase().startsWith('_project')) {
+                        const childPath = dirPath.endsWith(sep) ? dirPath + f.name : dirPath + sep + f.name;
+                        window.expandedPaths.add(childPath);
+                        await collectSubDirs(childPath);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed collecting subdirs:", err);
+            }
+        }
+        await collectSubDirs(folderPath);
+    }
+
+    if (window.loadDirectory) {
+        window.loadDirectory(window.currentPath || process.cwd());
+    }
+};

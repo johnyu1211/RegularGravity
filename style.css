@@ -329,6 +329,27 @@ body {
     color: #fff;
     background: rgba(255, 255, 255, 0.08);
 }
+.folder-fold-btn {
+    opacity: 0;
+    color: #555;
+    padding: 0;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 16px;
+    width: 16px;
+    border-radius: 4px;
+    margin-left: 2px;
+    margin-top: 1px;
+}
+.file-item:hover .folder-fold-btn {
+    opacity: 1;
+}
+.folder-fold-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
 
 /* Local Chat UI */
 #local-chat-messages {

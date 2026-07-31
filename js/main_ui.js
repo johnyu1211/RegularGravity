@@ -3139,15 +3139,16 @@ window.setTaskbarActionsVisible = function(visible) {
 window.showNoticeModal = function(force = false) {
     const noticeModal = document.getElementById('first-launch-notice-modal');
     const closeBtn = document.getElementById('close-first-launch-notice');
+    const closeX = document.getElementById('close-first-launch-notice-x');
     if (!noticeModal) return;
     if (force || !localStorage.getItem('rg_notice_seen')) {
         noticeModal.style.display = 'flex';
-        if (closeBtn) {
-            closeBtn.onclick = () => {
-                noticeModal.style.display = 'none';
-                localStorage.setItem('rg_notice_seen', 'true');
-            };
-        }
+        const hide = () => {
+            noticeModal.style.display = 'none';
+            localStorage.setItem('rg_notice_seen', 'true');
+        };
+        if (closeBtn) closeBtn.onclick = hide;
+        if (closeX) closeX.onclick = hide;
     }
 };
 

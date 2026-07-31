@@ -3,5 +3,6 @@
   "debugMode": false,
   "dragDropMode": true,
   "autoDragging": false,
-  "sendFormat": "md"
+  "sendFormat": "md",
+  "autoGemini": true
 }

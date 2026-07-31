@@ -648,6 +648,9 @@ window.reloadAgentSettings = function() {
             window.autoRefreshSession = !!settings.autoRefreshSession;
             window.refreshTurnCount = parseInt(settings.refreshTurnCount) || 35;
             window.sendFormat = settings.sendFormat === 'pdf' ? 'pdf' : 'md';
+            window.autoGemini = !!settings.autoGemini;
+            const homeBtn = document.getElementById('taskbar-home-btn');
+            if (homeBtn) homeBtn.style.display = window.autoGemini ? 'none' : 'flex';
             return;
         }
     } catch(e) {}
@@ -656,10 +659,13 @@ window.reloadAgentSettings = function() {
     window.debugMode = false;
     window.dragDropMode = true;
     window.autoDragging = false;
-window.sessionTurnCount = 0;
-window.autoRefreshSession = false;
-window.refreshTurnCount = 35;
-window.sendFormat = 'md';
+    window.sessionTurnCount = 0;
+    window.autoRefreshSession = false;
+    window.refreshTurnCount = 35;
+    window.sendFormat = 'md';
+    window.autoGemini = false;
+    const homeBtn = document.getElementById('taskbar-home-btn');
+    if (homeBtn) homeBtn.style.display = 'flex';
 };
 
 window.prepareFilePayload = async function(baseFileName, mdContent) {
@@ -867,6 +873,16 @@ function detectAndAskCommand(text) {
     }
 
     if (foundCmds.length === 0) {
+        const lines = text.split('\n');
+        for (let line of lines) {
+            let trimmed = line.trim().replace(/^[`\s]+|[`\s]+$/g, '');
+            if (/^(read-file|write-file|edit-file|edit-file-range|read-file-full|read-file-range|delete-file|run-command|list-dir|search-keyword|move-file|reset-session)\b/i.test(trimmed)) {
+                foundCmds.push(trimmed);
+            }
+        }
+    }
+
+    if (foundCmds.length === 0) {
         if (window.autoContinueOnRead) {
             const toast = document.getElementById('injection-toast');
             if (toast) toast.style.display = 'none';
@@ -968,8 +984,18 @@ function detectAndAskCommand(text) {
             const res = resolvePathAndExists(pathStr);
             readCmds.push({ path: res.path, full: false, exists: res.exists, isDirectory: res.isDirectory });
         } else if (writeMatch) {
+            const findCmdIdx = (fullText, targetCmd) => {
+                let idx = fullText.indexOf(targetCmd);
+                if (idx !== -1) return idx;
+                const sanitized = targetCmd.replace(/"/g, '\\"');
+                idx = fullText.indexOf(sanitized);
+                if (idx !== -1) return idx;
+                const baseCmd = targetCmd.split(/\s+/)[0];
+                return fullText.indexOf(baseCmd);
+            };
+
             const filePath = getParsedPath(writeMatch).trim();
-            const cmdIdx = text.indexOf(rawCmd);
+            const cmdIdx = findCmdIdx(text, rawCmd);
             let codeVal = "";
             let hasCodeBlock = false;
             if (cmdIdx !== -1) {
@@ -984,10 +1010,20 @@ function detectAndAskCommand(text) {
                 writeCmds.push({ path: filePath, code: codeVal });
             }
         } else if (editRangeMatch) {
+            const findCmdIdx = (fullText, targetCmd) => {
+                let idx = fullText.indexOf(targetCmd);
+                if (idx !== -1) return idx;
+                const sanitized = targetCmd.replace(/"/g, '\\"');
+                idx = fullText.indexOf(sanitized);
+                if (idx !== -1) return idx;
+                const baseCmd = targetCmd.split(/\s+/)[0];
+                return fullText.indexOf(baseCmd);
+            };
+
             const filePath = getParsedPath(editRangeMatch).trim();
             const startLine = parseInt(editRangeMatch[4]);
             const endLine = parseInt(editRangeMatch[5]);
-            const cmdIdx = text.indexOf(rawCmd);
+            const cmdIdx = findCmdIdx(text, rawCmd);
             let codeVal = "";
             let hasCodeBlock = false;
             if (cmdIdx !== -1) {
@@ -1002,8 +1038,18 @@ function detectAndAskCommand(text) {
                 editCmds.push({ type: 'range', path: filePath, start: startLine, end: endLine, code: codeVal });
             }
         } else if (editMatch) {
+            const findCmdIdx = (fullText, targetCmd) => {
+                let idx = fullText.indexOf(targetCmd);
+                if (idx !== -1) return idx;
+                const sanitized = targetCmd.replace(/"/g, '\\"');
+                idx = fullText.indexOf(sanitized);
+                if (idx !== -1) return idx;
+                const baseCmd = targetCmd.split(/\s+/)[0];
+                return fullText.indexOf(baseCmd);
+            };
+
             const filePath = getParsedPath(editMatch).trim();
-            const cmdIdx = text.indexOf(rawCmd);
+            const cmdIdx = findCmdIdx(text, rawCmd);
             if (cmdIdx !== -1) {
                 const subText = text.substring(cmdIdx);
                 const parsedBlocks = window.parseSearchReplaceBlocks(subText, filePath);
@@ -1575,6 +1621,28 @@ async function setupBoot() {
             hideManualCmdPanel();
             if (manualCmdTextarea) manualCmdTextarea.value = '';
             
+            window.dragDropMode = true;
+            window.activeDragDropCleanup = () => {
+                window.dragDropMode = false;
+                window.requestedFilesQueue = [];
+                if (typeof window.updateDragDropQueueUI === 'function') {
+                    window.updateDragDropQueueUI();
+                }
+            };
+            window.activeDragDropContinue = async () => {
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    ChatUI.appendBubble('system', '[SYSTEM] Manual CMD execution payload ready.');
+                }
+                if (typeof runExperimentalEngine === 'function') {
+                    runExperimentalEngine('/marktag', "", null).then(response => {
+                        if (response) {
+                            if (typeof window.finalizeAiBubble === 'function') window.finalizeAiBubble(response);
+                            if (typeof detectAndAskCommand === 'function') detectAndAskCommand(response);
+                        }
+                    }).catch(err => console.error(err));
+                }
+            };
+            
             if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
                 ChatUI.appendBubble('system', '[SYSTEM] Manual CMD text submitted. Parsing commands...');
             }
@@ -1887,7 +1955,7 @@ window.setTaskbarActionsVisible = function(visible) {
                         location.reload();
                     }
                 }, true);
-            `);
+            `).catch(() => {});
             if (typeof window.injectGuestDropInterceptor === 'function') {
                 window.injectGuestDropInterceptor();
             }
@@ -2172,7 +2240,7 @@ window.setTaskbarActionsVisible = function(visible) {
                     const observer = new MutationObserver(() => { checkAndSend(); });
                     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
                 })();
-            `);
+            `).catch(() => {});
         });
 
         if (!isSilentBoot) {
@@ -3040,7 +3108,7 @@ window.setTaskbarActionsVisible = function(visible) {
         geminiApp = { url: 'https://gemini.google.com/app', input: 'rich-textarea, div[contenteditable="true"], textarea', send: 'button[aria-label*="Send"], button[aria-label*="보내기"]', response: '' };
         apps.unshift(geminiApp); ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: JSON.stringify(apps) });
     }
-    apps.forEach(appData => create(appData)); if (geminiApp) window.launchWebAgent(geminiApp, true);
+    apps.forEach(appData => create(appData)); if (geminiApp) window.launchWebAgent(geminiApp, !window.autoGemini);
 
     const addTermBtn = document.getElementById('add-terminal');
     if (addTermBtn) addTermBtn.onclick = () => addSubTerminal();
@@ -3924,6 +3992,14 @@ function setupUI() {
                                 <option value="pdf" ${window.sendFormat === 'pdf' ? 'selected' : ''}>PDF (.pdf)</option>
                             </select>
                         </div>
+                        <!-- Auto Gemini -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;">Auto Gemini</span>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="chk-auto-gemini" ${window.autoGemini ? 'checked' : ''}>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
                     </div>
                 `;
                 
@@ -3931,6 +4007,7 @@ function setupUI() {
                 const chkAutoRefresh = document.getElementById('chk-auto-refresh-session');
                 const txtRefreshCount = document.getElementById('txt-refresh-turn-count');
                 const containerRefresh = document.getElementById('refresh-turn-container');
+                const chkAutoGemini = document.getElementById('chk-auto-gemini');
                 
                 const selSendFormat = document.getElementById('chk-send-format');
 
@@ -3949,7 +4026,8 @@ function setupUI() {
                         autoDragging: false,
                         autoRefreshSession: !!chkAutoRefresh.checked,
                         refreshTurnCount: parseInt(txtRefreshCount.value) || 35,
-                        sendFormat: selSendFormat ? selSendFormat.value : 'md'
+                        sendFormat: selSendFormat ? selSendFormat.value : 'md',
+                        autoGemini: chkAutoGemini ? !!chkAutoGemini.checked : false
                     };
                     saveSettings(settingsData);
                     window.reloadAgentSettings();
@@ -3957,6 +4035,7 @@ function setupUI() {
                 
                 if (txtRefreshCount) txtRefreshCount.onchange = updateAndSave;
                 if (chkDebug) chkDebug.onchange = updateAndSave;
+                if (chkAutoGemini) chkAutoGemini.onchange = updateAndSave;
                 if (selSendFormat) selSendFormat.onchange = updateAndSave;
             }
             
@@ -4235,6 +4314,8 @@ function setupUI() {
             const currentSettings = loadSettings();
             const selSendFormat = document.getElementById('settings-send-format');
             if (selSendFormat) selSendFormat.value = currentSettings.sendFormat || 'md';
+            const selAutoGemini = document.getElementById('settings-auto-gemini');
+            if (selAutoGemini) selAutoGemini.value = currentSettings.autoGemini ? 'true' : 'false';
 
             switchSettingsTab('autodrag'); // Start at Tab 1
             if (dsModal) dsModal.style.display = 'flex';
@@ -4251,6 +4332,7 @@ function setupUI() {
             }
             
             const selSendFormat = document.getElementById('settings-send-format');
+            const selAutoGemini = document.getElementById('settings-auto-gemini');
             const settingsData = loadSettings();
             window.dragDropMode = true;
             settingsData.dragDropMode = true;
@@ -4259,6 +4341,10 @@ function setupUI() {
             if (selSendFormat) {
                 window.sendFormat = selSendFormat.value;
                 settingsData.sendFormat = selSendFormat.value;
+            }
+            if (selAutoGemini) {
+                window.autoGemini = (selAutoGemini.value === 'true');
+                settingsData.autoGemini = window.autoGemini;
             }
             saveSettings(settingsData);
             window.reloadAgentSettings();

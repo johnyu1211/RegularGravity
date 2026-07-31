@@ -78,18 +78,30 @@ window.isEditingMode = false;
 
 window.saveCurrentEditorFile = function() {
     if (!window.currentEditingPath) return;
-    const editArea = document.getElementById('editor-raw-textarea');
-    if (!editArea) return;
+    const editorContent = document.getElementById('editor-content');
+    if (!editorContent) return;
+
     try {
         const fs = require('fs');
-        const newContent = editArea.value;
+        let newContent = '';
+
+        const codeLines = editorContent.querySelectorAll('.line-code-text');
+        if (codeLines.length > 0 && window.isEditingMode) {
+            newContent = Array.from(codeLines).map(el => el.innerText).join('\n');
+        } else {
+            const editArea = document.getElementById('editor-raw-textarea');
+            if (editArea) newContent = editArea.value;
+        }
 
         window.editorHistory.push(fs.readFileSync(window.currentEditingPath, 'utf-8'));
         window.historyIndex = window.editorHistory.length - 1;
         
         fs.writeFileSync(window.currentEditingPath, newContent, 'utf-8');
         window.isEditingMode = false;
-        editArea.style.display = 'none';
+        editorContent.classList.remove('editor-editing-active');
+
+        const editArea = document.getElementById('editor-raw-textarea');
+        if (editArea) editArea.style.display = 'none';
 
         if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
             const pathModule = require('path');
@@ -112,52 +124,53 @@ window.toggleEditorEditMode = function() {
     if (!window.isEditingMode) {
         window.isEditingMode = true;
         
-        const fs = require('fs');
-        let rawContent = '';
-        try {
-            rawContent = fs.readFileSync(window.currentEditingPath, 'utf-8').replace(/\r/g, '');
-        } catch(e) {}
+        const codeLines = editorContent.querySelectorAll('.line-code-text');
+        if (codeLines.length > 0) {
+            codeLines.forEach(el => {
+                el.contentEditable = 'true';
+                el.setAttribute('spellcheck', 'false');
+                el.onkeydown = (e) => {
+                    if (e.key === 'Tab') {
+                        e.preventDefault();
+                        document.execCommand('insertText', false, '    ');
+                    }
+                };
+            });
+            editorContent.classList.add('editor-editing-active');
+            if (codeLines[0]) codeLines[0].focus();
+        } else {
+            // Fallback for unparsed or plain files
+            const fs = require('fs');
+            let rawContent = '';
+            try { rawContent = fs.readFileSync(window.currentEditingPath, 'utf-8').replace(/\r/g, ''); } catch(e) {}
 
-        let editArea = document.getElementById('editor-raw-textarea');
-        if (!editArea) {
-            editArea = document.createElement('textarea');
-            editArea.id = 'editor-raw-textarea';
-            editArea.style = `
-                position: absolute;
-                top: 0; left: 0; right: 0; bottom: 0;
-                width: 100%;
-                height: 100%;
-                background: #0b0c0e;
-                color: #e4e4e7;
-                font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-                font-size: 12.5px;
-                line-height: 1.6;
-                padding: 16px;
-                border: none;
-                outline: none;
-                resize: none;
-                box-sizing: border-box;
-                z-index: 1000;
-                tab-size: 4;
-                white-space: pre;
-                overflow: auto;
-            `;
-            editArea.onkeydown = (e) => {
-                if (e.key === 'Tab') {
-                    e.preventDefault();
-                    const start = editArea.selectionStart;
-                    const end = editArea.selectionEnd;
-                    editArea.value = editArea.value.substring(0, start) + '    ' + editArea.value.substring(end);
-                    editArea.selectionStart = editArea.selectionEnd = start + 4;
-                }
-            };
-            editorContent.style.position = 'relative';
-            editorContent.appendChild(editArea);
+            let editArea = document.getElementById('editor-raw-textarea');
+            if (!editArea) {
+                editArea = document.createElement('textarea');
+                editArea.id = 'editor-raw-textarea';
+                editArea.style = `
+                    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+                    width: 100%; height: 100%; background: #0b0c0e; color: #e4e4e7;
+                    font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6;
+                    padding: 16px; border: none; outline: none; resize: none; box-sizing: border-box;
+                    z-index: 1000; tab-size: 4; white-space: pre; overflow: auto;
+                `;
+                editArea.onkeydown = (e) => {
+                    if (e.key === 'Tab') {
+                        e.preventDefault();
+                        const start = editArea.selectionStart;
+                        const end = editArea.selectionEnd;
+                        editArea.value = editArea.value.substring(0, start) + '    ' + editArea.value.substring(end);
+                        editArea.selectionStart = editArea.selectionEnd = start + 4;
+                    }
+                };
+                editorContent.style.position = 'relative';
+                editorContent.appendChild(editArea);
+            }
+            editArea.value = rawContent;
+            editArea.style.display = 'block';
+            setTimeout(() => editArea.focus(), 20);
         }
-
-        editArea.value = rawContent;
-        editArea.style.display = 'block';
-        setTimeout(() => editArea.focus(), 20);
 
         if (btnEdit) {
             btnEdit.style.background = '#10b981';
@@ -168,7 +181,7 @@ window.toggleEditorEditMode = function() {
 
         const modeEl = document.getElementById('status-bar-mode');
         if (modeEl) {
-            modeEl.innerText = 'EDITING (FULL EDITOR)';
+            modeEl.innerText = 'EDITING (INLINE)';
             modeEl.style.color = '#f59e0b';
         }
     } else {
@@ -178,6 +191,8 @@ window.toggleEditorEditMode = function() {
 
 window.cancelEditorEdit = function() {
     window.isEditingMode = false;
+    const editorContent = document.getElementById('editor-content');
+    if (editorContent) editorContent.classList.remove('editor-editing-active');
     const editArea = document.getElementById('editor-raw-textarea');
     if (editArea) editArea.style.display = 'none';
     if (window.currentEditingPath) {
@@ -568,6 +583,9 @@ window.openFileInEditor = (filePath) => {
 
                 editorContent.innerHTML = `
                     <style>
+                        .editor-editing-active .line-code-text { cursor: text; border-radius: 2px; transition: background 0.15s, outline 0.15s; }
+                        .editor-editing-active .line-code-text:hover { background: rgba(255, 255, 255, 0.05); }
+                        .editor-editing-active .line-code-text:focus { background: rgba(56, 189, 248, 0.1); outline: 1px dashed rgba(56, 189, 248, 0.5); }
                         .line-num { position: sticky; left: 0; z-index: 2; display: inline-block; width: 30px; min-width: 30px; text-align: right; color: #555; user-select: none; margin-right: 12px; font-size: 11px; font-family: 'JetBrains Mono', monospace; border-right: 1px solid #333; padding-right: 8px; flex-shrink: 0; transition: color 0.1s; background: transparent; }
                         .rg-line .line-num { background: #000; } .rg-line:hover .line-num { background: #141414; }
                         .rg-body .rg-line .line-num { background: #070707; } .rg-body .rg-line:hover .line-num { background: #1b1b1b; }

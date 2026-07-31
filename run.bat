@@ -1,14 +1,14 @@
 @echo off
-TITLE PormsG Launcher
+TITLE RegularGravity Launcher
 SETLOCAL
 
 cd /d "%~dp0"
 
-echo [PormsG] Initializing...
+echo [RegularGravity] Initializing...
 
 :: Check for node_modules
 IF NOT EXIST "node_modules\" (
-    echo [PormsG] node_modules not found. Installing dependencies...
+    echo [RegularGravity] node_modules not found. Installing dependencies...
     call npm install
     if %ERRORLEVEL% NEQ 0 (
         echo [ERROR] npm install failed. Make sure Node.js is installed.
@@ -17,7 +17,7 @@ IF NOT EXIST "node_modules\" (
     )
 )
 
-echo [PormsG] Starting Electron...
+echo [RegularGravity] Starting Electron...
 call npm start
 
 if %ERRORLEVEL% NEQ 0 (

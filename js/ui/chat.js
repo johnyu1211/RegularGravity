@@ -216,7 +216,7 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
     if (promptText === '/help') {
         if (chatIn) chatIn.value = '';
         ChatUI.appendBubble('ai', `
-**PormsG Command List**
+**REGULAR GRAVITy Command List**
 - \`/marktag [msg]\`: Precision Markdown tag extraction (Recommended)
 - \`/spatialMutation [msg]\`: Extract changes by monitoring specific area
 - \`/mutation [msg]\`: Extract changes by monitoring full DOM

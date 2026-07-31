@@ -230,7 +230,7 @@ window.editBlockContent = (syncId, event) => {
     const detailEl = document.getElementById('editor-' + syncId);
     if (!detailEl) return;
 
-    const footerEl = detailEl.parentElement.querySelector('.pormsg-footer');
+    const footerEl = detailEl.parentElement.querySelector('.rg-footer');
     const startLine = parseInt(detailEl.dataset.start);
     const endLine = footerEl ? parseInt(footerEl.dataset.end) : startLine;
     
@@ -347,7 +347,7 @@ window.pasteToBlock = async (syncId, event) => {
         const detailEl = document.getElementById('editor-' + syncId);
         if (!detailEl) { alert("박스를 찾을 수 없습니다."); return; }
 
-        const footerEl = detailEl.parentElement.querySelector('.pormsg-footer');
+        const footerEl = detailEl.parentElement.querySelector('.rg-footer');
         const startLine = parseInt(detailEl.dataset.start);
         const endLine = footerEl ? parseInt(footerEl.dataset.end) : startLine;
         
@@ -545,17 +545,17 @@ window.openFileInEditor = (filePath) => {
                         let isBlockOpen = (savedBlockStates[i] !== undefined) ? savedBlockStates[i] : true;
                         let openAttr = isBlockOpen ? ' open' : '';
 
-                        finalHTML += `<div class="pormsg-block"><details class="editor-detail"${openAttr} data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="pormsg-header">${lineNumHTML}<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span></div><button class="box-edit-btn" onclick="window.editBlockContent('${syncId}', event)" title="Edit this block"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="box-copy-btn" onclick="window.copyBlockContent('${syncId}', event)" title="Copy block content"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><span class="caret" style="color:var(--text-muted); display:inline-flex; align-items:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="9 18 15 12 9 6"></polyline></svg></span></summary><div class="pormsg-body" id="body-${syncId}">`;
+                        finalHTML += `<div class="rg-block"><details class="editor-detail"${openAttr} data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="rg-header">${lineNumHTML}<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span></div><button class="box-edit-btn" onclick="window.editBlockContent('${syncId}', event)" title="Edit this block"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="box-copy-btn" onclick="window.copyBlockContent('${syncId}', event)" title="Copy block content"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><span class="caret" style="color:var(--text-muted); display:inline-flex; align-items:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="9 18 15 12 9 6"></polyline></svg></span></summary><div class="rg-body" id="body-${syncId}">`;
                         minimapHTML += `<details id="${syncId}" class="mini-detail"${openAttr}><summary class="mini-summary">${mmLine}</summary><div class="mini-body">`;
                     } else if (net < 0 && blockStack.length > 0) {
                         let popped = blockStack.pop();
                         let lineCount = i - popped.start + 1;
                         let safeTitle = popped.title.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         
-                        finalHTML += `</div></details><div class="pormsg-footer" data-end="${i}">${lineNumHTML}<div style="display:flex; align-items:center; flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span> <span class="footer-tag" style="margin-left: 8px;">// ${safeTitle}</span> <span style="color:var(--text-muted); font-size:10px; font-weight:bold; margin-left:8px; background:var(--surface-low); border: 1px solid var(--border-color); padding:1px 6px; border-radius:10px;">${lineCount} lines</span></div><div class="go-top-btn" onclick="const el = document.getElementById('editor-${popped.id}'); if(el){ document.getElementById('editor-scroll-container').scrollTo({top: el.offsetTop - 20, behavior: 'smooth'}); } event.stopPropagation();" title="Go to block start">↑ Top</div></div></div>`;
+                        finalHTML += `</div></details><div class="rg-footer" data-end="${i}">${lineNumHTML}<div style="display:flex; align-items:center; flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span> <span class="footer-tag" style="margin-left: 8px;">// ${safeTitle}</span> <span style="color:var(--text-muted); font-size:10px; font-weight:bold; margin-left:8px; background:var(--surface-low); border: 1px solid var(--border-color); padding:1px 6px; border-radius:10px;">${lineCount} lines</span></div><div class="go-top-btn" onclick="const el = document.getElementById('editor-${popped.id}'); if(el){ document.getElementById('editor-scroll-container').scrollTo({top: el.offsetTop - 20, behavior: 'smooth'}); } event.stopPropagation();" title="Go to block start">↑ Top</div></div></div>`;
                         minimapHTML += `</div></details><div class="mini-footer">${mmLine}</div>`;
                     } else {
-                        finalHTML += `<div class="pormsg-line">${lineNumHTML} <span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine || ' '}</span></div>`;
+                        finalHTML += `<div class="rg-line">${lineNumHTML} <span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine || ' '}</span></div>`;
                         minimapHTML += mmLine;
                     }
                 }
@@ -569,39 +569,39 @@ window.openFileInEditor = (filePath) => {
                 editorContent.innerHTML = `
                     <style>
                         .line-num { position: sticky; left: 0; z-index: 2; display: inline-block; width: 30px; min-width: 30px; text-align: right; color: #555; user-select: none; margin-right: 12px; font-size: 11px; font-family: 'JetBrains Mono', monospace; border-right: 1px solid #333; padding-right: 8px; flex-shrink: 0; transition: color 0.1s; background: transparent; }
-                        .pormsg-line .line-num { background: #000; } .pormsg-line:hover .line-num { background: #141414; }
-                        .pormsg-body .pormsg-line .line-num { background: #070707; } .pormsg-body .pormsg-line:hover .line-num { background: #1b1b1b; }
+                        .rg-line .line-num { background: #000; } .rg-line:hover .line-num { background: #141414; }
+                        .rg-body .rg-line .line-num { background: #070707; } .rg-body .rg-line:hover .line-num { background: #1b1b1b; }
                         
-                        .pormsg-block { margin: 6px 0; border: 1px solid #2a2a2a; border-radius: 7px; background: #070707; transition: border-color 0.15s; display: block; max-width: 100%; overflow: hidden; }
-                        .pormsg-body .pormsg-block { margin: 2px 0 2px 12px; }
-                        .pormsg-block:hover { border-color: #fff; } .pormsg-block:has(.pormsg-block:hover) { border-color: #2a2a2a; }
+                        .rg-block { margin: 6px 0; border: 1px solid #2a2a2a; border-radius: 7px; background: #070707; transition: border-color 0.15s; display: block; max-width: 100%; overflow: hidden; }
+                        .rg-body .rg-block { margin: 2px 0 2px 12px; }
+                        .rg-block:hover { border-color: #fff; } .rg-block:has(.rg-block:hover) { border-color: #2a2a2a; }
                         
-                        .pormsg-header { cursor: pointer; padding: 4px 10px 4px 0; background: #111; display: flex; align-items: center; list-style: none; border-radius: 6px 6px 0 0; transition: background 0.1s; max-width: 100%; box-sizing: border-box; }
-                        .pormsg-header::-webkit-details-marker { display: none; } .pormsg-header:hover { background: #1a1a1a; } .pormsg-header:hover .line-num { color: #888; }
+                        .rg-header { cursor: pointer; padding: 4px 10px 4px 0; background: #111; display: flex; align-items: center; list-style: none; border-radius: 6px 6px 0 0; transition: background 0.1s; max-width: 100%; box-sizing: border-box; }
+                        .rg-header::-webkit-details-marker { display: none; } .rg-header:hover { background: #1a1a1a; } .rg-header:hover .line-num { color: #888; }
                         
                         .box-paste-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; flex-shrink: 0; }
-                        .pormsg-header:hover .box-paste-btn { opacity: 1; } .box-paste-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+                        .rg-header:hover .box-paste-btn { opacity: 1; } .box-paste-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
                         
                         .box-edit-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 4px; }
-                        .pormsg-header:hover .box-edit-btn { opacity: 1; } .box-edit-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+                        .rg-header:hover .box-edit-btn { opacity: 1; } .box-edit-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
                         
                         .box-copy-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 6px; }
-                        .pormsg-header:hover .box-copy-btn { opacity: 1; } .box-copy-btn:hover { background: #333; color: #fff; border-color: #555; }
+                        .rg-header:hover .box-copy-btn { opacity: 1; } .box-copy-btn:hover { background: #333; color: #fff; border-color: #555; }
                         
-                        .caret { display: inline-block; color: var(--text-muted); font-size: 10px; margin-left: 8px; transition: transform 0.2s ease; flex-shrink: 0; } details[open] > .pormsg-header .caret { transform: rotate(90deg); }
+                        .caret { display: inline-block; color: var(--text-muted); font-size: 10px; margin-left: 8px; transition: transform 0.2s ease; flex-shrink: 0; } details[open] > .rg-header .caret { transform: rotate(90deg); }
                         
-                        .pormsg-body { padding: 0; border-top: 1px solid #222; overflow-x: auto; overflow-y: hidden; width: 100%; box-sizing: border-box; }
-                        .pormsg-body::-webkit-scrollbar { height: 6px; } .pormsg-body::-webkit-scrollbar-track { background: transparent; }
-                        .pormsg-body::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; } .pormsg-body::-webkit-scrollbar-thumb:hover { background: #555; }
+                        .rg-body { padding: 0; border-top: 1px solid #222; overflow-x: auto; overflow-y: hidden; width: 100%; box-sizing: border-box; }
+                        .rg-body::-webkit-scrollbar { height: 6px; } .rg-body::-webkit-scrollbar-track { background: transparent; }
+                        .rg-body::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; } .rg-body::-webkit-scrollbar-thumb:hover { background: #555; }
                         
-                        .pormsg-footer { padding: 4px 10px 4px 0; background: #111; border-top: 1px solid #2a2a2a; border-radius: 0 0 6px 6px; display: flex; align-items: center; transition: background 0.1s; max-width: 100%; box-sizing: border-box; }
-                        .pormsg-footer:hover { background: #1a1a1a; } .pormsg-footer:hover .line-num { color: #888; } .footer-tag { color: #666; font-size: 10px; font-style: italic; white-space: nowrap; }
+                        .rg-footer { padding: 4px 10px 4px 0; background: #111; border-top: 1px solid #2a2a2a; border-radius: 0 0 6px 6px; display: flex; align-items: center; transition: background 0.1s; max-width: 100%; box-sizing: border-box; }
+                        .rg-footer:hover { background: #1a1a1a; } .rg-footer:hover .line-num { color: #888; } .footer-tag { color: #666; font-size: 10px; font-style: italic; white-space: nowrap; }
                         
                         .go-top-btn { font-size: 10px; font-weight: bold; color: #555; background: #0a0a0a; border: 1px solid #222; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; flex-shrink: 0; }
-                        .pormsg-footer:hover .go-top-btn { opacity: 1; } .go-top-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+                        .rg-footer:hover .go-top-btn { opacity: 1; } .go-top-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
                         
-                        .pormsg-line { padding: 0 10px 0 0; line-height: 1.5; position: relative; z-index: 1; display: flex; align-items: center; transition: background 0.1s; border-radius: 2px; width: max-content; min-width: 100%; box-sizing: border-box; }
-                        .pormsg-line:hover { background: rgba(255, 255, 255, 0.08); } .pormsg-line:hover .line-num { color: #888; }
+                        .rg-line { padding: 0 10px 0 0; line-height: 1.5; position: relative; z-index: 1; display: flex; align-items: center; transition: background 0.1s; border-radius: 2px; width: max-content; min-width: 100%; box-sizing: border-box; }
+                        .rg-line:hover { background: rgba(255, 255, 255, 0.08); } .rg-line:hover .line-num { color: #888; }
                         
                         .search-highlight { background: rgba(212, 160, 23, 0.2) !important; border-radius: 2px; } .search-highlight .line-num { color: #d4a017 !important; font-weight: bold; }
                         .search-highlight-active { background: rgba(212, 160, 23, 0.6) !important; outline: 1px solid #d4a017; border-radius: 2px; } .search-highlight-active .line-num { color: #fff !important; background: #d4a017 !important; font-weight: bold; }
@@ -660,7 +660,7 @@ window.openFileInEditor = (filePath) => {
                         clearTimeout(searchTimer);
                         searchTimer = setTimeout(() => {
                             const query = searchInput.value.toLowerCase();
-                            const elements = editorContent.querySelectorAll('.pormsg-line, .pormsg-header, .pormsg-footer');
+                            const elements = editorContent.querySelectorAll('.rg-line, .rg-header, .rg-footer');
                             
                             elements.forEach(el => {
                                 el.classList.remove('search-highlight');

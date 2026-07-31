@@ -714,7 +714,7 @@ window.loadDirectory = async (p) => {
         window.currentPath = p; 
         updateTerminalPrompt();
         document.getElementById('path-display').innerHTML = `<span class="path-segment">${formatPathDisplay(p)}</span>`;
-        const badge = document.getElementById('active-project-badge'); if (badge) badge.innerText = p === 'DRIVES' ? 'PC' : p.split(/[\\\/]/).pop().toUpperCase() || 'PORMSG';
+        const badge = document.getElementById('active-project-badge'); if (badge) badge.innerText = p === 'DRIVES' ? 'PC' : p.split(/[\\\/]/).pop().toUpperCase() || 'GRAVITY';
         const f = await window.fetchDirContent(p === 'DRIVES' ? '' : p);
         if (seq !== _loadDirSeq) return; 
         if (f == null) return;           
@@ -4725,11 +4725,11 @@ function setupUI() {
             try {
                 const d = new URL(wv.src).hostname; const name = d.split('.')[0].toUpperCase();
                 const icon = `https://www.google.com/s2/favicons?domain=${d}&sz=64`;
-                if (badge) badge.innerText = `PORMSG · ${name}`; if (headerIcon) headerIcon.src = icon;
+                if (badge) badge.innerText = `GRAVITY · ${name}`; if (headerIcon) headerIcon.src = icon;
                 if (chatIn) { chatIn.placeholder = `Ask ${name}...`; }
             } catch(e) {}
         } else {
-            if (badge) badge.innerText = `PORMSG`; if (headerIcon) headerIcon.src = 'png.png'; if (chatIn) chatIn.placeholder = `Ask AI...`;
+            if (badge) badge.innerText = `GRAVITY`; if (headerIcon) headerIcon.src = 'png.png'; if (chatIn) chatIn.placeholder = `Ask AI...`;
         }
     };
 
@@ -4926,9 +4926,9 @@ const GravityVault = {
 };
 
 async function migrateToVault() {
-    const appsStr = localStorage.getItem('pormsg_agent_apps') || localStorage.getItem('vapor_agent_apps');
+    const appsStr = localStorage.getItem('rg_agent_apps') || localStorage.getItem('pormsg_agent_apps') || localStorage.getItem('vapor_agent_apps');
     if (appsStr && appsStr !== '[]') { const currentRegistry = await ipcRenderer.invoke('vault-read-global', 'registry.json'); if (!currentRegistry) ipcRenderer.send('vault-update-global', { fileName: 'registry.json', content: appsStr }); }
-    const kwStr = localStorage.getItem('pormsg_discovery_keywords') || localStorage.getItem('vapor_discovery_keywords');
+    const kwStr = localStorage.getItem('rg_discovery_keywords') || localStorage.getItem('pormsg_discovery_keywords') || localStorage.getItem('vapor_discovery_keywords');
     if (kwStr) { const currentKw = await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt'); if (!currentKw) ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: kwStr }); }
 }
 

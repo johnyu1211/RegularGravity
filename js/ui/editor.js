@@ -237,6 +237,7 @@ window.toggleEditorEditMode = function() {
         }, 20);
 
         if (btnEdit) {
+            btnEdit.style.color = '#fff';
             btnEdit.style.background = 'var(--primary)';
             btnEdit.title = 'Edit Mode (Click to Save & Return 📖)';
             btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>';
@@ -518,6 +519,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
 
     const btnEdit = document.getElementById('btn-editor-edit');
     if (btnEdit) {
+        btnEdit.style.color = 'var(--text-muted)';
         btnEdit.style.background = 'var(--surface-low)';
         btnEdit.title = 'View Mode (Click for Code Edit Mode </ >)';
         btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>';

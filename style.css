@@ -1627,9 +1627,3 @@ button:focus, .btn:focus, [role="button"]:focus, input[type="button"]:focus, inp
     opacity: 1;
     margin-left: 5px;
 }
-
-#taskbar-recmd-btn:hover {
-    background: rgba(255, 165, 0, 0.15) !important;
-    color: #ffa500 !important;
-    border-color: rgba(255, 165, 0, 0.3) !important;
-}

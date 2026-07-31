@@ -226,7 +226,6 @@ window.toggleEditorEditMode = function() {
             btnEdit.title = 'Edit Mode (Click to Save & Return 👁️)';
             btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>';
         }
-        if (btnCancel) btnCancel.style.display = 'flex';
 
         const modeEl = document.getElementById('status-bar-mode');
         if (modeEl) {
@@ -503,16 +502,11 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
     if (editArea) editArea.style.display = 'none';
 
     const btnEdit = document.getElementById('btn-editor-edit');
-    const btnCancel = document.getElementById('btn-editor-cancel');
     if (btnEdit) {
         btnEdit.style.background = 'var(--surface-low)';
         btnEdit.title = 'View Mode (Click for Code Edit Mode </ >)';
         btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
         btnEdit.onclick = () => window.toggleEditorEditMode();
-    }
-    if (btnCancel) {
-        btnCancel.style.display = 'none';
-        btnCancel.onclick = () => window.cancelEditorEdit();
     }
 
     const path = require('path');

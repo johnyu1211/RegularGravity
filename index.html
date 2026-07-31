@@ -379,16 +379,13 @@
                 <div id="discovery-settings-modal" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 100; align-items: center; justify-content: center;">
                     <div style="width: 85%; max-width: 380px; background: var(--surface-color); border: 1px solid var(--border-color); padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; display: flex; flex-direction: column; gap: 15px; font-family: 'DM Sans', sans-serif; box-sizing: border-box;">
                         
-                        <!-- Premium Tab Header -->
-                        <div style="display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 5px;">
-                            <div id="settings-tab-btn-autodrag" style="flex: 1; text-align: center; padding: 10px 0; font-size: 11px; font-weight: 700; color: #fff; cursor: pointer; border-bottom: 2px solid var(--primary); transition: all 0.2s; letter-spacing: 0.5px;">SENDING FORMAT</div>
-                            <div id="settings-tab-btn-discovery" style="flex: 1; text-align: center; padding: 10px 0; font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; letter-spacing: 0.5px;">DISCOVER KEYWORDS</div>
+                        <!-- Settings Header -->
+                        <div style="font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 5px;">
+                            AGENT SETTINGS
                         </div>
 
-                        <!-- Tab 1 Content (Sending Options) -->
+                        <!-- Settings Content -->
                         <div id="settings-content-autodrag" style="display: flex; flex-direction: column; gap: 16px; min-height: 180px; box-sizing: border-box; padding-top: 5px;">
-                            <div style="font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-bottom: 5px;">File attachments and Drag & Drop queue popup will automatically display when files are requested.</div>
-
                             <!-- Toggle: Sending File Format -->
                             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
                                 <div style="display: flex; flex-direction: column; gap: 4px; max-width: 70%;">
@@ -423,12 +420,6 @@
                                     <li>Web AI session commands are executed locally after review in the bottom action deck.</li>
                                 </ul>
                             </div>
-                        </div>
-
-                        <!-- Tab 2 Content (Discovery Keywords) -->
-                        <div id="settings-content-discovery" style="display: none; flex-direction: column; gap: 12px; min-height: 180px; box-sizing: border-box; padding-top: 5px;">
-                            <div style="font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-bottom: 5px;">Comma-separated values used for input field auto-detection.</div>
-                            <textarea id="discovery-keywords-input" style="width: 100%; height: 130px; background: var(--surface-low); border: 1px solid var(--border-color); color: var(--text-main); font-size: 11px; padding: 12px; outline: none; resize: none; font-family: 'JetBrains Mono', monospace; line-height: 1.6; border-radius: 6px; box-sizing: border-box;"></textarea>
                         </div>
                         
                         <!-- Global Actions Footer -->

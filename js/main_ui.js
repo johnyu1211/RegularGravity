@@ -4327,39 +4327,9 @@ function setupUI() {
     }
 
     const dsModal = document.getElementById('discovery-settings-modal');
-    const dsInput = document.getElementById('discovery-keywords-input');
-    const defaultKeywords = 'message, ask, prompt, type, question, conversation, input, chat, command, send, help you today, search, write, say';
-
-    // Settings tab switching wiring
-    const btnAutoDrag = document.getElementById('settings-tab-btn-autodrag');
-    const btnDiscovery = document.getElementById('settings-tab-btn-discovery');
-    const contentAutoDrag = document.getElementById('settings-content-autodrag');
-    const contentDiscovery = document.getElementById('settings-content-discovery');
-
-    const switchSettingsTab = (tab) => {
-        if (tab === 'autodrag') {
-            if (btnAutoDrag) { btnAutoDrag.style.color = '#fff'; btnAutoDrag.style.borderBottomColor = 'var(--primary)'; }
-            if (btnDiscovery) { btnDiscovery.style.color = 'var(--text-muted)'; btnDiscovery.style.borderBottomColor = 'transparent'; }
-            if (contentAutoDrag) contentAutoDrag.style.display = 'flex';
-            if (contentDiscovery) contentDiscovery.style.display = 'none';
-        } else {
-            if (btnAutoDrag) { btnAutoDrag.style.color = 'var(--text-muted)'; btnAutoDrag.style.borderBottomColor = 'transparent'; }
-            if (btnDiscovery) { btnDiscovery.style.color = '#fff'; btnDiscovery.style.borderBottomColor = 'var(--primary)'; }
-            if (contentAutoDrag) contentAutoDrag.style.display = 'none';
-            if (contentDiscovery) contentDiscovery.style.display = 'flex';
-        }
-    };
-
-    if (btnAutoDrag) btnAutoDrag.onclick = () => switchSettingsTab('autodrag');
-    if (btnDiscovery) btnDiscovery.onclick = () => switchSettingsTab('discovery');
-
     const openDiscoveryBtn = document.getElementById('open-discovery-settings');
     if (openDiscoveryBtn) {
         openDiscoveryBtn.onclick = async () => {
-            // Load current discovery keywords
-            const savedKeywords = (await ipcRenderer.invoke('vault-read-global', 'discovery_keywords.txt')) || defaultKeywords;
-            if (dsInput) dsInput.value = savedKeywords;
-            
             // Load Settings.json for format option
             const currentSettings = loadSettings();
             const selSendFormat = document.getElementById('settings-send-format');
@@ -4367,7 +4337,6 @@ function setupUI() {
             const selAutoGemini = document.getElementById('settings-auto-gemini');
             if (selAutoGemini) selAutoGemini.value = currentSettings.autoGemini ? 'true' : 'false';
 
-            switchSettingsTab('autodrag'); // Start at Tab 1
             if (dsModal) dsModal.style.display = 'flex';
         };
     }
@@ -4376,11 +4345,6 @@ function setupUI() {
     const saveDiscoveryBtn = document.getElementById('save-discovery-settings');
     if (saveDiscoveryBtn) {
         saveDiscoveryBtn.onclick = () => {
-            // Save Discovery Keywords
-            if (dsInput) {
-                ipcRenderer.send('vault-update-global', { fileName: 'discovery_keywords.txt', content: dsInput.value.trim() });
-            }
-            
             const selSendFormat = document.getElementById('settings-send-format');
             const selAutoGemini = document.getElementById('settings-auto-gemini');
             const settingsData = loadSettings();

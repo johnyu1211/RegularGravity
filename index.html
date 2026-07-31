@@ -407,6 +407,18 @@
                                     <option value="true">ON</option>
                                 </select>
                             </div>
+
+                            <!-- Toggle: Prefer Full File Overwrite -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                                <div style="display: flex; flex-direction: column; gap: 4px; max-width: 70%;">
+                                    <span style="font-size: 12px; font-weight: 600; color: #eee;">Full File Overwrite (write-file)</span>
+                                    <span style="font-size: 10.5px; color: var(--text-muted); line-height: 1.4;">Force AI to write full updated files instead of snippet edits</span>
+                                </div>
+                                <select id="settings-prefer-full-write" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 6px; outline: none; font-family: inherit;">
+                                    <option value="true">ON (Default)</option>
+                                    <option value="false">OFF</option>
+                                </select>
+                            </div>
                         </div>
                         
                         <!-- Global Actions Footer -->

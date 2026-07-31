@@ -4501,6 +4501,8 @@ function setupUI() {
             if (selSendFormat) selSendFormat.value = currentSettings.sendFormat || 'md';
             const selAutoGemini = document.getElementById('settings-auto-gemini');
             if (selAutoGemini) selAutoGemini.value = currentSettings.autoGemini ? 'true' : 'false';
+            const selPreferFullWrite = document.getElementById('settings-prefer-full-write');
+            if (selPreferFullWrite) selPreferFullWrite.value = currentSettings.preferFullWrite !== false ? 'true' : 'false';
 
             if (dsModal) dsModal.style.display = 'flex';
         };
@@ -4512,6 +4514,7 @@ function setupUI() {
         saveDiscoveryBtn.onclick = () => {
             const selSendFormat = document.getElementById('settings-send-format');
             const selAutoGemini = document.getElementById('settings-auto-gemini');
+            const selPreferFullWrite = document.getElementById('settings-prefer-full-write');
             const settingsData = loadSettings();
             window.dragDropMode = true;
             settingsData.dragDropMode = true;
@@ -4524,6 +4527,10 @@ function setupUI() {
             if (selAutoGemini) {
                 window.autoGemini = (selAutoGemini.value === 'true');
                 settingsData.autoGemini = window.autoGemini;
+            }
+            if (selPreferFullWrite) {
+                window.preferFullWrite = (selPreferFullWrite.value === 'true');
+                settingsData.preferFullWrite = window.preferFullWrite;
             }
             saveSettings(settingsData);
             window.reloadAgentSettings();

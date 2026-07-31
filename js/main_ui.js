@@ -3673,8 +3673,14 @@ window.updateGeminiUsageBadge = function(percentStr) {
     const badge = document.getElementById('gemini-usage-badge');
     const btn = document.getElementById('gemini-usage-toggle-btn');
     if (!badge || !btn) return;
-    badge.innerText = percentStr;
+    
+    const cleanPercent = percentStr.replace(/사용됨|used/gi, '').trim();
+    badge.innerText = cleanPercent;
     badge.style.display = 'inline-block';
+    
+    // Hide favicon image when usage % is active so ONLY the % text shows
+    const img = btn.querySelector('img');
+    if (img) img.style.display = 'none';
 };
 
 window.scrapeGeminiUsagePercent = function(wv) {
@@ -3700,7 +3706,30 @@ window.scrapeGeminiUsagePercent = function(wv) {
     }).catch(() => {});
 };
 
+window.initGeminiUsageAutoFetcher = function() {
+    try {
+        let fetcherWv = document.getElementById('gemini-usage-bg-fetcher');
+        if (!fetcherWv) {
+            fetcherWv = document.createElement('webview');
+            fetcherWv.id = 'gemini-usage-bg-fetcher';
+            fetcherWv.src = 'https://gemini.google.com/usage';
+            fetcherWv.style = 'position:absolute; width:1px; height:1px; top:-9999px; left:-9999px; opacity:0; pointer-events:none;';
+            document.body.appendChild(fetcherWv);
+        }
+        const doScrape = () => {
+            if (typeof window.scrapeGeminiUsagePercent === 'function') {
+                window.scrapeGeminiUsagePercent(fetcherWv);
+            }
+        };
+        fetcherWv.addEventListener('dom-ready', doScrape);
+        fetcherWv.addEventListener('did-finish-load', doScrape);
+        fetcherWv.addEventListener('did-navigate-in-page', doScrape);
+        setInterval(doScrape, 5000);
+    } catch(e){}
+};
+
     if (geminiUsageToggleBtn) {
+        window.initGeminiUsageAutoFetcher();
         geminiUsageToggleBtn.onclick = (e) => {
             e.stopPropagation();
             const geminiUrl = 'https://gemini.google.com/usage';

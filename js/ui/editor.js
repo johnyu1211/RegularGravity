@@ -821,6 +821,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                 }
             }
         }
+    }
     } catch (err) {
         editorContent.innerHTML = `<div style="position: absolute; inset: 0; overflow:auto; background:#000; color:#f44; padding:20px; font-family:'JetBrains Mono', monospace;">Failed to open file:<br>${err.message}</div>`;
     }

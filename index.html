@@ -33,9 +33,21 @@
     <div id="project-picker-modal" style="position:fixed; inset:0; z-index:9999; background:#0c0c0e; display:flex; align-items:center; justify-content:center;">
         <div style="background:#111113; border:1px solid #222; border-radius:16px; width:520px; max-width:90vw; box-shadow:0 32px 80px rgba(0,0,0,0.8); overflow:hidden; animation:scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275);">
             <!-- Header -->
-            <div style="padding:24px 28px 16px; border-bottom:1px solid #1a1a1a;">
-                <div style="display:flex; align-items:center;">
+            <div style="padding:20px 28px 16px; border-bottom:1px solid #1a1a1a;">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
                     <span style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px;">Select Project Folder</span>
+                    
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <!-- Notice Guide Button (Left of Refresh) -->
+                        <button id="picker-notice-btn" style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--text-muted); width:32px; height:32px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s;" title="Show Operating Guidelines & Notice" onmouseenter="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff';" onmouseleave="this.style.background='rgba(255,255,255,0.05)'; this.style.color='var(--text-muted)';">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                        </button>
+                        
+                        <!-- Refresh Button (Right) -->
+                        <button id="picker-refresh-btn" style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--text-muted); width:32px; height:32px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s;" title="Refresh Recent Projects" onmouseenter="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff';" onmouseleave="this.style.background='rgba(255,255,255,0.05)'; this.style.color='var(--text-muted)';">
+                            <svg id="picker-refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.3s ease;"><path d="M23 4v6h-6M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"></path></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
             <!-- Recent Projects -->

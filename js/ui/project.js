@@ -78,6 +78,25 @@ async function openProjectModal() {
             if (selected) window.selectProject(selected);
         };
     }
+
+    const refreshBtn = document.getElementById('picker-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.onclick = async () => {
+            const icon = document.getElementById('picker-refresh-icon');
+            if (icon) icon.style.transform = 'rotate(360deg)';
+            await openProjectModal();
+            setTimeout(() => { if (icon) icon.style.transform = 'none'; }, 300);
+        };
+    }
+
+    const noticeBtn = document.getElementById('picker-notice-btn');
+    if (noticeBtn) {
+        noticeBtn.onclick = () => {
+            if (typeof window.showNoticeModal === 'function') {
+                window.showNoticeModal(true);
+            }
+        };
+    }
 }
 
 function bindDragAndDrop() {

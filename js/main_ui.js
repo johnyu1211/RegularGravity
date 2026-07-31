@@ -1632,9 +1632,16 @@ window.fetchGeminiUsagePercent = function() {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
                     
-                    // Remove script, style, head to avoid matching CSS width:100%!
+                    // 1. Direct class selector: .gds-emphasized-body-l
+                    const targetEls = doc.querySelectorAll('.gds-emphasized-body-l, [class*="gds-emphasized-body-l"]');
+                    for (const el of targetEls) {
+                        const txt = el.innerText || el.textContent || '';
+                        const m = txt.match(/(\\d{1,3})\\s*%/);
+                        if (m) return m[1] + '%';
+                    }
+
+                    // 2. Fallback: Strip scripts/styles and search visible body text
                     doc.querySelectorAll('script, style, head, svg, link').forEach(el => el.remove());
-                    
                     const bodyText = doc.body ? doc.body.innerText : '';
                     const match = bodyText.match(/(\\d{1,3})\\s*%/);
                     if (match && match[1]) {

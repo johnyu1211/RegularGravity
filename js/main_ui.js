@@ -1645,6 +1645,26 @@ window.fetchGeminiUsagePercent = function() {
     }
 };
 
+window.scheduleNextGeminiUsageFetch = function() {
+    const minSec = 42;
+    const maxSec = 67;
+    const randomSec = Math.floor(minSec + Math.random() * (maxSec - minSec + 1));
+    console.log(`[GeminiUsage] Next auto-refresh scheduled in ${randomSec}s`);
+    setTimeout(() => {
+        if (typeof window.fetchGeminiUsagePercent === 'function') {
+            window.fetchGeminiUsagePercent();
+        }
+        window.scheduleNextGeminiUsageFetch();
+    }, randomSec * 1000);
+};
+
+// Initialize random auto-refresh timer loop (starts 5s after boot)
+setTimeout(() => {
+    if (typeof window.scheduleNextGeminiUsageFetch === 'function') {
+        window.scheduleNextGeminiUsageFetch();
+    }
+}, 5000);
+
 async function setupBoot() {
     const grid = document.getElementById('agent-hub-grid'), addA = document.getElementById('add-agent-app-card');
     if (!grid || !addA) return;

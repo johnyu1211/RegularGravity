@@ -4021,8 +4021,8 @@ function setupUI() {
                         <div style="background:rgba(234, 179, 8, 0.08); border:1px solid rgba(234, 179, 8, 0.3); padding:10px 12px; border-radius:8px; font-size:10.5px; color:#eee; line-height:1.5; margin-top:2px;">
                             <div style="font-weight:700; color:#eab308; margin-bottom:4px; font-size:11px;">⚠️ Notice & Caution</div>
                             <ul style="margin:0; padding-left:14px; color:#ccc; display:flex; flex-direction:column; gap:3px;">
-                                <li>파일 및 프로젝트 정보 전송 시 <code>SendingMD/</code> 폴더에 <code>.md</code> 임시 파일이 작성되어 Web AI로 전달됩니다.</li>
-                                <li>Web AI 세션 명령은 하단 승인 패널을 거쳐 로컬에서 수행됩니다.</li>
+                                <li>When sending files or project data, temporary <code>.md</code> files are created in the <code>SendingMD/</code> folder and delivered to Web AI.</li>
+                                <li>Web AI session commands are executed locally after review in the bottom action deck.</li>
                             </ul>
                         </div>
                     </div>

@@ -405,11 +405,11 @@
                             <!-- Notice / Caution Block -->
                             <div style="background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.3); padding: 12px 14px; border-radius: 8px; font-size: 11px; color: #eee; line-height: 1.5; font-family: 'DM Sans', sans-serif; margin-top: 5px;">
                                 <div style="font-weight: 700; color: #eab308; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; font-size: 11.5px;">
-                                    <span>⚠️ Notice & Caution (안내 및 주의사항)</span>
+                                    <span>⚠️ Notice & Caution</span>
                                 </div>
                                 <ul style="margin: 0; padding-left: 16px; color: #ccc; display: flex; flex-direction: column; gap: 4px;">
-                                    <li>파일 및 프로젝트 트리 전송 시 <code>SendingMD/</code> 폴더에 <code>.md</code> 임시 파일이 작성되어 Web AI로 전달됩니다.</li>
-                                    <li>Web AI 세션 명령은 하단 통합 승인 패널을 거쳐 로컬에서 수행됩니다.</li>
+                                    <li>When sending files or project trees, temporary <code>.md</code> files are created in the <code>SendingMD/</code> folder and delivered to Web AI.</li>
+                                    <li>Web AI session commands are executed locally after review in the bottom action deck.</li>
                                 </ul>
                             </div>
                         </div>
@@ -622,20 +622,20 @@
         <div style="background:var(--surface-color); padding:22px; width:360px; border:1px solid var(--border-color); border-radius:12px; display:flex; flex-direction:column; gap:16px; box-shadow:0 20px 50px rgba(0,0,0,0.6); font-family:'DM Sans',sans-serif;">
             <div style="font-size:13px; font-weight:700; color:#fff; border-bottom:1px solid var(--border-color); padding-bottom:10px; display:flex; align-items:center; gap:8px;">
                 <span style="color:#eab308;">⚠️</span>
-                <span>REGULAR GRAVITy 안내 및 주의사항</span>
+                <span>REGULAR GRAVITy Notice & Caution</span>
             </div>
             <div style="font-size:11.5px; color:#ccc; line-height:1.6; display:flex; flex-direction:column; gap:10px;">
                 <div style="background:rgba(234, 179, 8, 0.08); border:1px solid rgba(234, 179, 8, 0.25); padding:12px; border-radius:8px;">
-                    <div style="font-weight:700; color:#eab308; margin-bottom:4px;">📄 파일 전송 방식</div>
-                    <span>파일 및 프로젝트 정보를 AI에 보낼 때 <code>SendingMD/</code> 폴더에 <code>.md</code> 확장자의 임시 파일이 작성되어 Web AI 입력란에 전달됩니다.</span>
+                    <div style="font-weight:700; color:#eab308; margin-bottom:4px;">📄 File Transmission</div>
+                    <span>When sending files or project data to AI, temporary <code>.md</code> files are created in the <code>SendingMD/</code> folder and delivered to the Web AI input field.</span>
                 </div>
                 <div style="background:rgba(70, 140, 246, 0.08); border:1px solid rgba(70, 140, 246, 0.25); padding:12px; border-radius:8px;">
-                    <div style="font-weight:700; color:#468CF6; margin-bottom:4px;">🤖 자동 제어 및 연동</div>
-                    <span>AI가 출력한 명령어(코드 수정/읽기/실행)는 하단 승인 패널을 거쳐 로컬에서 수행됩니다. (언제든지 설정 모달에서 다시 확인 가능합니다)</span>
+                    <div style="font-weight:700; color:#468CF6; margin-bottom:4px;">🤖 Automation & Execution</div>
+                    <span>AI commands (read/edit/run) are executed locally via the bottom approval deck. (You can review this notice anytime in Agent Settings)</span>
                 </div>
             </div>
             <div style="display:flex; justify-content:flex-end; padding-top:4px;">
-                <button id="close-first-launch-notice" style="background:var(--primary); border:none; color:#fff; cursor:pointer; font-size:11.5px; font-weight:700; padding:8px 22px; border-radius:6px;">확인했습니다</button>
+                <button id="close-first-launch-notice" style="background:var(--primary); border:none; color:#fff; cursor:pointer; font-size:11.5px; font-weight:700; padding:8px 22px; border-radius:6px;">I Understand</button>
             </div>
         </div>
     </div>

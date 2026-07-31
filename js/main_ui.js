@@ -663,9 +663,9 @@ window.reloadAgentSettings = function() {
     window.autoRefreshSession = false;
     window.refreshTurnCount = 35;
     window.sendFormat = 'md';
-    window.autoGemini = false;
+    window.autoGemini = true;
     const homeBtn = document.getElementById('taskbar-home-btn');
-    if (homeBtn) homeBtn.style.display = 'flex';
+    if (homeBtn) homeBtn.style.display = 'none';
 };
 
 window.prepareFilePayload = async function(baseFileName, mdContent) {
@@ -3116,6 +3116,23 @@ window.setTaskbarActionsVisible = function(visible) {
 }
 
 function setupUI() {
+    // Check first launch notice
+    setTimeout(() => {
+        if (!localStorage.getItem('rg_notice_seen')) {
+            const noticeModal = document.getElementById('first-launch-notice-modal');
+            const closeBtn = document.getElementById('close-first-launch-notice');
+            if (noticeModal) {
+                noticeModal.style.display = 'flex';
+                if (closeBtn) {
+                    closeBtn.onclick = () => {
+                        noticeModal.style.display = 'none';
+                        localStorage.setItem('rg_notice_seen', 'true');
+                    };
+                }
+            }
+        }
+    }, 500);
+
     // 1. Setup Click-to-copy for .chat-cmd-badge
     document.addEventListener('click', (e) => {
         const homeBtn = e.target.closest('#taskbar-home-btn');
@@ -3999,6 +4016,14 @@ function setupUI() {
                                 <input type="checkbox" id="chk-auto-gemini" ${window.autoGemini ? 'checked' : ''}>
                                 <span class="slider-toggle"></span>
                             </label>
+                        </div>
+                        <!-- Notice / Caution Block -->
+                        <div style="background:rgba(234, 179, 8, 0.08); border:1px solid rgba(234, 179, 8, 0.3); padding:10px 12px; border-radius:8px; font-size:10.5px; color:#eee; line-height:1.5; margin-top:2px;">
+                            <div style="font-weight:700; color:#eab308; margin-bottom:4px; font-size:11px;">⚠️ Notice & Caution</div>
+                            <ul style="margin:0; padding-left:14px; color:#ccc; display:flex; flex-direction:column; gap:3px;">
+                                <li>파일 및 프로젝트 정보 전송 시 <code>SendingMD/</code> 폴더에 <code>.md</code> 임시 파일이 작성되어 Web AI로 전달됩니다.</li>
+                                <li>Web AI 세션 명령은 하단 승인 패널을 거쳐 로컬에서 수행됩니다.</li>
+                            </ul>
                         </div>
                     </div>
                 `;

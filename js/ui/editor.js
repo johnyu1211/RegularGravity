@@ -284,33 +284,34 @@ window.copyBlockContent = async (syncId, event) => {
     }
 };
 
-window.collapseSubBlocks = (syncId, event) => {
+window.toggleSubBlocks = (syncId, event) => {
     event.preventDefault();
     event.stopPropagation();
     const detailEl = document.getElementById('editor-' + syncId);
     if (!detailEl) return;
-    detailEl.querySelectorAll('.editor-detail').forEach(d => {
-        d.open = false;
-        const miniId = d.getAttribute('data-mini-id');
-        if (miniId) { const mini = document.getElementById(miniId); if (mini) mini.open = false; }
-    });
-    if (typeof window.updateMinimapThumb === 'function') window.updateMinimapThumb();
-};
+    
+    const subDetails = Array.from(detailEl.querySelectorAll('.editor-detail'));
+    if (subDetails.length === 0) {
+        detailEl.open = !detailEl.open;
+        const parentMini = document.getElementById(syncId);
+        if (parentMini) parentMini.open = detailEl.open;
+        if (typeof window.updateMinimapThumb === 'function') window.updateMinimapThumb();
+        return;
+    }
 
-window.expandSubBlocks = (syncId, event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const detailEl = document.getElementById('editor-' + syncId);
-    if (!detailEl) return;
+    const allClosed = subDetails.every(d => !d.open);
+    const nextState = allClosed;
+
     detailEl.open = true;
     const parentMini = document.getElementById(syncId);
     if (parentMini) parentMini.open = true;
 
-    detailEl.querySelectorAll('.editor-detail').forEach(d => {
-        d.open = true;
+    subDetails.forEach(d => {
+        d.open = nextState;
         const miniId = d.getAttribute('data-mini-id');
-        if (miniId) { const mini = document.getElementById(miniId); if (mini) mini.open = true; }
+        if (miniId) { const mini = document.getElementById(miniId); if (mini) mini.open = nextState; }
     });
+
     if (typeof window.updateMinimapThumb === 'function') window.updateMinimapThumb();
 };
 
@@ -637,7 +638,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         let isBlockOpen = (savedBlockStates[i] !== undefined) ? savedBlockStates[i] : true;
                         let openAttr = isBlockOpen ? ' open' : '';
 
-                        finalHTML += `<div class="rg-block"><details class="editor-detail"${openAttr} data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="rg-header">${lineNumHTML}<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span></div><button class="box-edit-btn" onclick="window.editBlockContent('${syncId}', event)" title="Edit this block"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="box-copy-btn" onclick="window.copyBlockContent('${syncId}', event)" title="Copy block content"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><button class="box-fold-btn" onclick="window.collapseSubBlocks('${syncId}', event)" title="Collapse all inner sub-blocks"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button><button class="box-fold-btn" onclick="window.expandSubBlocks('${syncId}', event)" title="Expand all inner sub-blocks"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button><span class="caret" style="color:var(--text-muted); display:inline-flex; align-items:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="9 18 15 12 9 6"></polyline></svg></span></summary><div class="rg-body" id="body-${syncId}">`;
+                        finalHTML += `<div class="rg-block"><details class="editor-detail"${openAttr} data-mini-id="${syncId}" id="editor-${syncId}" data-start="${i}"><summary class="rg-header">${lineNumHTML}<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span></div><button class="box-edit-btn" onclick="window.editBlockContent('${syncId}', event)" title="Edit this block"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="box-copy-btn" onclick="window.copyBlockContent('${syncId}', event)" title="Copy block content"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><button class="box-fold-btn" onclick="window.toggleSubBlocks('${syncId}', event)" title="Toggle fold/unfold sub-blocks"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><polyline points="7 13 12 18 17 13"></polyline><polyline points="7 6 12 11 17 6"></polyline></svg></button><span class="caret" style="color:var(--text-muted); display:inline-flex; align-items:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="9 18 15 12 9 6"></polyline></svg></span></summary><div class="rg-body" id="body-${syncId}">`;
                         minimapHTML += `<details id="${syncId}" class="mini-detail"${openAttr}><summary class="mini-summary">${mmLine}</summary><div class="mini-body">`;
                     } else if (net < 0 && blockStack.length > 0) {
                         let popped = blockStack.pop();

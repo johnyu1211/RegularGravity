@@ -1775,6 +1775,30 @@ async function setupBoot() {
         };
     }
 
+    const emptySendMdBtn = document.getElementById('taskbar-empty-sendmd-btn');
+    if (emptySendMdBtn) {
+        emptySendMdBtn.onclick = () => {
+            try {
+                const gravityRoot = window.appRootPath || process.cwd();
+                const sendingMdDir = path.join(gravityRoot, 'SendingMD');
+                let count = 0;
+                if (fs.existsSync(sendingMdDir)) {
+                    const subfiles = fs.readdirSync(sendingMdDir);
+                    for (const file of subfiles) {
+                        try {
+                            fs.unlinkSync(path.join(sendingMdDir, file));
+                            count++;
+                        } catch(e) {}
+                    }
+                }
+                if (typeof window.refreshTree === 'function') window.refreshTree();
+                ChatUI.appendBubble('system', `[SYSTEM] Cleaned ${count} temporary file(s) from SendingMD folder.`);
+            } catch(e) {
+                ChatUI.appendBubble('system', `[ERROR] Failed to empty SendingMD folder: ${e.message}`);
+            }
+        };
+    }
+
     const treeBtn = document.getElementById('taskbar-manual-tree-btn');
     if (treeBtn) {
         treeBtn.onclick = async () => {

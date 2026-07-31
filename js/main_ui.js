@@ -5350,6 +5350,13 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
             for (const c of deleteCmds) {
                 try {
                     const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                    const rootPath = path.resolve(window.currentPath || process.cwd());
+                    if (targetPath === rootPath || targetPath === window.projectRoot || targetPath === process.cwd()) {
+                        console.warn("[DeleteGuard] Blocked attempt to delete root project directory!");
+                        accumulatedFeedback += `[FILE DELETE BLOCKED: Cannot delete root project directory]\n`;
+                        ChatUI.appendBubble('system', `[WARN] Blocked deletion of root project directory.`);
+                        continue;
+                    }
                     if (fs.existsSync(targetPath)) {
                         const stat = fs.statSync(targetPath);
                         if (stat.isDirectory()) {

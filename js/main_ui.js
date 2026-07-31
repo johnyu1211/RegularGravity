@@ -3497,8 +3497,7 @@ function setupUI() {
                     }
                 } else if (key === 'gemini-usage') {
                     if (geminiUsageToggleBtn) {
-                        geminiUsageToggleBtn.style.background = 'var(--primary)';
-                        geminiUsageToggleBtn.style.borderColor = 'var(--primary)';
+                        geminiUsageToggleBtn.style.borderColor = 'rgba(255,255,255,0.2)';
                     }
                 } else {
                     if (buttonEl) {
@@ -3707,8 +3706,7 @@ function setupUI() {
             }
         } else if (key === 'gemini-usage') {
             if (geminiUsageToggleBtn) {
-                geminiUsageToggleBtn.style.background = 'var(--primary)';
-                geminiUsageToggleBtn.style.borderColor = 'var(--primary)';
+                geminiUsageToggleBtn.style.borderColor = 'rgba(255,255,255,0.2)';
             }
         } else {
             if (buttonEl) {

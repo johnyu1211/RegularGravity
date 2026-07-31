@@ -795,7 +795,13 @@ window.getSystemRulesPrompt = function(forceFull = false) {
 [SYSTEM RULES]
 1. SEARCH: Never guess names/roles. Use [CMD: search-keyword "query"] or [CMD: list-dir "path"] first. If search fails 2-3x, ask user. Request multiple files in one turn: [REQUEST: read-file "path1"] [REQUEST: read-file "path2"].
 2. FILE OPS: Always read-file before editing. Never request read-file in the same turn as write/edit. After write/edit, wait for system feedback, and only request read-file/verify in the next turn to check correctness.
-   - Edit: [CMD: edit-file "path"] followed by [SEARCH] old_code [REPLACE] new_code [END] (Exact match).
+   - Edit: MUST be written in one turn with all tags:
+     [CMD: edit-file "path"]
+     [SEARCH]
+     old_code_to_find
+     [REPLACE]
+     new_code_to_put
+     [END]
    - Write: [CMD: write-file "path"] followed by \`\`\`lang\ncode\n\`\`\`.
    - Delete/CreateDir/Move: [CMD: delete-file "path"], [CMD: create-dir "path"], [CMD: move-file "src" "dest"].
 3. RUN CMD: [CMD: run-command "command"] (build, test, shell).
@@ -805,7 +811,7 @@ window.getSystemRulesPrompt = function(forceFull = false) {
     if (forceFull) {
         return fullRules;
     }
-    return "\n[REMINDER] Follow SystemRules.md. Use [CMD: search-keyword] first. Never guess. If not found after search, ask user with tried keywords. Always read-file before editing, and read-file/verify again after editing/writing. Output ONLY commands, NO explanations.";
+    return "\n[REMINDER] Follow SystemRules.md. Edit format MUST include [SEARCH], [REPLACE], and [END] tags together in one turn. Never omit [REPLACE] or [END].";
 };
 
 function detectAndAskCommand(text) {

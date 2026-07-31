@@ -83,14 +83,16 @@ window.saveCurrentEditorFile = function() {
 
     try {
         const fs = require('fs');
+        const editArea = document.getElementById('editor-raw-textarea');
         let newContent = '';
 
-        const codeLines = editorContent.querySelectorAll('.line-code-text');
-        if (codeLines.length > 0 && window.isEditingMode) {
-            newContent = Array.from(codeLines).map(el => el.innerText).join('\n');
+        if (editArea && editArea.style.display !== 'none') {
+            newContent = editArea.value;
         } else {
-            const editArea = document.getElementById('editor-raw-textarea');
-            if (editArea) newContent = editArea.value;
+            const codeLines = editorContent.querySelectorAll('.line-code-text');
+            if (codeLines.length > 0) {
+                newContent = Array.from(codeLines).map(el => el.innerText).join('\n');
+            }
         }
 
         window.editorHistory.push(fs.readFileSync(window.currentEditingPath, 'utf-8'));
@@ -100,7 +102,6 @@ window.saveCurrentEditorFile = function() {
         window.isEditingMode = false;
         editorContent.classList.remove('editor-editing-active');
 
-        const editArea = document.getElementById('editor-raw-textarea');
         if (editArea) editArea.style.display = 'none';
 
         if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
@@ -124,53 +125,41 @@ window.toggleEditorEditMode = function() {
     if (!window.isEditingMode) {
         window.isEditingMode = true;
         
-        const codeLines = editorContent.querySelectorAll('.line-code-text');
-        if (codeLines.length > 0) {
-            codeLines.forEach(el => {
-                el.contentEditable = 'true';
-                el.setAttribute('spellcheck', 'false');
-                el.onkeydown = (e) => {
-                    if (e.key === 'Tab') {
-                        e.preventDefault();
-                        document.execCommand('insertText', false, '    ');
-                    }
-                };
-            });
-            editorContent.classList.add('editor-editing-active');
-            if (codeLines[0]) codeLines[0].focus();
-        } else {
-            // Fallback for unparsed or plain files
-            const fs = require('fs');
-            let rawContent = '';
-            try { rawContent = fs.readFileSync(window.currentEditingPath, 'utf-8').replace(/\r/g, ''); } catch(e) {}
+        const fs = require('fs');
+        let rawContent = '';
+        try { rawContent = fs.readFileSync(window.currentEditingPath, 'utf-8').replace(/\r/g, ''); } catch(e) {}
 
-            let editArea = document.getElementById('editor-raw-textarea');
-            if (!editArea) {
-                editArea = document.createElement('textarea');
-                editArea.id = 'editor-raw-textarea';
-                editArea.style = `
-                    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-                    width: 100%; height: 100%; background: #0b0c0e; color: #e4e4e7;
-                    font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6;
-                    padding: 16px; border: none; outline: none; resize: none; box-sizing: border-box;
-                    z-index: 1000; tab-size: 4; white-space: pre; overflow: auto;
-                `;
-                editArea.onkeydown = (e) => {
-                    if (e.key === 'Tab') {
-                        e.preventDefault();
-                        const start = editArea.selectionStart;
-                        const end = editArea.selectionEnd;
-                        editArea.value = editArea.value.substring(0, start) + '    ' + editArea.value.substring(end);
-                        editArea.selectionStart = editArea.selectionEnd = start + 4;
-                    }
-                };
-                editorContent.style.position = 'relative';
-                editorContent.appendChild(editArea);
-            }
-            editArea.value = rawContent;
-            editArea.style.display = 'block';
-            setTimeout(() => editArea.focus(), 20);
+        const scrollContainer = document.getElementById('editor-scroll-container');
+        const currentScroll = scrollContainer ? scrollContainer.scrollTop : 0;
+
+        let editArea = document.getElementById('editor-raw-textarea');
+        if (!editArea) {
+            editArea = document.createElement('textarea');
+            editArea.id = 'editor-raw-textarea';
+            editArea.style = `
+                position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+                width: 100%; height: 100%; background: #050507; color: #e4e4e7;
+                font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 12.5px; line-height: 1.6;
+                padding: 16px 20px; border: none; outline: none; resize: none; box-sizing: border-box;
+                z-index: 1000; tab-size: 4; white-space: pre; overflow: auto;
+            `;
+            editArea.onkeydown = (e) => {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const start = editArea.selectionStart;
+                    const end = editArea.selectionEnd;
+                    editArea.value = editArea.value.substring(0, start) + '    ' + editArea.value.substring(end);
+                    editArea.selectionStart = editArea.selectionEnd = start + 4;
+                }
+            };
+            editorContent.style.position = 'relative';
+            editorContent.appendChild(editArea);
         }
+
+        editArea.value = rawContent;
+        editArea.style.display = 'block';
+        editArea.scrollTop = currentScroll;
+        setTimeout(() => editArea.focus(), 20);
 
         if (btnEdit) {
             btnEdit.style.background = '#10b981';
@@ -181,7 +170,7 @@ window.toggleEditorEditMode = function() {
 
         const modeEl = document.getElementById('status-bar-mode');
         if (modeEl) {
-            modeEl.innerText = 'EDITING (INLINE)';
+            modeEl.innerText = 'EDITING (FULL EDITOR)';
             modeEl.style.color = '#f59e0b';
         }
     } else {

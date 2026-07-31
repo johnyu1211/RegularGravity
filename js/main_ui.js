@@ -3272,6 +3272,19 @@ window.setTaskbarActionsVisible = function(visible) {
     }
     apps.forEach(appData => create(appData)); if (geminiApp) window.launchWebAgent(geminiApp, !window.autoGemini);
 
+    const minTermBtn = document.getElementById('minimize-terminal');
+    if (minTermBtn) {
+        minTermBtn.onclick = () => {
+            const popover = document.getElementById('terminal-popover');
+            if (popover) popover.style.display = 'none';
+            const toggleBtn = document.getElementById('terminal-toggle-btn');
+            if (toggleBtn) {
+                toggleBtn.style.color = '';
+                toggleBtn.style.background = '';
+            }
+        };
+    }
+
     const addTermBtn = document.getElementById('add-terminal');
     if (addTermBtn) addTermBtn.onclick = () => addSubTerminal();
     window.loadDirectory(window.currentPath);

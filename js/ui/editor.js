@@ -86,7 +86,12 @@ window.saveCurrentEditorFile = function() {
         const editArea = document.getElementById('editor-raw-textarea');
         const editWrapper = document.getElementById('editor-raw-wrapper');
         let newContent = '';
-        let savedScroll = editArea ? editArea.scrollTop : 0;
+        let savedScrollRatio = 0;
+        if (editArea && editArea.scrollHeight > editArea.clientHeight) {
+            savedScrollRatio = editArea.scrollTop / (editArea.scrollHeight - editArea.clientHeight);
+        } else if (editArea) {
+            savedScrollRatio = editArea.scrollTop;
+        }
 
         if (editWrapper && editWrapper.style.display !== 'none' && editArea) {
             newContent = editArea.value;
@@ -111,7 +116,7 @@ window.saveCurrentEditorFile = function() {
             ChatUI.appendBubble('system', `[SUCCESS] Saved ${pathModule.basename(window.currentEditingPath)} successfully.`);
         }
         
-        window.openFileInEditor(window.currentEditingPath, savedScroll);
+        window.openFileInEditor(window.currentEditingPath, savedScrollRatio);
     } catch (e) {
         alert("Failed to save file: " + e.message);
     }
@@ -121,7 +126,6 @@ window.toggleEditorEditMode = function() {
     if (!window.currentEditingPath) return;
     const editorContent = document.getElementById('editor-content');
     const btnEdit = document.getElementById('btn-editor-edit');
-    const btnCancel = document.getElementById('btn-editor-cancel');
     if (!editorContent) return;
 
     if (!window.isEditingMode) {
@@ -132,7 +136,12 @@ window.toggleEditorEditMode = function() {
         try { rawContent = fs.readFileSync(window.currentEditingPath, 'utf-8').replace(/\r/g, ''); } catch(e) {}
 
         const scrollContainer = document.getElementById('editor-scroll-container');
-        const currentScroll = scrollContainer ? scrollContainer.scrollTop : 0;
+        let currentScrollRatio = 0;
+        if (scrollContainer && scrollContainer.scrollHeight > scrollContainer.clientHeight) {
+            currentScrollRatio = scrollContainer.scrollTop / (scrollContainer.scrollHeight - scrollContainer.clientHeight);
+        } else if (scrollContainer) {
+            currentScrollRatio = scrollContainer.scrollTop;
+        }
 
         let editWrapper = document.getElementById('editor-raw-wrapper');
         let editArea = document.getElementById('editor-raw-textarea');
@@ -212,13 +221,17 @@ window.toggleEditorEditMode = function() {
         }
         gutter.innerHTML = html;
 
-        editArea.scrollTop = currentScroll;
-        gutter.scrollTop = currentScroll;
+        const applyEditScroll = () => {
+            const maxEdit = editArea.scrollHeight - editArea.clientHeight;
+            const target = (currentScrollRatio <= 1.0 && currentScrollRatio >= 0 && maxEdit > 0) ? (currentScrollRatio * maxEdit) : currentScrollRatio;
+            editArea.scrollTop = target;
+            gutter.scrollTop = target;
+        };
+        applyEditScroll();
 
         setTimeout(() => {
             editArea.focus({ preventScroll: true });
-            editArea.scrollTop = currentScroll;
-            gutter.scrollTop = currentScroll;
+            applyEditScroll();
         }, 20);
 
         if (btnEdit) {
@@ -850,10 +863,19 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         updateThumb();
                     };
                 if (targetScrollTop !== null && scrollCont) {
-                    setTimeout(() => {
-                        scrollCont.scrollTop = targetScrollTop;
+                    const applyScroll = () => {
+                        let maxScroll = scrollCont.scrollHeight - scrollCont.clientHeight;
+                        if (targetScrollTop <= 1.0 && targetScrollTop >= 0 && maxScroll > 0) {
+                            scrollCont.scrollTop = targetScrollTop * maxScroll;
+                        } else {
+                            scrollCont.scrollTop = targetScrollTop;
+                        }
                         if (typeof updateThumb === 'function') updateThumb();
-                    }, 50);
+                    };
+                    applyScroll();
+                    requestAnimationFrame(applyScroll);
+                    setTimeout(applyScroll, 40);
+                    setTimeout(applyScroll, 120);
                 }
             }
         }

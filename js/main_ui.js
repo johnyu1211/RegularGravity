@@ -1620,43 +1620,69 @@ function detectAndAskCommand(text) {
     }
 }
 
+let usageCrawlerWv = null;
+
 window.fetchGeminiUsagePercent = function() {
     try {
-        const wv = document.getElementById('active-agent-webview');
-        if (!wv) return;
-        wv.executeJavaScript(`
-            (async () => {
-                try {
-                    const res = await fetch('https://gemini.google.com/usage', { credentials: 'include' });
-                    const html = await res.text();
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    
-                    // 1. Direct class selector: .gds-emphasized-body-l
-                    const targetEls = doc.querySelectorAll('.gds-emphasized-body-l, [class*="gds-emphasized-body-l"]');
-                    for (const el of targetEls) {
-                        const txt = el.innerText || el.textContent || '';
-                        const m = txt.match(/(\\d{1,3})\\s*%/);
-                        if (m) return m[1] + '%';
-                    }
+        console.log('[GeminiUsage] Starting usage percent crawl via background webview...');
+        const activeWv = document.getElementById('active-agent-webview');
+        const partition = activeWv ? activeWv.partition : 'persist:agent_hub';
+        const userAgent = activeWv ? activeWv.useragent : undefined;
 
-                    // 2. Fallback: Strip scripts/styles and search visible body text
-                    doc.querySelectorAll('script, style, head, svg, link').forEach(el => el.remove());
-                    const bodyText = doc.body ? doc.body.innerText : '';
-                    const match = bodyText.match(/(\\d{1,3})\\s*%/);
-                    if (match && match[1]) {
-                        return match[1] + '%';
+        if (!usageCrawlerWv) {
+            usageCrawlerWv = document.createElement('webview');
+            usageCrawlerWv.id = 'gemini-usage-crawler-webview';
+            usageCrawlerWv.style.cssText = 'position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; left:-9999px;';
+            if (partition) usageCrawlerWv.partition = partition;
+            if (userAgent) usageCrawlerWv.useragent = userAgent;
+            document.body.appendChild(usageCrawlerWv);
+        }
+
+        const onDomReady = () => {
+            usageCrawlerWv.removeEventListener('dom-ready', onDomReady);
+            console.log('[GeminiUsage] Usage page DOM ready, waiting 2.5s for SPA rendering...');
+            setTimeout(() => {
+                usageCrawlerWv.executeJavaScript(`
+                    (() => {
+                        try {
+                            const targetEl = document.querySelector('.gds-emphasized-body-l') || document.querySelector('[class*="gds-emphasized-body-l"]');
+                            if (targetEl) {
+                                const txt = targetEl.innerText || targetEl.textContent || '';
+                                return { success: true, text: txt.trim(), source: 'selector' };
+                            }
+                            const bodyText = document.body ? document.body.innerText : '';
+                            const match = bodyText.match(/(\\d{1,3})\\s*%/);
+                            if (match) {
+                                return { success: true, text: match[1] + '%', source: 'regex' };
+                            }
+                            return { success: false, text: bodyText.slice(0, 300), source: 'none' };
+                        } catch(e) {
+                            return { success: false, error: e.message };
+                        }
+                    })()
+                `).then(res => {
+                    console.log('[GeminiUsage] Crawl Result:', res);
+                    const el1 = document.getElementById('gemini-usage-percent-text');
+                    const el2 = document.getElementById('taskbar-usage-value');
+                    if (res && res.success && res.text) {
+                        const m = res.text.match(/(\\d{1,3})\\s*%/);
+                        const val = m ? m[1] + '%' : (res.text.includes('%') ? res.text : res.text + '%');
+                        if (el1) el1.innerText = val;
+                        if (el2) el2.innerText = val;
+                    } else {
+                        console.warn('[GeminiUsage] Could not find percent value in rendered page.', res);
+                        if (el1) el1.innerText = '--%';
+                        if (el2) el2.innerText = '--%';
                     }
-                    return null;
-                } catch(e) { return null; }
-            })()
-        `).then(res => {
-            const el1 = document.getElementById('gemini-usage-percent-text');
-            if (el1) el1.innerText = res ? res : '--%';
-            const el2 = document.getElementById('taskbar-usage-value');
-            if (el2) el2.innerText = res ? res : '--%';
-        }).catch(() => {});
-    } catch(e) {}
+                }).catch(err => console.error('[GeminiUsage] Script execution error:', err));
+            }, 2500);
+        };
+
+        usageCrawlerWv.addEventListener('dom-ready', onDomReady);
+        usageCrawlerWv.src = 'https://gemini.google.com/usage?t=' + Date.now();
+    } catch(err) {
+        console.error('[GeminiUsage] Error starting crawler:', err);
+    }
 };
 
 async function setupBoot() {

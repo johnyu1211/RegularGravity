@@ -5344,24 +5344,6 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
     };
 
     const runDiskModifications = async () => {
-        if (createDirCmds.length > 0) {
-            const fs = require('fs');
-            const path = require('path');
-            for (const c of createDirCmds) {
-                try {
-                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
-                    if (!fs.existsSync(targetPath)) {
-                        fs.mkdirSync(targetPath, { recursive: true });
-                        accumulatedFeedback += `[DIRECTORY CREATED: ${c.path}]\n`;
-                        ChatUI.appendBubble('system', `[SUCCESS] Created directory: ${c.path}`);
-                    }
-                } catch(err) {
-                    accumulatedFeedback += `[DIRECTORY CREATE ERROR: ${c.path} - ${err.message}]\n`;
-                    ChatUI.appendBubble('system', `[ERROR] Failed to create directory ${c.path}: ${err.message}`);
-                }
-            }
-        }
-
         if (deleteCmds.length > 0 && isDeleteApproved) {
             const fs = require('fs');
             const path = require('path');
@@ -5384,6 +5366,24 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 } catch (err) {
                     accumulatedFeedback += `[FILE DELETE ERROR: ${c.path} - ${err.message}]\n`;
                     ChatUI.appendBubble('system', `[ERROR] Failed to delete ${c.path}: ${err.message}`);
+                }
+            }
+        }
+
+        if (createDirCmds.length > 0) {
+            const fs = require('fs');
+            const path = require('path');
+            for (const c of createDirCmds) {
+                try {
+                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                    if (!fs.existsSync(targetPath)) {
+                        fs.mkdirSync(targetPath, { recursive: true });
+                        accumulatedFeedback += `[DIRECTORY CREATED: ${c.path}]\n`;
+                        ChatUI.appendBubble('system', `[SUCCESS] Created directory: ${c.path}`);
+                    }
+                } catch(err) {
+                    accumulatedFeedback += `[DIRECTORY CREATE ERROR: ${c.path} - ${err.message}]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Failed to create directory ${c.path}: ${err.message}`);
                 }
             }
         }

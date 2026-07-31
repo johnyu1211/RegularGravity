@@ -86,11 +86,9 @@ window.saveCurrentEditorFile = function() {
         const editArea = document.getElementById('editor-raw-textarea');
         const editWrapper = document.getElementById('editor-raw-wrapper');
         let newContent = '';
-        let savedScrollRatio = 0;
-        if (editArea && editArea.scrollHeight > editArea.clientHeight) {
-            savedScrollRatio = editArea.scrollTop / (editArea.scrollHeight - editArea.clientHeight);
-        } else if (editArea) {
-            savedScrollRatio = editArea.scrollTop;
+        let targetLineNum = 1;
+        if (editArea) {
+            targetLineNum = Math.max(1, Math.floor(editArea.scrollTop / 19.5) + 1);
         }
 
         if (editWrapper && editWrapper.style.display !== 'none' && editArea) {
@@ -116,7 +114,7 @@ window.saveCurrentEditorFile = function() {
             ChatUI.appendBubble('system', `[SUCCESS] Saved ${pathModule.basename(window.currentEditingPath)} successfully.`);
         }
         
-        window.openFileInEditor(window.currentEditingPath, savedScrollRatio);
+        window.openFileInEditor(window.currentEditingPath, targetLineNum);
     } catch (e) {
         alert("Failed to save file: " + e.message);
     }
@@ -135,12 +133,17 @@ window.toggleEditorEditMode = function() {
         let rawContent = '';
         try { rawContent = fs.readFileSync(window.currentEditingPath, 'utf-8').replace(/\r/g, ''); } catch(e) {}
 
+        let currentLineNum = 1;
         const scrollContainer = document.getElementById('editor-scroll-container');
-        let currentScrollRatio = 0;
-        if (scrollContainer && scrollContainer.scrollHeight > scrollContainer.clientHeight) {
-            currentScrollRatio = scrollContainer.scrollTop / (scrollContainer.scrollHeight - scrollContainer.clientHeight);
-        } else if (scrollContainer) {
-            currentScrollRatio = scrollContainer.scrollTop;
+        if (scrollContainer) {
+            const lineSpans = editorContent.querySelectorAll('.line-num');
+            for (const span of lineSpans) {
+                const el = span.closest('.rg-line, .rg-header, .rg-footer') || span;
+                if (el.offsetTop >= scrollContainer.scrollTop) {
+                    currentLineNum = parseInt(span.textContent, 10) || 1;
+                    break;
+                }
+            }
         }
 
         let editWrapper = document.getElementById('editor-raw-wrapper');
@@ -222,8 +225,7 @@ window.toggleEditorEditMode = function() {
         gutter.innerHTML = html;
 
         const applyEditScroll = () => {
-            const maxEdit = editArea.scrollHeight - editArea.clientHeight;
-            const target = (currentScrollRatio <= 1.0 && currentScrollRatio >= 0 && maxEdit > 0) ? (currentScrollRatio * maxEdit) : currentScrollRatio;
+            const target = Math.max(0, (currentLineNum - 1) * 19.5);
             editArea.scrollTop = target;
             gutter.scrollTop = target;
         };
@@ -864,11 +866,19 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                     };
                 if (targetScrollTop !== null && scrollCont) {
                     const applyScroll = () => {
-                        let maxScroll = scrollCont.scrollHeight - scrollCont.clientHeight;
-                        if (targetScrollTop <= 1.0 && targetScrollTop >= 0 && maxScroll > 0) {
-                            scrollCont.scrollTop = targetScrollTop * maxScroll;
-                        } else {
-                            scrollCont.scrollTop = targetScrollTop;
+                        if (typeof targetScrollTop === 'number') {
+                            const lineSpans = editorContent.querySelectorAll('.line-num');
+                            let targetEl = null;
+                            for (const span of lineSpans) {
+                                const num = parseInt(span.textContent, 10);
+                                if (num >= targetScrollTop) {
+                                    targetEl = span.closest('.rg-line, .rg-header, .rg-footer') || span;
+                                    break;
+                                }
+                            }
+                            if (targetEl) {
+                                scrollCont.scrollTop = Math.max(0, targetEl.offsetTop - 10);
+                            }
                         }
                         if (typeof updateThumb === 'function') updateThumb();
                     };

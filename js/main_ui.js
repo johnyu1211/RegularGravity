@@ -1791,22 +1791,41 @@ async function setupBoot() {
                 // 2. If not found in local UI, attempt reading latest AI response from Webview DOM
                 if (!lastAiText || !lastAiText.trim()) {
                     const wv = document.getElementById('active-agent-webview');
-                    if (wv) {
-                        lastAiText = await wv.executeJavaScript(`
-                            (() => {
-                                try {
-                                    const aiElems = Array.from(document.querySelectorAll('[data-is-streaming="false"], .model-response-text, .assistant-message, [data-message-author-role="assistant"], message-content, .message-content, model-response, [data-test-id="model-response"]'));
-                                    if (aiElems.length > 0) {
-                                        return aiElems[aiElems.length - 1].innerText || '';
-                                    }
-                                    const matchedElems = Array.from(document.querySelectorAll('div, section, article, p')).filter(el => el.innerText && (el.innerText.includes('[REQUEST:') || el.innerText.includes('[CMD:')));
-                                    if (matchedElems.length > 0) {
-                                        return matchedElems[matchedElems.length - 1].innerText || '';
-                                    }
-                                    return '';
-                                } catch(e) { return ''; }
-                            })()
-                        `).catch(() => '');
+                    if (wv && typeof wv.executeJavaScript === 'function') {
+                        try {
+                            lastAiText = await wv.executeJavaScript(`
+                                (() => {
+                                    try {
+                                        const selectors = ['[data-is-streaming="false"]', '.model-response-text', '.assistant-message', '[data-message-author-role="assistant"]', 'message-content', '.message-content', 'model-response', '[data-test-id="model-response"]'];
+                                        for (let s of selectors) {
+                                            try {
+                                                const elems = Array.from(document.querySelectorAll(s));
+                                                if (elems.length > 0) {
+                                                    const lastEl = elems[elems.length - 1];
+                                                    const text = (lastEl.innerText || lastEl.textContent || '').trim();
+                                                    if (text) return text;
+                                                }
+                                            } catch(e) {}
+                                        }
+                                        const allElems = Array.from(document.querySelectorAll('div, section, article, p'));
+                                        const matched = allElems.filter(el => {
+                                            try {
+                                                const t = el.innerText || el.textContent || '';
+                                                return t.includes('[REQUEST:') || t.includes('[CMD:');
+                                            } catch(e) { return false; }
+                                        });
+                                        if (matched.length > 0) {
+                                            const lastMatched = matched[matched.length - 1];
+                                            return (lastMatched.innerText || lastMatched.textContent || '').trim();
+                                        }
+                                        return '';
+                                    } catch(e) { return ''; }
+                                })()
+                            `);
+                        } catch(wvErr) {
+                            console.warn("[RE-CMD] Webview executeJavaScript caught safely:", wvErr);
+                            lastAiText = '';
+                        }
                     }
                 }
 

@@ -3153,12 +3153,9 @@ window.showNoticeModal = function(force = false) {
 };
 
 function setupUI() {
-    // Reset seen flag for current test run if requested
-    localStorage.removeItem('rg_notice_seen');
-
-    // Check first launch notice
+    // Check first launch notice (only pops up if not seen yet)
     setTimeout(() => {
-        window.showNoticeModal(true);
+        window.showNoticeModal(false);
     }, 300);
 
     // 1. Setup Click-to-copy for .chat-cmd-badge

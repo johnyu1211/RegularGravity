@@ -29,8 +29,36 @@
 </head>
 <body style="margin:0; padding:0; height:100vh; overflow:hidden; background:#0c0c0e;">
 
+    <!-- Custom Windows Titlebar -->
+    <div class="custom-titlebar">
+        <div class="titlebar-drag-area">
+            <img src="png.png" class="titlebar-icon">
+            <span class="titlebar-logo-text">REGULAR GRAVITY</span>
+        </div>
+        <div class="titlebar-controls">
+            <button class="titlebar-btn" id="win-fixture" title="Toggle Window Fixture Mode" style="display: none;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="win-fixture-icon">
+                    <rect x="2" y="2" width="20" height="20" rx="5" stroke-dasharray="4 3" />
+                    <path d="M12 12l5 5-2 1 2 3.5-1.5 0.8-2-3.5-2 2v-8.8z" fill="#9aa0a6" stroke="none"/>
+                </svg>
+            </button>
+            <button class="titlebar-btn" id="win-reload" title="Reload App">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"/></svg>
+            </button>
+            <button class="titlebar-btn" id="win-min" title="Minimize">
+                <svg width="10" height="10" viewBox="0 0 12 12"><rect x="1" y="5" width="10" height="1.5" fill="#9aa0a6"/></svg>
+            </button>
+            <button class="titlebar-btn" id="win-max" title="Maximize">
+                <svg width="10" height="10" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="#9aa0a6" stroke-width="1.5"/></svg>
+            </button>
+            <button class="titlebar-btn close" id="win-close" title="Close">
+                <svg width="10" height="10" viewBox="0 0 12 12"><path d="M1.5 1.5 L10.5 10.5 M10.5 1.5 L1.5 10.5" stroke="#9aa0a6" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+    </div>
+
     <!-- ====== PROJECT PICKER MODAL ====== -->
-    <div id="project-picker-modal" style="position:fixed; inset:0; z-index:9999; background:#0c0c0e; display:flex; align-items:center; justify-content:center;">
+    <div id="project-picker-modal" style="position:fixed; top:30px; left:0; right:0; bottom:0; z-index:9999; background:#0c0c0e; display:flex; align-items:center; justify-content:center;">
         <div style="background:#111113; border:1px solid #222; border-radius:16px; width:520px; max-width:90vw; box-shadow:0 32px 80px rgba(0,0,0,0.8); overflow:hidden; animation:scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275);">
             <!-- Header -->
             <div style="padding:20px 28px 16px; border-bottom:1px solid #1a1a1a;">
@@ -66,35 +94,6 @@
         </div>
     </div>
     <!-- ====== END PROJECT PICKER MODAL ====== -->
-
-    <!-- Custom Windows Titlebar -->
-
-    <div class="custom-titlebar">
-        <div class="titlebar-drag-area">
-            <img src="png.png" class="titlebar-icon">
-            <span class="titlebar-logo-text">REGULAR GRAVITY</span>
-        </div>
-        <div class="titlebar-controls">
-            <button class="titlebar-btn" id="win-fixture" title="Toggle Window Fixture Mode" style="display: none;">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="win-fixture-icon">
-                    <rect x="2" y="2" width="20" height="20" rx="5" stroke-dasharray="4 3" />
-                    <path d="M12 12l5 5-2 1 2 3.5-1.5 0.8-2-3.5-2 2v-8.8z" fill="#9aa0a6" stroke="none"/>
-                </svg>
-            </button>
-            <button class="titlebar-btn" id="win-reload" title="Reload App">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"/></svg>
-            </button>
-            <button class="titlebar-btn" id="win-min" title="Minimize">
-                <svg width="10" height="10" viewBox="0 0 12 12"><rect x="1" y="5" width="10" height="1.5" fill="#9aa0a6"/></svg>
-            </button>
-            <button class="titlebar-btn" id="win-max" title="Maximize">
-                <svg width="10" height="10" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="#9aa0a6" stroke-width="1.5"/></svg>
-            </button>
-            <button class="titlebar-btn close" id="win-close" title="Close">
-                <svg width="10" height="10" viewBox="0 0 12 12"><path d="M1.5 1.5 L10.5 10.5 M10.5 1.5 L1.5 10.5" stroke="#9aa0a6" stroke-width="1.5" stroke-linecap="round"/></svg>
-            </button>
-        </div>
-    </div>
 
     <div class="app-container" style="display: flex; height: calc(100vh - 30px); width: 100vw; background: #0c0c0e; overflow: hidden; font-size: 13.5px;">
         <!-- Explorer (Left) -->

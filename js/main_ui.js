@@ -681,9 +681,11 @@ window.prepareFilePayload = async function(baseFileName, mdContent) {
             htmlContent: htmlContent
         });
         if (success && fs.existsSync(pdfPath)) {
+            if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
             return { relativePath: pdfFileName, absolutePath: pdfPath };
         }
     }
+    if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
     return { relativePath: baseFileName, absolutePath: mdPath };
 };
 
@@ -1880,6 +1882,36 @@ async function setupBoot() {
         };
     }
 
+    window.updateSendingMdCountBadge = function() {
+        try {
+            const gravityRoot = window.appRootPath || process.cwd();
+            const sendingMdDir = path.join(gravityRoot, 'SendingMD');
+            let count = 0;
+            if (fs.existsSync(sendingMdDir)) {
+                const subfiles = fs.readdirSync(sendingMdDir);
+                count = subfiles.filter(f => !f.startsWith('.')).length;
+            }
+            const badge = document.getElementById('taskbar-sendmd-count-badge');
+            if (badge) {
+                badge.innerText = count;
+                if (count > 0) {
+                    badge.style.background = 'rgba(239, 68, 68, 0.25)';
+                    badge.style.color = '#f87171';
+                    badge.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                } else {
+                    badge.style.background = 'rgba(255, 255, 255, 0.06)';
+                    badge.style.color = 'var(--text-muted)';
+                    badge.style.borderColor = 'var(--border-color)';
+                }
+            }
+        } catch(e) {}
+    };
+
+    window.updateSendingMdCountBadge();
+    setInterval(() => {
+        if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
+    }, 2000);
+
     const emptySendMdBtn = document.getElementById('taskbar-empty-sendmd-btn');
     if (emptySendMdBtn) {
         emptySendMdBtn.onclick = () => {
@@ -1897,6 +1929,7 @@ async function setupBoot() {
                     }
                 }
                 if (typeof window.refreshTree === 'function') window.refreshTree();
+                if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
                 ChatUI.appendBubble('system', `[SYSTEM] Cleaned ${count} temporary file(s) from SendingMD folder.`);
             } catch(e) {
                 ChatUI.appendBubble('system', `[ERROR] Failed to empty SendingMD folder: ${e.message}`);

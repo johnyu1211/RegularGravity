@@ -1932,17 +1932,38 @@ window.setTaskbarActionsVisible = function(visible) {
         wv.useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
         wv.style = "width:100%; height:100%; border:none;"; wv.setAttribute('allowpopups', '');
         wv.addEventListener('contextmenu', () => wv.openDevTools());
+        const checkGoogleLoginBanner = () => {
+            try {
+                const u = wv.getURL();
+                let banner = document.getElementById('google-login-banner');
+                if (u && (u.includes('accounts.google.com') || u.includes('ServiceLogin') || u.includes('signin'))) {
+                    if (!banner) {
+                        banner = document.createElement('div');
+                        banner.id = 'google-login-banner';
+                        banner.style = "position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:99999; background:#0f172a; color:#38bdf8; border:1px solid #0284c7; padding:8px 16px; border-radius:20px; font-size:11.5px; font-weight:600; font-family:'DM Sans',sans-serif; box-shadow:0 10px 25px rgba(0,0,0,0.5); display:flex; align-items:center; gap:8px; pointer-events:auto;";
+                        banner.innerHTML = `<span>🔑 Please sign in to your Google Account to use Gemini AI</span><span style="cursor:pointer; opacity:0.7; font-size:14px; font-weight:bold;" onclick="this.parentElement.remove()">&times;</span>`;
+                        document.getElementById('agent-hub-webview')?.appendChild(banner);
+                    }
+                } else if (banner) {
+                    banner.remove();
+                }
+            } catch(e) {}
+        };
+
         wv.addEventListener('did-navigate', () => {
+            checkGoogleLoginBanner();
             if (typeof window.injectGuestDropInterceptor === 'function') {
                 window.injectGuestDropInterceptor();
             }
         });
         wv.addEventListener('did-navigate-in-page', () => {
+            checkGoogleLoginBanner();
             if (typeof window.injectGuestDropInterceptor === 'function') {
                 window.injectGuestDropInterceptor();
             }
         });
         wv.addEventListener('dom-ready', () => {
+            checkGoogleLoginBanner();
             const currentUrl = wv.getURL();
             if (!currentUrl || currentUrl === 'about:blank' || !currentUrl.startsWith('http')) {
                 return;

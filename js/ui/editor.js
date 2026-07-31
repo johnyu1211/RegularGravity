@@ -84,10 +84,11 @@ window.saveCurrentEditorFile = function() {
     try {
         const fs = require('fs');
         const editArea = document.getElementById('editor-raw-textarea');
+        const editWrapper = document.getElementById('editor-raw-wrapper');
         let newContent = '';
         let savedScroll = editArea ? editArea.scrollTop : 0;
 
-        if (editArea && editArea.style.display !== 'none') {
+        if (editWrapper && editWrapper.style.display !== 'none' && editArea) {
             newContent = editArea.value;
         } else {
             const codeLines = editorContent.querySelectorAll('.line-code-text');
@@ -103,7 +104,7 @@ window.saveCurrentEditorFile = function() {
         window.isEditingMode = false;
         editorContent.classList.remove('editor-editing-active');
 
-        if (editArea) editArea.style.display = 'none';
+        if (editWrapper) editWrapper.style.display = 'none';
 
         if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
             const pathModule = require('path');
@@ -133,17 +134,52 @@ window.toggleEditorEditMode = function() {
         const scrollContainer = document.getElementById('editor-scroll-container');
         const currentScroll = scrollContainer ? scrollContainer.scrollTop : 0;
 
+        let editWrapper = document.getElementById('editor-raw-wrapper');
         let editArea = document.getElementById('editor-raw-textarea');
-        if (!editArea) {
+        let gutter = document.getElementById('editor-raw-gutter');
+
+        if (!editWrapper) {
+            editWrapper = document.createElement('div');
+            editWrapper.id = 'editor-raw-wrapper';
+            editWrapper.style = `
+                position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+                width: 100%; height: 100%; display: flex; background: #050507;
+                z-index: 1000; overflow: hidden; box-sizing: border-box;
+            `;
+
+            gutter = document.createElement('div');
+            gutter.id = 'editor-raw-gutter';
+            gutter.style = `
+                width: 44px; min-width: 44px; background: #08080c; color: #555;
+                text-align: right; padding: 16px 8px 16px 0; font-family: 'JetBrains Mono', monospace;
+                font-size: 12.5px; line-height: 1.6; user-select: none; border-right: 1px solid #1c1c22;
+                overflow: hidden; box-sizing: border-box; flex-shrink: 0;
+            `;
+
             editArea = document.createElement('textarea');
             editArea.id = 'editor-raw-textarea';
             editArea.style = `
-                position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-                width: 100%; height: 100%; background: #050507; color: #e4e4e7;
+                flex: 1; height: 100%; background: transparent; color: #e4e4e7;
                 font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 12.5px; line-height: 1.6;
                 padding: 16px 20px; border: none; outline: none; resize: none; box-sizing: border-box;
-                z-index: 1000; tab-size: 4; white-space: pre; overflow: auto;
+                tab-size: 4; white-space: pre; overflow: auto;
             `;
+
+            const updateGutter = () => {
+                const lineCount = (editArea.value.match(/\n/g) || []).length + 1;
+                let html = '';
+                for (let i = 1; i <= lineCount; i++) {
+                    html += `<div>${i}</div>`;
+                }
+                gutter.innerHTML = html;
+                gutter.scrollTop = editArea.scrollTop;
+            };
+
+            editArea.oninput = updateGutter;
+            editArea.onscroll = () => {
+                gutter.scrollTop = editArea.scrollTop;
+            };
+
             editArea.onkeydown = (e) => {
                 if (e.key === 'Tab') {
                     e.preventDefault();
@@ -151,18 +187,34 @@ window.toggleEditorEditMode = function() {
                     const end = editArea.selectionEnd;
                     editArea.value = editArea.value.substring(0, start) + '    ' + editArea.value.substring(end);
                     editArea.selectionStart = editArea.selectionEnd = start + 4;
+                    updateGutter();
                 }
             };
+
+            editWrapper.appendChild(gutter);
+            editWrapper.appendChild(editArea);
             editorContent.style.position = 'relative';
-            editorContent.appendChild(editArea);
+            editorContent.appendChild(editWrapper);
         }
 
         editArea.value = rawContent;
-        editArea.style.display = 'block';
+        editWrapper.style.display = 'flex';
+
+        // Render line numbers in gutter
+        const lineCount = (rawContent.match(/\n/g) || []).length + 1;
+        let html = '';
+        for (let i = 1; i <= lineCount; i++) {
+            html += `<div>${i}</div>`;
+        }
+        gutter.innerHTML = html;
+
         editArea.scrollTop = currentScroll;
+        gutter.scrollTop = currentScroll;
+
         setTimeout(() => {
             editArea.focus({ preventScroll: true });
             editArea.scrollTop = currentScroll;
+            gutter.scrollTop = currentScroll;
         }, 20);
 
         if (btnEdit) {
@@ -186,9 +238,10 @@ window.cancelEditorEdit = function() {
     window.isEditingMode = false;
     const editorContent = document.getElementById('editor-content');
     if (editorContent) editorContent.classList.remove('editor-editing-active');
+    const editWrapper = document.getElementById('editor-raw-wrapper');
     const editArea = document.getElementById('editor-raw-textarea');
     let savedScroll = editArea ? editArea.scrollTop : 0;
-    if (editArea) editArea.style.display = 'none';
+    if (editWrapper) editWrapper.style.display = 'none';
     if (window.currentEditingPath) {
         window.openFileInEditor(window.currentEditingPath, savedScroll);
     }

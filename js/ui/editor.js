@@ -185,6 +185,10 @@ window.toggleEditorEditMode = function() {
 
             editArea = document.createElement('textarea');
             editArea.id = 'editor-raw-textarea';
+            editArea.spellCheck = false;
+            editArea.setAttribute('spellcheck', 'false');
+            editArea.setAttribute('autocorrect', 'off');
+            editArea.setAttribute('autocapitalize', 'off');
             editArea.style = `
                 position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; color: transparent; caret-color: #38bdf8;
                 font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 12.5px; line-height: 1.6;

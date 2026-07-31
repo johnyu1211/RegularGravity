@@ -668,6 +668,52 @@ window.reloadAgentSettings = function() {
     if (homeBtn) homeBtn.style.display = 'none';
 };
 
+window.getSendingMdTimeTag = function() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+};
+
+window.getSendingMdFolderTag = function() {
+    try {
+        const cur = window.currentPath || window.projectRoot || process.cwd();
+        const name = path.basename(cur) || 'Project';
+        return name.replace(/[^a-zA-Z0-9_\-]/g, '_');
+    } catch(e) {
+        return 'Project';
+    }
+};
+
+window.makeSendingMdTreeName = function() {
+    const ext = window.sendFormat === 'pdf' ? 'pdf' : 'md';
+    return path.join('SendingMD', `${window.getSendingMdFolderTag()}_${window.getSendingMdTimeTag()}.${ext}`);
+};
+
+window.makeSendingMdRulesName = function() {
+    const ext = window.sendFormat === 'pdf' ? 'pdf' : 'md';
+    return path.join('SendingMD', `FollowThisORDER_${window.getSendingMdTimeTag()}.${ext}`);
+};
+
+window.makeSendingMdBundleName = function(filePaths = []) {
+    const ext = window.sendFormat === 'pdf' ? 'pdf' : 'md';
+    const timeTag = window.getSendingMdTimeTag();
+    if (!filePaths || filePaths.length === 0) {
+        return path.join('SendingMD', `Files_bundle_${timeTag}.${ext}`);
+    }
+    const names = filePaths.map(f => {
+        const b = path.basename(f);
+        return b.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+    });
+
+    if (names.length <= 3) {
+        return path.join('SendingMD', `Files_${names.join('_')}_${timeTag}.${ext}`);
+    } else {
+        const first3 = names.slice(0, 3).join('_');
+        const remaining = names.length - 3;
+        return path.join('SendingMD', `Files_${first3}_${remaining}more_${timeTag}.${ext}`);
+    }
+};
+
 window.prepareFilePayload = async function(baseFileName, mdContent) {
     const fs = require('fs');
     const path = require('path');
@@ -1161,7 +1207,7 @@ function detectAndAskCommand(text) {
             mergedContent += "## [FILE DATA: " + f.path + "]\n```" + ext + "\n" + fileContent + "\n```\n\n";
         });
         
-        const baseFileName = path.join('SendingMD', `_project_read_bundle_${Date.now()}.md`);
+        const baseFileName = window.makeSendingMdBundleName(readCmds.map(f => f.path));
         window.prepareFilePayload(baseFileName, mergedContent).then(payload => {
             if (typeof window.addFileToRequestedQueue === 'function') {
                 window.addFileToRequestedQueue(payload.relativePath);
@@ -1727,8 +1773,7 @@ async function setupBoot() {
             rulesBtn.style.opacity = '0.5';
             rulesBtn.style.pointerEvents = 'none';
             try {
-                const randSuffix = Math.floor(100000 + Math.random() * 900000);
-                const rulesFileName = path.join('SendingMD', `_project_rules_${randSuffix}.md`);
+                const rulesFileName = window.makeSendingMdRulesName();
                 const rulesContent = `${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge that you understand and will strictly follow these system rules.`;
                 
                 const payload = await window.prepareFilePayload(rulesFileName, rulesContent);
@@ -1806,8 +1851,7 @@ async function setupBoot() {
             treeBtn.style.pointerEvents = 'none';
             try {
                 const projectTree = await ipcRenderer.invoke('vault-get-tree', window.currentPath || window.projectRoot || process.cwd());
-                const randSuffix = Math.floor(100000 + Math.random() * 900000);
-                const treeFileName = path.join('SendingMD', `_project_tree_${randSuffix}.md`);
+                const treeFileName = window.makeSendingMdTreeName();
                 const treeContent = `The current project folder contains the following files:\n${projectTree || '(empty)'}\n\n${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge receipt of the updated project tree.`;
                 
                 const payload = await window.prepareFilePayload(treeFileName, treeContent);
@@ -4617,8 +4661,7 @@ function setupUI() {
                     detectAndAskCommand(briefResponse);
                 }
             } else {
-                const randSuffix = Math.floor(100000 + Math.random() * 900000);
-                const baseFileName = path.join('SendingMD', `_project_rules_${randSuffix}.md`);
+                const baseFileName = window.makeSendingMdRulesName();
                 const payload = await window.prepareFilePayload(baseFileName, webPayload);
 
                 if (typeof window.refreshTree === 'function') {

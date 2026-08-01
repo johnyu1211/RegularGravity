@@ -1,3 +1,21 @@
+window.getSafeHljsLang = function(ext) {
+    if (typeof hljs === 'undefined') return 'plaintext';
+    let target = ext;
+    if (ext === 'bat' || ext === 'cmd') target = 'dos';
+    if (ext === 'js' || ext === 'cjs' || ext === 'mjs') target = 'javascript';
+    if (ext === 'ts' || ext === 'cts' || ext === 'mts') target = 'typescript';
+    if (ext === 'py' || ext === 'pyw') target = 'python';
+    if (ext === 'sh' || ext === 'bash' || ext === 'zsh') target = 'bash';
+    if (ext === 'ps1') target = 'powershell';
+
+    if (hljs.getLanguage(target)) return target;
+    if (hljs.getLanguage(ext)) return ext;
+    if (ext === 'bat' || ext === 'cmd') {
+        if (hljs.getLanguage('bash')) return 'bash';
+    }
+    return 'plaintext';
+};
+
 window.updateStatusBar = (filePath, lineCount, language) => {
     const modeEl = document.getElementById('status-bar-mode');
     const pathEl = document.getElementById('status-bar-path');
@@ -155,32 +173,31 @@ window.toggleEditorEditMode = function() {
             editWrapper = document.createElement('div');
             editWrapper.id = 'editor-raw-wrapper';
             editWrapper.style = `
-                position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-                width: 100%; height: 100%; display: flex; background: #050507;
-                z-index: 1000; overflow: hidden; box-sizing: border-box;
+                position: absolute; top: 0; left: 0; right: 70px; bottom: 0;
+                display: flex; background: var(--bg-color); z-index: 1000; overflow: hidden; box-sizing: border-box;
             `;
 
             gutter = document.createElement('div');
             gutter.id = 'editor-raw-gutter';
             gutter.style = `
-                width: 44px; min-width: 44px; background: #08080c; color: #555;
+                width: 44px; min-width: 44px; background: var(--surface-lowest); color: #555;
                 text-align: right; padding: 16px 8px 16px 0; font-family: 'JetBrains Mono', monospace;
-                font-size: 12.5px; line-height: 1.6; user-select: none; border-right: 1px solid #1c1c22;
+                font-size: 12.5px; line-height: 1.6; user-select: none; border-right: 1px solid var(--border-color);
                 overflow: hidden; box-sizing: border-box; flex-shrink: 0;
             `;
 
             const editContainer = document.createElement('div');
             editContainer.id = 'editor-raw-container';
-            editContainer.style = `position: relative; flex: 1; height: 100%; overflow: hidden; background: #050507;`;
+            editContainer.style = `position: relative; flex: 1; height: 100%; overflow: hidden; background: var(--bg-color);`;
 
             const rawPre = document.createElement('pre');
             rawPre.id = 'editor-raw-pre';
-            rawPre.style = `position: absolute; inset: 0; margin: 0; padding: 16px 20px; font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 12.5px; line-height: 1.6; tab-size: 4; white-space: pre; overflow: hidden; pointer-events: none; box-sizing: border-box; background: transparent;`;
+            rawPre.style = `position: absolute; inset: 0; margin: 0; padding: 16px 20px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 20px; tab-size: 4; white-space: pre; overflow: hidden; pointer-events: none; box-sizing: border-box; background: transparent;`;
 
             const rawCode = document.createElement('code');
             rawCode.id = 'editor-raw-code';
             rawCode.className = 'hljs';
-            rawCode.style = `background: transparent; padding: 0; margin: 0; font-family: inherit; font-size: inherit; line-height: inherit; white-space: pre; display: block;`;
+            rawCode.style = `background: transparent; padding: 0; margin: 0; font-family: inherit; font-size: inherit; line-height: 20px; white-space: pre; display: block;`;
             rawPre.appendChild(rawCode);
 
             editArea = document.createElement('textarea');
@@ -190,8 +207,8 @@ window.toggleEditorEditMode = function() {
             editArea.setAttribute('autocorrect', 'off');
             editArea.setAttribute('autocapitalize', 'off');
             editArea.style = `
-                position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; color: transparent; caret-color: #38bdf8;
-                font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 12.5px; line-height: 1.6;
+                position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; color: transparent; caret-color: #ffffff;
+                font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 20px;
                 padding: 16px 20px; border: none; outline: none; resize: none; box-sizing: border-box;
                 tab-size: 4; white-space: pre; overflow: auto;
             `;
@@ -213,26 +230,168 @@ window.toggleEditorEditMode = function() {
                 gutter.scrollTop = editArea.scrollTop;
             };
 
+            const addIndentGuides = (htmlString) => {
+                const lines = htmlString.split('\n');
+                let lastIndentCount = 0;
+                
+                const lineIndents = lines.map(line => {
+                    const textOnly = line.replace(/<[^>]*>/g, '');
+                    if (textOnly.trim() === '') return -1;
+                    let count = 0;
+                    for (let char of textOnly) {
+                        if (char === ' ') count++;
+                        else if (char === '\t') count += 4;
+                        else break;
+                    }
+                    return count;
+                });
+
+                return lines.map((line, idx) => {
+                    let spaceCount = lineIndents[idx];
+                    if (spaceCount === -1) {
+                        let nextIndent = 0;
+                        for (let j = idx + 1; j < lineIndents.length; j++) {
+                            if (lineIndents[j] !== -1) { nextIndent = lineIndents[j]; break; }
+                        }
+                        spaceCount = Math.min(lastIndentCount, nextIndent);
+                    } else {
+                        lastIndentCount = spaceCount;
+                    }
+
+                    let rawMatch = line.match(/^([ \t]+)/);
+                    let rest = rawMatch ? line.substring(rawMatch[1].length) : line;
+                    
+                    let step = 4;
+                    let guidesHTML = '';
+                    let count = 0;
+                    if (spaceCount > 0) {
+                        while (count < spaceCount) {
+                            let width = Math.min(step, spaceCount - count);
+                            guidesHTML += `<span class="indent-guide-line" style="display:inline-block; width:${width}ch; border-right: 1px solid rgba(255, 255, 255, 0.12); margin-right: 4px; box-sizing: border-box; height: 20px; line-height: 20px; vertical-align: top; user-select: none; transition: border-color 0.15s ease, background-color 0.15s ease;"></span>`;
+                            count += width;
+                        }
+                    }
+                    return `<div class="raw-code-line" style="display: block; position: relative; width: max-content; min-width: 100%; height: 20px; line-height: 20px; margin: 0; padding: 0; box-sizing: border-box; transition: background 0.1s;">${guidesHTML}${rest}</div>`;
+                }).join('');
+            };
+
             const updateRawHighlight = () => {
                 const codeEl = document.getElementById('editor-raw-code');
                 const preEl = document.getElementById('editor-raw-pre');
                 if (!codeEl || !preEl) return;
                 
                 let ext = path.extname(window.currentEditingPath || '').toLowerCase().substring(1);
-                let lang = (typeof hljs !== 'undefined' && hljs.getLanguage(ext)) ? ext : 'plaintext';
-                if (ext === 'bat' || ext === 'cmd') lang = 'dos';
+                let lang = window.getSafeHljsLang(ext);
                 let val = editArea.value;
                 if (val.endsWith('\n')) val += ' ';
                 
+                let highlighted = '';
                 if (typeof hljs !== 'undefined') {
-                    codeEl.innerHTML = hljs.highlight(val, { language: lang, ignoreIllegals: true }).value;
+                    highlighted = hljs.highlight(val, { language: lang, ignoreIllegals: true }).value;
                 } else {
-                    codeEl.textContent = val;
+                    highlighted = val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 }
+                
+                codeEl.innerHTML = addIndentGuides(highlighted);
                 preEl.scrollTop = editArea.scrollTop;
                 preEl.scrollLeft = editArea.scrollLeft;
             };
             window.updateRawHighlight = updateRawHighlight;
+
+            let activeScopeSpans = [];
+            const updateActiveScope = (activeLineIdx) => {
+                activeScopeSpans.forEach(span => span.classList.remove('active-scope-guide'));
+                activeScopeSpans = [];
+
+                const codeEl = document.getElementById('editor-raw-code');
+                if (!codeEl) return;
+
+                const lineEls = codeEl.querySelectorAll('.raw-code-line');
+                if (activeLineIdx < 0 || activeLineIdx >= lineEls.length) return;
+
+                const indents = [];
+                lineEls.forEach(lineEl => {
+                    const guideSpans = lineEl.querySelectorAll('.indent-guide-line');
+                    indents.push(guideSpans.length * 4);
+                });
+
+                const currentIndent = indents[activeLineIdx];
+                if (currentIndent <= 0) return;
+
+                let scopeIndent = currentIndent;
+
+                let startIdx = activeLineIdx;
+                while (startIdx > 0 && indents[startIdx] >= scopeIndent) {
+                    startIdx--;
+                }
+
+                let endIdx = activeLineIdx;
+                while (endIdx < lineEls.length - 1 && indents[endIdx] >= scopeIndent) {
+                    endIdx++;
+                }
+
+                const guideColIndex = (scopeIndent / 4) - 1;
+                if (guideColIndex < 0) return;
+
+                for (let i = startIdx; i <= endIdx; i++) {
+                    const spans = lineEls[i].querySelectorAll('.indent-guide-line');
+                    if (spans[guideColIndex]) {
+                        spans[guideColIndex].classList.add('active-scope-guide');
+                        activeScopeSpans.push(spans[guideColIndex]);
+                    }
+                }
+            };
+
+            let currentActiveLineEl = null;
+            let lastScopeLineIdx = -999;
+            let mouseMoveRaf = null;
+
+            editArea.onmousemove = (e) => {
+                const clientY = e.clientY;
+                const scrollTop = editArea.scrollTop;
+                if (mouseMoveRaf) return;
+                
+                mouseMoveRaf = requestAnimationFrame(() => {
+                    mouseMoveRaf = null;
+                    const rect = editArea.getBoundingClientRect();
+                    const offsetY = clientY - rect.top + scrollTop - 16;
+                    const lineIndex = Math.floor(offsetY / 20);
+                    
+                    if (lineIndex === lastScopeLineIdx) return;
+                    lastScopeLineIdx = lineIndex;
+
+                    const codeEl = document.getElementById('editor-raw-code');
+                    if (!codeEl) return;
+                    
+                    const lines = codeEl.querySelectorAll('.raw-code-line');
+                    if (lineIndex >= 0 && lineIndex < lines.length) {
+                        const targetLine = lines[lineIndex];
+                        if (targetLine !== currentActiveLineEl) {
+                            if (currentActiveLineEl) currentActiveLineEl.classList.remove('active-hover-line');
+                            targetLine.classList.add('active-hover-line');
+                            currentActiveLineEl = targetLine;
+                        }
+                        updateActiveScope(lineIndex);
+                    } else if (currentActiveLineEl) {
+                        currentActiveLineEl.classList.remove('active-hover-line');
+                        currentActiveLineEl = null;
+                        updateActiveScope(-1);
+                    }
+                });
+            };
+
+            editArea.onmouseleave = () => {
+                if (mouseMoveRaf) {
+                    cancelAnimationFrame(mouseMoveRaf);
+                    mouseMoveRaf = null;
+                }
+                lastScopeLineIdx = -999;
+                if (currentActiveLineEl) {
+                    currentActiveLineEl.classList.remove('active-hover-line');
+                    currentActiveLineEl = null;
+                    updateActiveScope(-1);
+                }
+            };
 
             editArea.oninput = () => {
                 updateGutter();
@@ -244,6 +403,9 @@ window.toggleEditorEditMode = function() {
                 if (preEl) {
                     preEl.scrollTop = editArea.scrollTop;
                     preEl.scrollLeft = editArea.scrollLeft;
+                }
+                if (typeof window.updateMinimapThumb === 'function') {
+                    window.updateMinimapThumb();
                 }
             };
 
@@ -290,8 +452,10 @@ window.toggleEditorEditMode = function() {
         }, 20);
 
         if (btnEdit) {
-            btnEdit.style.color = '#fff';
-            btnEdit.style.background = 'var(--primary)';
+            btnEdit.style.color = 'var(--text-muted)';
+            btnEdit.style.background = 'transparent';
+            btnEdit.style.borderColor = 'transparent';
+            btnEdit.style.boxShadow = 'none';
             btnEdit.title = 'Edit Mode (Click to Save & Return 📖)';
             btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>';
         }
@@ -425,33 +589,70 @@ window.editBlockContent = (syncId, event) => {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+            background: rgba(10, 10, 12, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             z-index: 100000;
             align-items: center;
             justify-content: center;
             font-family: 'DM Sans', sans-serif;
         `;
         modal.innerHTML = `
-            <div style="background: var(--surface-color); padding: 22px; width: 640px; max-width: 92vw; border: 1px solid var(--border-color); border-radius: 14px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 25px 60px rgba(0,0,0,0.7);">
-                <div style="font-size: 13px; font-weight: 700; color: #fff; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                        <span id="block-edit-title">EDIT CODE BLOCK</span>
+            <div style="background: var(--surface-color); padding: 24px; width: 680px; max-width: 92vw; border: 1px solid var(--border-color); border-radius: 16px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 32px 80px rgba(0,0,0,0.75); box-sizing: border-box; animation: scaleIn 0.2s ease-out;">
+                <div style="font-size: 13px; font-weight: 700; color: #fff; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center;">
+                        <span id="block-edit-title" style="letter-spacing: 0.03em; font-family: 'DM Sans', sans-serif;">EDIT CODE BLOCK</span>
                     </div>
-                    <span id="close-block-edit-modal" style="cursor: pointer; color: var(--text-muted); font-size: 18px; line-height: 1;">&times;</span>
+                    <span id="close-block-edit-modal" style="cursor: pointer; color: var(--text-muted); font-size: 20px; line-height: 1; transition: color 0.15s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">&times;</span>
                 </div>
-                <textarea id="block-edit-textarea" style="width: 100%; height: 260px; background: #0b0c0e; border: 1px solid var(--border-color); color: #e4e4e7; font-size: 11.5px; padding: 12px; outline: none; resize: vertical; border-radius: 8px; font-family: 'JetBrains Mono', monospace; line-height: 1.5; box-sizing: border-box; tab-size: 4; white-space: pre;"></textarea>
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button id="cancel-block-edit" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 8px 16px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;">Cancel</button>
-                    <button id="save-block-edit" style="background: var(--primary); color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;">Save Block Changes</button>
+                <div id="block-edit-editor-container" style="position: relative; width: 100%; height: 280px; background: var(--bg-color); border-radius: 10px; overflow: hidden; box-sizing: border-box;">
+                    <pre id="block-edit-pre" style="position: absolute; inset: 0; margin: 0; padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; tab-size: 4; white-space: pre; overflow: hidden; pointer-events: none; box-sizing: border-box; background: transparent;"><code id="block-edit-code" class="hljs" style="background: transparent; padding: 0; margin: 0; font-family: inherit; font-size: inherit; line-height: inherit; white-space: pre; display: block;"></code></pre>
+                    <textarea id="block-edit-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" style="position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; color: transparent; caret-color: #ffffff; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; padding: 14px; border: none; outline: none; resize: none; box-sizing: border-box; tab-size: 4; white-space: pre; overflow: auto;"></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; padding-top: 4px;">
+                    <span style="font-size: 11px; color: var(--text-dark); font-family: 'JetBrains Mono', monospace;">Ctrl+S to save changes</span>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button id="cancel-block-edit" style="background: var(--surface-high); border: none; color: var(--text-muted); padding: 8px 18px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.15s;" onmouseenter="this.style.background='var(--surface-highest)'; this.style.color='#fff';" onmouseleave="this.style.background='var(--surface-high)'; this.style.color='var(--text-muted)';">Cancel</button>
+                        <button id="save-block-edit" style="background: var(--primary); color: #fff; border: none; padding: 8px 22px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.15s; box-shadow: 0 4px 12px var(--primary-glow);" onmouseenter="this.style.background='var(--primary-light)';" onmouseleave="this.style.background='var(--primary)';">Save Block Changes</button>
+                    </div>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
 
         const textarea = modal.querySelector('#block-edit-textarea');
+        const updateModalHighlight = () => {
+            const codeEl = modal.querySelector('#block-edit-code');
+            const preEl = modal.querySelector('#block-edit-pre');
+            if (!codeEl || !preEl || !textarea) return;
+            
+            let ext = path.extname(window.currentEditingPath || '').toLowerCase().substring(1);
+            let lang = window.getSafeHljsLang(ext);
+            
+            let val = textarea.value;
+            if (val.endsWith('\n')) val += ' ';
+            
+            if (typeof hljs !== 'undefined') {
+                codeEl.innerHTML = hljs.highlight(val, { language: lang, ignoreIllegals: true }).value;
+            } else {
+                codeEl.textContent = val;
+            }
+            preEl.scrollTop = textarea.scrollTop;
+            preEl.scrollLeft = textarea.scrollLeft;
+        };
+        modal.updateModalHighlight = updateModalHighlight;
+
+        textarea.oninput = () => {
+            updateModalHighlight();
+        };
+        textarea.onscroll = () => {
+            const preEl = modal.querySelector('#block-edit-pre');
+            if (preEl) {
+                preEl.scrollTop = textarea.scrollTop;
+                preEl.scrollLeft = textarea.scrollLeft;
+            }
+        };
+
         textarea.onkeydown = (e) => {
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -459,6 +660,7 @@ window.editBlockContent = (syncId, event) => {
                 const end = textarea.selectionEnd;
                 textarea.value = textarea.value.substring(0, start) + '    ' + textarea.value.substring(end);
                 textarea.selectionStart = textarea.selectionEnd = start + 4;
+                updateModalHighlight();
             }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                 e.preventDefault();
@@ -476,6 +678,7 @@ window.editBlockContent = (syncId, event) => {
 
     const textarea = modal.querySelector('#block-edit-textarea');
     textarea.value = blockText;
+    if (modal.updateModalHighlight) modal.updateModalHighlight();
     modal.style.display = 'flex';
     setTimeout(() => textarea.focus(), 30);
 
@@ -588,7 +791,9 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
     const btnEdit = document.getElementById('btn-editor-edit');
     if (btnEdit) {
         btnEdit.style.color = 'var(--text-muted)';
-        btnEdit.style.background = 'var(--surface-low)';
+        btnEdit.style.background = 'transparent';
+        btnEdit.style.borderColor = 'transparent';
+        btnEdit.style.boxShadow = 'none';
         btnEdit.title = 'View Mode (Click for Code Edit Mode </ >)';
         btnEdit.innerHTML = '<svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>';
         btnEdit.onclick = () => window.toggleEditorEditMode();
@@ -616,7 +821,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
         const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
         
         const titleEl = document.getElementById('editor-header-title');
-        if (titleEl) titleEl.innerText = `FILE VIEWER - ${path.basename(filePath)}`;
+        if (titleEl) titleEl.innerText = path.basename(filePath);
 
         const toggleCollapseBtn = document.getElementById('btn-editor-toggle-collapse');
 
@@ -644,20 +849,64 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
             };
         }
 
+        const headerActions = document.getElementById('editor-header-actions');
+        if (headerActions) headerActions.style.display = 'none';
+
         if (ext === 'pdf') {
             const fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
             editorContent.innerHTML = `<div id="editor-scroll-container" style="position: absolute; inset: 0; background:#0c0c0e;"><iframe src="${fileUrl}" style="width:100%; height:100%; border:none;"></iframe></div>`;
             return;
         }
 
-        const binaryExts = ['exe', 'dll', 'bin', 'zip', 'rar', 'tar', 'gz', '7z', 'mp3', 'mp4', 'wav', 'avi', 'mov', 'iso', 'so', 'dylib', 'class', 'jar', 'war', 'db', 'sqlite'];
+        const videoExts = ['mp4', 'webm', 'ogv', 'mov', 'mkv'];
+        if (videoExts.includes(ext)) {
+            const fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+            editorContent.innerHTML = `
+                <div id="editor-scroll-container" style="position: absolute; inset: 0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#040406; padding: 24px; box-sizing:border-box;">
+                    <div style="max-width: 90%; max-height: 85%; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.08); background: #000;">
+                        <video src="${fileUrl}" controls autoplay style="max-width: 100%; max-height: 75vh; display: block; outline: none;"></video>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const audioExts = ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'];
+        if (audioExts.includes(ext)) {
+            const fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+            editorContent.innerHTML = `
+                <div id="editor-scroll-container" style="position: absolute; inset: 0; display:flex; justify-content:center; align-items:center; background:var(--bg-color); font-family:'DM Sans', 'Outfit', sans-serif; padding:20px; box-sizing:border-box;">
+                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 36px 44px; display: flex; flex-direction: column; align-items: center; text-align: center; width: 380px; box-shadow: 0 20px 50px rgba(0,0,0,0.4);">
+                        <div style="width: 54px; height: 54px; border-radius: 14px; background: rgba(56, 189, 248, 0.1); display: flex; align-items: center; justify-content: center; color: #38bdf8; margin-bottom: 16px;">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                        </div>
+                        <div style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 4px; word-break: break-all;">${path.basename(filePath)}</div>
+                        <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 20px;">Audio Media Player</div>
+                        <audio src="${fileUrl}" controls style="width: 100%; outline: none; border-radius: 8px; filter: invert(0.9) hue-rotate(180deg);"></audio>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const binaryExts = ['exe', 'dll', 'bin', 'zip', 'rar', 'tar', 'gz', '7z', 'avi', 'iso', 'so', 'dylib', 'class', 'jar', 'war', 'db', 'sqlite'];
         if (binaryExts.includes(ext)) {
             editorContent.innerHTML = `
-                <div style="position: absolute; inset: 0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#0c0c0e; color:var(--text-muted); font-family:'DM Sans', sans-serif; gap: 12px; box-sizing:border-box; padding:20px;">
-                    <div style="font-size: 24px;">⚠️</div>
-                    <div style="font-size: 14px; font-weight: 600; color: #eee;">Binary File Detected</div>
-                    <div style="font-size: 11.5px; color: var(--text-dark); text-align:center; max-width: 300px; line-height: 1.5; margin-bottom: 8px;">This file is binary and cannot be viewed as text in the editor.</div>
-                    <button onclick="const ipc = require('electron').ipcRenderer; ipc.send('reveal-in-explorer', '${filePath.replace(/\\/g, '\\\\')}');" style="background:var(--surface-high); border: 1px solid var(--border-color); color:#fff; padding:6px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer; transition:background 0.2s;">Open in File Explorer</button>
+                <div style="position: absolute; inset: 0; display:flex; justify-content:center; align-items:center; background:var(--bg-color); font-family:'DM Sans', 'Outfit', sans-serif; box-sizing:border-box; padding:20px;">
+                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 36px 44px; display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 360px; box-shadow: 0 20px 50px rgba(0,0,0,0.4);">
+                        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245, 158, 11, 0.1); border: none; display: flex; align-items: center; justify-content: center; color: #f59e0b; margin-bottom: 16px;">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="12" y1="9" x2="12.01" y2="9"></line></svg>
+                        </div>
+                        <div style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 8px; letter-spacing: 0.2px;">Binary File Detected</div>
+                        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 22px;">This file is in binary format and cannot be displayed as plain text in the editor.</div>
+                        <button onclick="const ipc = require('electron').ipcRenderer; ipc.send('reveal-in-explorer', '${filePath.replace(/\\/g, '\\\\')}');" 
+                                style="background: rgba(255, 255, 255, 0.08); border: none; color: #ffffff; padding: 9px 18px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;"
+                                onmouseover="this.style.background='rgba(255, 255, 255, 0.15)';"
+                                onmouseout="this.style.background='rgba(255, 255, 255, 0.08)';">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                            Reveal in Windows Explorer
+                        </button>
+                    </div>
                 </div>
             `;
             return;
@@ -668,16 +917,19 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
             const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
             editorContent.innerHTML = `<div id="editor-scroll-container" style="position: absolute; inset: 0; display:flex; justify-content:center; align-items:flex-start; overflow:auto; padding:20px; box-sizing:border-box; background:#050505;"><img src="data:${mime};base64,${base64}" style="max-width:100%; object-fit:contain; box-shadow: 0 4px 20px rgba(0,0,0,0.5);"></div>`;
         } else {
+            if (headerActions) headerActions.style.display = 'flex';
             const content = fs.readFileSync(filePath, 'utf-8').replace(/\r/g, '');
             if (typeof hljs !== 'undefined') {
                 const linesRaw = content.split('\n');
-                let lang = ext;
-                if (!hljs.getLanguage(lang)) {
-                    lang = (ext === 'bat' || ext === 'cmd') ? 'dos' : 'plaintext';
+                let lang = window.getSafeHljsLang(ext);
+                if (typeof window.updateStatusBar === 'function') {
+                    window.updateStatusBar(filePath, linesRaw.length, (ext || 'txt').toUpperCase());
                 }
-                const foldLangs = ['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'c', 'cpp', 'java', 'go', 'rs', 'py', 'php', 'swift'];
-                const shouldFold = foldLangs.includes(lang);
+                const foldLangs = ['js', 'jsx', 'ts', 'tsx', 'javascript', 'typescript', 'html', 'css', 'json', 'c', 'cpp', 'java', 'go', 'rs', 'py', 'python', 'php', 'swift'];
+                const shouldFold = foldLangs.includes(ext) || foldLangs.includes(lang);
                 const lines = hljs.highlight(content, { language: lang, ignoreIllegals: true }).value.split('\n');
+                const maxLineDigits = String(linesRaw.length).length;
+                const gutterWidth = Math.max(38, maxLineDigits * 9 + 18);
                 
                 let finalHTML = ''; let minimapHTML = ''; let blockStack = []; let blockCounter = 0; 
 
@@ -728,7 +980,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         let lineCount = i - popped.start + 1;
                         let safeTitle = popped.title.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         
-                        finalHTML += `</div></details><div class="rg-footer" data-end="${i}">${lineNumHTML}<div style="display:flex; align-items:center; flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span> <span class="footer-tag" style="margin-left: 8px;">// ${safeTitle}</span> <span style="color:var(--text-muted); font-size:10px; font-weight:bold; margin-left:8px; background:var(--surface-low); border: 1px solid var(--border-color); padding:1px 6px; border-radius:10px;">${lineCount} lines</span></div><div class="go-top-btn" onclick="const el = document.getElementById('editor-${popped.id}'); if(el){ document.getElementById('editor-scroll-container').scrollTo({top: el.offsetTop - 20, behavior: 'smooth'}); } event.stopPropagation();" title="Go to block start">↑ Top</div></div></div>`;
+                        finalHTML += `</div></details><div class="rg-footer" data-end="${i}">${lineNumHTML}<div style="display:flex; align-items:center; flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span> <span class="footer-tag" style="margin-left: 8px;">// ${safeTitle}</span> <span style="color:var(--text-muted); font-size:10px; font-weight:bold; margin-left:8px; background:var(--surface-low); border: none; padding:1px 6px; border-radius:10px;">${lineCount} lines</span></div><div class="go-top-btn" onclick="const el = document.getElementById('editor-${popped.id}'); if(el){ document.getElementById('editor-scroll-container').scrollTo({top: el.offsetTop - 20, behavior: 'smooth'}); } event.stopPropagation();" title="Go to block start"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg></div></div></div>`;
                         minimapHTML += `</div></details><div class="mini-footer">${mmLine}</div>`;
                     } else {
                         finalHTML += `<div class="rg-line">${lineNumHTML} <span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine || ' '}</span></div>`;
@@ -747,43 +999,51 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         .editor-editing-active .line-code-text { cursor: text; border-radius: 2px; transition: background 0.15s, outline 0.15s; }
                         .editor-editing-active .line-code-text:hover { background: rgba(255, 255, 255, 0.05); }
                         .editor-editing-active .line-code-text:focus { background: rgba(56, 189, 248, 0.1); outline: 1px dashed rgba(56, 189, 248, 0.5); }
-                        .line-num { position: sticky; left: 0; z-index: 2; display: inline-block; width: 30px; min-width: 30px; text-align: right; color: #555; user-select: none; margin-right: 12px; font-size: 11px; font-family: 'JetBrains Mono', monospace; border-right: 1px solid #333; padding-right: 8px; flex-shrink: 0; transition: color 0.1s; background: transparent; }
-                        .rg-line .line-num { background: #000; } .rg-line:hover .line-num { background: #141414; }
-                        .rg-body .rg-line .line-num { background: #070707; } .rg-body .rg-line:hover .line-num { background: #1b1b1b; }
+                        .line-num { position: sticky; left: 0; z-index: 2; display: inline-flex; align-items: center; justify-content: flex-end; width: ${gutterWidth}px; min-width: ${gutterWidth}px; text-align: right; color: #555; user-select: none; margin-right: 12px; font-size: 11px; font-family: 'JetBrains Mono', monospace; border-right: 1px solid #333; padding-right: 8px; flex-shrink: 0; transition: color 0.1s; background: transparent; box-sizing: border-box; align-self: stretch; }
+                        .rg-line .line-num { background: var(--bg-color); } .rg-line:hover .line-num { background: var(--surface-color); }
+                        .rg-body .rg-line .line-num { background: var(--surface-lowest); } .rg-body .rg-line:hover .line-num { background: var(--surface-high); }
                         
-                        .rg-block { margin: 6px 0; border: 1px solid #2a2a2a; border-radius: 7px; background: #070707; transition: border-color 0.15s; display: block; max-width: 100%; overflow: hidden; }
+                        .rg-block { margin: 6px 4px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--surface-lowest); transition: border-color 0.15s; display: block; max-width: calc(100% - 8px); overflow: hidden; box-shadow: none !important; }
                         .rg-body .rg-block { margin: 2px 0 2px 12px; }
-                        .rg-block:hover { border-color: #fff; } .rg-block:has(.rg-block:hover) { border-color: #2a2a2a; }
+                        .rg-block:hover { border-color: #ffffff; box-shadow: none !important; } .rg-block:has(.rg-block:hover) { border-color: var(--border-color) !important; }
                         
-                        .rg-header { cursor: pointer; padding: 4px 10px 4px 0; background: #111; display: flex; align-items: center; list-style: none; border-radius: 6px 6px 0 0; transition: background 0.1s; max-width: 100%; box-sizing: border-box; }
-                        .rg-header::-webkit-details-marker { display: none; } .rg-header:hover { background: #1a1a1a; } .rg-header:hover .line-num { color: #888; }
+                        details:not([open]) > .rg-header { border-radius: 6px !important; box-shadow: none !important; }
+                        details:not([open]), details[open] { box-shadow: none !important; }
+                        .rg-header { cursor: pointer; padding: 0 10px 0 0; background: var(--surface-color); display: flex; align-items: stretch; list-style: none; border-radius: 6px 6px 0 0; transition: background 0.1s; max-width: 100%; box-sizing: border-box; min-height: 24px; box-shadow: none !important; }
+                        .rg-header .line-num { padding-top: 3px; padding-bottom: 3px; }
+                        .rg-header .line-code-text { display: inline-flex; align-items: center; padding-top: 3px; padding-bottom: 3px; }
+                        .rg-header::-webkit-details-marker { display: none; } .rg-header:hover { background: var(--surface-high); box-shadow: none !important; } .rg-header:hover .line-num { color: #aaa; }
                         
-                        .box-paste-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; flex-shrink: 0; }
-                        .rg-header:hover .box-paste-btn { opacity: 1; } .box-paste-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+                        .box-paste-btn { font-size: 10px; font-weight: bold; color: var(--text-muted); background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; flex-shrink: 0; align-self: center; }
+                        .rg-header:hover .box-paste-btn { opacity: 1; } .box-paste-btn:hover { background: transparent !important; color: #ffffff !important; border-color: transparent !important; }
                         
-                        .box-edit-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 4px; }
-                        .rg-header:hover .box-edit-btn { opacity: 1; } .box-edit-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+                        .box-edit-btn { font-size: 10px; font-weight: bold; color: var(--text-muted); background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 4px; align-self: center; }
+                        .rg-header:hover .box-edit-btn { opacity: 1; } .box-edit-btn:hover { background: transparent !important; color: #ffffff !important; border-color: transparent !important; }
                         
-                        .box-copy-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 6px; }
-                        .rg-header:hover .box-copy-btn { opacity: 1; } .box-copy-btn:hover { background: #333; color: #fff; border-color: #555; }
+                        .box-copy-btn { font-size: 10px; font-weight: bold; color: var(--text-muted); background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 6px; align-self: center; }
+                        .rg-header:hover .box-copy-btn { opacity: 1; } .box-copy-btn:hover { background: transparent !important; color: #ffffff !important; border-color: transparent !important; }
                         
-                        .box-fold-btn { font-size: 10px; font-weight: bold; color: #888; background: #222; border: 1px solid #333; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 4px; }
-                        .rg-header:hover .box-fold-btn { opacity: 1; } .box-fold-btn:hover { background: #333; color: #fff; border-color: #555; }
+                        .box-fold-btn { font-size: 10px; font-weight: bold; color: var(--text-muted); background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 4px; align-self: center; }
+                        .rg-header:hover .box-fold-btn { opacity: 1; } .box-fold-btn:hover { background: transparent !important; color: #ffffff !important; border-color: transparent !important; }
                         
-                        .caret { display: inline-block; color: var(--text-muted); font-size: 10px; margin-left: 8px; transition: transform 0.2s ease; flex-shrink: 0; } details[open] > .rg-header .caret { transform: rotate(90deg); }
+                        .caret { display: inline-block; color: var(--text-muted); font-size: 10px; margin-left: 8px; transition: transform 0.2s ease; flex-shrink: 0; align-self: center; } details[open] > .rg-header .caret { transform: rotate(90deg); }
                         
-                        .rg-body { padding: 0; border-top: 1px solid #222; overflow-x: auto; overflow-y: hidden; width: 100%; box-sizing: border-box; }
+                        .rg-body { padding: 0; border-top: none; overflow-x: auto; overflow-y: hidden; width: 100%; box-sizing: border-box; }
                         .rg-body::-webkit-scrollbar { height: 6px; } .rg-body::-webkit-scrollbar-track { background: transparent; }
                         .rg-body::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; } .rg-body::-webkit-scrollbar-thumb:hover { background: #555; }
                         
-                        .rg-footer { padding: 4px 10px 4px 0; background: #111; border-top: 1px solid #2a2a2a; border-radius: 0 0 6px 6px; display: flex; align-items: center; transition: background 0.1s; max-width: 100%; box-sizing: border-box; }
-                        .rg-footer:hover { background: #1a1a1a; } .rg-footer:hover .line-num { color: #888; } .footer-tag { color: #666; font-size: 10px; font-style: italic; white-space: nowrap; }
+                        .rg-footer { padding: 0 10px 0 0; background: var(--surface-color); border-top: none; border-radius: 0 0 6px 6px; display: flex; align-items: stretch; transition: background 0.1s; max-width: 100%; box-sizing: border-box; min-height: 24px; }
+                        .rg-footer .line-num { padding-top: 3px; padding-bottom: 3px; }
+                        .rg-footer .footer-tag { display: inline-flex; align-items: center; padding-top: 3px; padding-bottom: 3px; }
+                        .rg-footer:hover { background: var(--surface-high); } .rg-footer:hover .line-num { color: #aaa; } .footer-tag { color: #888; font-size: 10px; font-style: italic; white-space: nowrap; }
                         
-                        .go-top-btn { font-size: 10px; font-weight: bold; color: #555; background: #0a0a0a; border: 1px solid #222; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; flex-shrink: 0; }
-                        .rg-footer:hover .go-top-btn { opacity: 1; } .go-top-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+                        .go-top-btn { font-size: 10px; font-weight: bold; color: var(--text-muted); background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 4px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; align-self: center; }
+                        .rg-footer:hover .go-top-btn { opacity: 1; } .go-top-btn:hover { background: transparent !important; color: #ffffff !important; border-color: transparent !important; }
                         
-                        .rg-line { padding: 0 10px 0 0; line-height: 1.5; position: relative; z-index: 1; display: flex; align-items: center; transition: background 0.1s; border-radius: 2px; width: max-content; min-width: 100%; box-sizing: border-box; }
-                        .rg-line:hover { background: rgba(255, 255, 255, 0.08); } .rg-line:hover .line-num { color: #888; }
+                        .rg-line { padding: 0 10px 0 0; margin: 0; border-radius: 4px; line-height: 1.5; position: relative; z-index: 1; display: flex; align-items: stretch; transition: background 0.1s; width: 100%; box-sizing: border-box; min-height: 24px; }
+                        .rg-line .line-num { padding-top: 3px; padding-bottom: 3px; }
+                        .rg-line .line-code-text { display: inline-flex; align-items: center; padding-top: 3px; padding-bottom: 3px; }
+                        .rg-line:hover { background: rgba(255, 255, 255, 0.08); border-radius: 4px; } .rg-line:hover .line-num { color: #aaa; }
                         
                         .search-highlight { background: rgba(212, 160, 23, 0.2) !important; border-radius: 2px; } .search-highlight .line-num { color: #d4a017 !important; font-weight: bold; }
                         .search-highlight-active { background: rgba(212, 160, 23, 0.6) !important; outline: 1px solid #d4a017; border-radius: 2px; } .search-highlight-active .line-num { color: #fff !important; background: #d4a017 !important; font-weight: bold; }
@@ -791,11 +1051,11 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         #minimap-thumb:hover { background: rgba(255, 255, 255, 0.15) !important; border-color: rgba(255, 255, 255, 0.4) !important; }
                         .mini-detail, .mini-body, .mini-footer { margin: 0; padding: 0; outline: none; } .mini-summary { list-style: none; margin: 0; padding: 0; display: block; } .mini-summary::-webkit-details-marker { display: none; }
                     </style>
-                    <div style="display: flex; position: absolute; inset: 0; background: #000; overflow: hidden;">
-                        <div id="editor-scroll-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px; position: relative;">
+                    <div style="display: flex; position: absolute; inset: 0; background: var(--bg-color); overflow: hidden;">
+                        <div id="editor-scroll-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 18px; box-sizing: border-box; position: relative;">
                             <pre style="margin:0; padding:0; width:100%; max-width:100%; overflow-x:auto;"><code class="hljs" style="font-family:'JetBrains Mono', monospace; font-size:13px; background:transparent; display:block; width:100%; padding:0; margin:0;">${finalHTML}</code></pre>
                         </div>
-                        <div id="minimap-container" style="width: 70px; min-width: 70px; background: #050505; border-left: 1px solid #1a1a1a; position: relative; user-select: none;">
+                        <div id="minimap-container" style="width: 70px; min-width: 70px; background: var(--surface-lowest); border-left: 1px solid var(--border-color); position: relative; user-select: none;">
                             <div id="minimap-track" style="position: absolute; left: 0; right: 0; top: 10px; pointer-events: none; transition: transform 0.1s ease-out;">${minimapHTML}</div>
                             <div id="minimap-thumb" style="position: absolute; top: 0; right: 0; width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-right: none; cursor: grab; border-radius: 4px 0 0 4px; transition: background 0.2s, border-color 0.2s;"></div>
                         </div>
@@ -912,25 +1172,30 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         });
                     });
                     const updateThumb = () => {
-                        const sh = scrollCont.scrollHeight, ch = scrollCont.clientHeight;
+                        const isEdit = window.isEditingMode;
+                        const targetCont = isEdit ? document.getElementById('editor-raw-textarea') : scrollCont;
+                        if (!targetCont) return;
+
+                        const sh = targetCont.scrollHeight, ch = targetCont.clientHeight;
                         miniThumb.style.display = 'block';
                         
                         if (sh <= ch) {
                             miniThumb.style.height = miniCont.clientHeight + 'px';
                             miniThumb.style.top = '0px';
                             miniThumb.style.opacity = '0.25';
-                            miniTrack.style.transform = `translateY(0px)`;
+                            if (miniTrack) miniTrack.style.transform = `translateY(0px)`;
                             return;
                         }
                         
                         miniThumb.style.opacity = '';
                         const thumbHeight = Math.max((ch / sh) * miniCont.clientHeight, 20); 
                         miniThumb.style.height = thumbHeight + 'px';
-                        const scrollRatio = scrollCont.scrollTop / (sh - ch);
+                        const maxScroll = sh - ch;
+                        const scrollRatio = maxScroll > 0 ? targetCont.scrollTop / maxScroll : 0;
                         miniThumb.style.top = (scrollRatio * (miniCont.clientHeight - thumbHeight)) + 'px';
-                        if (miniTrack.scrollHeight > miniCont.clientHeight) {
+                        if (miniTrack && miniTrack.scrollHeight > miniCont.clientHeight) {
                             miniTrack.style.transform = `translateY(-${scrollRatio * (miniTrack.scrollHeight - miniCont.clientHeight + 20)}px)`;
-                        } else { miniTrack.style.transform = `translateY(0px)`; }
+                        } else if (miniTrack) { miniTrack.style.transform = `translateY(0px)`; }
                     };
                     let isMinimapRafPending = false;
                     const updateThumbThrottled = () => {
@@ -954,12 +1219,24 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         const rect = miniCont.getBoundingClientRect();
                         const thumbHeight = miniThumb.offsetHeight, thumbMax = rect.height - thumbHeight;
                         const targetTop = Math.max(0, Math.min(e.clientY - rect.top - (thumbHeight / 2), thumbMax));
-                        scrollCont.scrollTop = (targetTop / thumbMax) * (scrollCont.scrollHeight - scrollCont.clientHeight);
+                        const ratio = thumbMax > 0 ? targetTop / thumbMax : 0;
+                        if (window.isEditingMode) {
+                            const editArea = document.getElementById('editor-raw-textarea');
+                            if (editArea) editArea.scrollTop = ratio * (editArea.scrollHeight - editArea.clientHeight);
+                        } else {
+                            scrollCont.scrollTop = ratio * (scrollCont.scrollHeight - scrollCont.clientHeight);
+                        }
                     };
                     miniCont.onmousedown = (e) => {
                         if (e.target === miniThumb) return;
                         const rect = miniCont.getBoundingClientRect();
-                        scrollCont.scrollTop = (e.clientY - rect.top) / rect.height * scrollCont.scrollHeight - scrollCont.clientHeight / 2;
+                        const ratio = rect.height > 0 ? (e.clientY - rect.top) / rect.height : 0;
+                        if (window.isEditingMode) {
+                            const editArea = document.getElementById('editor-raw-textarea');
+                            if (editArea) editArea.scrollTop = ratio * editArea.scrollHeight - editArea.clientHeight / 2;
+                        } else {
+                            scrollCont.scrollTop = ratio * scrollCont.scrollHeight - scrollCont.clientHeight / 2;
+                        }
                         updateThumb();
                     };
                 if (targetScrollTop !== null && scrollCont) {

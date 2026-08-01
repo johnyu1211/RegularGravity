@@ -59,13 +59,10 @@ async function openProjectModal() {
             const name = p.split(/[\\/]/).pop() || p;
             const short = p.length > 48 ? '...' + p.slice(-45) : p;
             
-            return `<div data-path="${p}" class="recent-project-item" onclick="window.selectProject(this.getAttribute('data-path'))" 
-                style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; cursor:pointer; border:1px solid transparent; transition:all 0.15s; background:transparent;"
-                onmouseover="this.style.background='#1a1a1f'; this.style.borderColor='#333';"
-                onmouseout="this.style.background='transparent'; this.style.borderColor='transparent';">
+            return `<div data-path="${p}" class="recent-project-item" onclick="window.selectProject(this.getAttribute('data-path'))">
                 <div style="min-width:0;">
-                    <div style="font-size:13px; font-weight:600; color:#ddd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>
-                    <div style="font-size:10px; color:#777; font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">${short}</div>
+                    <div class="recent-project-title" style="font-size:13px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition: color 0.2s;">${name}</div>
+                    <div class="recent-project-path" style="font-size:10.5px; color:var(--text-muted); font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px; transition: color 0.2s;">${short}</div>
                 </div>
             </div>`;
         }).join('');

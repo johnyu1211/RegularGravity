@@ -268,7 +268,7 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1400,
         height: 900,
-        backgroundColor: '#0c0c0e',
+        backgroundColor: '#141416',
         frame: false,
         icon: path.join(__dirname, 'png.png'),
         webPreferences: {

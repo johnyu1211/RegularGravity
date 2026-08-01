@@ -66,11 +66,11 @@ window.makeCodeBlocksCollapsible = (container) => {
 
         const details = document.createElement('details');
         details.className = 'chat-code-details';
-        details.style = 'margin: 6px 0; border: 1px solid #2a2a2a; border-radius: 6px; background: #070707; overflow: hidden;';
+        details.style = 'margin: 6px 0; border: 1px solid var(--border-color); border-radius: 6px; background: var(--surface-color); overflow: hidden;';
         
         const summary = document.createElement('summary');
         summary.className = 'chat-code-summary';
-        summary.style = 'cursor: pointer; padding: 6px 12px; background: #111; font-size: 11.5px; font-weight: 600; color: #aaa; font-family: "DM Sans", sans-serif; display: flex; align-items: center; justify-content: space-between; user-select: none; border-bottom: 1px solid transparent;';
+        summary.style = 'cursor: pointer; padding: 6px 12px; background: var(--surface-high); font-size: 11.5px; font-weight: 600; color: #aaa; font-family: "DM Sans", sans-serif; display: flex; align-items: center; justify-content: space-between; user-select: none; border-bottom: 1px solid transparent;';
         
         summary.innerHTML = `<span style="display: flex; align-items: center; gap: 6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Code Block (${lang})</span><span class="chat-code-caret" style="display: flex; align-items: center; transition: transform 0.2s ease;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></span>`;
         

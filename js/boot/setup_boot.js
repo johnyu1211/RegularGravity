@@ -345,13 +345,29 @@ async function setupBoot() {
             const closeBtn = document.getElementById('browser-confirm-close');
             if (!modal || !okBtn || !cancelBtn) return resolve('continue');
 
+            const geminiIcon = document.getElementById('browser-confirm-gemini-icon');
+            const faviconImg = document.getElementById('browser-confirm-favicon');
+            if (geminiIcon) {
+                geminiIcon.style.display = window.autoGemini ? 'flex' : 'none';
+                if (window.autoGemini && faviconImg) {
+                    const urlInput = document.getElementById('agent-url-input');
+                    let domain = 'gemini.google.com';
+                    if (urlInput && urlInput.value) {
+                        try { domain = new URL(urlInput.value).hostname; } catch(e) {}
+                    }
+                    faviconImg.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+                }
+            }
+
             modal.style.display = 'flex';
             setTimeout(() => {
-                modal.firstElementChild.style.transform = 'translateY(0)';
+                const sheet = modal.querySelector('div[style*="border-top"]');
+                if (sheet) sheet.style.transform = 'translateY(0)';
             }, 10);
 
             const hideModal = () => {
-                modal.firstElementChild.style.transform = 'translateY(100%)';
+                const sheet = modal.querySelector('div[style*="border-top"]');
+                if (sheet) sheet.style.transform = 'translateY(100%)';
                 setTimeout(() => { modal.style.display = 'none'; }, 300);
             };
 
@@ -395,6 +411,7 @@ async function setupBoot() {
             if (!isSilentBoot) {
                 document.getElementById('agent-hub-home').style.display = 'none';
                 document.getElementById('agent-hub-webview').style.display = 'flex';
+                if (typeof window.setInspectorBorderState === 'function') window.setInspectorBorderState(true);
                 window.setTaskbarActionsVisible(true);
 
                 if (confirmResult === 'send' || confirmResult === true) {
@@ -414,6 +431,7 @@ async function setupBoot() {
         if (!isSilentBoot) {
             document.getElementById('agent-hub-home').style.display = 'none';
             document.getElementById('agent-hub-webview').style.display = 'flex';
+            if (typeof window.setInspectorBorderState === 'function') window.setInspectorBorderState(true);
             window.setTaskbarActionsVisible(true);
         }
         const urlInput = document.getElementById('agent-url-input');

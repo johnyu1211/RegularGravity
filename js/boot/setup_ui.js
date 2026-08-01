@@ -68,11 +68,109 @@ function setupUI() {
     const geminiUsageToggleBtn = document.getElementById('gemini-usage-toggle-btn');
     
     // Multi-Window Dynamic Popover System
-    const bringPopoverToFront = (activePopover) => {
-        document.querySelectorAll('.web-popover-window').forEach(p => {
-            p.style.zIndex = '1000';
+    let globalPopoverZIndex = 1000;
+
+    const isPopoverFrontmost = (popover) => {
+        if (!popover || popover.style.display === 'none') return false;
+        let maxZ = -1;
+        document.querySelectorAll('.web-popover-window, #terminal-popover').forEach(p => {
+            if (p.style.display !== 'none' && p !== popover) {
+                const z = parseInt(p.style.zIndex || '1000', 10);
+                if (z > maxZ) maxZ = z;
+            }
         });
-        activePopover.style.zIndex = '1005';
+        const currentZ = parseInt(popover.style.zIndex || '1000', 10);
+        return currentZ > maxZ;
+    };
+
+    const updateTaskbarButtonStyles = () => {
+        // 1. GitHub Button
+        const gitP = document.getElementById('web-popover-github');
+        const gitBtn = document.getElementById('git-toggle-btn');
+        if (gitBtn) {
+            if (!gitP) {
+                gitBtn.style.background = 'transparent';
+                gitBtn.style.borderColor = 'transparent';
+                gitBtn.style.color = 'rgba(255, 255, 255, 0.45)';
+                gitBtn.style.boxShadow = 'none';
+            } else if (gitP.style.display !== 'none' && isPopoverFrontmost(gitP)) {
+                gitBtn.style.background = 'var(--primary)';
+                gitBtn.style.borderColor = 'var(--primary)';
+                gitBtn.style.color = '#ffffff';
+                gitBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+            } else {
+                gitBtn.style.background = 'rgba(22, 22, 28, 0.75)';
+                gitBtn.style.borderColor = 'var(--border-color)';
+                gitBtn.style.color = 'rgba(255, 255, 255, 0.75)';
+                gitBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+            }
+        }
+
+        // 2. Terminal Button
+        const termP = document.getElementById('terminal-popover');
+        const termBtn = document.getElementById('terminal-toggle-btn');
+        if (termBtn) {
+            const hasTerminalTabs = (window.terminalCount || 0) > 0;
+            if (!hasTerminalTabs) {
+                termBtn.style.background = 'transparent';
+                termBtn.style.borderColor = 'transparent';
+                termBtn.style.color = 'rgba(255, 255, 255, 0.45)';
+                termBtn.style.boxShadow = 'none';
+            } else if (termP && termP.style.display !== 'none' && isPopoverFrontmost(termP)) {
+                termBtn.style.background = 'var(--primary)';
+                termBtn.style.borderColor = 'var(--primary)';
+                termBtn.style.color = '#ffffff';
+                termBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+            } else {
+                termBtn.style.background = 'rgba(22, 22, 28, 0.75)';
+                termBtn.style.borderColor = 'var(--border-color)';
+                termBtn.style.color = 'rgba(255, 255, 255, 0.75)';
+                termBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+            }
+        }
+
+        // 3. Gemini Usage Badge
+        const gemP = document.getElementById('web-popover-gemini-usage');
+        const gemBtn = document.getElementById('gemini-usage-toggle-btn');
+        if (gemBtn) {
+            if (!gemP) {
+                gemBtn.style.borderColor = 'transparent';
+                gemBtn.style.background = 'rgba(22, 22, 28, 0.75)';
+            } else if (gemP.style.display !== 'none' && isPopoverFrontmost(gemP)) {
+                gemBtn.style.borderColor = 'var(--primary)';
+                gemBtn.style.background = 'rgba(22, 22, 28, 0.9)';
+            } else {
+                gemBtn.style.borderColor = 'var(--border-color)';
+                gemBtn.style.background = 'rgba(22, 22, 28, 0.75)';
+            }
+        }
+
+        // 4. Custom Shortcut Pills inside status bar
+        document.querySelectorAll('.status-shortcut-pill[data-shortcut-key]').forEach(pill => {
+            const key = pill.getAttribute('data-shortcut-key');
+            if (!key) return;
+            const pop = document.getElementById(`web-popover-${key}`);
+            if (!pop) {
+                pill.style.background = 'transparent';
+                pill.style.borderColor = 'transparent';
+                pill.style.boxShadow = 'none';
+            } else if (pop.style.display !== 'none' && isPopoverFrontmost(pop)) {
+                pill.style.background = 'var(--primary)';
+                pill.style.borderColor = 'var(--primary)';
+                pill.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+            } else {
+                pill.style.background = 'rgba(22, 22, 28, 0.75)';
+                pill.style.borderColor = 'var(--border-color)';
+                pill.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+            }
+        });
+    };
+
+    const bringPopoverToFront = (activePopover) => {
+        if (!activePopover) return;
+        globalPopoverZIndex++;
+        activePopover.style.zIndex = globalPopoverZIndex.toString();
+        updateTaskbarButtonStyles();
     };
 
     const setupWebPopoverResizing = (popover, isRightAligned) => {
@@ -219,121 +317,83 @@ function setupUI() {
         let popover = document.getElementById(`web-popover-${key}`);
         if (popover) {
             const isHidden = popover.style.display === 'none';
-            // Close terminal popover
-            const termPopover = document.getElementById('terminal-popover');
-            if (termPopover) {
-                termPopover.style.display = 'none';
-                const tBtn = document.getElementById('terminal-toggle-btn');
-                if (tBtn) {
-                    tBtn.style.color = '';
-                    tBtn.style.background = '';
-                }
-            }
+            const isFrontmost = isPopoverFrontmost(popover);
+
             if (isHidden) {
                 popover.style.display = 'flex';
                 bringPopoverToFront(popover);
-                if (key === 'github') {
-                    if (gitToggleBtn) {
-                        gitToggleBtn.style.color = '#fff';
-                        gitToggleBtn.style.background = 'var(--primary)';
-                    }
-                } else if (key === 'gemini-usage') {
-                    if (geminiUsageToggleBtn) {
-                        geminiUsageToggleBtn.style.borderColor = 'rgba(255,255,255,0.2)';
-                    }
-                } else {
-                    if (buttonEl) {
-                        buttonEl.style.background = 'var(--primary)';
-                        buttonEl.style.borderColor = 'var(--primary)';
-                    }
-                }
+            } else if (!isFrontmost) {
+                bringPopoverToFront(popover);
             } else {
                 popover.style.display = 'none';
-                if (key === 'github') {
-                    if (gitToggleBtn) {
-                        gitToggleBtn.style.color = '';
-                        gitToggleBtn.style.background = '';
-                    }
-                } else if (key === 'gemini-usage') {
-                    if (geminiUsageToggleBtn) {
-                        geminiUsageToggleBtn.style.background = '';
-                        geminiUsageToggleBtn.style.borderColor = '';
-                    }
-                } else {
-                    if (buttonEl) {
-                        buttonEl.style.background = '';
-                        buttonEl.style.borderColor = '';
-                    }
-                }
+                updateTaskbarButtonStyles();
             }
             return;
-        }
-
-        // Close terminal popover
-        const termPopover = document.getElementById('terminal-popover');
-        if (termPopover) {
-            termPopover.style.display = 'none';
-            const tBtn = document.getElementById('terminal-toggle-btn');
-            if (tBtn) {
-                tBtn.style.color = '';
-                tBtn.style.background = '';
-            }
         }
 
         popover = document.createElement('div');
         popover.id = `web-popover-${key}`;
         popover.className = 'web-popover-window';
         
+        popover.addEventListener('mousedown', () => bringPopoverToFront(popover));
+        
         popover.style.position = 'absolute';
-        const defaultWidth = isRightAligned ? 600 : 410;
-        const defaultHeight = isRightAligned ? 450 : 730;
-        popover.style.width = `${defaultWidth}px`;
-        popover.style.height = `${defaultHeight}px`;
-        popover.style.maxHeight = 'calc(100% - 60px)';
+
+        if (key === 'github') {
+            popover.style.top = '0px';
+            popover.style.left = '0px';
+            popover.style.right = '0px';
+            popover.style.bottom = '44px';
+            popover.style.width = '100%';
+            popover.style.height = 'calc(100% - 44px)';
+            popover.style.maxHeight = '100%';
+            popover.style.borderRadius = '0px';
+        } else {
+            const defaultWidth = isRightAligned ? 600 : 410;
+            const defaultHeight = isRightAligned ? 450 : 730;
+            popover.style.width = `${defaultWidth}px`;
+            popover.style.height = `${defaultHeight}px`;
+            popover.style.maxHeight = 'calc(100% - 60px)';
+            popover.style.borderRadius = '12px';
+            popover.style.bottom = '50px';
+
+            const rect = buttonEl.getBoundingClientRect();
+            const parentRect = document.getElementById('editor-container').getBoundingClientRect();
+            
+            if (isRightAligned) {
+                const rightOffset = parentRect.right - rect.right;
+                popover.style.right = `${rightOffset}px`;
+                popover.style.left = 'auto';
+            } else {
+                const leftOffset = rect.left - parentRect.left;
+                popover.style.left = `${leftOffset}px`;
+                popover.style.right = 'auto';
+            }
+        }
         popover.style.display = 'flex';
         popover.style.flexDirection = 'column';
-        popover.style.background = 'rgba(12, 12, 14, 0.85)';
+        popover.style.background = 'rgba(20, 20, 22, 0.85)';
         popover.style.backdropFilter = 'blur(24px)';
         popover.style.webkitBackdropFilter = 'blur(24px)';
         popover.style.border = '1px solid var(--border-color)';
-        popover.style.borderRadius = '12px';
-        popover.style.boxShadow = '0 12px 40px rgba(0,0,0,0.75)';
+        popover.style.boxShadow = (key === 'github') ? 'none' : '0 12px 40px rgba(0,0,0,0.75)';
         popover.style.zIndex = '1000';
         popover.style.overflow = 'hidden';
         popover.style.fontFamily = "'DM Sans', sans-serif";
 
-        const rect = buttonEl.getBoundingClientRect();
-        const parentRect = document.getElementById('editor-container').getBoundingClientRect();
-        
-        popover.style.bottom = '50px';
-        if (isRightAligned) {
-            const rightOffset = parentRect.right - rect.right;
-            popover.style.right = `${rightOffset}px`;
-            popover.style.left = 'auto';
-        } else {
-            const leftOffset = rect.left - parentRect.left;
-            popover.style.left = `${leftOffset}px`;
-            popover.style.right = 'auto';
-        }
-
         popover.innerHTML = `
-            <div class="git-view-header" style="height:44px; min-height:44px; border-bottom: 1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #000; user-select: none;">
-                <div style="display:flex; align-items:center; gap:12px; flex: 1; overflow: hidden; margin-right: 12px;">
-                    <!-- WebView Navigation Controls -->
-                    <div style="display:flex; align-items:center; gap:10px; flex-shrink: 0; margin-right: 4px;">
-                        <span class="git-wv-back" style="cursor:pointer; color:var(--text-muted); display:flex; align-items:center;" title="Back">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <div class="git-view-header" style="height:44px; min-height:44px; border-bottom: 1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #14151c; user-select: none;">
+                <div style="display:flex; align-items:center; gap:10px; flex: 1; overflow: hidden; margin-right: 12px;">
+                    <!-- WebView Reload Control -->
+                    <span class="git-wv-reload" style="cursor:pointer; color:var(--text-muted); display:flex; align-items:center; flex-shrink: 0;" title="Reload">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"></path></svg>
+                    </span>
+                    <!-- URL Address Field -->
+                    <div class="git-url-display-container" style="display:flex; align-items:center; gap:6px; flex: 1; max-width: 420px; background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-color); overflow: hidden;">
+                        <input class="git-url-input-field" type="text" value="${url}" style="font-size: 10px; color: var(--text-main); font-family: 'JetBrains Mono', monospace; background: transparent; border: none; outline: none; flex: 1; min-width: 0;" placeholder="Enter URL or search...">
+                        <span class="git-url-copy-btn" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0;" title="Copy URL to clipboard">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
                         </span>
-                        <span class="git-wv-forward" style="cursor:pointer; color:var(--text-muted); display:flex; align-items:center;" title="Forward">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                        </span>
-                        <span class="git-wv-reload" style="cursor:pointer; color:var(--text-muted); display:flex; align-items:center;" title="Reload">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"></path></svg>
-                        </span>
-                    </div>
-                    <div class="git-url-display-container" style="display:flex; align-items:center; gap:6px; flex: 1; max-width: 380px; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer; overflow: hidden;" title="Click to copy URL">
-                        <span class="git-url-display-text" style="font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">${url}</span>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
@@ -348,6 +408,15 @@ function setupUI() {
             <div style="flex: 1; position: relative; background: #0d1117;">
                 <webview class="web-webview-el" src="${url}" useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" style="width: 100%; height: 100%; border: none;" allowpopups></webview>
             </div>
+            <!-- Bottom Taskbar Navigation Footer (Mobile Style) -->
+            <div class="web-popover-bottom-bar" style="height: 38px; min-height: 38px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 68px; background: #060608; user-select: none; z-index: 10;">
+                <span class="web-bottom-back-btn" style="cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; transition: all 0.15s ease; opacity: 0.35;" title="Back">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="16,4 6,12 16,20"></polygon></svg>
+                </span>
+                <span class="web-bottom-forward-btn" style="cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; transition: all 0.15s ease; opacity: 0.35;" title="Forward">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,4 18,12 8,20"></polygon></svg>
+                </span>
+            </div>
             <!-- Resizers -->
             <div class="web-popover-resizer-l"></div>
             <div class="web-popover-resizer-r"></div>
@@ -359,79 +428,88 @@ function setupUI() {
         document.getElementById('editor-container').appendChild(popover);
 
         const webview = popover.querySelector('.web-webview-el');
-        const urlText = popover.querySelector('.git-url-display-text');
-        const urlContainer = popover.querySelector('.git-url-display-container');
-        const backBtn = popover.querySelector('.git-wv-back');
-        const forwardBtn = popover.querySelector('.git-wv-forward');
+        const urlInput = popover.querySelector('.git-url-input-field');
+        const copyBtn = popover.querySelector('.git-url-copy-btn');
         const reloadBtn = popover.querySelector('.git-wv-reload');
         const minimizeBtn = popover.querySelector('.git-wv-minimize');
         const closeBtn = popover.querySelector('.git-wv-close');
+        const bottomBackBtn = popover.querySelector('.web-bottom-back-btn');
+        const bottomForwardBtn = popover.querySelector('.web-bottom-forward-btn');
 
-        backBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoBack()) webview.goBack(); };
-        forwardBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoForward()) webview.goForward(); };
+        bottomBackBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoBack()) webview.goBack(); };
+        bottomForwardBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoForward()) webview.goForward(); };
         reloadBtn.onclick = (e) => { e.stopPropagation(); webview.reload(); };
         minimizeBtn.onclick = (e) => {
             e.stopPropagation();
             popover.style.display = 'none';
-            if (key === 'github') {
-                if (gitToggleBtn) {
-                    gitToggleBtn.style.color = '';
-                    gitToggleBtn.style.background = '';
-                }
-            } else if (key === 'gemini-usage') {
-                if (geminiUsageToggleBtn) {
-                    geminiUsageToggleBtn.style.background = '';
-                    geminiUsageToggleBtn.style.borderColor = '';
-                }
-            } else {
-                if (buttonEl) {
-                    buttonEl.style.background = '';
-                    buttonEl.style.borderColor = '';
-                }
-            }
+            updateTaskbarButtonStyles();
         };
         closeBtn.onclick = (e) => {
             e.stopPropagation();
             popover.remove();
-            if (key === 'github') {
-                if (gitToggleBtn) {
-                    gitToggleBtn.style.color = '';
-                    gitToggleBtn.style.background = '';
-                }
-            } else if (key === 'gemini-usage') {
-                if (geminiUsageToggleBtn) {
-                    geminiUsageToggleBtn.style.background = '';
-                    geminiUsageToggleBtn.style.borderColor = '';
-                }
-            } else {
-                if (buttonEl) {
-                    buttonEl.style.background = '';
-                    buttonEl.style.borderColor = '';
-                }
-            }
+            updateTaskbarButtonStyles();
         };
 
         const updateUrl = () => {
             const currentUrl = webview.getURL();
             if (currentUrl && currentUrl !== 'about:blank') {
-                urlText.innerText = currentUrl;
+                if (document.activeElement !== urlInput) {
+                    urlInput.value = currentUrl;
+                }
+            }
+            if (webview.canGoBack()) {
+                bottomBackBtn.style.color = '#ffffff';
+                bottomBackBtn.style.opacity = '1';
+            } else {
+                bottomBackBtn.style.color = 'var(--text-muted)';
+                bottomBackBtn.style.opacity = '0.35';
+            }
+            if (webview.canGoForward()) {
+                bottomForwardBtn.style.color = '#ffffff';
+                bottomForwardBtn.style.opacity = '1';
+            } else {
+                bottomForwardBtn.style.color = 'var(--text-muted)';
+                bottomForwardBtn.style.opacity = '0.35';
             }
         };
         webview.addEventListener('did-navigate', updateUrl);
         webview.addEventListener('did-navigate-in-page', updateUrl);
 
-        urlContainer.onclick = (e) => {
+        urlInput.onclick = (e) => { e.stopPropagation(); };
+        urlInput.onmousedown = (e) => { e.stopPropagation(); };
+        urlInput.onkeydown = (e) => {
             e.stopPropagation();
-            const currentUrl = webview.getURL();
+            if (e.key === 'Enter') {
+                let val = urlInput.value.trim();
+                if (!val) return;
+                if (!/^https?:\/\//i.test(val)) {
+                    if (val.includes('.') || val.includes(':')) {
+                        val = 'https://' + val;
+                    } else {
+                        val = 'https://www.google.com/search?q=' + encodeURIComponent(val);
+                    }
+                }
+                urlInput.value = val;
+                webview.src = val;
+                urlInput.blur();
+            }
+        };
+
+        copyBtn.onclick = (e) => {
+            e.stopPropagation();
+            const currentUrl = webview.getURL() || urlInput.value;
             if (currentUrl && currentUrl !== 'about:blank') {
-                const { clipboard } = require('electron');
-                clipboard.writeText(currentUrl);
-                const originalText = urlText.innerText;
-                urlText.innerText = 'COPIED!';
-                urlText.style.color = '#10b981';
+                try {
+                    const { clipboard } = require('electron');
+                    clipboard.writeText(currentUrl);
+                } catch (err) {
+                    navigator.clipboard.writeText(currentUrl);
+                }
+                copyBtn.style.color = '#10b981';
+                copyBtn.title = 'Copied!';
                 setTimeout(() => {
-                    urlText.innerText = originalText;
-                    urlText.style.color = '';
+                    copyBtn.style.color = 'var(--text-muted)';
+                    copyBtn.title = 'Copy URL to clipboard';
                 }, 1000);
             }
         };
@@ -475,35 +553,30 @@ function setupUI() {
         };
     }
     if (toggleBtn && popover) {
+        popover.addEventListener('mousedown', () => bringPopoverToFront(popover));
         toggleBtn.onclick = (e) => {
             e.stopPropagation();
-            if (popover.style.display === 'none' || !popover.style.display) {
+            const isHidden = popover.style.display === 'none' || !popover.style.display;
+            const isFrontmost = isPopoverFrontmost(popover);
+
+            if (isHidden) {
                 popover.style.display = 'flex';
-                toggleBtn.style.color = '#fff';
-                toggleBtn.style.background = 'var(--primary)';
-                toggleBtn.style.boxShadow = 'none';
+                bringPopoverToFront(popover);
                 
                 if (window.terminalCount === 0) {
                     addSubTerminal(true);
                 } else if (window.activeSubTabId) {
                     switchSubTerminal(window.activeSubTabId);
                 }
+            } else if (!isFrontmost) {
+                bringPopoverToFront(popover);
             } else {
                 popover.style.display = 'none';
-                toggleBtn.style.color = '';
-                toggleBtn.style.background = '';
-                toggleBtn.style.boxShadow = '';
+                updateTaskbarButtonStyles();
             }
         };
         
         popover.onclick = (e) => { e.stopPropagation(); };
-        
-        document.addEventListener('click', () => {
-            popover.style.display = 'none';
-            toggleBtn.style.color = '';
-            toggleBtn.style.background = '';
-            toggleBtn.style.boxShadow = '';
-        });
     }
 
     // Shortcuts Bar Logic
@@ -551,6 +624,7 @@ function setupUI() {
         list.forEach((item, index) => {
             const pill = document.createElement('div');
             pill.className = 'status-shortcut-pill';
+            pill.setAttribute('data-shortcut-key', `shortcut-${index}`);
             pill.title = `${item.title}\n\nLeft click: Open\nRight click: Delete`;
             
             let domain = 'github.com';
@@ -667,11 +741,12 @@ function setupUI() {
         addBtn.style.width = '34px';
         addBtn.style.height = '34px';
         addBtn.style.borderRadius = '50%';
-        addBtn.style.background = 'rgba(22, 22, 28, 0.6)';
-        addBtn.style.border = '1px solid var(--border-color)';
+        addBtn.style.background = 'transparent';
+        addBtn.style.border = '1px solid transparent';
         addBtn.style.cursor = 'pointer';
         addBtn.style.transition = 'all 0.2s';
         addBtn.style.color = 'var(--text-muted)';
+        addBtn.style.opacity = '0.7';
         addBtn.style.flexShrink = '0';
         addBtn.title = 'Register Internet Shortcut';
         addBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
@@ -680,11 +755,13 @@ function setupUI() {
             addBtn.style.background = 'rgba(255,255,255,0.08)';
             addBtn.style.color = '#fff';
             addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+            addBtn.style.opacity = '1';
         };
         addBtn.onmouseleave = () => {
-            addBtn.style.background = 'rgba(22, 22, 28, 0.6)';
+            addBtn.style.background = 'transparent';
             addBtn.style.color = 'var(--text-muted)';
-            addBtn.style.borderColor = 'var(--border-color)';
+            addBtn.style.borderColor = 'transparent';
+            addBtn.style.opacity = '0.7';
         };
         
         addBtn.onclick = (e) => {
@@ -698,6 +775,7 @@ function setupUI() {
         };
         
         shortcutsList.appendChild(addBtn);
+        updateTaskbarButtonStyles();
     };
     
     if (shortcutCloseBtn && shortcutAddModal) {
@@ -1150,8 +1228,15 @@ function setupUI() {
             item.onmouseleave = () => item.style.background = item.id === 'menu-factory-reset' ? 'rgba(255,0,0,0.05)' : 'transparent';
         });
 
+        window.setInspectorBorderState = (isWebviewActive) => {
+            const inspector = document.getElementById('inspector-right');
+            if (inspector) {
+                inspector.style.borderLeft = isWebviewActive ? 'none' : '1px solid var(--border-color)';
+            }
+        };
+
         const switchAgentBtn = document.getElementById('menu-switch-agent');
-        if (switchAgentBtn) { switchAgentBtn.onclick = () => { document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex'; if (typeof window.setTaskbarActionsVisible === 'function') window.setTaskbarActionsVisible(false); }; }
+        if (switchAgentBtn) { switchAgentBtn.onclick = () => { document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex'; if (typeof window.setInspectorBorderState === 'function') window.setInspectorBorderState(false); if (typeof window.setTaskbarActionsVisible === 'function') window.setTaskbarActionsVisible(false); }; }
 
         const taskbarHomeBtn = document.getElementById('taskbar-home-btn');
         if (taskbarHomeBtn) {
@@ -1161,6 +1246,7 @@ function setupUI() {
                 e.stopPropagation();
                 document.getElementById('agent-hub-webview').style.display = 'none';
                 document.getElementById('agent-hub-home').style.display = 'flex';
+                if (typeof window.setInspectorBorderState === 'function') window.setInspectorBorderState(false);
                 if (typeof window.setTaskbarActionsVisible === 'function') window.setTaskbarActionsVisible(false);
                 if (typeof syncBrowserView === 'function') syncBrowserView();
             });
@@ -1730,6 +1816,7 @@ function setupUI() {
         });
     }
 
+    updateTaskbarButtonStyles();
     updateAgentBadge();
 }
 

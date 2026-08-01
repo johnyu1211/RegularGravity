@@ -220,9 +220,9 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
             if (modifiedFilesList.length > 0) {
                 accumulatedFeedback += `\n[SYSTEM] Please use the \`read-file\` or \`read-file-range\` command to inspect the modified files and verify your edits: ${modifiedFilesList.join(', ')}\n`;
                 const fileCount = modifiedFilesList.length;
-                const toastMsg = fileCount === 1 
-                    ? `File "${modifiedFilesList[0]}" written successfully!`
-                    : `${fileCount} files written successfully! (${modifiedFilesList.join(', ')})`;
+                const currFile = modifiedFilesList[0];
+                const nextFile = fileCount > 1 ? modifiedFilesList[1] : 'None';
+                const toastMsg = `Current: "${currFile}", Next: "${nextFile}" (1/${fileCount})`;
                 if (typeof window.showUserScreenToast === 'function') {
                     window.showUserScreenToast(toastMsg, 4000);
                 }

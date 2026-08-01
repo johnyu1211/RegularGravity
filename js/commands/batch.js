@@ -533,9 +533,12 @@ async function executeWriteFileBatchSilent(writeCmds) {
     const fs = require('fs');
     const path = require('path');
     let feedbackContent = "";
-    writeCmds.forEach(fileObj => {
+    const total = writeCmds.length;
+    writeCmds.forEach((fileObj, idx) => {
         const filePath = fileObj.path;
         const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+        const nextFile = writeCmds[idx + 1] ? writeCmds[idx + 1].path : 'None';
+        const progressMsg = `Current: "${filePath}", Next: "${nextFile}" (${idx + 1}/${total})`;
         try {
             const parentDir = path.dirname(targetPath);
             if (!fs.existsSync(parentDir)) {
@@ -550,7 +553,7 @@ async function executeWriteFileBatchSilent(writeCmds) {
                 feedbackContent += "[FILE WRITE SUCCESS: " + filePath + "]\n";
                 ChatUI.appendBubble('system', "[SUCCESS] Wrote " + filePath + " content.");
                 if (typeof window.showUserScreenToast === 'function') {
-                    window.showUserScreenToast(`File "${filePath}" written successfully!`, 3500);
+                    window.showUserScreenToast(progressMsg, 3500);
                 }
             }
         } catch (err) {

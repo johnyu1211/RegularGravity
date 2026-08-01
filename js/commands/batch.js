@@ -40,21 +40,9 @@ async function executeWriteFileBatch(writeCmds) {
             if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
         }
 
-        const finalMessage = `${feedbackContent}\nProceed to verify the changes.${window.getSystemRulesPrompt()}`;
-        
-        await injectWebPayload(finalMessage, 0);
-        
+        console.log("[Batch] Write batch feedback collected (suppressed from Web AI injection):", feedbackContent);
         window.currentBatchFileCount = 0;
-        const response = await runExperimentalEngine('/marktag', finalMessage, null);
-        if (!window.autoContinueOnRead) {
-            document.getElementById('tab-local-agent')?.click();
-        }
-        if (response) {
-            if (typeof window.finalizeAiBubble === 'function') {
-                window.finalizeAiBubble(response);
-            }
-            detectAndAskCommand(response);
-        }
+        document.getElementById('tab-local-agent')?.click();
     } catch (err) {
         ChatUI.appendBubble('system', `[ERROR] Write batch processing failed: ${err.message}`);
     }
@@ -191,18 +179,9 @@ async function executeSearchBatch(searchCmds) {
             }
         });
 
-        const finalMessage = `${searchPayload}Proceed to analyze the search results.`;
-        
-        await injectWebPayload(finalMessage, 0);
-        
+        console.log("[Batch] Search batch feedback collected (suppressed from Web AI injection):", searchPayload);
         window.currentBatchFileCount = 0;
-        const response = await runExperimentalEngine('/marktag', finalMessage, null);
-        if (!window.autoContinueOnRead) {
-            document.getElementById('tab-local-agent')?.click();
-        }
-        if (response) {
-            detectAndAskCommand(response);
-        }
+        document.getElementById('tab-local-agent')?.click();
     } catch (err) {
         ChatUI.appendBubble('system', `[ERROR] Search batch processing failed: ${err.message}`);
     }
@@ -326,21 +305,9 @@ async function executeEditFileBatch(editCmds) {
             if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
         }
 
-        const finalMessage = `${feedbackContent}\nProceed to verify the changes.${window.getSystemRulesPrompt()}`;
-        
-        await injectWebPayload(finalMessage, 0);
-        
+        console.log("[Batch] Edit batch feedback collected (suppressed from Web AI injection):", feedbackContent);
         window.currentBatchFileCount = 0;
-        const response = await runExperimentalEngine('/marktag', finalMessage, null);
-        if (!window.autoContinueOnRead) {
-            document.getElementById('tab-local-agent')?.click();
-        }
-        if (response) {
-            if (typeof window.finalizeAiBubble === 'function') {
-                window.finalizeAiBubble(response);
-            }
-            detectAndAskCommand(response);
-        }
+        document.getElementById('tab-local-agent')?.click();
     } catch (err) {
         ChatUI.appendBubble('system', `[ERROR] Edit batch processing failed: ${err.message}`);
     }
@@ -397,21 +364,9 @@ async function executeEditFileRangeBatch(editCmds) {
             if (hasModifiedOpen) window.openFileInEditor(window.currentEditingPath);
         }
 
-        const finalMessage = `${feedbackContent}\nProceed to verify the changes.${window.getSystemRulesPrompt()}`;
-        
-        await injectWebPayload(finalMessage, 0);
-        
+        console.log("[Batch] Edit batch feedback collected (suppressed from Web AI injection):", feedbackContent);
         window.currentBatchFileCount = 0;
-        const response = await runExperimentalEngine('/marktag', finalMessage, null);
-        if (!window.autoContinueOnRead) {
-            document.getElementById('tab-local-agent')?.click();
-        }
-        if (response) {
-            if (typeof window.finalizeAiBubble === 'function') {
-                window.finalizeAiBubble(response);
-            }
-            detectAndAskCommand(response);
-        }
+        document.getElementById('tab-local-agent')?.click();
     } catch (err) {
         ChatUI.appendBubble('system', `[ERROR] Edit batch processing failed: ${err.message}`);
     }
@@ -461,21 +416,9 @@ async function executeDeleteFileBatch(deleteCmds) {
             window.refreshTree();
         }
 
-        const finalMessage = `${feedbackContent}\nProceed to verify the changes.${window.getSystemRulesPrompt()}`;
-        
-        await injectWebPayload(finalMessage, 0);
-        
+        console.log("[Batch] Delete batch feedback collected (suppressed from Web AI injection):", feedbackContent);
         window.currentBatchFileCount = 0;
-        const response = await runExperimentalEngine('/marktag', finalMessage, null);
-        if (!window.autoContinueOnRead) {
-            document.getElementById('tab-local-agent')?.click();
-        }
-        if (response) {
-            if (typeof window.finalizeAiBubble === 'function') {
-                window.finalizeAiBubble(response);
-            }
-            detectAndAskCommand(response);
-        }
+        document.getElementById('tab-local-agent')?.click();
     } catch (err) {
         ChatUI.appendBubble('system', `[ERROR] Delete batch processing failed: ${err.message}`);
     }
@@ -606,6 +549,9 @@ async function executeWriteFileBatchSilent(writeCmds) {
             } else {
                 feedbackContent += "[FILE WRITE SUCCESS: " + filePath + "]\n";
                 ChatUI.appendBubble('system', "[SUCCESS] Wrote " + filePath + " content.");
+                if (typeof window.showUserScreenToast === 'function') {
+                    window.showUserScreenToast(`File "${filePath}" written successfully!`, 3500);
+                }
             }
         } catch (err) {
             feedbackContent += "[FILE WRITE ERROR: " + filePath + " - " + err.message + "]\n";

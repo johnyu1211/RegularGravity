@@ -298,10 +298,8 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     };
 
     const hideGlobalUI = () => {
-        if (!window.autoContinueOnRead) {
-            const toast = document.getElementById('injection-toast');
-            if (toast) toast.style.display = 'none';
-        }
+        const toast = document.getElementById('injection-toast');
+        if (toast) toast.style.display = 'none';
         if (webBarCont) webBarCont.style.display = 'none';
         if (typeof window.hideInputLoading === 'function') {
             window.hideInputLoading();
@@ -473,12 +471,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                 }
                 
                 const hasCmd = /\[CMD:\s*([^\]]+)\]/gi.test(delta);
-                if (window.autoContinueOnRead && hasCmd) {
-                    const webBarCont = document.getElementById('toast-web-progress-container');
-                    if (webBarCont) webBarCont.style.display = 'none';
-                } else {
-                    hideGlobalUI(); 
-                }
+                hideGlobalUI();
                 
                 window.activeAiResponding = false;
                 return cleanGarbage(delta);

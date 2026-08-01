@@ -1,6 +1,58 @@
 if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 window.generating = false;
 
+window.showUserScreenToast = function(message, duration = 4000) {
+    try {
+        let toast = document.getElementById('app-user-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'app-user-toast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                background: #18181b;
+                color: #22c55e;
+                border: 1px solid rgba(34, 197, 94, 0.4);
+                border-radius: 8px;
+                padding: 10px 18px;
+                font-family: 'DM Sans', sans-serif;
+                font-size: 13px;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(8px);
+                z-index: 999999;
+                transition: opacity 0.3s ease, transform 0.3s ease;
+                opacity: 0;
+                transform: translateY(12px);
+                pointer-events: none;
+            `;
+            document.body.appendChild(toast);
+        }
+        toast.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>${message}</span>
+        `;
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+
+        if (window._userToastTimeout) clearTimeout(window._userToastTimeout);
+        window._userToastTimeout = setTimeout(() => {
+            if (toast) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(12px)';
+            }
+        }, duration);
+    } catch(e) {
+        console.error("Toast error:", e);
+    }
+};
+
 window.makeCodeBlocksCollapsible = (container) => {
     container.querySelectorAll('pre').forEach(pre => {
         if (pre.parentElement.tagName.toLowerCase() === 'details' && pre.parentElement.classList.contains('chat-code-details')) return;
@@ -43,13 +95,10 @@ const ChatUI = {
         const chatLog = document.getElementById('local-chat-messages'); if (!chatLog) return;
         const box = document.createElement('div'); box.className = `chat-bubble ${role}`; box.dataset.role = role;
         
-        // Safe hide for system logs if debug mode is off
+        // Completely hide system messages from chat UI display if debug mode is off
         if (!window.debugMode) {
-            if (typeof text === 'string') {
-                const cleanText = text.trim();
-                if (cleanText.startsWith('[SYSTEM]') || cleanText.startsWith('[ERROR]') || cleanText.startsWith('[EXECUTED]') || cleanText.startsWith('[BACKGROUND')) {
-                    box.style.display = 'none';
-                }
+            if (role === 'system' || role === 'system-info') {
+                box.style.display = 'none';
             }
         }
         const content = document.createElement('div'); content.className = 'bubble-content';
@@ -61,9 +110,10 @@ const ChatUI = {
         
         let customHtml = null;
         if (role === 'system' && typeof text === 'string') {
-            const wroteMatch = text.match(/^\[SUCCESS\] Wrote\s+(.+)\s+content\./i);
-            const editedMatch = text.match(/^\[SUCCESS\] Edited\s+(.+)\s+successfully\./i);
-            const deleteMatch = text.match(/^\[SUCCESS\] Deleted\s+(.+)\s+\(Already gone\)\./i) || text.match(/^\[SUCCESS\] Deleted\s+(.+)\s+successfully\./i);
+            const wroteMatch = text.match(/^\[SUCCESS\] Wrote\s+(.+?)(?:\s+content\.|\s+successfully\.)?$/i);
+            const editedMatch = text.match(/^\[SUCCESS\] (?:Edited|Block updated in|Saved)\s+(.+?)(?:\s+successfully\.|\s+range.+)?$/i);
+            const deleteMatch = text.match(/^\[SUCCESS\] Deleted\s+(.+?)(?:\s+successfully\.|\s+\(Already gone\))?$/i);
+            const generalSuccessMatch = text.match(/^\[SUCCESS\]\s+(.+)/i);
             const errorMatch = text.match(/^\[ERROR\]\s+(.+)/i);
             
             if (wroteMatch) {
@@ -96,6 +146,17 @@ const ChatUI = {
                         <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
                             <span style="font-size: 10px; font-weight: 700; color: #ef4444; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">File Deleted:</span>
                             <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${filePath}">${filePath}</span>
+                        </div>
+                    </div>
+                `;
+            } else if (generalSuccessMatch) {
+                const infoText = generalSuccessMatch[1].trim();
+                customHtml = `
+                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; width: 100%;">
+                        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #10b981; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                            <span style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">Success:</span>
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${infoText}">${infoText}</span>
                         </div>
                     </div>
                 `;
@@ -260,18 +321,25 @@ const handleSend = async (overridePrompt = null, isRegen = false, isAuto = false
 
         if (matchedCmd) {
             const isTest = (matchedCmd === '/test'); const cmd = matchedCmd; const displayCmd = msg ? `${cmd} ${msg}` : cmd;
-            ChatUI.appendBubble('user', displayCmd); if (chatIn) chatIn.value = '';
+            if (cmd !== '/marktag') {
+                ChatUI.appendBubble('user', displayCmd); if (chatIn) chatIn.value = '';
+            }
             try {
                 if (isTest) { await injectWebPayload(msg); } 
                 else {
-                    const statusBub = ChatUI.appendBubble('ai', `[SYSTEM] ${cmd} entering wait mode...`);
+                    const statusBub = (cmd !== '/marktag') ? ChatUI.appendBubble('ai', `[SYSTEM] ${cmd} entering wait mode...`) : null;
                     window.currentBatchFileCount = 0;
                     await injectWebPayload(msg);
                     const enginePromise = runExperimentalEngine(cmd, msg, statusBub);
                     const response = await enginePromise;
                     if (statusBub) statusBub.remove();
 
-                    if (response) { ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview'))); detectAndAskCommand(response); } 
+                    if (response) { 
+                        if (cmd !== '/marktag') {
+                            ChatUI.appendBubble('ai', response, false, getWebIcon(document.getElementById('active-agent-webview'))); 
+                        }
+                        detectAndAskCommand(response); 
+                    } 
                     else {
                         const failBub = ChatUI.appendBubble('ai', `[SYSTEM] ${cmd} automatic extraction failed.`);
                         const content = failBub.querySelector('.bubble-content');

@@ -594,6 +594,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
         btnEdit.onclick = () => window.toggleEditorEditMode();
     }
 
+    const fs = require('fs');
     const path = require('path');
     const editorContent = document.getElementById('editor-content');
     if (!editorContent) return;
@@ -643,7 +644,13 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
             };
         }
 
-        const binaryExts = ['exe', 'dll', 'bin', 'zip', 'rar', 'tar', 'gz', '7z', 'pdf', 'mp3', 'mp4', 'wav', 'avi', 'mov', 'iso', 'so', 'dylib', 'class', 'jar', 'war', 'db', 'sqlite'];
+        if (ext === 'pdf') {
+            const fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+            editorContent.innerHTML = `<div id="editor-scroll-container" style="position: absolute; inset: 0; background:#0c0c0e;"><iframe src="${fileUrl}" style="width:100%; height:100%; border:none;"></iframe></div>`;
+            return;
+        }
+
+        const binaryExts = ['exe', 'dll', 'bin', 'zip', 'rar', 'tar', 'gz', '7z', 'mp3', 'mp4', 'wav', 'avi', 'mov', 'iso', 'so', 'dylib', 'class', 'jar', 'war', 'db', 'sqlite'];
         if (binaryExts.includes(ext)) {
             editorContent.innerHTML = `
                 <div style="position: absolute; inset: 0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#0c0c0e; color:var(--text-muted); font-family:'DM Sans', sans-serif; gap: 12px; box-sizing:border-box; padding:20px;">
@@ -821,12 +828,33 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         }
                     };
  
+                    const btnPrev = document.getElementById('btn-search-prev');
+                    const btnNext = document.getElementById('btn-search-next');
+
+                    const gotoNextMatch = () => {
+                        if (matchedElements.length > 0) {
+                            currentMatchIndex = (currentMatchIndex + 1) % matchedElements.length;
+                            scrollToCurrentMatch();
+                        }
+                    };
+
+                    const gotoPrevMatch = () => {
+                        if (matchedElements.length > 0) {
+                            currentMatchIndex = (currentMatchIndex - 1 + matchedElements.length) % matchedElements.length;
+                            scrollToCurrentMatch();
+                        }
+                    };
+
+                    if (btnNext) btnNext.onclick = (e) => { e.preventDefault(); gotoNextMatch(); };
+                    if (btnPrev) btnPrev.onclick = (e) => { e.preventDefault(); gotoPrevMatch(); };
+
                     searchInput.onkeydown = (e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
-                            if (matchedElements.length > 0) {
-                                currentMatchIndex = (currentMatchIndex + 1) % matchedElements.length;
-                                scrollToCurrentMatch();
+                            if (e.shiftKey) {
+                                gotoPrevMatch();
+                            } else {
+                                gotoNextMatch();
                             }
                         }
                     };

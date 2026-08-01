@@ -123,11 +123,11 @@ async function injectWebPayload(webPayload, fileCount = 0, currentFileIndex = 0,
             window.isHostSending = false;
             wv.executeJavaScript("window.isHostSending = false;").catch(() => {});
             wv.removeEventListener('console-message', onConsole);
-            if (toast && !window.autoContinueOnRead) toast.style.display = 'none';
+            if (toast) toast.style.display = 'none';
         };
 
         const injectionScript = `
-            (() => {
+            (async () => {
                 window.isHostSending = true;
                 try {
                     const inKeywords = ${JSON.stringify(inKeywords)};

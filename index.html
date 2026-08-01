@@ -197,13 +197,19 @@
                             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
                         </svg>
                     </button>
-                    <div id="editor-search-box" style="display:flex; align-items:center; background:var(--surface-low); border:1px solid var(--border-color); border-radius:6px; padding:4px 10px; transition: 0.2s; gap: 8px;">
+                    <div id="editor-search-box" style="display:flex; align-items:center; background:var(--surface-low); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; transition: 0.2s; gap: 6px;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;">
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
-                        <input type="text" id="editor-search-input" placeholder="Search (Ctrl+F)" style="background:transparent; border:none; color:#eee; font-size:11.5px; width:120px; outline:none; font-family:'Outfit', sans-serif;">
-                        <span id="editor-search-result" style="font-size:10px; color:var(--text-muted); min-width:15px; text-align:right;"></span>
+                        <input type="text" id="editor-search-input" placeholder="Search (Ctrl+F)" style="background:transparent; border:none; color:#eee; font-size:11.5px; width:110px; outline:none; font-family:'Outfit', sans-serif;">
+                        <span id="editor-search-result" style="font-size:10px; color:var(--text-muted); min-width:20px; text-align:right;"></span>
+                        <button id="btn-search-prev" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:2px 4px; border-radius:4px; display:flex; align-items:center;" title="Previous Match (Shift+Enter)" onmouseenter="this.style.color='#fff';this.style.background='rgba(255,255,255,0.1)'" onmouseleave="this.style.color='var(--text-muted)';this.style.background='none'">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                        </button>
+                        <button id="btn-search-next" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:2px 4px; border-radius:4px; display:flex; align-items:center;" title="Next Match (Enter)" onmouseenter="this.style.color='#fff';this.style.background='rgba(255,255,255,0.1)'" onmouseleave="this.style.color='var(--text-muted)';this.style.background='none'">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+                        </button>
                     </div>
                     <span id="btn-editor-toggle-collapse" class="header-btn" title="Collapse All" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-muted); background: var(--surface-low); border: 1px solid var(--border-color); transition: all 0.2s;">
                         <svg id="editor-collapse-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -465,7 +471,10 @@
                     <!-- Command Execution Queue Split Panel -->
                     <div id="command-execution-container" style="display: none; position: relative; width: 100%; max-width: 100%; height: 200px; max-height: 200px; z-index: 1000; flex-direction: column; box-sizing: border-box; background: var(--surface-lowest); padding: 12px 18px 12px 18px; border-top: 1.5px solid var(--border-color); gap: 10px; pointer-events: auto;">
                         <div style="display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; flex-shrink: 0;">
-                            <span id="command-execution-title" style="font-size: 11px; font-weight: 700; color: #fff; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em; text-transform: uppercase;">Pending Command</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                                <span id="command-execution-title" style="font-size: 11px; font-weight: 700; color: #fff; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em; text-transform: uppercase;">Pending Command</span>
+                            </div>
                             <span id="close-command-execution" style="cursor: pointer; color: var(--text-dark); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-dark)'" title="Close Panel">&times;</span>
                         </div>
                         <div id="command-execution-text" style="background: var(--surface-low); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-main); line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); overflow-y: auto; flex: 1; min-height: 0;">
@@ -1002,7 +1011,19 @@
     <script src="js/commands/payload.js"></script>
     <script src="js/commands/batch.js"></script>
 
+    <!-- Core Modules -->
+    <script src="js/core/logger.js"></script>
+    <script src="js/core/globals.js"></script>
+    <script src="js/core/queue.js"></script>
+    <script src="js/core/system_rules.js"></script>
+    <script src="js/core/settings.js"></script>
+    <script src="js/core/file_payload.js"></script>
+    <script src="js/core/vault.js"></script>
+    <script src="js/core/session_reset.js"></script>
 
+    <!-- Webview Modules -->
+    <script src="js/webview/guest_interceptor.js"></script>
+    <script src="js/webview/usage_crawler.js"></script>
 
     <!-- UI Modules -->
     <script src="js/ui/dialogs.js"></script>
@@ -1011,6 +1032,20 @@
     <script src="js/ui/editor.js"></script>
     <script src="js/ui/chat.js"></script>
     <script src="js/ui/graph_view.js"></script>
+    <script src="js/ui/drag_drop_queue.js"></script>
+    <script src="js/ui/command_panel.js"></script>
+    <script src="js/ui/explorer.js"></script>
+    <script src="js/ui/ai_renderer.js"></script>
+
+    <!-- Commands Orchestration -->
+    <script src="js/commands/detect.js"></script>
+    <script src="js/commands/orchestrate.js"></script>
+
+    <!-- Boot Setup Modules -->
+    <script src="js/boot/setup_boot.js"></script>
+    <script src="js/boot/setup_ui.js"></script>
+
+    <!-- Main Entry Point -->
     <script src="js/main_ui.js"></script>
 </body>
 </html>

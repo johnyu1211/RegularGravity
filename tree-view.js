@@ -68,6 +68,26 @@ async function renderTree(basePath, rootFiles, searchQuery = '') {
     fileTree.scrollTop = savedScrollPos;
 }
 
+async function dirContainsMatch(dirPath, query) {
+    if (!query) return false;
+    try {
+        const files = await window.fetchDirContent(dirPath);
+        if (!Array.isArray(files)) return false;
+        const q = query.toLowerCase();
+        for (const file of files) {
+            if (!file || !file.name || file.name.toLowerCase().startsWith('_project')) continue;
+            if (file.name.toLowerCase().includes(q)) return true;
+            if (file.isDir && !file.isParentEntry) {
+                const sep = (dirPath.endsWith('\\') || dirPath.endsWith('/')) ? '' : '\\';
+                const subPath = dirPath + sep + file.name;
+                const match = await dirContainsMatch(subPath, query);
+                if (match) return true;
+            }
+        }
+    } catch(e) {}
+    return false;
+}
+
 async function renderLevel(parentPath, files, container, level, searchQuery = '') {
     if (!Array.isArray(files)) return;
     
@@ -83,7 +103,7 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         }
         const isDir = file.isDir;
         const isParentEntry = file.isParentEntry === true;
-        
+
         // Correct Path Joining for Windows
         let fullPath = '';
         if (parentPath === 'DRIVES') {
@@ -92,6 +112,24 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
             const pPath = parentPath || '';
             const base = pPath.endsWith('\\') ? pPath : pPath + '\\';
             fullPath = base + name;
+        }
+
+        if (searchQuery && searchQuery.trim() !== '' && !isParentEntry) {
+            const q = searchQuery.trim().toLowerCase();
+            const selfMatch = name.toLowerCase().includes(q);
+            if (isDir) {
+                const childMatch = await dirContainsMatch(fullPath, searchQuery.trim());
+                if (!selfMatch && !childMatch) {
+                    continue;
+                }
+                if (childMatch) {
+                    window.expandedPaths.add(fullPath);
+                }
+            } else {
+                if (!selfMatch) {
+                    continue;
+                }
+            }
         }
         
         const isExpanded = window.expandedPaths.has(fullPath);

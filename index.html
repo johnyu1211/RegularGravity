@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GRAVITY</title>
+    <link rel="icon" type="image/png" href="png.png">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script>
+        var _module = typeof module !== 'undefined' ? module : undefined;
+        var _exports = typeof exports !== 'undefined' ? exports : undefined;
+        var _require = typeof require !== 'undefined' ? require : undefined;
+        
+        if (typeof module !== 'undefined') module = undefined;
+        if (typeof exports !== 'undefined') exports = undefined;
+        if (typeof require !== 'undefined') require = undefined;
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>
+        if (typeof _module !== 'undefined') module = _module;
+        if (typeof _exports !== 'undefined') exports = _exports;
+        if (typeof _require !== 'undefined') require = _require;
+    </script>
+    <script src="file-utils.js"></script>
+    <script src="tree-view.js"></script>
+</head>
+<body style="margin:0; padding:0; height:100vh; overflow:hidden; background: var(--bg-color);">
+
+    <!-- Custom Windows Titlebar -->
+    <div class="custom-titlebar">
+        <div class="titlebar-drag-area">
+            <img src="png.png" class="titlebar-icon">
+            <span class="titlebar-logo-text">REGULAR GRAVITY</span>
+        </div>
+        <div class="titlebar-controls">
+            <button class="titlebar-btn" id="win-fixture" title="Toggle Window Fixture Mode" style="display: none;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="win-fixture-icon">
+                    <rect x="2" y="2" width="20" height="20" rx="5" stroke-dasharray="4 3" />
+                    <path d="M12 12l5 5-2 1 2 3.5-1.5 0.8-2-3.5-2 2v-8.8z" fill="#9aa0a6" stroke="none"/>
+                </svg>
+            </button>
+            <button class="titlebar-btn" id="win-reload" title="Reload App">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"/></svg>
+            </button>
+            <button class="titlebar-btn" id="win-min" title="Minimize">
+                <svg width="10" height="10" viewBox="0 0 12 12"><rect x="1" y="5" width="10" height="1.5" fill="#9aa0a6"/></svg>
+            </button>
+            <button class="titlebar-btn" id="win-max" title="Maximize">
+                <svg width="10" height="10" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="#9aa0a6" stroke-width="1.5"/></svg>
+            </button>
+            <button class="titlebar-btn close" id="win-close" title="Close">
+                <svg width="10" height="10" viewBox="0 0 12 12"><path d="M1.5 1.5 L10.5 10.5 M10.5 1.5 L1.5 10.5" stroke="#9aa0a6" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- ====== PROJECT PICKER MODAL ====== -->
+    <div id="project-picker-modal" style="position:fixed; top:30px; left:0; right:0; bottom:0; z-index:9999; background: var(--bg-color); display:flex; align-items:center; justify-content:center;">
+        <div style="background: var(--surface-color); border:1px solid var(--border-color); border-radius:16px; width:520px; max-width:90vw; box-shadow: none; overflow:hidden; animation:scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275);">
+            <!-- Header -->
+            <div style="padding:20px 28px 16px; border-bottom:1px solid #1a1a1a;">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <span style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px;">Select Project Folder</span>
+                    
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <!-- Notice Guide Button (Left of Refresh) -->
+                        <button id="picker-notice-btn" style="background:transparent; border:none; color:var(--text-muted); padding:4px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:color 0.2s;" title="Show Operating Guidelines & Notice" onmouseenter="this.style.color='#fff';" onmouseleave="this.style.color='var(--text-muted)';">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                        </button>
+                        
+                        <!-- Refresh Button (Right) -->
+                        <button id="picker-refresh-btn" style="background:transparent; border:none; color:var(--text-muted); padding:4px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:color 0.2s;" title="Refresh Recent Projects" onmouseenter="this.style.color='#fff';" onmouseleave="this.style.color='var(--text-muted)';">
+                            <svg id="picker-refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.3s ease;"><path d="M23 4v6h-6M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Recent Projects -->
+            <div style="padding:16px 28px; max-height:280px; overflow-y:auto;">
+                <div style="font-size:10px; font-weight:700; color:#777; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:10px;">Recent Projects</div>
+                <div id="recent-projects-list" style="display:flex; flex-direction:column; gap:4px;">
+                    <div style="font-size:12px; color:#333; padding:8px 0; font-family:'JetBrains Mono', monospace;">Loading...</div>
+                </div>
+            </div>
+            <!-- Footer Buttons -->
+            <div style="padding:16px 28px 24px; border-top:1px solid #1a1a1a; display:flex; gap:10px; justify-content:flex-end;">
+                <button id="picker-browse-btn" style="background:#468CF6; color:#fff; border:none; padding:10px 22px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.2s; font-family:'Outfit',sans-serif;">
+                    Browse Folder
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- ====== END PROJECT PICKER MODAL ====== -->
+
+    <div class="app-container" style="display: flex; height: calc(100vh - 30px); width: 100vw; background: var(--bg-color); overflow: hidden; font-size: 13.5px;">
+        <!-- Explorer (Left) -->
+        <aside class="sidebar" id="sidebar-left" style="width: 320px; height: 100%; border-right: none; display: flex; flex-direction: column; background: var(--surface-low);">
+            <!-- Select Project Folder Button placed above path -->
+            <div style="padding: 12px 12px 4px 12px; background: var(--surface-low); border-bottom: none; box-sizing: border-box; flex-shrink: 0;">
+                <button id="select-project-btn" style="width: 100%; background: rgba(255, 255, 255, 0.08); border: none; border-radius: 6px; color: #eee; font-weight: 600; font-size: 11.5px; text-align: center; padding: 8px 12px; cursor: pointer; transition: all 0.15s ease; outline: none; box-sizing: border-box;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.15)'; this.style.color='#ffffff';"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.08)'; this.style.color='#eee';">
+                    Select Project Folder
+                </button>
+            </div>
+
+            <!-- Path bar is merged directly as the header instead of "EXPLORER" text -->
+            <div class="section-header" style="height: 44px; min-height: 44px; display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 0 12px; border-bottom: none; background: var(--surface-low);">
+                <div id="path-display-container" style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; position: relative;" title="Click to copy path">
+                    <div id="path-display" style="font-size: 11px; font-family: 'DM Sans', 'Outfit', sans-serif; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; line-height: 1.2;">
+                        <span class="path-segment">/root</span>
+                    </div>
+                    <span id="path-copy-btn" title="Copy path" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; color: var(--text-muted); transition: opacity 0.2s, background 0.2s, color 0.2s;">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </span>
+                </div>
+                <span id="graph-view-btn" class="header-btn" title="Project Graph View" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-dark); background: transparent; border: none; transition: all 0.2s; flex-shrink: 0;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="pointer-events:none;">
+                        <line x1="12" y1="5" x2="6" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
+                        <line x1="6" y1="17" x2="18" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
+                        <line x1="18" y1="17" x2="12" y2="5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
+                        <circle cx="12" cy="5" r="2.5" fill="var(--surface-low)" stroke="currentColor" stroke-width="2.5"></circle>
+                        <circle cx="6" cy="17" r="2.5" fill="var(--surface-low)" stroke="currentColor" stroke-width="2.5"></circle>
+                        <circle cx="18" cy="17" r="2.5" fill="var(--surface-low)" stroke="currentColor" stroke-width="2.5"></circle>
+                    </svg>
+                </span>
+                <span id="reveal-btn" class="header-btn" title="Reveal in Windows Explorer" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-dark); background: transparent; border: none; transition: all 0.2s; flex-shrink: 0;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </span>
+            </div>
+            
+            <!-- Action bar panel (unified search) -->
+            <div id="file-tree-action-bar" style="padding: 4px 12px 6px 12px; background: var(--surface-low); border-bottom: none; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="text" id="file-search" placeholder="Search files..." class="search-input" style="flex: 1; background: rgba(255, 255, 255, 0.08); border: none; border-radius: 6px; color: #eee; font-size: 11.5px; height: 30px; padding: 6px 12px; outline: none; min-width: 0; box-sizing: border-box;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                        <span id="collapse-all-btn" class="header-btn" title="Collapse All" style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; cursor: pointer; color: var(--text-muted); background: rgba(255, 255, 255, 0.08); border: none; transition: all 0.2s;">
+                            <!-- collapse icon: "><" (두 화살표 모으기) -->
+                            <svg id="collapse-all-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="17 4 12 9 7 4"></polyline>
+                                <polyline points="7 20 12 15 17 20"></polyline>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="file-tree" class="file-tree" style="flex: 1; overflow-y: auto;"></div>
+
+            <!-- ====== GRAPH VIEW SIDEBAR CONTAINER ====== -->
+            <div id="graph-view-modal" style="display: none; flex: 1; flex-direction: column; background: var(--bg-color); border-top: 1px solid var(--border-color); overflow: hidden;">
+                <!-- Header -->
+                <div style="padding: 10px 14px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; background: var(--surface-color);">
+                    <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; margin-right: 12px;">
+                        <span style="font-size: 11px; font-weight: 800; color: #fff; letter-spacing: 0.5px; flex-shrink: 0;">GRAPH</span>
+                        <div style="display: flex; align-items: center; background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px; flex: 1; max-width: 200px; gap: 4px; margin-left: auto;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="graph-search-input" placeholder="Search nodes..." style="background: transparent; border: none; color: #ccc; font-size: 11px; width: 100%; outline: none; font-family: 'DM Sans', sans-serif;">
+                        </div>
+                    </div>
+                    <span id="close-graph-view" style="cursor: pointer; color: var(--text-muted); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s; flex-shrink: 0;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">&times;</span>
+                </div>
+                <!-- Canvas Container -->
+                <div id="graph-canvas-container" style="flex: 1; position: relative; background: var(--bg-color); overflow: hidden;">
+                    <canvas id="graph-canvas" style="display: block; width: 100%; height: 100%;"></canvas>
+                    <!-- Tooltip -->
+                    <div id="graph-tooltip" style="position: absolute; display: none; background: rgba(0,0,0,0.85); border: 1px solid var(--primary); padding: 6px 12px; border-radius: 6px; color: #fff; font-size: 11.5px; font-family: 'JetBrains Mono', monospace; pointer-events: none; z-index: 10010; box-shadow: 0 4px 12px rgba(0,0,0,0.5);"></div>
+                    <!-- Control instructions -->
+                    <div style="position: absolute; bottom: 8px; left: 12px; font-size: 9.5px; color: var(--text-muted); pointer-events: none; line-height: 1.6; font-family: 'DM Sans', sans-serif; display: flex; flex-direction: column; gap: 2px;">
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);"><rect x="5" y="2" width="14" height="20" rx="7"></rect><path d="M12 6v4"></path></svg>
+                            <span>Scroll to Zoom / Drag to Pan</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+                            <span>Click and Drag to arrange</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+        </aside>
+
+        <div class="resizer-v" id="resizer-left"></div>
+
+        <main class="main-view" id="editor-container" style="flex: 1; position: relative; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-color);">
+            <div class="section-header" id="editor-header" style="border-bottom: none; box-sizing: border-box; height: 44px; min-height: 44px; display: flex; align-items: center; padding: 0 15px; background: var(--surface-low);">
+                <h3 id="editor-header-title" style="margin:0; flex-shrink:0; font-size:12.5px; font-weight:600; color:var(--text-main); text-transform:none !important; letter-spacing:normal;"></h3>
+                <div id="editor-header-actions" style="margin-left: auto; display: none; gap: 8px; align-items:center;">
+                    <button id="btn-editor-edit" class="header-btn" title="View Mode (Click for Edit Mode </ >)" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border-radius: 6px; cursor: pointer; color: var(--text-muted); background: transparent; border: 1px solid transparent; box-shadow: none; transition: all 0.2s;">
+                        <svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;">
+                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                        </svg>
+                    </button>
+                    <div id="editor-search-box" style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.08); border: none; border-radius: 6px; padding: 0 10px; height: 30px; box-sizing: border-box; transition: 0.2s; gap: 6px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="editor-search-input" placeholder="Search (Ctrl+F)" class="search-input" style="background: transparent !important; border: none !important; color: #eee; font-size: 11.5px; width: 120px; outline: none; font-family: 'Outfit', sans-serif; height: 100%; padding: 0;">
+                        <span id="editor-search-result" style="font-size:10px; color:var(--text-muted); min-width:20px; text-align:right;"></span>
+                        <button id="btn-search-prev" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:2px 4px; border-radius:4px; display:flex; align-items:center;" title="Previous Match (Shift+Enter)" onmouseenter="this.style.color='#fff';this.style.background='rgba(255,255,255,0.1)'" onmouseleave="this.style.color='var(--text-muted)';this.style.background='none'">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                        </button>
+                        <button id="btn-search-next" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:2px 4px; border-radius:4px; display:flex; align-items:center;" title="Next Match (Enter)" onmouseenter="this.style.color='#fff';this.style.background='rgba(255,255,255,0.1)'" onmouseleave="this.style.color='var(--text-muted)';this.style.background='none'">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+                        </button>
+                    </div>
+                    <span id="btn-editor-toggle-collapse" class="header-btn" title="Collapse All" style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; cursor: pointer; color: var(--text-muted); background: rgba(255, 255, 255, 0.08); border: none; transition: all 0.2s;">
+                        <svg id="editor-collapse-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="17 4 12 9 7 4"></polyline>
+                            <polyline points="7 20 12 15 17 20"></polyline>
+                        </svg>
+                    </span>
+                </div>
+            </div>
+            <div id="editor-content" style="flex: 1; position: relative; overflow: hidden; border-left: 1px solid var(--border-color); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-top-left-radius: 12px; border-bottom-left-radius: 12px; box-sizing: border-box; background: var(--bg-color);"></div>
+
+            <!-- Terminal Panel Window (Bottom-Up Push Layout) -->
+            <div id="terminal-popover" style="position: relative; width: 100%; height: 350px; display: none; flex-direction: column; background: rgba(12, 12, 14, 0.95); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); flex-shrink: 0; box-shadow: none !important; z-index: 100; overflow: hidden; box-sizing: border-box; transition: height 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
+                <!-- Top Resizer Handle for Height Dragging -->
+                <div id="resizer-terminal-top" style="position: absolute; top: 0; left: 0; right: 0; height: 6px; cursor: ns-resize; z-index: 1000;" title="Drag to Resize Height"></div>
+                <div class="terminal-view-header" style="height:44px; min-height:44px; border-bottom: none; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #14151c;">
+                    <div id="terminal-sub-tabs" style="flex:1; height:100%; display:flex; overflow:hidden; padding:0 2px; gap: 4px;">
+                         <!-- Dynamic Sub-tabs now live here -->
+                    </div>
+                    <div class="terminal-actions" style="display:flex; align-items:center; gap:12px; margin-left: auto; padding-left: 10px;">
+                        <span id="add-terminal" class="action-btn" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Add Terminal">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </span>
+                        <span id="minimize-terminal" class="action-btn" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Minimize Terminal Popover">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </span>
+                    </div>
+                </div>
+
+                <div id="terminal-view" class="pane-view-content" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+                    <div id="terminal-content" class="terminal-surface" style="flex: 1; overflow-y: auto; padding: 12px 20px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; box-sizing: border-box;">
+                        <div id="terminal-logs-wrapper" style="width: 100%; box-sizing: border-box;"></div>
+                    </div>
+                    <!-- Terminal input bar -->
+                    <div id="terminal-lower" style="height:36px; min-height:36px; display:flex; align-items:center; padding:0 12px; background: rgba(0,0,0,0.3); border-top: 1px solid var(--border-color);">
+                        <span id="terminal-prompt" style="color:var(--primary); font-family:'JetBrains Mono', monospace; font-size:12px; margin-right:8px; font-weight:bold;">&gt;</span>
+                        <input type="text" id="terminal-main-input" placeholder="Type a command..." style="flex:1; background:transparent; border:none; color:#fff; font-family:'JetBrains Mono', monospace; font-size:12px; outline:none;" spellcheck="false">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor Bottom Status Bar (Taskbar-like) -->
+            <div id="editor-status-bar" style="height: 44px; min-height: 44px; background: var(--surface-low); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: none; z-index: 100; box-sizing: border-box; display: flex; align-items: center; padding-right: 250px; overflow: hidden; justify-content: flex-start;">
+                <!-- Horizontal scrollable flex container for shortcuts -->
+                <div id="status-bar-shortcuts-list" style="display: flex; align-items: center; gap: 8px; overflow-x: auto; white-space: nowrap; height: 100%; flex: 1; padding: 0 12px; box-sizing: border-box; -ms-overflow-style: none; scrollbar-width: none;">
+                    <!-- Pills will be rendered dynamically here -->
+                </div>
+            </div>
+
+            <!-- Floating Gemini Usage Shortcut & Badge (Far Rightmost) -->
+            <div id="gemini-usage-toggle-btn" title="Google Gemini Usage (Click to view/refresh)" style="position: absolute; right: 10px; bottom: 9.5px; z-index: 1001; padding: 0; height: 25px; width: auto; min-width: auto; box-sizing: border-box; background: transparent; border: none; display: flex; align-items: center; justify-content: flex-end; cursor: pointer; color: var(--text-main); font-weight: 700; font-family: 'DM Sans', sans-serif; box-shadow: none; opacity: 0.95;">
+                <!-- Unified Integrated Gauge Capsule -->
+                <div id="gemini-usage-gauge-capsule" style="display: flex; align-items: center; height: 25px; background: rgba(255, 255, 255, 0.06); border-radius: 5px; overflow: hidden; box-sizing: border-box; border: none;">
+                    <!-- Left Section: Integrated Reset Countdown Timer Badge -->
+                    <div id="gemini-usage-badge-section" style="padding: 0 9px; height: 100%; background: rgba(255, 255, 255, 0.12); border-right: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <span id="gemini-usage-reset-time" style="display: flex; align-items: center; justify-content: center; text-align: center; height: 100%; min-width: 44px; font-size: 10px; font-weight: 600; color: #ffffff; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; flex-shrink: 0;" title="Time until usage reset">--</span>
+                    </div>
+                    <!-- Right Section: Gauge Fill Bar Container with Centered Percentage Text -->
+                    <div id="gemini-usage-gauge-bg" style="position: relative; width: 78px; height: 100%; background: transparent; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0; box-sizing: border-box;">
+                        <!-- Fill Bar -->
+                        <div id="gemini-usage-gauge-bar" class="usage-loading-shimmer" style="position: absolute; left: 0; top: 0; bottom: 0; height: 100%; width: 100%; max-width: 100%; border-radius: 0; box-shadow: none !important;"></div>
+                        <!-- Centered Percentage Overlay -->
+                        <span id="gemini-usage-percent-text" style="position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; height: 100%; font-size: 10.5px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace; line-height: 1; text-shadow: none;">
+                            <svg id="gemini-usage-spinner" class="usage-spinner-rotate" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); opacity: 0.85;">
+                                <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vertical Divider -->
+            <div style="position: absolute; right: 242px; bottom: 10px; height: 24px; width: 1px; background: var(--border-color); z-index: 1001;"></div>
+
+            <!-- Floating GitHub Popover Trigger -->
+            <div id="git-toggle-btn" title="Toggle GitHub Git Integration" style="position: absolute; right: 165px; bottom: 5px; z-index: 1001; width: 34px; height: 34px; border-radius: 50%; background: transparent; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(255, 255, 255, 0.45); box-shadow: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.85;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+            </div>
+
+            <!-- Floating Terminal Popover Trigger (Bottom-Right of Editor) -->
+            <div id="terminal-toggle-btn" title="Toggle Terminal Popover">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            </div>
+            
+            <!-- ====== DOCKING GUIDE OVERLAY ====== -->
+            <div id="editor-fixture-overlay" style="display: none; position: absolute; left: 0; right: 0; top: 44px; bottom: 44px; padding: 15px; box-sizing: border-box; background: rgba(12, 12, 14, 0.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 10000; pointer-events: none;">
+                <div id="editor-fixture-inner" style="width: 100%; height: 100%; border: 2px dashed #3b82f6; background: rgba(59, 130, 246, 0.08); border-radius: 12px; display: flex; justify-content: center; align-items: center; box-sizing: border-box; transition: all 0.3s ease;">
+                    <span id="editor-fixture-text" style="color: #3b82f6; font-family: 'DM Sans', 'Outfit', sans-serif; font-size: 15px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; transition: opacity 0.3s;">Drag window here</span>
+                </div>
+            </div>
+        </main>
+
+        <div class="resizer-v" id="resizer-inspector"></div>
+        <aside class="inspector" id="inspector-right" style="width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--surface-lowest); border-left: 1px solid var(--border-color); position: relative;">
+            <!-- LOCAL Chat View (For logs & execution proposals) -->
+            <div id="inspector-local-chat" class="agent-hub-view" style="display: flex; position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 44px); z-index: 100; flex-direction: column; background: var(--bg-color); overflow: hidden; transition: opacity 0.2s ease;">
+                <div id="active-project-header" style="height: 44px; min-height: 44px; padding: 0 12px; background: var(--surface-lowest); box-sizing: border-box; display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif;">CHAT COVER</span>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <button id="btn-header-send-project" style="background:none; border:none; color:var(--primary); cursor:pointer; display:flex; align-items:center; transition:color 0.2s; padding: 0;" title="Send Project Info to Browser" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--primary)'">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </button>
+                        <button id="btn-local-search" style="background:none; border:none; color:var(--text-dark); cursor:pointer; display:flex; align-items:center; transition:color 0.2s; padding: 0;" title="Search History">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                        </button>
+                        <button id="btn-local-settings" style="background:none; border:none; color:var(--text-dark); cursor:pointer; display:flex; align-items:center; transition:color 0.2s; padding: 0;" title="Settings">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <!-- 검색 입력 창 컨테이너 -->
+                <div id="local-chat-search-container" style="display:none; padding: 8px 14px; background: var(--surface-low); border-bottom: 1px solid var(--border-color); align-items: center; justify-content: space-between; gap: 10px;">
+                    <input type="text" id="local-chat-search-input" placeholder="Search chat logs..." style="flex: 1; background: transparent; border: none; color: #fff; font-size: 12.5px; outline: none; font-family: 'DM Sans', sans-serif;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span id="local-chat-search-count" style="font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-weight: 500;">0 found</span>
+                        <span id="close-local-search" style="cursor: pointer; color: var(--text-dark); font-size: 15px; font-weight: bold; line-height: 1;" title="Clear & Close">&times;</span>
+                    </div>
+                </div>
+                <div id="local-chat-messages" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;"></div>
+                
+                <div id="local-drop-zone" style="display: none; height: 90px; background: rgba(70, 140, 246, 0.05); border-top: 1px dashed var(--primary); padding: 12px; box-sizing: border-box; align-items: center; justify-content: center; flex-direction: column; gap: 6px; transition: all 0.2s ease; position: relative;">
+                    <span id="close-local-drop-zone" style="position: absolute; right: 10px; top: 8px; cursor: pointer; color: var(--text-muted); font-size: 15px; font-weight: bold; line-height: 1;" title="Cancel Upload">&times;</span>
+                    <div style="font-size: 11px; font-weight: 700; color: var(--primary); letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif; display: flex; align-items: center; gap: 6px; pointer-events: none;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> FILE DRAG & DROP ZONE
+                    </div>
+                    <div id="local-drop-zone-text" style="font-size: 11.5px; color: var(--text-main); font-weight: 500; text-align: center; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;">
+                        Drag and drop <span id="drop-target-filename" style="color: var(--primary); font-weight: bold; text-decoration: underline;">filename</span> here to proceed
+                    </div>
+                </div>
+
+                <!-- Glassmorphism overlay covering the entire local chat area on boot -->
+                <div id="local-chat-overlay" style="position: absolute; top: 44px; left: 0; right: 0; bottom: 0; background: rgba(12, 12, 14, 0.65); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; transition: opacity 0.25s ease;">
+                </div>
+
+                <button id="btn-manual-send-project" style="position: absolute; right: 16px; bottom: 110px; z-index: 500; display: none; align-items: center; gap: 6px; background: linear-gradient(135deg, var(--primary), #2563eb); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 11.5px; font-family: 'DM Sans', sans-serif; box-shadow: none; transition: all 0.2s;" onmouseenter="this.style.transform='translateY(-1px)';" onmouseleave="this.style.transform='none';">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    Send Manual
+                </button>
+
+                <div id="local-input-container" style="display: none !important; padding: 12px; border-top: 1px solid var(--border-color); background:var(--surface-lowest); position: relative; z-index: 40; box-sizing: border-box; max-width: 100%; width: 100%;">
+                    <div style="position: relative; width: 100%;">
+                        <textarea id="local-agent-input" placeholder="Ask to WebAI..." style="width: 100%; height: 72px; background: var(--surface-low); color: var(--text-main); border: 1px solid var(--border-color); padding: 10px 44px 10px 12px; font-size: 13px; outline: none; resize: none; border-radius: 8px; box-sizing: border-box; max-width: 100%; font-family: inherit; line-height: 1.5;"></textarea>
+                        <div id="send-to-local" class="send-btn" style="position: absolute; right: 10px; bottom: 10px; cursor: pointer; color: #fff; background: var(--primary); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); z-index: 50;" title="Send Message">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- Agent Hub -->
+            <div id="inspector-browser-hub" class="agent-hub-view" style="display: flex; height: 100%; width: 100%; flex-direction: column; background: var(--bg-color); position: relative; z-index: 1;">
+                <div id="agent-hub-home" style="display: flex; flex-direction: column; height: calc(100% - 48px); position: relative;">
+                    <div id="agent-hub-grid" style="padding: 30px; display: flex; flex-wrap: wrap; gap: 25px; justify-content: center; align-content: flex-start; overflow-y: auto; flex: 1;">
+                        <!-- Agent Cards will be injected here -->
+                        <div class="agent-app" id="add-agent-app-card">
+                             <div id="add-agent-app" style="display:flex; align-items:center; justify-content:center; width:100%; height:100%;">
+                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                             </div>
+                             <div class="agent-name">NEW AGENT</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Discovery Settings Button -->
+                    <div id="open-discovery-settings" style="position: absolute; bottom: 20px; right: 20px; width: 36px; height: 36px; background: var(--surface-high); border: 1px solid var(--border-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 10;" title="Discovery Keywords Setting">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06-.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    </div>
+                </div>
+
+                <!-- Discovery Settings Modal -->
+                <div id="discovery-settings-modal" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 100; align-items: center; justify-content: center;">
+                    <div style="width: 85%; max-width: 380px; background: var(--surface-color); border: 1px solid var(--border-color); padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; display: flex; flex-direction: column; gap: 15px; font-family: 'DM Sans', sans-serif; box-sizing: border-box;">
+                        
+                        <!-- Settings Header -->
+                        <div style="font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 5px;">
+                            SETTINGS
+                        </div>
+
+                        <!-- Settings Content -->
+                        <div id="settings-content-autodrag" style="display: flex; flex-direction: column; gap: 16px; min-height: 140px; box-sizing: border-box; padding-top: 5px;">
+                            <!-- Toggle: Sending File Format -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                                <div style="display: flex; flex-direction: column; gap: 4px; max-width: 70%;">
+                                    <span style="font-size: 12px; font-weight: 600; color: #eee;">Sending File Format</span>
+                                    <span style="font-size: 10.5px; color: var(--text-muted); line-height: 1.4;">Format for rule & tree payloads</span>
+                                </div>
+                                <select id="settings-send-format" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 6px; outline: none; font-family: inherit;">
+                                    <option value="md">MD (.md)</option>
+                                    <option value="pdf">PDF (.pdf)</option>
+                                    <option value="jpeg">JPEG (.jpeg)</option>
+                                </select>
+                            </div>
+
+                            <!-- Toggle: Auto Gemini Direct Launch -->
+                            <div style="display: flex; flex-direction: column; width: 100%; box-sizing: border-box; gap: 6px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                    <div style="display: flex; flex-direction: column; gap: 4px; max-width: 70%;">
+                                        <span style="font-size: 12px; font-weight: 600; color: #eee;">Auto Gemini</span>
+                                        <span style="font-size: 10.5px; color: var(--text-muted); line-height: 1.4;">Skip home screen and launch Gemini directly on boot</span>
+                                    </div>
+                                    <select id="settings-auto-gemini" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 6px; outline: none; font-family: inherit;">
+                                        <option value="false">OFF</option>
+                                        <option value="true">ON</option>
+                                    </select>
+                                </div>
+                                <div id="auto-gemini-off-warning" style="font-size: 10.5px; color: #f59e0b; display: none; line-height: 1.4; font-family: 'DM Sans', sans-serif; margin-top: 2px;">
+                                    ⚠️ Warning: Disabling AutoGemini may cause auto-operations to fail on non-Gemini Web AIs (e.g. ChatGPT, Claude).
+                                </div>
+                            </div>
+
+                            <!-- Toggle: Prefer Full File Overwrite -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                                <div style="display: flex; flex-direction: column; gap: 4px; max-width: 70%;">
+                                    <span style="font-size: 12px; font-weight: 600; color: #eee;">Full File Overwrite (write-file)</span>
+                                    <span style="font-size: 10.5px; color: var(--text-muted); line-height: 1.4;">Force AI to write full updated files instead of snippet edits</span>
+                                </div>
+                                <select id="settings-prefer-full-write" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 6px; outline: none; font-family: inherit;">
+                                    <option value="true">ON (Default)</option>
+                                    <option value="false">OFF</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Global Actions Footer -->
+                        <div style="display: flex; gap: 15px; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 5px; box-sizing: border-box;">
+                            <button id="close-discovery-settings" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 5px; font-weight: 700;">Cancel</button>
+                            <button id="save-discovery-settings" style="background: var(--primary); border: none; color: #fff; cursor: pointer; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 25px; transition: all 0.2s; border-radius: 6px; font-weight: 700;">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="agent-hub-webview" style="display: none; height: calc(100% - 44px); flex-direction: column; overflow: hidden;">
+                    <div id="agent-hub-nav" style="display: flex; height: 44px; min-height: 44px; background: var(--surface-lowest); align-items: center; padding: 0 10px; gap: 10px; box-sizing: border-box;">
+                        <span id="refresh-agent" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Refresh">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"></path></svg>
+                        </span>
+                        <input type="text" id="agent-url-input" placeholder="URL..." style="flex:1; background:var(--surface-low); border:1px solid var(--border-color); color:#ccc; font-size:12px; padding:7px 14px; outline:none; border-radius:4px;">
+                        <span id="debug-agent" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted);" title="Inspect Element">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        </span>
+                    </div>
+                    <div id="agent-view-dock" style="flex: 1; background: var(--bg-color); position: relative; overflow: hidden;">
+                    </div>
+
+                    <!-- Drag & Drop Queue Split Panel (Sits inside agent-hub-webview below agent-view-dock) -->
+                    <div id="drag-drop-queue-container" style="display: none; position: relative; width: 100%; max-width: 100%; max-height: 240px; z-index: 1000; flex-direction: column; box-sizing: border-box; background: var(--surface-color); padding: 12px 18px 16px 18px; border-top: 1.5px solid var(--border-color); gap: 10px; pointer-events: auto;">
+                        <!-- 1. Draggable List (At the very top to minimize drag distance to webview) -->
+                        <div id="drag-drop-queue-list" style="height: auto; max-height: 120px; overflow-y: auto; padding: 2px 0; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; pointer-events: auto; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                        </div>
+
+                        <!-- 2. Title/Close bar -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
+                            <span style="font-size: 11px; font-weight: 700; color: #fff; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em;">REQUIRED FILES</span>
+                            <span id="close-drag-drop-queue" style="cursor: pointer; color: var(--text-dark); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s; pointer-events: auto;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-dark)'" title="Close Overlay">&times;</span>
+                        </div>
+
+                        <!-- 3. Description & Warnings -->
+                        <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4; font-family: 'DM Sans', sans-serif;">
+                            Files requested by AI. <strong>Drag &amp; drop items</strong> into the Web AI input field.
+                        </div>
+                        <div id="drag-drop-queue-warning" style="font-size: 11px; color: var(--error); font-weight: 600; display: none; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; opacity: 0.9;">
+                        </div>
+
+                        <!-- 4. Bottom Close Button -->
+                        <div style="display: flex; justify-content: center; margin-top: 6px; pointer-events: auto;">
+                            <button id="btn-close-drag-drop-queue-bottom" style="background: rgba(255, 255, 255, 0.08); color: var(--text-muted); border: none; padding: 7px 32px; min-width: 120px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; letter-spacing: 0.04em; transition: all 0.2s;" onmouseenter="this.style.color='#fff'; this.style.background='rgba(255,255,255,0.16)';" onmouseleave="this.style.color='var(--text-muted)'; this.style.background='rgba(255,255,255,0.08)';">
+                                CLOSE
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Command Execution Queue Split Panel -->
+                    <div id="command-execution-container" style="display: none; position: relative; width: 100%; max-width: 100%; height: 200px; max-height: 200px; z-index: 1000; flex-direction: column; box-sizing: border-box; background: var(--surface-color); padding: 12px 18px 12px 18px; border-top: 1.5px solid var(--border-color); gap: 10px; pointer-events: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; flex-shrink: 0;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                                <span id="command-execution-title" style="font-size: 11px; font-weight: 700; color: #fff; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em; text-transform: uppercase;">Pending Command</span>
+                            </div>
+                            <span id="close-command-execution" style="cursor: pointer; color: var(--text-dark); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-dark)'" title="Close Panel">&times;</span>
+                        </div>
+                        <div id="command-execution-text" style="background: var(--surface-low); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-main); line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); overflow-y: auto; flex: 1; min-height: 0;">
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-shrink: 0; margin-top: 4px;">
+                            <button id="command-execute-continue" style="flex: 1; background: linear-gradient(135deg, #468CF6, #468CF6dd); color: white; border: none; padding: 10px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: none;">CONTINUE</button>
+                            <button id="command-execute-cancel" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 10px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">CANCEL</button>
+                        </div>
+                    </div>
+
+                    <!-- Manual CMD Input Split Panel (Sits at bottom deck inside agent-hub-webview) -->
+                    <div id="manual-cmd-input-container" style="display: none; position: relative; width: 100%; max-width: 100%; height: 210px; max-height: 210px; z-index: 1000; flex-direction: column; box-sizing: border-box; background: var(--surface-lowest); padding: 12px 18px 14px 18px; border-top: 1.5px solid var(--border-color); gap: 8px; pointer-events: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; flex-shrink: 0;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                                <span style="font-size: 11px; font-weight: 700; color: #fff; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em; text-transform: uppercase;">Manual CMD Input</span>
+                            </div>
+                            <span id="close-manual-cmd-container" style="cursor: pointer; color: var(--text-dark); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-dark)'" title="Close Panel">&times;</span>
+                        </div>
+                        <textarea id="manual-cmd-textarea" placeholder="Paste AI text containing [REQUEST: read-file ...] or [CMD: ...] to execute manually..." style="width: 100%; flex: 1; min-height: 0; background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 8px 10px; outline: none; resize: none; border-radius: 6px; font-family: 'JetBrains Mono', monospace; line-height: 1.4; box-sizing: border-box;"></textarea>
+                        <div style="display: flex; gap: 8px; flex-shrink: 0; justify-content: flex-end;">
+                            <button id="cancel-manual-cmd" style="background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11px; font-family: 'DM Sans', sans-serif;">CANCEL</button>
+                            <button id="run-manual-cmd" style="background: linear-gradient(135deg, #468CF6, #468CF6dd); color: white; border: none; padding: 6px 18px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif;">EXECUTE COMMANDS</button>
+                        </div>
+                    </div>
+            </div>
+
+            <!-- Browser Hub Confirm Modal (Themed UI overlay) -->
+            <div id="browser-confirm-modal" style="display: none; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(8px); z-index: 10000; align-items: flex-end; justify-content: center; font-family: 'DM Sans', sans-serif; overflow: hidden;">
+                <!-- Centered Web Favicon Icon overlay when AutoGemini mode is enabled -->
+                <div id="browser-confirm-gemini-icon" style="display: none; position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); align-items: center; justify-content: center; pointer-events: none; z-index: 10001;">
+                    <div style="width: 104px; height: 104px; border-radius: 28px; background: rgba(255, 255, 255, 0.08); border: none; backdrop-filter: blur(20px); display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);">
+                        <img id="browser-confirm-favicon" src="https://www.google.com/s2/favicons?domain=gemini.google.com&sz=128" style="width: 64px; height: 64px; object-fit: contain; border-radius: 12px;">
+                    </div>
+                </div>
+                <div style="background: var(--surface-color); border-top: 1px solid var(--border-color); border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-radius: 20px 20px 0 0; width: 100%; max-width: 100%; padding: 24px 24px 32px 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 -8px 30px rgba(0,0,0,0.4); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-sizing: border-box;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 13px; font-weight: 700; color: var(--text-main); letter-spacing: 0.5px;">PROJECT TRANSFER</span>
+                        <span id="browser-confirm-close" style="cursor: pointer; color: var(--text-muted); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'" title="Cancel & Close">&times;</span>
+                    </div>
+                    <div style="font-size: 11.5px; color: var(--text-muted); line-height: 1.6; font-weight: 500;">
+                        Do you want to send current project folder information to this AI? This sends file structures for analysis.
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button id="browser-confirm-cancel" style="flex: 1; background: rgba(255, 255, 255, 0.08); border: none; color: var(--text-main); padding: 10px 16px; border-radius: 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.15)';" onmouseleave="this.style.background='rgba(255,255,255,0.08)';">Continue without Transfer</button>
+                        <button id="browser-confirm-ok" style="flex: 1; background: var(--primary); border: none; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s;" onmouseenter="this.style.background='#3b7ee0';" onmouseleave="this.style.background='var(--primary)';">Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Taskbar inside Browser Hub -->
+             <div id="agent-hub-taskbar" style="position: absolute; bottom: 0; left: 0; right: 0; height: 44px; min-height: 44px; background: var(--surface-lowest); border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; box-sizing: border-box; z-index: 5000;">
+                  <!-- Left Aligned Actions: TREE SEND, RULES SEND -->
+                  <div style="position: absolute; left: 14px; display: flex; align-items: center; gap: 8px;">
+                      <button id="taskbar-manual-tree-btn" class="taskbar-action-btn" title="Re-Send Project Tree to Web AI">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><polyline points="12 11 12 17"></polyline><polyline points="9 14 12 11 15 14"></polyline></svg>
+                          <span class="btn-text">TREE SEND</span>
+                      </button>
+                      <button id="taskbar-manual-rules-btn" class="taskbar-action-btn" title="Send System Rules to Web AI">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                          <span class="btn-text">RULES SEND</span>
+                      </button>
+                      <button id="taskbar-empty-sendmd-btn" class="taskbar-action-btn" title="CLEAN SENDMD">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                          <span class="btn-text">EMPTY SENDMD FOLDER</span>
+                          <span id="taskbar-sendmd-count-badge" style="display: none; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-left: 4px;">0</span>
+                      </button>
+                  </div>
+
+                  <!-- Center Home Button -->
+                  <button id="taskbar-home-btn" style="width: 28px; height: 28px; border-radius: 50%; background: var(--surface-high); border: 1.5px solid var(--border-color); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; padding: 0; color: var(--text-muted);" title="Back to AI Hub">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                  </button>
+
+                  <!-- Right Aligned Actions: INPUT CMD, RE-CMD -->
+                  <div style="position: absolute; right: 14px; display: flex; align-items: center; gap: 8px;">
+                      <button id="taskbar-manual-cmd-input-btn" class="taskbar-action-btn" title="Paste & Execute AI CMD Commands">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                          <span class="btn-text">INPUT CMD</span>
+                      </button>
+                      <button id="taskbar-recmd-btn" class="taskbar-action-btn" title="Re-Nudge Web AI for CMD commands">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24"></path><path d="M21 3v6h-6"></path><path d="M8 10l3 2-3 2"></path><line x1="13" y1="14" x2="16" y2="14"></line></svg>
+                          <span class="btn-text">RE-CMD</span>
+                      </button>
+                  </div>
+             </div>
+        </div>
+
+
+
+    <!-- Modals -->
+            <div class="inspector-tabs" style="height: 44px; display: none !important; position: absolute; bottom: 0; left: 0; right: 0; z-index: 200; border-top: 1px solid var(--border-color);">
+                <div id="tab-local-agent" class="ins-tab active-tab">COVER</div>
+                <div id="tab-browser-hub" class="ins-tab">BROWSER</div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Add / Edit Shortcut Modal -->
+    <div id="add-shortcut-modal" class="modal-overlay">
+        <div class="modal-content confirm-box" style="width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title" id="shortcut-modal-title">REGISTER SHORTCUT</div>
+                <div class="modal-close" id="close-shortcut-modal-x">&times;</div>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 11px; font-weight: 600; color: var(--text-muted);">TITLE</label>
+                    <input type="text" id="shortcut-title-input" placeholder="Title (e.g. Google)..." spellcheck="false" autocomplete="off" style="width:100%; background:rgba(255, 255, 255, 0.08); color:var(--text-main); border:none; padding:10px 12px; border-radius:8px; font-size:12px; outline:none; box-sizing: border-box;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 11px; font-weight: 600; color: var(--text-muted);">URL</label>
+                    <input type="text" id="shortcut-url-input" placeholder="URL (e.g. https://google.com)..." spellcheck="false" autocomplete="off" style="width:100%; background:rgba(255, 255, 255, 0.08); color:var(--text-main); border:none; padding:10px 12px; border-radius:8px; font-size:12px; outline:none; box-sizing: border-box;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-shortcut-modal-btn" class="modal-btn secondary">Cancel</button>
+                <button id="save-shortcut-btn" class="modal-btn primary">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="app-reg-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:10000; align-items:center; justify-content:center;">
+        <div style="background:var(--surface-color); padding:20px; width:340px; border:1px solid var(--border-color); border-radius:12px; display:flex; flex-direction:column; gap:10px;">
+            <input type="text" id="reg-app-title" placeholder="App Title (Optional, e.g. YouTube)..." style="width:100%; background:var(--surface-low); color:#fff; border:1px solid var(--border-color); padding:12px; border-radius:6px; font-size:12px; outline:none;">
+            <input type="text" id="reg-app-url" placeholder="URL (e.g. chatgpt.com)..." style="width:100%; background:var(--surface-low); color:#fff; border:1px solid var(--border-color); padding:12px; border-radius:6px; font-size:12px; outline:none;">
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button id="cancel-reg" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;">Cancel</button>
+                <button id="confirm-reg" style="background:var(--primary); color:#fff; border:none; border-radius:6px; padding:6px 12px; cursor:pointer;">Register</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Local settings modal -->
+    <div id="local-settings-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:100000; align-items:center; justify-content:center;">
+        <div style="background:var(--surface-color); padding:20px; width:300px; border:1px solid var(--border-color); border-radius:12px; display:flex; flex-direction:column; gap:16px; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+            <div style="font-size:13px; font-weight:700; color:#fff; font-family:'DM Sans',sans-serif; border-bottom:1px solid var(--border-color); padding-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                <span>Settings</span>
+                <span id="close-local-settings" style="cursor:pointer; color:var(--text-muted); font-size:16px;">&times;</span>
+            </div>
+            
+            <div id="local-settings-content" style="min-height:100px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:11.5px; font-family:'DM Sans',sans-serif;">
+                No settings available yet.
+            </div>
+        </div>
+    </div>
+
+    <!-- First Launch Notice Modal -->
+    <div id="first-launch-notice-modal" style="display: none; position: fixed; inset: 0; background: rgba(12, 12, 14, 0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 100001; align-items: center; justify-content: center; font-family: 'DM Sans', sans-serif;">
+        <div style="background: var(--surface-color); border: 1.5px solid var(--border-color); border-radius: 14px; width: 420px; max-width: 90vw; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); box-sizing: border-box;">
+            
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.5px;">INITIAL SETUP & OPERATING GUIDELINES</span>
+                <span id="close-first-launch-notice-x" style="cursor: pointer; color: var(--text-muted); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'" title="Close Notice">&times;</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 18px; font-size: 11.5px; color: var(--text-muted); line-height: 1.65;">
+                <div>
+                    <div style="font-weight: 700; color: #fff; margin-bottom: 4px;">1. File Transmission Payload</div>
+                    When sharing files or rules, temporary <code style="color:var(--primary);">.md</code> files are created in <code style="color:var(--primary);">SendingMD/</code> and passed to Web AI.
+                </div>
+                <div>
+                    <div style="font-weight: 700; color: #fff; margin-bottom: 4px;">2. Smart Command Deck</div>
+                    Parsed AI actions (read, write, edit, run) are safely queued in the bottom approval deck for one-click execution.
+                </div>
+                <div>
+                    <div style="font-weight: 700; color: #fff; margin-bottom: 4px;">3. Google Account Authentication & Login</div>
+                    Gemini Web AI requires a Google account. **Please log in to your Google account first before dragging and dropping files!**
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 4px;">
+                <button id="close-first-launch-notice" style="background: var(--primary); border: none; color: #fff; padding: 9px 20px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s;" onmouseenter="this.style.background='#3b7ee0';" onmouseleave="this.style.background='var(--primary)';">UNDERSTOOD</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="modal-overlay">
+        <div class="modal-content confirm-box">
+            <div class="modal-header">
+                <div class="modal-title">CONFIRMATION</div>
+                <div class="modal-close" id="close-confirm">&times;</div>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message">Are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-cancel" class="modal-btn secondary">Cancel</button>
+                <button id="confirm-ok" class="modal-btn primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WebAI Process Overlay -->
+    <div id="web-process-overlay">
+        <div class="process-header">
+            <div class="process-title">PROJECT ANALYZER</div>
+            <div class="spinner"></div>
+        </div>
+        <div class="process-steps">
+            <div class="step-item" id="step-scan">
+                <div class="step-icon" style="display:flex; align-items:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+                <div class="step-text">
+                    <div class="step-label">Project Scan</div>
+                    <div class="step-status">Scanning file structure...</div>
+                </div>
+            </div>
+            <div class="step-item" id="step-analyze">
+                <div class="step-icon" style="display:flex; align-items:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1 0-3.12 3 3 0 0 1 0-3.88 2.5 2.5 0 0 1 0-3.12A2.5 2.5 0 0 1 9.5 2zM14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 0-3.12 3 3 0 0 0 0-3.88 2.5 2.5 0 0 0 0-3.12A2.5 2.5 0 0 0 14.5 2z"/></svg>
+                </div>
+                <div class="step-text">
+                    <div class="step-label">Context Analysis</div>
+                    <div class="step-status">Local AI processing...</div>
+                </div>
+            </div>
+            <div class="step-item" id="step-brief">
+                <div class="step-icon" style="display:flex; align-items:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                </div>
+                <div class="step-text">
+                    <div class="step-label">Web Briefing</div>
+                    <div class="step-status">Injecting to Web AI...</div>
+                </div>
+            </div>
+            <div class="step-item" id="step-extract">
+                <div class="step-icon" style="display:flex; align-items:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <div class="step-text">
+                    <div class="step-label">Final Response</div>
+                    <div class="step-status">Waiting for expert answer...</div>
+                </div>
+            </div>
+        </div>
+        <div class="progress-container">
+            <div id="web-process-bar" class="progress-fill"></div>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            const ipc = require('electron').ipcRenderer;
+            let isFixtureActive = false;
+            let originalInspectorDisplay = '';
+            let originalResizerDisplay = '';
+            let monitorProcess = null;
+
+            function startDockMonitor() {
+                stopDockMonitor();
+                const overlay = document.getElementById('editor-fixture-overlay');
+                if (!overlay) return;
+                
+                Promise.all([
+                    ipc.invoke('get-content-bounds'),
+                    ipc.invoke('get-our-hwnd')
+                ]).then(([winBounds, ourHwnd]) => {
+                    const rect = overlay.getBoundingClientRect();
+                    
+                    // Windows 10/11 invisible border adjustments (approx 7px left/right/bottom)
+                    const x = Math.round(winBounds.x + rect.left) + 7;
+                    const y = Math.round(winBounds.y + rect.top);
+                    const w = Math.round(rect.width) - 14;
+                    const h = Math.round(rect.height) - 7;
+                    
+                    const { spawn } = require('child_process');
+                    const path = require('path');
+                    const scriptPath = path.join(__dirname, 'js/ui/dock_monitor.ps1');
+                    const ourPid = process.pid;
+                    
+                    monitorProcess = spawn('powershell.exe', [
+                        '-NoProfile',
+                        '-ExecutionPolicy', 'Bypass',
+                        '-File', scriptPath,
+                        x.toString(),
+                        y.toString(),
+                        w.toString(),
+                        h.toString(),
+                        ourPid.toString(),
+                        ourHwnd.toString()
+                    ]);
+                    
+                    monitorProcess.stdout.on('data', (data) => {
+                        const msg = data.toString().trim();
+                        console.log("[DockMonitor]", msg);
+                        if (msg.includes("DOCKED:")) {
+                            const parts = msg.split(":");
+                            const hwnd = parts[1].trim();
+                            window.dockedHwnd = hwnd;
+                            ipc.send('register-docked-hwnd', hwnd);
+                            startPositionSync();
+                            
+                            // Style overlay with theme color, solid border, glow
+                            const innerEl = document.getElementById('editor-fixture-inner');
+                            if (innerEl) {
+                                innerEl.style.border = '2px solid var(--accent-color, #3b82f6)';
+                                innerEl.style.background = 'rgba(59, 130, 246, 0.15)';
+                                innerEl.style.boxShadow = 'inset 0 0 20px rgba(59, 130, 246, 0.2), 0 0 10px rgba(59, 130, 246, 0.3)';
+                            }
+                            const textEl = document.getElementById('editor-fixture-text');
+                            if (textEl) {
+                                textEl.style.opacity = '0';
+                            }
+                            
+                            // Change header text to clickable Lock icon (theme color)
+                            const titleEl = document.getElementById('editor-header-title');
+                            if (titleEl) {
+                                titleEl.innerHTML = `
+                                    <div id="fixture-lock-btn" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--accent-color, #3b82f6); transition: all 0.2s ease; font-size: 15px; font-weight: 700; font-family: 'Outfit', sans-serif;" title="Click to Unlock/Unfix Window">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                        </svg>
+                                        <span>FIXED</span>
+                                    </div>
+                                `;
+                                
+                                const lockBtn = document.getElementById('fixture-lock-btn');
+                                if (lockBtn) {
+                                    lockBtn.onclick = (e) => {
+                                        e.stopPropagation();
+                                        
+                                        // Show unlocked state icon (open lock)
+                                        lockBtn.innerHTML = `
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);">
+                                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                                <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                                            </svg>
+                                            <span>UNLOCKED</span>
+                                        `;
+                                        lockBtn.style.color = 'var(--text-muted)';
+                                        
+                                        // Trigger unlock
+                                        setTimeout(() => {
+                                            const fixtureToolbarBtn = document.getElementById('win-fixture');
+                                            if (fixtureToolbarBtn && isFixtureActive) {
+                                                fixtureToolbarBtn.click();
+                                            }
+                                        }, 300);
+                                    };
+                                }
+                            }
+                            
+                            // Restart monitor after short delay to allow further docking or redocking
+                            setTimeout(() => {
+                                if (isFixtureActive) startDockMonitor();
+                            }, 500);
+                        }
+                    });
+                });
+            }
+
+            function stopDockMonitor() {
+                if (monitorProcess) {
+                    try { monitorProcess.kill(); } catch(e) {}
+                    monitorProcess = null;
+                }
+            }
+
+            let positionSyncInterval = null;
+            let lastTargetX = null;
+            let lastTargetY = null;
+            let lastTargetW = null;
+            let lastTargetH = null;
+
+            function startPositionSync() {
+                stopPositionSync();
+                positionSyncInterval = setInterval(() => {
+                    if (!isFixtureActive || !window.dockedHwnd) return;
+                    
+                    const overlay = document.getElementById('editor-fixture-overlay');
+                    if (!overlay) return;
+                    
+                    ipc.invoke('get-content-bounds').then(winBounds => {
+                        const rect = overlay.getBoundingClientRect();
+                        
+                        // Absolute screen target coordinates with Windows 10/11 invisible border adjustments
+                        const targetX = Math.round(winBounds.x + rect.left) + 7;
+                        const targetY = Math.round(winBounds.y + rect.top);
+                        const targetW = Math.round(rect.width) - 14;
+                        
+                        // Fit height exactly to the client viewport overlay area
+                        const targetH = Math.round(rect.height) - 7;
+                        
+                        if (targetX !== lastTargetX || targetY !== lastTargetY || targetW !== lastTargetW || targetH !== lastTargetH) {
+                            lastTargetX = targetX;
+                            lastTargetY = targetY;
+                            lastTargetW = targetW;
+                            lastTargetH = targetH;
+                            
+                            ipc.send('move-docked-window', { x: targetX, y: targetY, w: targetW, h: targetH });
+                        }
+                    });
+                }, 50);
+            }
+
+            function stopPositionSync() {
+                if (positionSyncInterval) {
+                    clearInterval(positionSyncInterval);
+                    positionSyncInterval = null;
+                }
+                lastTargetX = null;
+                lastTargetY = null;
+                lastTargetW = null;
+                lastTargetH = null;
+            }
+
+            function repositionDockedWindow() {
+                const overlay = document.getElementById('editor-fixture-overlay');
+                if (!overlay || !window.dockedHwnd) return;
+                
+                ipc.invoke('get-content-bounds').then(winBounds => {
+                    const rect = overlay.getBoundingClientRect();
+                    
+                    // Windows 10/11 invisible border adjustments (approx 7px left/right/bottom)
+                    const x = Math.round(winBounds.x + rect.left) + 7;
+                    const y = Math.round(winBounds.y + rect.top);
+                    const w = Math.round(rect.width) - 14;
+                    const h = Math.round(rect.height) - 7;
+                    
+                    ipc.send('move-docked-window', { x, y, w, h });
+                });
+            }
+
+            window.addEventListener('resize', () => {
+                if (isFixtureActive) {
+                    clearTimeout(window._dockMonitorResizeTimeout);
+                    window._dockMonitorResizeTimeout = setTimeout(() => {
+                        if (isFixtureActive) {
+                            startDockMonitor();
+                        }
+                    }, 200);
+                }
+            });
+
+            document.getElementById('win-fixture').onclick = () => {
+                isFixtureActive = !isFixtureActive;
+                
+                const inspector = document.getElementById('inspector-right');
+                const resizer = document.getElementById('resizer-inspector');
+                const overlay = document.getElementById('editor-fixture-overlay');
+                const titleEl = document.getElementById('editor-header-title');
+                const icon = document.getElementById('win-fixture-icon');
+                
+                if (isFixtureActive) {
+                    // Hide ChatCover right sidebar
+                    if (inspector) {
+                        originalInspectorDisplay = inspector.style.display || 'flex';
+                        inspector.style.display = 'none';
+                    }
+                    if (resizer) {
+                        originalResizerDisplay = resizer.style.display || 'block';
+                        resizer.style.display = 'none';
+                    }
+                    
+                    // Show guide overlay
+                    if (overlay) overlay.style.display = 'block';
+                    
+                    // Change header text to FIXTURE
+                    if (titleEl) titleEl.innerText = 'FIXTURE';
+                    
+                    // Style icon active (green)
+                    if (icon) {
+                        icon.setAttribute('stroke', '#10b981');
+                        const cursor = icon.querySelector('path');
+                        if (cursor) cursor.setAttribute('fill', '#10b981');
+                    }
+
+                    // Start background drag-and-drop monitor
+                    startDockMonitor();
+                } else {
+                    // Stop monitor and clear docked window tracking
+                    stopDockMonitor();
+                    stopPositionSync();
+                    window.dockedHwnd = null;
+                    ipc.send('register-docked-hwnd', null);
+
+                    // Restore ChatCover right sidebar
+                    if (inspector) inspector.style.display = originalInspectorDisplay;
+                    if (resizer) resizer.style.display = originalResizerDisplay;
+                    
+                    // Hide guide overlay and restore default styles
+                    if (overlay) {
+                        overlay.style.display = 'none';
+                        const innerEl = document.getElementById('editor-fixture-inner');
+                        if (innerEl) {
+                            innerEl.style.border = '2px dashed #3b82f6';
+                            innerEl.style.background = 'rgba(59, 130, 246, 0.08)';
+                            innerEl.style.boxShadow = 'none';
+                        }
+                        const textEl = document.getElementById('editor-fixture-text');
+                        if (textEl) {
+                            textEl.style.opacity = '1';
+                        }
+                    }
+                    
+                    // Restore header text
+                    if (titleEl) {
+                        if (window.currentEditingPath) {
+                            const pathModule = require('path');
+                            titleEl.innerText = pathModule.basename(window.currentEditingPath);
+                        } else {
+                            titleEl.innerText = '';
+                        }
+                    }
+                    
+                    // Style icon inactive (gray)
+                    if (icon) {
+                        icon.setAttribute('stroke', '#9aa0a6');
+                        const cursor = icon.querySelector('path');
+                        if (cursor) cursor.setAttribute('fill', '#9aa0a6');
+                    }
+                }
+            };
+
+            document.getElementById('win-reload').onclick = () => ipc.send('relaunch-app');
+            document.getElementById('win-min').onclick = () => ipc.send('window-minimize');
+            document.getElementById('win-max').onclick = () => ipc.send('window-maximize');
+            document.getElementById('win-close').onclick = () => ipc.send('window-close');
+        })();
+    </script>
+
+    <!-- Core Engines -->
+    <script src="js/engine/outline.js"></script>
+    <script src="js/engine/monitoring.js"></script>
+
+    <!-- Custom Command Handlers -->
+    <script src="js/commands/payload.js"></script>
+    <script src="js/commands/batch.js"></script>
+
+    <!-- Core Modules -->
+    <script src="js/core/logger.js"></script>
+    <script src="js/core/globals.js"></script>
+    <script src="js/core/queue.js"></script>
+    <script src="js/core/system_rules.js"></script>
+    <script src="js/core/settings.js"></script>
+    <script src="js/core/file_payload.js"></script>
+    <script src="js/core/vault.js"></script>
+    <script src="js/core/session_reset.js"></script>
+
+    <!-- Webview Modules -->
+    <script src="js/webview/guest_interceptor.js"></script>
+    <script src="js/webview/usage_crawler.js"></script>
+
+    <!-- UI Modules -->
+    <script src="js/ui/dialogs.js"></script>
+    <script src="js/ui/project.js"></script>
+    <script src="js/ui/terminal.js"></script>
+    <script src="js/ui/editor.js"></script>
+    <script src="js/ui/chat.js"></script>
+    <script src="js/ui/graph_view.js"></script>
+    <script src="js/ui/drag_drop_queue.js"></script>
+    <script src="js/ui/command_panel.js"></script>
+    <script src="js/ui/explorer.js"></script>
+    <script src="js/ui/ai_renderer.js"></script>
+
+    <!-- Commands Orchestration -->
+    <script src="js/commands/detect.js"></script>
+    <script src="js/commands/orchestrate.js"></script>
+
+    <!-- Boot Setup Modules -->
+    <script src="js/boot/setup_boot.js"></script>
+    <script src="js/boot/setup_ui.js"></script>
+
+    <!-- Main Entry Point -->
+    <script src="js/main_ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,493 @@
+async function safeExecJS(wv, script, fallback = null) {
+    if (!wv || !document.body.contains(wv)) return fallback;
+    try {
+        return await wv.executeJavaScript(script);
+    } catch (e) {
+        return fallback;
+    }
+}
+
+async function showManualInputUI(statusBub) {
+    return new Promise((resolve) => {
+        const content = statusBub.querySelector('.bubble-content');
+        if (!content) return resolve(null);
+        
+        content.innerHTML = `
+            <div style="font-size:12px; margin-bottom:8px; color:#ffa500; font-weight:bold;">[MANUAL OVERRIDE]</div>
+            <div style="font-size:11px; color:#aaa; margin-bottom:8px;">Copy the response (Ctrl+C) from the webview on the right to fetch it <b>automatically</b>.<br>Or paste it directly below.</div>
+            <textarea class="manual-input-area" placeholder="Paste the web AI response here..." style="width:100%; height:150px; background:#000; color:#ccc; border:1px solid #333; padding:10px; font-size:13px; outline:none; resize:none; border-radius:6px; font-family:inherit;"></textarea>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+                <button class="manual-cancel-btn" style="background:#222; color:#aaa; border:1px solid #333; padding:5px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">Cancel</button>
+                <button class="manual-save-btn" style="background:#fff; color:#000; border:none; padding:5px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">Save Response</button>
+            </div>
+        `;
+
+        const area = content.querySelector('.manual-input-area'), saveBtn = content.querySelector('.manual-save-btn'), cancelBtn = content.querySelector('.manual-cancel-btn');
+        let clipboardInterval = null;
+
+        const cleanup = () => {
+            if (clipboardInterval) clearInterval(clipboardInterval);
+            const toast = document.getElementById('injection-toast'); if (toast) toast.style.display = 'none';
+            const webBarCont = document.getElementById('web-extract-progress-container'); if (webBarCont) webBarCont.style.display = 'none';
+        };
+
+        saveBtn.onclick = () => {
+            const val = area.value.trim(); if (!val) { alert("Please enter content."); return; }
+            saveBtn.innerText = "Saving..."; saveBtn.disabled = true; cleanup(); resolve(val);
+        };
+        cancelBtn.onclick = () => { cleanup(); resolve(""); };
+
+        document.getElementById('tab-browser-hub')?.click();
+
+        const toast = document.getElementById('injection-toast');
+        const projLbl = document.getElementById('project-pct-label');
+        const injLbl = document.getElementById('inject-pct-label');
+        const projBar = document.getElementById('toast-project-progress-bar');
+        const injBar = document.getElementById('toast-inject-progress-bar');
+        const webBar = document.getElementById('web-extract-progress-bar');
+
+        if (toast) {
+            toast.style.display = 'flex';
+            if (projLbl) projLbl.innerHTML = `Manual Injection: <span style="color:var(--primary); font-weight:bold;">Copy Mode Active</span>`;
+            if (injLbl) injLbl.innerHTML = `Waiting for manual copy (8s)...`;
+            if (projBar) projBar.style.width = '100%';
+            if (injBar) injBar.style.width = '0%';
+        }
+        if (webBar) { webBar.style.width = '100%'; webBar.style.background = 'var(--primary)'; webBar.style.transition = 'width 0.5s linear'; }
+
+        const { clipboard } = require('electron'); const initialClipboard = clipboard.readText(); let timeoutTicks = 0; 
+        clipboardInterval = setInterval(() => {
+            timeoutTicks++; const currentClipboard = clipboard.readText();
+            if (webBar) webBar.style.width = `${Math.max(0, 100 - (timeoutTicks / 16) * 100)}%`;
+            if (currentClipboard && currentClipboard !== initialClipboard) {
+                area.value = currentClipboard; cleanup();
+                setTimeout(() => { document.getElementById('tab-local-agent')?.click(); saveBtn.click(); }, 300);
+            } else if (timeoutTicks >= 16) { cleanup(); document.getElementById('tab-local-agent')?.click(); }
+        }, 500); 
+    });
+}
+
+const extractScript = `(function(){
+    const selectors = [
+        '[data-message-author-role="assistant"]',
+        '.font-claude-message',
+        'model-response .markdown', 
+        'message-content .markdown-prose', 
+        'div[class*="model-response"]',
+        'div[class*="message-content"]',
+        'message-content',
+        'model-response',
+        '[data-testid="message-content"]',
+        '.response-content',
+        '.markdown',
+        '.prose'
+    ];
+    
+    let targetNode = null;
+    for (let sel of selectors) {
+        const nodes = document.querySelectorAll(sel);
+        if (nodes.length > 0) {
+            targetNode = nodes[nodes.length - 1]; // 가장 최신 응답
+            break;
+        }
+    }
+    
+    if (!targetNode) return "[EXTRACT_FAIL]"; // 못 찾으면 에러 플래그 반환
+    
+    const clone = targetNode.cloneNode(true);
+    clone.querySelectorAll('script, style, button, a[role="link"], [role="button"], .carousel, .suggestions-container, [aria-label*="추천"], .code-block-header, .code-header, [class*="code-header"]').forEach(el => el.remove());
+    
+    // HTML to Markdown 재귀 파서
+    const toMarkdown = (node) => {
+        if (node.nodeType === 3) {
+            return node.nodeValue;
+        }
+        if (node.nodeType !== 1) {
+            return "";
+        }
+        
+        const tag = node.tagName.toLowerCase();
+        let childrenMarkdown = "";
+        node.childNodes.forEach(child => {
+            childrenMarkdown += toMarkdown(child);
+        });
+        
+        switch (tag) {
+            case 'h1': return "\\n# " + childrenMarkdown.trim() + "\\n";
+            case 'h2': return "\\n## " + childrenMarkdown.trim() + "\\n";
+            case 'h3': return "\\n### " + childrenMarkdown.trim() + "\\n";
+            case 'h4': return "\\n#### " + childrenMarkdown.trim() + "\\n";
+            case 'p': return "\\n" + childrenMarkdown.trim() + "\\n";
+            case 'br': return "\\n";
+            case 'strong':
+            case 'b': return "**" + childrenMarkdown.trim() + "**";
+            case 'em':
+            case 'i': return "*" + childrenMarkdown.trim() + "*";
+            case 'code': {
+                const text = node.textContent || "";
+                const parentTag = (node.parentNode && node.parentNode.tagName) ? node.parentNode.tagName.toLowerCase() : "";
+                const parentClassList = (node.parentNode && node.parentNode.classList) ? node.parentNode.classList : null;
+                const isBlock = parentTag === 'pre' || 
+                                parentTag === 'code-block' ||
+                                (parentClassList && parentClassList.contains('code-block')) ||
+                                (parentClassList && parentClassList.contains('code-code')) ||
+                                text.trim().includes('\\n');
+                return isBlock ? "\\n\`\`\`\\n" + childrenMarkdown.trim() + "\\n\`\`\`\\n" : "\`" + childrenMarkdown.trim() + "\`";
+            }
+            case 'pre':
+            case 'code-block': return "\\n" + childrenMarkdown.trim() + "\\n";
+            case 'li': {
+                const parentTag = (node.parentNode && node.parentNode.tagName) ? node.parentNode.tagName.toLowerCase() : "";
+                const isOrdered = parentTag === 'ol';
+                if (isOrdered) {
+                    const siblings = Array.from(node.parentNode.children || []);
+                    const idx = siblings.indexOf(node) + 1;
+                    return "\\n" + idx + ". " + childrenMarkdown.trim();
+                }
+                return "\\n- " + childrenMarkdown.trim();
+            }
+            case 'ul': return "\\n" + childrenMarkdown + "\\n";
+            case 'ol': return "\\n" + childrenMarkdown + "\\n";
+            case 'blockquote': return "\\n> " + childrenMarkdown.trim().split("\\n").join("\\n> ") + "\\n";
+            case 'th':
+            case 'td': return childrenMarkdown.replace(/\\n/g, " ").trim() + " | ";
+            case 'tr': {
+                const isHeader = Array.from(node.children || []).every(child => child.tagName.toLowerCase() === 'th');
+                const cells = childrenMarkdown.trim();
+                if (isHeader) {
+                    const colCount = node.children.length;
+                    const divider = "\\n| " + Array(colCount).fill("---").join(" | ") + " |";
+                    return "\\n| " + cells + divider;
+                }
+                return "\\n| " + cells;
+            }
+            case 'table': return "\\n\\n" + childrenMarkdown.trim() + "\\n\\n";
+            default: return childrenMarkdown;
+        }
+    };
+    
+    return toMarkdown(clone).replace(/\\n{3,}/g, "\\n\\n").trim();
+})()`;
+
+const cleanGarbage = (t) => {
+    if (!t) return "";
+    let cleaned = t;
+
+
+
+    const footers = [
+        /Gemini는 AI이며 인물 등에 관한 정보 제공 시 실수를 할 수 있습니다.*/gi,
+        /개인 정보 보호 및 Gemini새 창에서 열기/gi,
+        /Gemini의 응답/gi,
+        /Gemini may display inaccurate info.*/gi,
+        /Your privacy and Gemini Apps/gi,
+        /새 창에서 열기/gi
+    ];
+    footers.forEach(regex => { cleaned = cleaned.replace(regex, ""); });
+
+    cleaned = cleaned.replace(/^[ \t\W]*(Thinking|Thought|Analyzing|Searching|Working|\[SYSTEM\]|Processing|Reasoning).*?(\n|$)/gim, "");
+    cleaned = cleaned.replace(/[(\[]\s*(Thinking|Thought|Analyzing|Reasoning).*?\s*[)\]]/gi, "");
+    cleaned = cleaned.replace(/^\s*(Thinking|Thought|Analyzing|Reasoning)(\.\.\.|\.)*\s*/gi, "");
+    cleaned = cleaned.split("\n").filter(line => { const l = line.trim().toLowerCase(); return !(l === "thinking" || l === "thought" || l === "reasoning" || l.startsWith("thought for")); }).join("\n");
+    
+    return cleaned.trim();
+};
+
+async function runExperimentalEngine(cmd, msg, statusBub) {
+    window.isNewResponse = true;
+    window.lastActiveAiBubble = null;
+    let stableN = 0;
+    let currentExtension = 0;
+
+    const wv = document.getElementById('active-agent-webview');
+    const webBarCont = document.getElementById('web-extract-progress-container');
+    const webBar = document.getElementById('web-extract-progress-bar');
+    
+    if (!wv || !wv.src || wv.src.startsWith('about:blank')) {
+        const toast = document.getElementById('injection-toast');
+        const projLbl = document.getElementById('project-pct-label');
+        const injLbl = document.getElementById('inject-pct-label');
+        const projBar = document.getElementById('toast-project-progress-bar');
+        const injBar = document.getElementById('toast-inject-progress-bar');
+
+        if (toast) {
+            toast.style.display = 'flex';
+            if (projLbl) projLbl.innerHTML = `⚠️ <span style="color:var(--primary); font-weight:bold;">No Agent Selected</span>`;
+            if (injLbl) injLbl.innerHTML = `Please select an AI agent from the Browser tab first.`;
+            if (projBar) projBar.style.width = '0%';
+            if (injBar) injBar.style.width = '0%';
+            
+            setTimeout(() => { 
+                toast.style.display = 'none'; 
+            }, 4000);
+        }
+        return null;
+    }
+
+    if (webBarCont) {
+        webBarCont.style.display = 'block'; webBarCont.style.cursor = 'pointer'; 
+        webBarCont.onclick = (e) => {
+            const rect = webBarCont.getBoundingClientRect(); const clickPos = (e.clientX - rect.left) / rect.width; const reversedPos = 1 - clickPos;
+            if (stableN >= 0) { stableN = Math.floor(reversedPos * 8); } else { const targetPos = Math.floor(reversedPos * (currentExtension + 8)); stableN = targetPos - currentExtension; }
+            updateUI(stableN < 0 ? "Wait time adjusted (Extended)" : "Wait time adjusted", 0);
+        };
+    }
+    if (webBar) { webBar.style.width = '0%'; webBar.style.background = '#0078d4'; }
+
+    let manualAbort = false, resolveManual = null; const manualPromise = new Promise(res => { resolveManual = res; });
+
+    if (statusBub) {
+        const content = statusBub.querySelector('.bubble-content');
+        if (content) {
+            content.innerHTML = `<div class="status-text">[SYSTEM] AI working...</div><button class="manual-fetch-btn" style="margin-top:8px; padding:4px 10px; background:#222; border:1px solid #333; color:#aaa; border-radius:4px; font-size:11px; cursor:pointer; transition:0.2s;">Manual Fetch</button>`;
+            content.querySelector('.manual-fetch-btn').onclick = async () => { manualAbort = true; const manualVal = await showManualInputUI(statusBub); if (resolveManual) resolveManual(manualVal); };
+        }
+    }
+
+    const updateUI = (text, progress = 0, isStableMode = false) => {
+        if (statusBub && !manualAbort) { const txtEl = statusBub.querySelector('.status-text'); if (txtEl) txtEl.innerText = `[SYSTEM] ${text}`; }
+        const toast = document.getElementById('injection-toast');
+        const injLbl = document.getElementById('inject-pct-label');
+        const injBar = document.getElementById('toast-inject-progress-bar');
+        
+        if (toast && !manualAbort) {
+            toast.style.display = window.hideUIOverlay ? 'none' : 'flex';
+            if (injLbl) {
+                let prefix = "System Status";
+                if (text.includes('typing') || text.includes('responding') || text.includes('complete')) {
+                    prefix = "AI Status";
+                }
+                injLbl.innerHTML = `${prefix}: <span style="color: var(--primary); font-weight: bold;">${text}</span>`;
+            }
+            if (injBar) {
+                if (text.includes('complete') || text.includes('Fetching')) {
+                    injBar.style.width = '100%';
+                    injBar.style.background = 'var(--primary)';
+                } else if (text.includes('typing')) {
+                    const charCount = parseInt(text.match(/\d+/) || '0');
+                    const simulatedProgress = Math.min(90, 30 + Math.floor(charCount / 20));
+                    injBar.style.width = `${simulatedProgress}%`;
+                    injBar.style.background = 'var(--primary)';
+                } else {
+                    injBar.style.width = '15%';
+                    injBar.style.background = '#333';
+                }
+            }
+        }
+
+        if (webBar) {
+            const p = isStableMode ? progress : stableN;
+            if (p > 0) { webBar.style.width = `${Math.max(0, 100 - (p / 8) * 100)}%`; webBar.style.background = 'var(--primary)'; } 
+            else if (p < 0) { webBar.style.width = `${Math.max(0, 100 - ((p + currentExtension) / (currentExtension + 8)) * 100)}%`; webBar.style.background = 'var(--primary)'; } 
+            else { webBar.style.width = '100%'; webBar.style.background = 'var(--primary)'; }
+        }
+
+        if (typeof window.showInputLoading === 'function' && !manualAbort) {
+            const isTyping = text.toLowerCase().includes('typing') || 
+                             text.toLowerCase().includes('started') || 
+                             text.toLowerCase().includes('responding') || 
+                             text.toLowerCase().includes('complete');
+            if (isTyping) {
+                if (typeof window.hideInputLoading === 'function') {
+                    window.hideInputLoading();
+                }
+            } else {
+                window.showInputLoading(text);
+            }
+        }
+    };
+
+    const hideGlobalUI = () => {
+        const toast = document.getElementById('injection-toast');
+        if (toast) toast.style.display = 'none';
+        if (webBarCont) webBarCont.style.display = 'none';
+        if (typeof window.hideInputLoading === 'function') {
+            window.hideInputLoading();
+        }
+    };
+
+    window.activeAiResponding = true;
+    const initialText = cleanGarbage(await safeExecJS(wv, extractScript, ""));
+    let isGenerating = false;
+    let lastText = "";
+    let stableCount = 0;
+    let errorTicks = 0;
+    let delta = "";
+
+    for (let i = 0; i < 2400; i++) { // 최대 20분 대기 (2400 * 500ms)
+        await new Promise(r => setTimeout(r, 500));
+
+        const errorVal = await safeExecJS(wv, `(() => {
+            const bodyText = document.body ? document.body.innerText : "";
+            const isGemini = window.location.href.includes("gemini.google.com");
+            
+            if (isGemini) {
+                // Match error codes like 1095, 1097 (1090-1099 range)
+                const codeMatch = bodyText.match(/\\b(109\\d)\\b/);
+                if (codeMatch) {
+                    return "Error " + codeMatch[0];
+                }
+                
+                // Match pattern "문제가 있습니다 [숫자]"
+                const patternMatch = bodyText.match(/문제가 있습니다\\s*\\d+/);
+                if (patternMatch) {
+                    return patternMatch[0];
+                }
+            }
+
+            const errorKeywords = [
+                "사용량이 많을 때 문제가 있습니다",
+                "Too many requests",
+                "quota exceeded",
+                "quota limit",
+                "Please try again later",
+                "Something went wrong",
+                "일시적인 오류가 발생했습니다"
+            ];
+            for (const kw of errorKeywords) {
+                if (bodyText.includes(kw)) {
+                    return kw;
+                }
+            }
+            return null;
+        })()`, null);
+
+        if (errorVal) {
+            const hasCmd = /\[(CMD|REQUEST):\s*([^\]]+)\]/gi.test(delta);
+            if (hasCmd) {
+                updateUI("Generation complete (with warning)! Fetching...", 100);
+                hideGlobalUI();
+                window.activeAiResponding = false;
+                return cleanGarbage(delta);
+            } else {
+                errorTicks++;
+                if (errorTicks >= 10) {
+                    errorTicks = 0;
+                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                        ChatUI.appendBubble('system-info', `⚠️ [Resending] Error detected (${errorVal}). Resending message in Web AI (Enter)...`);
+                    }
+                    await safeExecJS(wv, `(() => {
+                        const inKeywords = ["ask", "write", "chat", "입력", "질문", "프롬프트", "prompt", "message"];
+                        const findInput = () => {
+                            const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                            const mainCandidates = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"]')).filter(el => isVisible(el));
+                            for (let el of mainCandidates) {
+                                const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.innerText || '').toLowerCase();
+                                if (inKeywords.some(k => text.includes(k))) return el;
+                            }
+                            if (mainCandidates.length > 0) return mainCandidates[0];
+                            return null;
+                        };
+
+                        const input = findInput();
+                        if (!input) return;
+
+                        input.focus();
+                        const createEvent = (type) => {
+                            const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter' });
+                            Object.defineProperty(ev, 'keyCode', { get: () => 13 });
+                            Object.defineProperty(ev, 'which', { get: () => 13 });
+                            Object.defineProperty(ev, 'charCode', { get: () => 13 });
+                            return ev;
+                        };
+                        input.dispatchEvent(createEvent('keydown'));
+                        input.dispatchEvent(createEvent('keypress'));
+                        input.dispatchEvent(createEvent('keyup'));
+                    })()`, null);
+                }
+                updateUI(`Error detected (${errorVal}). Retrying in 5s...`, 0, false);
+            }
+        } else {
+            errorTicks = 0; // Reset if error cleared
+        }
+
+        if (manualAbort) { hideGlobalUI(); return await manualPromise; }
+
+        delta = await safeExecJS(wv, extractScript, "");
+        
+        if (delta === "[EXTRACT_FAIL]") {
+            delta = ""; 
+        } else {
+            delta = cleanGarbage(delta);
+        }
+
+        if (delta === initialText) {
+            delta = ""; 
+        } else {
+            if (initialText && delta.startsWith(initialText)) {
+                delta = delta.substring(initialText.length).trim();
+            }
+        }
+
+        if (!isGenerating && delta.length > 0) {
+            isGenerating = true;
+            updateUI("AI started responding...", 0, false);
+        }
+
+        if (isGenerating) {
+            if (typeof window.updateAiStreamBubble === 'function' && delta.length > 0) {
+                window.updateAiStreamBubble(delta);
+            }
+            const isStillResponding = await safeExecJS(wv, `(() => {
+                const isVisible = (el) => {
+                    if (!el) return false;
+                    const style = window.getComputedStyle(el);
+                    return el.offsetWidth > 0 && el.offsetHeight > 0 && style.visibility !== 'hidden' && style.opacity !== '0' && style.display !== 'none';
+                };
+
+                const stopBtn = Array.from(document.querySelectorAll('button')).find(b => b.querySelector('svg rect') || (b.getAttribute('aria-label') && (b.getAttribute('aria-label').includes('Stop') || b.getAttribute('aria-label').includes('중지') || b.getAttribute('aria-label').includes('중단'))));
+                if (isVisible(stopBtn)) return true;
+                
+                const typingSelectors = ['impl-loading-indicator', '.result-streaming', 'div[class*="streaming"]'];
+                for (const sel of typingSelectors) {
+                    const el = document.querySelector(sel);
+                    if (isVisible(el)) return true;
+                }
+                return false;
+            })()`, false);
+
+            if (isStillResponding) {
+                stableCount = 0;
+            } else {
+                const isTextStopped = (delta === lastText);
+                if (isTextStopped && delta.length > 0) {
+                    stableCount++;
+                } else {
+                    stableCount = 0;
+                }
+            }
+            lastText = delta;
+
+            if (stableCount >= 2) {
+                updateUI("Generation complete! Fetching...", 100);
+                
+                if (typeof window.sessionTurnCount === 'undefined') window.sessionTurnCount = 0;
+                window.sessionTurnCount++;
+                console.log("[Session Monitor] Current Turn Count: " + window.sessionTurnCount + "/" + window.refreshTurnCount);
+                if (window.autoRefreshSession && window.sessionTurnCount >= window.refreshTurnCount) {
+                    setTimeout(() => {
+                        if (typeof window.triggerSessionReset === 'function') window.triggerSessionReset();
+                    }, 1000);
+                }
+                
+                const hasCmd = /\[CMD:\s*([^\]]+)\]/gi.test(delta);
+                hideGlobalUI();
+                
+                window.activeAiResponding = false;
+                return cleanGarbage(delta);
+            } else {
+                updateUI(`AI is typing... (${delta.length} chars)`, 50, false);
+            }
+        } else {
+            updateUI("Waiting for AI to start...", 0, false);
+            if (i >= 120) { // 60s timeout for heavy thinking
+                hideGlobalUI();
+                window.activeAiResponding = false;
+                ChatUI.appendBubble('system', '[SYSTEM] Web AI response start timeout (60s). Releasing lock.');
+                return null;
+            }
+        }
+    }
+    window.activeAiResponding = false;
+    if (manualAbort) { hideGlobalUI(); return await manualPromise; } hideGlobalUI(); return null;
+}

@@ -218,19 +218,6 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         const item = document.createElement('div');
         item.className = `file-item ${isDir && !isParentEntry ? 'directory' : 'file'} ${window.currentFilePath === fullPath ? 'active' : ''}`;
         item.dataset.path = fullPath;
-        if (!isParentEntry) {
-            item.setAttribute('draggable', 'true');
-            item.ondragstart = (e) => {
-                e.stopPropagation();
-                e.dataTransfer.setData('text/plain', fullPath);
-                e.dataTransfer.effectAllowed = 'copyMove';
-                window._draggingTreePath = fullPath;
-                window._lastDraggedTreePath = fullPath;
-                if (typeof window.setCoverLifted === 'function') {
-                    window.setCoverLifted(true);
-                }
-            };
-        }
         item.style.setProperty('--level', level);
         
         const arrowSpan = document.createElement('span');
@@ -355,10 +342,17 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
             item.draggable = true;
             item.addEventListener('dragstart', (e) => {
                 e.stopPropagation();
+                const fileUri = 'file:///' + fullPath.replace(/\\/g, '/');
                 e.dataTransfer.setData('text/plain', fullPath);
-                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/uri-list', fileUri);
+                e.dataTransfer.effectAllowed = 'copyMove';
                 window._draggingTreePath = fullPath;
+                window._lastDraggedTreePath = fullPath;
                 item.style.opacity = '0.4';
+
+                if (typeof window.setCoverLifted === 'function') {
+                    window.setCoverLifted(true);
+                }
             });
             item.addEventListener('dragend', () => {
                 window._draggingTreePath = null;
@@ -858,6 +852,10 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
 
     if (targetPath) {
         menuHTML += `
+            <div class="menu-item menu-action-to-ai" style="color: var(--primary, #468CF6); font-weight: 600;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <span>To AI</span>
+            </div>
             <div class="menu-item menu-action-open">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 <span>${isDir ? 'Open Folder' : 'Open File'}</span>
@@ -929,7 +927,39 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
             if (isDir) {
                 window.loadDirectory(targetPath);
             } else if (window.openFileInEditor) {
-                window.openFileInEditor(targetPath);
+                window.openFileInEditor(targetPath, null, true);
+            }
+        };
+    }
+
+    const btnToAi = menu.querySelector('.menu-action-to-ai');
+    if (btnToAi) {
+        btnToAi.onclick = (ev) => {
+            ev.stopPropagation(); closeMenu();
+            if (!targetPath) return;
+
+            const pathModule = require('path');
+            const relPath = window.currentPath ? pathModule.relative(window.currentPath, targetPath) : pathModule.basename(targetPath);
+
+            if (!window.requestedFilesQueue) window.requestedFilesQueue = [];
+            
+            const existing = window.requestedFilesQueue.find(item => item.absolutePath === targetPath);
+            if (!existing) {
+                window.requestedFilesQueue.push({
+                    absolutePath: targetPath,
+                    relativePath: relPath || pathModule.basename(targetPath),
+                    status: 'PENDING'
+                });
+            } else {
+                existing.status = 'PENDING';
+            }
+
+            window.dragDropMode = true;
+            if (typeof window.updateDragDropQueueUI === 'function') {
+                window.updateDragDropQueueUI();
+            }
+            if (typeof window.showUserScreenToast === 'function') {
+                window.showUserScreenToast(`Added to AI Queue: ${pathModule.basename(targetPath)}`, 2000);
             }
         };
     }

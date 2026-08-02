@@ -745,7 +745,7 @@ window.pasteToBlock = async (syncId, event) => {
     }
 };
 
-window.openFileInEditor = (filePath, targetScrollTop = null) => {
+window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = false) => {
     if (window.activeFileWatcherPath !== filePath) {
         try {
             if (window.activeFileWatcher) window.activeFileWatcher.close();
@@ -1053,27 +1053,24 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                     let line = linesRaw[i]; let htmlLine = lines[i]; let lineNum = i + 1;
                     let lineNumHTML = `<span class="line-num">${lineNum}</span>`;
                     
-                    let pureText = line.trim(); let spaces = (line.match(/^\s*/) || [''])[0].length; 
+                    let pureText = line.trim(); let spaces = (line.match(/^\s*/) || [''])[0].length;
                     let mmColor = '#94a3b8';
-                    
-                    if (pureText.startsWith('//') || pureText.startsWith('/*') || pureText.startsWith('*') || pureText.startsWith('#') || pureText.startsWith('<!--')) {
+                    if (htmlLine.includes('hljs-comment')) {
                         mmColor = '#475569';
-                    } else if (pureText.startsWith('</')) {
-                        mmColor = '#475569';
-                    } else if (pureText.startsWith('<div') || pureText.startsWith('<main') || pureText.startsWith('<aside') || pureText.startsWith('<section') || pureText.startsWith('<header') || pureText.startsWith('<button')) {
+                    } else if (htmlLine.includes('hljs-keyword')) {
                         mmColor = '#3b82f6';
-                    } else if (pureText.startsWith('<')) {
-                        mmColor = '#38bdf8';
-                    } else if (/\b(const|let|var|function|class|return|if|else|import|export|from|async|await|def|public|private)\b/.test(pureText)) {
-                        mmColor = '#3b82f6';
-                    } else if (pureText.includes('=>') || pureText.includes('{') || pureText.includes('}')) {
-                        mmColor = '#f59e0b';
-                    } else if (/^["'`](.*)["'`]$/.test(pureText) || pureText.includes('="') || pureText.includes("='")) {
+                    } else if (htmlLine.includes('hljs-string')) {
                         mmColor = '#a855f7';
+                    } else if (htmlLine.includes('hljs-title') || htmlLine.includes('hljs-function') || htmlLine.includes('hljs-name')) {
+                        mmColor = '#38bdf8';
+                    } else if (htmlLine.includes('hljs-attr') || htmlLine.includes('hljs-params') || htmlLine.includes('hljs-property')) {
+                        mmColor = '#f59e0b';
+                    } else if (htmlLine.includes('hljs-number') || htmlLine.includes('hljs-literal')) {
+                        mmColor = '#10b981';
                     }
 
-                    let mmLineWidth = Math.min(pureText.length * 0.8, 45);
-                    let mmLine = pureText.length > 0 ? `<div style="height:2px; margin-bottom:1px; margin-left:${Math.min(spaces, 20)}px; width:${Math.max(6, mmLineWidth)}px; background:${mmColor}; border-radius:1px; opacity: 0.85;"></div>` : `<div style="height:2px; margin-bottom:1px;"></div>`;
+                    let mmLineWidth = Math.min(pureText.length * 0.7, 50);
+                    let mmLine = pureText.length > 0 ? `<div style="height:2px; margin-bottom:1px; margin-left:${Math.min(spaces * 0.8, 18)}px; width:${Math.max(4, mmLineWidth)}px; background:${mmColor}; border-radius:1px; opacity:0.85;"></div>` : `<div style="height:3px;"></div>`;
                     
                     let net = 0; 
                     if (shouldFold) {
@@ -1129,9 +1126,20 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
 
                 editorContent.innerHTML = `
                     <style>
+                        .line-code-text { display: inline-block; vertical-align: middle; line-height: 1.5; padding: 2px 0; margin: 0; outline: none; box-sizing: border-box; }
                         .editor-editing-active .line-code-text { cursor: text; border-radius: 2px; transition: background 0.15s, outline 0.15s; }
                         .editor-editing-active .line-code-text:hover { background: rgba(255, 255, 255, 0.05); }
-                        .editor-editing-active .line-code-text:focus { background: rgba(56, 189, 248, 0.1); outline: 1px dashed rgba(56, 189, 248, 0.5); }
+                        .editor-editing-active .line-code-text:focus,
+                        .line-code-text[contenteditable="true"] { 
+                            background: rgba(56, 189, 248, 0.1) !important; 
+                            outline: 1px dashed rgba(56, 189, 248, 0.5) !important; 
+                            caret-color: var(--primary, #468CF6) !important;
+                            display: inline-block !important;
+                            vertical-align: middle !important;
+                            line-height: 1.5 !important;
+                            padding: 1px 4px !important;
+                            box-sizing: border-box !important;
+                        }
                         .line-num { position: sticky; left: 0; z-index: 2; display: inline-flex; align-items: center; justify-content: flex-end; width: ${gutterWidth}px; min-width: ${gutterWidth}px; text-align: right; color: #555; user-select: none; margin-right: 12px; font-size: 11px; font-family: 'JetBrains Mono', monospace; border-right: 1px solid #333; padding-right: 8px; flex-shrink: 0; transition: color 0.1s; background: transparent; box-sizing: border-box; align-self: stretch; }
                         .rg-line .line-num { background: var(--bg-color); } .rg-line:hover .line-num { background: var(--surface-color); }
                         .rg-body .rg-line .line-num { background: var(--surface-lowest); } .rg-body .rg-line:hover .line-num { background: var(--surface-high); }
@@ -1144,7 +1152,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         details:not([open]), details[open] { box-shadow: none !important; }
                         .rg-header { cursor: pointer; padding: 0 10px 0 0; background: var(--surface-color); display: flex; align-items: stretch; list-style: none; border-radius: 6px 6px 0 0; transition: background 0.1s; max-width: 100%; box-sizing: border-box; min-height: 24px; box-shadow: none !important; }
                         .rg-header .line-num { padding-top: 3px; padding-bottom: 3px; }
-                        .rg-header .line-code-text { display: inline-flex; align-items: center; padding-top: 3px; padding-bottom: 3px; }
+                        .rg-header .line-code-text { padding-top: 2px; padding-bottom: 2px; }
                         .rg-header::-webkit-details-marker { display: none; } .rg-header:hover { background: var(--surface-high); box-shadow: none !important; } .rg-header:hover .line-num { color: #aaa; }
                         
                         .box-paste-btn { font-size: 10px; font-weight: bold; color: var(--text-muted); background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 2px 8px; cursor: pointer; transition: all 0.2s; opacity: 0; display: flex; align-items: center; flex-shrink: 0; align-self: center; }
@@ -1175,7 +1183,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         
                         .rg-line { padding: 0 10px 0 0; margin: 0; border-radius: 4px; line-height: 1.5; position: relative; z-index: 1; display: flex; align-items: stretch; transition: background 0.1s; width: 100%; box-sizing: border-box; min-height: 24px; }
                         .rg-line .line-num { padding-top: 3px; padding-bottom: 3px; }
-                        .rg-line .line-code-text { display: inline-flex; align-items: center; padding-top: 3px; padding-bottom: 3px; }
+                        .rg-line .line-code-text { padding-top: 2px; padding-bottom: 2px; }
                         .rg-line:hover { background: rgba(255, 255, 255, 0.08); border-radius: 4px; } .rg-line:hover .line-num { color: #aaa; }
                         
                         .search-highlight { background: rgba(212, 160, 23, 0.2) !important; border-radius: 2px; } .search-highlight .line-num { color: #d4a017 !important; font-weight: bold; }
@@ -1188,7 +1196,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                         <div id="editor-scroll-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 18px; box-sizing: border-box; position: relative;">
                             <pre style="margin:0; padding:0; width:100%; max-width:100%; overflow-x:auto;"><code class="hljs" style="font-family:'JetBrains Mono', monospace; font-size:13px; background:transparent; display:block; width:100%; padding:0; margin:0;">${finalHTML}</code></pre>
                         </div>
-                        <div id="minimap-container" style="width: 70px; min-width: 70px; background: var(--surface-lowest); border-left: 1px solid var(--border-color); position: relative; user-select: none;">
+                        <div id="minimap-container" style="width: 85px; min-width: 85px; background: var(--surface-lowest); border-left: 1px solid var(--border-color); position: relative; user-select: none; overflow: hidden;">
                             <div id="minimap-track" style="position: absolute; left: 0; right: 0; top: 10px; pointer-events: none; transition: transform 0.1s ease-out;">${minimapHTML}</div>
                             <div id="minimap-thumb" style="position: absolute; top: 0; right: 0; width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-right: none; cursor: grab; border-radius: 4px 0 0 4px; transition: background 0.2s, border-color 0.2s;"></div>
                         </div>
@@ -1395,6 +1403,11 @@ window.openFileInEditor = (filePath, targetScrollTop = null) => {
                     setTimeout(applyScroll, 40);
                     setTimeout(applyScroll, 120);
                 }
+            }
+            if (startInEditMode && typeof window.toggleEditorEditMode === 'function' && !window.isEditingMode) {
+                setTimeout(() => {
+                    window.toggleEditorEditMode();
+                }, 50);
             }
         }
     }

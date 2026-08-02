@@ -393,6 +393,14 @@ function setupUI() {
         popover.innerHTML = `
             <div class="git-view-header" style="height:44px; min-height:44px; border-bottom: none; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background: #14151c; user-select: none; cursor: move;">
                 <div style="display:flex; align-items:center; gap:10px; flex: 1; overflow: hidden; margin-right: 12px;">
+                    <!-- WebView Top Back Control -->
+                    <span class="git-wv-top-back" style="cursor:pointer; color:var(--text-muted); display:flex; align-items:center; flex-shrink:0; opacity: 0.35;" title="Back">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                    </span>
+                    <!-- WebView Top Forward Control -->
+                    <span class="git-wv-top-forward" style="cursor:pointer; color:var(--text-muted); display:flex; align-items:center; flex-shrink:0; opacity: 0.35;" title="Forward">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </span>
                     <!-- WebView Reload Control -->
                     <span class="git-wv-reload" style="cursor:pointer; color:var(--text-muted); display:flex; align-items:center; flex-shrink: 0;" title="Reload">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"></path></svg>
@@ -503,6 +511,15 @@ function setupUI() {
             });
         }
 
+        const topBackBtn = popover.querySelector('.git-wv-top-back');
+        if (topBackBtn) {
+            topBackBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoBack()) webview.goBack(); };
+        }
+        const topForwardBtn = popover.querySelector('.git-wv-top-forward');
+        if (topForwardBtn) {
+            topForwardBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoForward()) webview.goForward(); };
+        }
+
         bottomBackBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoBack()) webview.goBack(); };
         bottomForwardBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoForward()) webview.goForward(); };
         reloadBtn.onclick = (e) => { e.stopPropagation(); webview.reload(); };
@@ -527,16 +544,20 @@ function setupUI() {
             if (webview.canGoBack()) {
                 bottomBackBtn.style.color = '#ffffff';
                 bottomBackBtn.style.opacity = '1';
+                if (topBackBtn) { topBackBtn.style.color = '#ffffff'; topBackBtn.style.opacity = '1'; }
             } else {
                 bottomBackBtn.style.color = 'var(--text-muted)';
                 bottomBackBtn.style.opacity = '0.35';
+                if (topBackBtn) { topBackBtn.style.color = 'var(--text-muted)'; topBackBtn.style.opacity = '0.35'; }
             }
             if (webview.canGoForward()) {
                 bottomForwardBtn.style.color = '#ffffff';
                 bottomForwardBtn.style.opacity = '1';
+                if (topForwardBtn) { topForwardBtn.style.color = '#ffffff'; topForwardBtn.style.opacity = '1'; }
             } else {
                 bottomForwardBtn.style.color = 'var(--text-muted)';
                 bottomForwardBtn.style.opacity = '0.35';
+                if (topForwardBtn) { topForwardBtn.style.color = 'var(--text-muted)'; topForwardBtn.style.opacity = '0.35'; }
             }
         };
         webview.addEventListener('did-navigate', updateUrl);
@@ -721,67 +742,57 @@ function setupUI() {
             };
             
             pill.setAttribute('draggable', 'true');
+            pill.setAttribute('data-shortcut-index', String(index));
             
             pill.ondragstart = (e) => {
+                pill.classList.add('dragging-pill');
                 pill.style.opacity = '0.4';
                 e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', index);
+                e.dataTransfer.setData('text/plain', String(index));
+                window._draggedPillElement = pill;
             };
             
             pill.ondragend = () => {
                 pill.style.opacity = '1';
-                document.querySelectorAll('.status-shortcut-pill').forEach(el => {
-                    el.style.borderLeft = '';
-                    el.style.borderRight = '';
+                pill.classList.remove('dragging-pill');
+                window._draggedPillElement = null;
+
+                const allPills = Array.from(shortcutsList.querySelectorAll('.status-shortcut-pill'));
+                const originalList = loadShortcuts();
+                const newList = [];
+                
+                allPills.forEach(p => {
+                    const origIdx = parseInt(p.getAttribute('data-shortcut-index'), 10);
+                    if (!isNaN(origIdx) && originalList[origIdx]) {
+                        newList.push(originalList[origIdx]);
+                    }
                 });
+
+                if (newList.length === originalList.length) {
+                    saveShortcuts(newList);
+                }
+                renderShortcuts();
             };
             
             pill.ondragover = (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
+
+                const draggingPill = window._draggedPillElement || shortcutsList.querySelector('.dragging-pill');
+                if (!draggingPill || draggingPill === pill) return;
+
                 const rect = pill.getBoundingClientRect();
                 const relX = e.clientX - rect.left;
+
                 if (relX < rect.width / 2) {
-                    pill.style.borderLeft = '2px solid var(--primary)';
-                    pill.style.borderRight = '';
+                    shortcutsList.insertBefore(draggingPill, pill);
                 } else {
-                    pill.style.borderRight = '2px solid var(--primary)';
-                    pill.style.borderLeft = '';
+                    shortcutsList.insertBefore(draggingPill, pill.nextSibling);
                 }
             };
-            
-            pill.ondragleave = () => {
-                pill.style.borderLeft = '';
-                pill.style.borderRight = '';
-            };
-            
+
             pill.ondrop = (e) => {
                 e.preventDefault();
-                pill.style.borderLeft = '';
-                pill.style.borderRight = '';
-                
-                const srcIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
-                if (isNaN(srcIndex) || srcIndex === index) return;
-                
-                const rect = pill.getBoundingClientRect();
-                const relX = e.clientX - rect.left;
-                
-                let destIndex = index;
-                if (relX >= rect.width / 2) {
-                    destIndex = index + 1;
-                }
-                
-                const currentList = loadShortcuts();
-                const [movedItem] = currentList.splice(srcIndex, 1);
-                
-                let targetPos = destIndex;
-                if (srcIndex < destIndex) {
-                    targetPos = destIndex - 1;
-                }
-                
-                currentList.splice(targetPos, 0, movedItem);
-                saveShortcuts(currentList);
-                renderShortcuts();
             };
 
             pill.oncontextmenu = (e) => {
@@ -1557,6 +1568,25 @@ function setupUI() {
             }
         };
     }
+    const backAgentBtn = document.getElementById('back-agent');
+    if (backAgentBtn) {
+        backAgentBtn.onclick = () => {
+            const wv = document.getElementById('active-agent-webview');
+            if (wv && typeof wv.goBack === 'function' && wv.canGoBack()) {
+                wv.goBack();
+            }
+        };
+    }
+    const forwardAgentBtn = document.getElementById('forward-agent');
+    if (forwardAgentBtn) {
+        forwardAgentBtn.onclick = () => {
+            const wv = document.getElementById('active-agent-webview');
+            if (wv && typeof wv.goForward === 'function' && wv.canGoForward()) {
+                wv.goForward();
+            }
+        };
+    }
+
     const refreshAgentBtn = document.getElementById('refresh-agent');
     if (refreshAgentBtn) {
         refreshAgentBtn.onclick = () => { const u = urlIn ? urlIn.value.trim() : ''; if (u) { const wv = document.getElementById('active-agent-webview'); if (wv) wv.reload(); } };
@@ -2055,27 +2085,31 @@ function setupUI() {
             ChatUI.appendBubble('system', '[SYSTEM] Emergency bailout: Force closed loading overlays.');
         };
     }
-    const dock = document.getElementById('agent-view-dock');
-    if (dock) {
-        dock.addEventListener('dragover', (e) => {
-            const isText = e.dataTransfer.types.includes('text/plain');
-            const isFiles = e.dataTransfer.types.includes('Files');
-            if (isText && !isFiles) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
-            }
+    const bindInspectorDrop = (targetEl) => {
+        if (!targetEl) return;
+        targetEl.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
         });
         
-        dock.addEventListener('drop', async (e) => {
-            const isFiles = e.dataTransfer.files.length > 0;
-            const filePath = e.dataTransfer.getData('text/plain');
-            if (filePath && !isFiles) {
-                e.preventDefault();
-                console.log("[DockDrop] HTML5 Dropped internal sidebar file path:", filePath);
+        targetEl.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            let targetFilePath = e.dataTransfer.getData('text/plain');
+            if (!targetFilePath && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                targetFilePath = e.dataTransfer.files[0].path;
+            }
+            if (!targetFilePath) {
+                targetFilePath = window._draggingTreePath || window._lastDraggedTreePath;
+            }
+            
+            if (!targetFilePath) return;
+            console.log("[InspectorDrop] HTML5 Dropped item onto right inspector panel:", targetFilePath);
                 
                 if (window.dragDropMode && window.activeDragDropContinue) {
                     const pathModule = require('path');
-                    const droppedName = pathModule.basename(filePath).toLowerCase();
+                    const droppedName = pathModule.basename(targetFilePath).toLowerCase();
                     
                     const pendingItems = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                     const requestedNames = pendingItems.map(item => item.relativePath.split(/[\\/]/).pop().toLowerCase());
@@ -2090,37 +2124,22 @@ function setupUI() {
                         return;
                     }
                     
-                    window.readFilesSet.add(filePath);
+                    window.readFilesSet.add(targetFilePath);
                     
                     const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                     if (stillPending.length === 0) {
                         if (window.activeDragDropCleanup) window.activeDragDropCleanup();
                         setTimeout(() => {
                             const continueFunc = window.activeDragDropContinue;
-
                             window.requestedFilesQueue = [];
                             if (typeof window.updateDragDropQueueUI === 'function') {
                                 window.updateDragDropQueueUI();
                             }
-
                             if (continueFunc && continueFunc.isReal) {
                                 continueFunc();
                             } else {
                                 if (window.autoDragging && !window.autoDraggingTempDisabled && typeof window.triggerGuestSend === 'function') {
                                     window.triggerGuestSend();
-                                }
-
-                                if (typeof runExperimentalEngine === 'function') {
-                                    runExperimentalEngine('/marktag', "", null).then(response => {
-                                        if (response) {
-                                            if (typeof window.finalizeAiBubble === 'function') {
-                                                window.finalizeAiBubble(response);
-                                            }
-                                            if (typeof detectAndAskCommand === 'function') {
-                                                detectAndAskCommand(response);
-                                            }
-                                        }
-                                    }).catch(err => console.error("Error in response monitoring:", err));
                                 }
                             }
                         }, 500);
@@ -2129,10 +2148,22 @@ function setupUI() {
                     const fsModule = require('fs');
                     const pathModule = require('path');
                     try {
-                        const contentBuffer = fsModule.readFileSync(filePath);
-                        const filename = pathModule.basename(filePath);
-                        const base64Content = contentBuffer.toString('base64');
+                        if (!fsModule.existsSync(targetFilePath)) return;
+                        const stats = fsModule.statSync(targetFilePath);
                         
+                        if (stats.isDirectory()) {
+                            console.log("[InspectorDrop] Dropped directory path:", targetFilePath);
+                            const localChatInput = document.getElementById('chat-input-textarea') || document.getElementById('local-chat-input');
+                            if (localChatInput) {
+                                localChatInput.value = localChatInput.value ? `${localChatInput.value}\n[Folder: ${targetFilePath}]` : `[Folder: ${targetFilePath}]`;
+                                localChatInput.focus();
+                            }
+                            return;
+                        }
+
+                        const contentBuffer = fsModule.readFileSync(targetFilePath);
+                        const filename = pathModule.basename(targetFilePath);
+                        const base64Content = contentBuffer.toString('base64');
                         const ext = filename.split('.').pop().toLowerCase();
                         const mimeMap = {
                             'js': 'text/javascript', 'json': 'application/json',
@@ -2142,7 +2173,6 @@ function setupUI() {
                             'gif': 'image/gif', 'pdf': 'application/pdf', 'zip': 'application/zip'
                         };
                         const mimeType = mimeMap[ext] || 'application/octet-stream';
-                        
                         const wv = document.getElementById('active-agent-webview');
                         if (wv) {
                             wv.executeJavaScript(`
@@ -2150,36 +2180,38 @@ function setupUI() {
                                     const b64 = "${base64Content}";
                                     const name = "${filename}";
                                     const mime = "${mimeType}";
-                                    
                                     const binary = atob(b64);
                                     const array = new Uint8Array(binary.length);
-                                    for (let i = 0; i < binary.length; i++) {
-                                        array[i] = binary.charCodeAt(i);
-                                    }
+                                    for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
                                     const blob = new Blob([array], { type: mime });
                                     const file = new File([blob], name, { type: mime });
-                                    
                                     const dt = new DataTransfer();
                                     dt.items.add(file);
                                     
-                                    let target = document.querySelector('textarea, [contenteditable="true"]') || document.body;
-                                    
+                                    let targets = Array.from(document.querySelectorAll('textarea, [contenteditable="true"], [role="textbox"], input[type="file"], .input-area, form, body'));
                                     const options = { bubbles: true, cancelable: true, dataTransfer: dt };
-                                    target.dispatchEvent(new DragEvent('dragenter', options));
-                                    target.dispatchEvent(new DragEvent('dragover', options));
-                                    target.dispatchEvent(new DragEvent('drop', options));
                                     
-                                    console.log("[GuestDrop] Dispatched drop event for file:", name);
+                                    targets.forEach(target => {
+                                        try {
+                                            target.dispatchEvent(new DragEvent('dragenter', options));
+                                            target.dispatchEvent(new DragEvent('dragover', options));
+                                            target.dispatchEvent(new DragEvent('drop', options));
+                                        } catch(e){}
+                                    });
                                 })();
-                            `).catch(err => console.error("Failed to execute drop injection script:", err));
+                            `).catch(e => console.log("Webview drop execute failed:", e));
                         }
                     } catch (err) {
-                        console.error("Failed to process drop upload:", err);
+                        console.log("Inspector drop process error:", err);
                     }
                 }
-            }
         });
-    }
+    };
+
+    ['agent-view-dock', 'inspector-right', 'inspector-local-chat', 'local-chat-messages'].forEach(id => {
+        bindInspectorDrop(document.getElementById(id));
+    });
+
 
     updateTaskbarButtonStyles();
     updateAgentBadge();

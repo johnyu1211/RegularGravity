@@ -219,10 +219,9 @@ function bindDragAndDrop() {
 
                     const rawContent = fs.readFileSync(targetPath, 'utf-8');
                     const ext = filePath.split('.').pop().toLowerCase();
-                    const fileContent = extractCodeOutline(rawContent, ext);
-                    const finalMessage = `[FILE DATA (OUTLINE ONLY): ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\`\n\nProceed to analyze this file.`;
+                    const finalMessage = `[FILE DATA: ${filePath}]\n\`\`\`\n${rawContent}\n\`\`\`\n\nProceed to analyze this file.`;
 
-                    ChatUI.appendBubble('system', `[SYSTEM] Drag & Drop: Injecting ${filePath} content outline to Web AI...`);
+                    ChatUI.appendBubble('system', `[SYSTEM] Drag & Drop: Injecting ${filePath} to Web AI...`);
 
                     await injectWebPayload(finalMessage, 1);
                     const response = await runExperimentalEngine('/marktag', finalMessage, null);

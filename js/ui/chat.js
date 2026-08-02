@@ -119,9 +119,9 @@ const ChatUI = {
             if (wroteMatch) {
                 const filePath = wroteMatch[1].trim();
                 customHtml = `
-                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; width: 100%;">
-                        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #10b981; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
-                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'DM Sans', sans-serif; width: 100%; text-align: center; margin: 0 auto;">
+                        <div style="background: rgba(16, 185, 129, 0.15); border: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #10b981; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0;">
                             <span style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">File Created:</span>
                             <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${filePath}">${filePath}</span>
                         </div>
@@ -130,9 +130,9 @@ const ChatUI = {
             } else if (editedMatch) {
                 const filePath = editedMatch[1].trim();
                 customHtml = `
-                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; width: 100%;">
-                        <div style="background: rgba(70, 140, 246, 0.1); border: 1px solid rgba(70, 140, 246, 0.25); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #468CF6; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
-                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'DM Sans', sans-serif; width: 100%; text-align: center; margin: 0 auto;">
+                        <div style="background: rgba(70, 140, 246, 0.15); border: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #468CF6; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0;">
                             <span style="font-size: 10px; font-weight: 700; color: #468CF6; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">File Modified:</span>
                             <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${filePath}">${filePath}</span>
                         </div>
@@ -141,9 +141,9 @@ const ChatUI = {
             } else if (deleteMatch) {
                 const filePath = deleteMatch[1].trim();
                 customHtml = `
-                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; width: 100%;">
-                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
-                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'DM Sans', sans-serif; width: 100%; text-align: center; margin: 0 auto;">
+                        <div style="background: rgba(239, 68, 68, 0.15); border: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0;">
                             <span style="font-size: 10px; font-weight: 700; color: #ef4444; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">File Deleted:</span>
                             <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${filePath}">${filePath}</span>
                         </div>
@@ -152,9 +152,9 @@ const ChatUI = {
             } else if (generalSuccessMatch) {
                 const infoText = generalSuccessMatch[1].trim();
                 customHtml = `
-                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; width: 100%;">
-                        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #10b981; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
-                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'DM Sans', sans-serif; width: 100%; text-align: center; margin: 0 auto;">
+                        <div style="background: rgba(16, 185, 129, 0.15); border: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #10b981; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0;">
                             <span style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">Success:</span>
                             <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${infoText}">${infoText}</span>
                         </div>
@@ -163,9 +163,9 @@ const ChatUI = {
             } else if (errorMatch) {
                 const details = errorMatch[1].trim();
                 customHtml = `
-                    <div style="display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; width: 100%;">
-                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>
-                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'DM Sans', sans-serif; width: 100%; text-align: center; margin: 0 auto;">
+                        <div style="background: rgba(239, 68, 68, 0.15); border: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-weight: bold; font-size: 11px; flex-shrink: 0; box-shadow: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0;">
                             <span style="font-size: 10px; font-weight: 700; color: #ef4444; letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0;">Operation Failed:</span>
                             <span style="font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${details}">${details}</span>
                         </div>

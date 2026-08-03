@@ -169,6 +169,9 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                     } else {
                         accumulatedFeedback += `[FILE DELETE SUCCESS: ${c.path} (Already gone)]\n`;
                         ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path} (Already gone)`);
+                        if (typeof window.showUserScreenToast === 'function') {
+                            window.showUserScreenToast(`Already gone: "${c.path}"`, 3500, true);
+                        }
                     }
                 } catch (err) {
                     accumulatedFeedback += `[FILE DELETE ERROR: ${c.path} - ${err.message}]\n`;

@@ -12,19 +12,20 @@ window.showUserScreenToast = function(message, duration = 4000, isSuccess = true
             toast.id = 'app-user-toast';
             toast.style.cssText = `
                 position: fixed;
-                bottom: 64px;
+                bottom: 160px;
                 right: 24px;
-                background: rgba(28, 28, 34, 0.88);
+                background: rgba(28, 28, 34, 0.92);
                 color: #22c55e;
-                border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
                 border-radius: 10px;
-                padding: 10px 18px;
+                padding: 14px 22px;
+                min-height: 46px;
                 font-family: 'DM Sans', sans-serif;
-                font-size: 13px;
+                font-size: 13.5px;
                 font-weight: 600;
                 display: flex;
                 align-items: center;
-                gap: 10px;
+                gap: 12px;
                 box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
                 backdrop-filter: blur(16px);
                 -webkit-backdrop-filter: blur(16px);

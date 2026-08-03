@@ -115,12 +115,7 @@
             </div>
 
             <!-- Emotes Grid Area -->
-            <div id="emote-grid-list" style="flex:1; overflow-y:auto; padding:10px 24px 20px; display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; align-content:start;">
-                <!-- POSITIVE SECTION -->
-                <div style="grid-column: 1 / -1; font-size: 10.5px; font-weight: 800; color: #22c55e; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; margin-bottom: 2px; display: flex; align-items: center; gap: 6px;">
-                    <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#22c55e;"></span>
-                    POSITIVE
-                </div>
+            <div id="emote-grid-list" style="flex:1; overflow-y:auto; padding:16px 24px 20px; display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; align-content:start;">
                 <div class="emote-card" onclick="window.triggerCenterEmote('js/e/def.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
                     <img src="js/e/def.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Default">
                     <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Default</span>
@@ -140,12 +135,6 @@
                 <div class="emote-card" onclick="window.triggerCenterEmote('js/e/awe.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
                     <img src="js/e/awe.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Awe">
                     <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Awe</span>
-                </div>
-
-                <!-- NEGATIVE SECTION -->
-                <div style="grid-column: 1 / -1; font-size: 10.5px; font-weight: 800; color: #ef4444; letter-spacing: 1px; text-transform: uppercase; margin-top: 10px; margin-bottom: 2px; display: flex; align-items: center; gap: 6px;">
-                    <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#ef4444;"></span>
-                    NEGATIVE
                 </div>
                 <div class="emote-card" onclick="window.triggerCenterEmote('js/e/sad.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
                     <img src="js/e/sad.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Sad">

@@ -204,6 +204,9 @@ async function executeEditFileBatch(editCmds) {
                 if (!fs.existsSync(targetPath)) {
                     feedbackContent += `[FILE EDIT ERROR: ${filePath} - File not found]\n`;
                     ChatUI.appendBubble('system', `[ERROR] Failed to edit ${filePath}: File not found`);
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast(`There's no such file: "${filePath}"`, 4000, false);
+                    }
                     return;
                 }
                 

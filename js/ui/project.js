@@ -506,9 +506,14 @@ window.parseAndTriggerEmote = function(text, shouldTrigger = true) {
         }
     }
 
-    // Trigger ONLY if an explicit emote tag was detected!
+    // Trigger ONLY if an explicit emote tag was detected and not recently triggered (debounce 4s)
     if (shouldTrigger && detectedEmote && typeof window.triggerCenterEmote === 'function') {
-        window.triggerCenterEmote(`js/e/${detectedEmote}.png`);
+        const now = Date.now();
+        if (!window.lastEmoteTriggerTime || (now - window.lastEmoteTriggerTime > 4000) || window.lastEmoteTriggerTag !== detectedEmote) {
+            window.lastEmoteTriggerTime = now;
+            window.lastEmoteTriggerTag = detectedEmote;
+            window.triggerCenterEmote(`js/e/${detectedEmote}.png`);
+        }
     }
 
     return text;
@@ -547,30 +552,47 @@ window.triggerCenterEmote = function(src) {
     card.style.opacity = '0';
 
     img.className = '';
-    if (imgEye) { imgEye.className = ''; imgEye.style.clipPath = 'inset(0 0 33.33% 0)'; }
-    if (imgBody) { imgBody.className = ''; imgBody.style.clipPath = 'inset(66.66% 0 0 0)'; }
+    img.style.clipPath = 'none';
+    if (imgEye) { imgEye.className = ''; imgEye.style.clipPath = 'none'; }
+    if (imgBody) { imgBody.className = ''; imgBody.style.clipPath = 'none'; }
 
     const isFear = src.includes('fear.png');
     const isTrust = src.includes('trust.png');
     const isAwe = src.includes('awe.png');
+    const isAntici = src.includes('antici.png');
 
-    if ((isFear || isTrust || isAwe) && imgEye && imgBody) {
-        img.style.display = 'none';
-        imgEye.src = src;
-        imgBody.src = src;
-        imgEye.style.display = 'block';
-        imgBody.style.display = 'block';
+    if ((isFear || isTrust || isAwe || isAntici) && imgEye && imgBody) {
+        if (isAntici) {
+            img.src = src;
+            img.style.display = 'block';
+            img.style.clipPath = 'inset(45% 0 0 0)'; // Bottom face + mouth (STILL)
 
-        if (isTrust) {
-            imgEye.style.clipPath = 'inset(0 0 37.5% 0)';
-            imgBody.style.clipPath = 'inset(62.5% 0 0 0)';
+            imgBody.src = src;
+            imgBody.style.display = 'block';
+            imgBody.style.clipPath = 'inset(0 45% 45% 0)'; // Top-Left quadrant (LEFT EYE)
+
+            imgEye.src = src;
+            imgEye.style.display = 'block';
+            imgEye.style.clipPath = 'inset(0 0 45% 45%)'; // Top-Right quadrant (RIGHT EYE)
         } else {
-            imgEye.style.clipPath = 'inset(0 0 33.33% 0)';
-            imgBody.style.clipPath = 'inset(66.66% 0 0 0)';
+            img.style.display = 'none';
+            imgEye.src = src;
+            imgBody.src = src;
+            imgEye.style.display = 'block';
+            imgBody.style.display = 'block';
+
+            if (isTrust) {
+                imgEye.style.clipPath = 'inset(0 0 37.5% 0)';
+                imgBody.style.clipPath = 'inset(62.5% 0 0 0)';
+            } else {
+                imgEye.style.clipPath = 'inset(0 0 33.33% 0)';
+                imgBody.style.clipPath = 'inset(66.66% 0 0 0)';
+            }
         }
     } else {
         img.src = src;
         img.style.display = 'block';
+        img.style.clipPath = 'none';
         if (imgEye) imgEye.style.display = 'none';
         if (imgBody) imgBody.style.display = 'none';
     }
@@ -590,8 +612,9 @@ window.triggerCenterEmote = function(src) {
             img.classList.add('emote-anim-disgust');
         } else if (src.includes('surpr.png')) {
             img.classList.add('emote-anim-surpr');
-        } else if (src.includes('antici.png')) {
-            img.classList.add('emote-anim-antici');
+        } else if (isAntici && imgEye && imgBody) {
+            imgEye.classList.add('emote-anim-antici-eye');
+            imgBody.classList.add('emote-anim-antici-left-eye');
         } else if (isFear && imgEye) {
             imgEye.classList.add('emote-anim-fear');
         } else if (isTrust && imgEye && imgBody) {
@@ -611,6 +634,7 @@ window.triggerCenterEmote = function(src) {
             overlay.style.display = 'none';
             img.className = '';
             if (imgEye) imgEye.className = '';
+            if (imgBody) imgBody.className = '';
         }, 220);
     }, 3800);
 };

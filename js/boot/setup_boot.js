@@ -1279,7 +1279,9 @@ async function setupBoot() {
                 try {
                     const decodedText = decodeURIComponent(escape(atob(encoded)));
                     if (decodedText) {
-                        if (typeof window.finalizeAiBubble === 'function') {
+                        if (window.activeAiResponding && typeof window.updateAiStreamBubble === 'function') {
+                            window.updateAiStreamBubble(decodedText);
+                        } else if (typeof window.finalizeAiBubble === 'function') {
                             window.finalizeAiBubble(decodedText);
                         }
                     }

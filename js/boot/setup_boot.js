@@ -32,6 +32,18 @@ async function setupBoot() {
                 const wvText = await wv.executeJavaScript(`
                     (() => {
                         try {
+                            const cmdMatched = Array.from(document.querySelectorAll('message-content, model-response, [data-message-author-role="assistant"], .assistant-message, .model-response-text, div, section, article')).filter(el => {
+                                try {
+                                    const t = el.innerText || el.textContent || '';
+                                    return t.includes('[CMD:') || t.includes('[REQUEST:');
+                                } catch(e) { return false; }
+                            });
+                            if (cmdMatched.length > 0) {
+                                const lastMatched = cmdMatched[cmdMatched.length - 1];
+                                const text = (lastMatched.innerText || lastMatched.textContent || '').trim();
+                                if (text) return text;
+                            }
+
                             const selectors = ['[data-is-streaming="false"]', '.model-response-text', '.assistant-message', '[data-message-author-role="assistant"]', 'message-content', '.message-content', 'model-response', '[data-test-id="model-response"]'];
                             for (let s of selectors) {
                                 const elems = Array.from(document.querySelectorAll(s));
@@ -40,14 +52,6 @@ async function setupBoot() {
                                     const text = (lastEl.innerText || lastEl.textContent || '').trim();
                                     if (text) return text;
                                 }
-                            }
-                            const allElems = Array.from(document.querySelectorAll('div, section, article, p'));
-                            const matched = allElems.filter(el => {
-                                const t = el.innerText || el.textContent || '';
-                                return t.includes('[REQUEST:') || t.includes('[CMD:') || t.includes('read-file') || t.includes('write-file');
-                            });
-                            if (matched.length > 0) {
-                                return (matched[matched.length - 1].innerText || matched[matched.length - 1].textContent || '').trim();
                             }
                             return '';
                         } catch(e) { return ''; }
@@ -146,31 +150,32 @@ async function setupBoot() {
                         try {
                             lastAiText = await wv.executeJavaScript(`
                                 (() => {
-                                    try {
-                                        const selectors = ['[data-is-streaming="false"]', '.model-response-text', '.assistant-message', '[data-message-author-role="assistant"]', 'message-content', '.message-content', 'model-response', '[data-test-id="model-response"]'];
-                                        for (let s of selectors) {
-                                            try {
-                                                const elems = Array.from(document.querySelectorAll(s));
-                                                if (elems.length > 0) {
-                                                    const lastEl = elems[elems.length - 1];
-                                                    const text = (lastEl.innerText || lastEl.textContent || '').trim();
-                                                    if (text) return text;
-                                                }
-                                            } catch(e) {}
-                                        }
-                                        const allElems = Array.from(document.querySelectorAll('div, section, article, p'));
-                                        const matched = allElems.filter(el => {
-                                            try {
-                                                const t = el.innerText || el.textContent || '';
-                                                return t.includes('[REQUEST:') || t.includes('[CMD:');
-                                            } catch(e) { return false; }
-                                        });
-                                        if (matched.length > 0) {
-                                            const lastMatched = matched[matched.length - 1];
-                                            return (lastMatched.innerText || lastMatched.textContent || '').trim();
-                                        }
-                                        return '';
-                                    } catch(e) { return ''; }
+                                     try {
+                                         const cmdMatched = Array.from(document.querySelectorAll('message-content, model-response, [data-message-author-role="assistant"], .assistant-message, .model-response-text, div, section, article')).filter(el => {
+                                             try {
+                                                 const t = el.innerText || el.textContent || '';
+                                                 return t.includes('[CMD:') || t.includes('[REQUEST:');
+                                             } catch(e) { return false; }
+                                         });
+                                         if (cmdMatched.length > 0) {
+                                             const lastMatched = cmdMatched[cmdMatched.length - 1];
+                                             const text = (lastMatched.innerText || lastMatched.textContent || '').trim();
+                                             if (text) return text;
+                                         }
+
+                                         const selectors = ['[data-is-streaming="false"]', '.model-response-text', '.assistant-message', '[data-message-author-role="assistant"]', 'message-content', '.message-content', 'model-response', '[data-test-id="model-response"]'];
+                                         for (let s of selectors) {
+                                             try {
+                                                 const elems = Array.from(document.querySelectorAll(s));
+                                                 if (elems.length > 0) {
+                                                     const lastEl = elems[elems.length - 1];
+                                                     const text = (lastEl.innerText || lastEl.textContent || '').trim();
+                                                     if (text) return text;
+                                                 }
+                                             } catch(e) {}
+                                         }
+                                         return '';
+                                     } catch(e) { return ''; }
                                 })()
                             `);
                         } catch(wvErr) {
@@ -860,9 +865,8 @@ async function setupBoot() {
                 if (projectTree) {
                     setTimeout(async () => {
                         try {
-                            ChatUI.appendBubble('system', '[SYSTEM] INITIALIZATION COMPLETE.');
-                            
-                            const isEmpty = !projectTree || projectTree.trim() === '' || !projectTree.includes('- ');
+                            const pLines = (projectTree || '').split('\n').map(l => l.trim()).filter(Boolean);
+                            const isEmpty = !projectTree || pLines.length <= 1 || projectTree.includes('[Empty folder]') || projectTree.includes('[WARNING: No files');
                             const startPrompt = isEmpty
                                 ? `This folder is a completely empty new project. If you understand these instructions, ask the user what project to create.`
                                 : window.dragDropMode 

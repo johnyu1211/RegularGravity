@@ -294,13 +294,15 @@ window.updateAiStreamBubble = (text) => {
 window.finalizeAiBubble = (response) => {
     if (!response) return;
 
-    // Trigger Emote Popup EXACTLY WHEN AI RESPONSE HAS FULLY FINISHED GENERATING
-    if (window.useEmote !== false && typeof window.parseAndTriggerEmote === 'function') {
-        window.parseAndTriggerEmote(response, true);
-    }
-
     const chatLog = document.getElementById('local-chat-messages');
     const targetBubble = window.lastActiveAiBubble;
+
+    const triggerEmoteAfterRender = () => {
+        if (window.useEmote !== false && typeof window.parseAndTriggerEmote === 'function') {
+            window.parseAndTriggerEmote(response, true);
+        }
+    };
+
     if (targetBubble && targetBubble.parentNode === chatLog) {
         const contentEl = targetBubble.querySelector('.bubble-content');
         if (contentEl) {
@@ -319,10 +321,16 @@ window.finalizeAiBubble = (response) => {
                 targetBubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
             }
             if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+
+            // Trigger Emote Popup AFTER message rendering & syntax highlighting are 100% complete
+            setTimeout(triggerEmoteAfterRender, 200);
             return;
         }
     }
     const wv = document.getElementById('active-agent-webview');
     const getWebIcon = (w) => { try { return `https://www.google.com/s2/favicons?domain=${new URL(w.src).hostname}&sz=64`; } catch { return null; } };
     window.lastActiveAiBubble = ChatUI.appendBubble('ai', response, false, getWebIcon(wv));
+    
+    // Trigger Emote Popup AFTER bubble creation & DOM append are 100% complete
+    setTimeout(triggerEmoteAfterRender, 200);
 };

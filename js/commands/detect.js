@@ -66,6 +66,46 @@ function detectAndAskCommand(text) {
         }
     }
 
+    // Auto-Repair Code Block Command: If no [CMD:] tag was found, but a code block (```) exists
+    if (foundCmds.length === 0 && text.includes('```')) {
+        let inferredPath = null;
+        
+        // Strategy 1: Check for Current: "path/file.ext" or Next: "path/file.ext" line
+        const currentMatch = text.match(/Current:\s*"([^"]+\.[a-zA-Z0-9]+)"/i) || text.match(/Next:\s*"([^"]+\.[a-zA-Z0-9]+)"/i);
+        if (currentMatch) {
+            inferredPath = currentMatch[1].trim();
+        }
+
+        // Strategy 2: Check for filename heading/title line above code block (e.g. `js/main.js`, ### js/main.js, 6. `js/main.js`)
+        if (!inferredPath) {
+            const headingMatch = text.match(/(?:^|\n)(?:\d+\.\s*|###\s*|##\s*|#\s*|\*\*\s*|File:\s*)?`?([a-zA-Z0-9_\-\.\/]+\.(?:js|css|html|json|md|py|java|c|cpp|h|ts|jsx|tsx))`?\s*(?:\n|\r\n)\s*```/i);
+            if (headingMatch) {
+                inferredPath = headingMatch[1].trim();
+            }
+        }
+
+        // Strategy 3: Check for first comment line inside code block (e.g. // js/main.js, /* style.css */, <!-- index.html -->)
+        if (!inferredPath) {
+            const commentMatch = text.match(/```[a-zA-Z]*\r?\n\s*(?:\/\/|\/\*|<!--)\s*`?([a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9]+)`?/i);
+            if (commentMatch) {
+                inferredPath = commentMatch[1].trim();
+            }
+        }
+
+        // Strategy 4: Check for numbered list of files in explanation text below (e.g. 6. `js/main.js`)
+        if (!inferredPath) {
+            const listMatch = text.match(/\d+\.\s*`([a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9]+)`/i);
+            if (listMatch) {
+                inferredPath = listMatch[1].trim();
+            }
+        }
+
+        if (inferredPath) {
+            console.log(`[AutoRepairCMD] Inferred missing [CMD: write-file "${inferredPath}"] command for code block!`);
+            foundCmds.push(`write-file "${inferredPath}"`);
+        }
+    }
+
     if (foundCmds.length === 0) {
         const toast = document.getElementById('injection-toast');
         if (toast) toast.style.display = 'none';
@@ -349,14 +389,7 @@ function detectAndAskCommand(text) {
         });
     }
     
-    if (window.dragDropMode) {
-        const missingFiles = readCmds.filter(f => f.exists === false && !f.isDirectory);
-        missingFiles.forEach(f => {
-            if (typeof window.addFileToRequestedQueue === 'function') {
-                window.addFileToRequestedQueue(f.path);
-            }
-        });
-    }
+    // Missing files handling is done inside runRead with clear user error notification
 
     const hasReadFile = (readCmds.length > 0);
 
@@ -417,11 +450,31 @@ function detectAndAskCommand(text) {
             try {
                 const fs = require('fs');
                 const path = require('path');
-                
+
+                // Check for non-existent requested files
+                const missingCmds = readCmds.filter(f => f.exists === false);
+                const existingCmds = readCmds.filter(f => f.exists !== false);
+
+                if (missingCmds.length > 0) {
+                    const missingList = missingCmds.map(f => `"${f.path}"`).join(', ');
+                    const errText = `There's no such file: ${missingList}`;
+                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                        ChatUI.appendBubble('system', `[ERROR] ${errText}`);
+                    }
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast(errText, 4000, false);
+                    }
+                }
+
+                if (existingCmds.length === 0) {
+                    // All requested files do not exist! Stop here without opening drag & drop queue window.
+                    return;
+                }
+
                 let combinedPayload = "";
 
-                for (let i = 0; i < readCmds.length; i++) {
-                    const fileObj = readCmds[i];
+                for (let i = 0; i < existingCmds.length; i++) {
+                    const fileObj = existingCmds[i];
                     const filePath = fileObj.path;
                     
                     let fileContentPayload = "";

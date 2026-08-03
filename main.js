@@ -88,40 +88,56 @@ ipcMain.on('vault-reset-session', (event, { logPath }) => {
 });
 ipcMain.handle('vault-get-tree', async (event, projectPath) => {
     const root = projectPath || process.cwd();
-    const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch', 'out', '.vs', '.idea'];
-    const results = [];
- 
-    function traverse(dir, depth = 0) {
-        if (depth > 10) return; // 최대 10단계 제한
+    const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch', 'out', '.vs', '.idea', 'SendingMD'];
+
+    function buildHierarchicalTree(dir, depth = 0) {
+        if (depth > 12) return [];
         let items = [];
         try {
             items = fs.readdirSync(dir);
         } catch (e) {
-            return;
+            return [];
         }
-        items.forEach(item => {
-            if (ignore.includes(item) || item.startsWith('_project_')) return;
+
+        const filtered = items.filter(item => !ignore.includes(item) && !item.startsWith('_project_'));
+        filtered.sort((a, b) => {
+            const pathA = path.join(dir, a);
+            const pathB = path.join(dir, b);
+            try {
+                const isDirA = fs.statSync(pathA).isDirectory();
+                const isDirB = fs.statSync(pathB).isDirectory();
+                if (isDirA !== isDirB) return isDirA ? -1 : 1;
+            } catch(e) {}
+            return a.localeCompare(b);
+        });
+
+        const lines = [];
+        filtered.forEach(item => {
             const fullPath = path.join(dir, item);
             try {
                 const stats = fs.statSync(fullPath);
-                const relativePath = path.relative(root, fullPath).replace(/\\/g, '/');
+                const indent = "  ".repeat(depth);
                 if (stats.isDirectory()) {
-                    results.push(relativePath + '/');
-                    traverse(fullPath, depth + 1);
+                    lines.push(`${indent}${item}/`);
+                    const subLines = buildHierarchicalTree(fullPath, depth + 1);
+                    if (subLines && subLines.length > 0) {
+                        lines.push(...subLines);
+                    }
                 } else if (stats.isFile()) {
-                    results.push(relativePath);
+                    lines.push(`${indent}${item}`);
                 }
-            } catch (err) {
-                // skip
-            }
+            } catch (err) {}
         });
+
+        return lines;
     }
- 
-    traverse(root);
-    if (results.length === 0) {
-        return "[WARNING: No files or directories found in target root path]";
+
+    const rootName = path.basename(root) || 'root';
+    const treeLines = buildHierarchicalTree(root, 1);
+    if (!treeLines || treeLines.length === 0) {
+        return `${rootName}/\n  [Empty folder]`;
     }
-    return results.map(p => `- ${p}`).join('\n');
+    return `${rootName}/\n${treeLines.join('\n')}`;
 });
 ipcMain.handle('vault-search', async (event, { query }) => {
     if (!query || query.length < 2) return "";

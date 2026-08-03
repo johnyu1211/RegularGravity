@@ -470,6 +470,10 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
                     }, 1000);
                 }
                 
+                if (typeof window.pruneWebviewDom === 'function') {
+                    window.pruneWebviewDom();
+                }
+
                 const hasCmd = /\[CMD:\s*([^\]]+)\]/gi.test(delta);
                 hideGlobalUI();
                 
@@ -491,3 +495,25 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     window.activeAiResponding = false;
     if (manualAbort) { hideGlobalUI(); return await manualPromise; } hideGlobalUI(); return null;
 }
+
+window.pruneWebviewDom = async function() {
+    const wv = document.getElementById('active-agent-webview');
+    if (wv && typeof wv.executeJavaScript === 'function') {
+        try {
+            await wv.executeJavaScript(`
+                (() => {
+                    try {
+                        const selectors = ['message-content', '.model-response-text', '.user-query', '.conversation-turn', '[data-test-id="user-query"]'];
+                        selectors.forEach(sel => {
+                            const elems = Array.from(document.querySelectorAll(sel));
+                            if (elems.length > 30) {
+                                const toRemove = elems.slice(0, elems.length - 30);
+                                toRemove.forEach(el => el.remove());
+                            }
+                        });
+                    } catch(e) {}
+                })()
+            `);
+        } catch(e) {}
+    }
+};

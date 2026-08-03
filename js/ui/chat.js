@@ -128,22 +128,34 @@ const ChatUI = {
         const chatLog = document.getElementById('local-chat-messages'); if (!chatLog) return;
         const box = document.createElement('div'); box.className = `chat-bubble ${role}`; box.dataset.role = role;
         
-        // Completely hide system messages from chat UI display if debug mode is off
-        if (!window.debugMode) {
-            if (role === 'system' || role === 'system-info') {
-                box.style.display = 'none';
-            }
-        }
         // 3-Stage Robust Emote Parser (Clean tags without triggering until AI completes)
         if (role === 'ai' && typeof text === 'string' && window.useEmote !== false && typeof window.parseAndTriggerEmote === 'function') {
             text = window.parseAndTriggerEmote(text, false);
         }
 
         const content = document.createElement('div'); content.className = 'bubble-content';
-        content.dataset.rawText = text;
-        
+        content.dataset.rawText = text || '';
         box.appendChild(content);
+
+        // Hide non-debug system background logs from display, but keep DOM node valid for confirmation modals
+        if (!window.debugMode && (role === 'system' || role === 'system-info')) {
+            const strText = String(text || '');
+            if (strText && !strText.includes('[SUCCESS]') && !strText.includes('[ERROR]')) {
+                box.style.display = 'none';
+            }
+        }
+        
         if (sourceIcon) { const badge = document.createElement('div'); badge.className = 'source-badge'; badge.innerHTML = `<img src="${sourceIcon}" title="Source: Web AI">`; box.appendChild(badge); }
+        
+        // Auto-prune old chat bubbles to keep maximum 50 bubbles (prevents UI lag)
+        const allBubbles = chatLog.querySelectorAll('.chat-bubble');
+        if (allBubbles.length >= 50) {
+            const overflowCount = allBubbles.length - 49;
+            for (let i = 0; i < overflowCount; i++) {
+                if (allBubbles[i]) allBubbles[i].remove();
+            }
+        }
+
         chatLog.appendChild(box); chatLog.scrollTop = chatLog.scrollHeight;
         
         let customHtml = null;

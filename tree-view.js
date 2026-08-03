@@ -874,10 +874,6 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 <span>To AI</span>
             </div>
-            <div class="menu-item menu-action-html-open" style="color: #10b981; font-weight: 600;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-                <span>HTML Open</span>
-            </div>
             <div class="menu-item menu-action-open">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 <span>${isDir ? 'Open Folder' : 'Open File'}</span>
@@ -997,21 +993,6 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
 
             if (typeof window.showUserScreenToast === 'function') {
                 window.showUserScreenToast(`Added to AI Queue: ${pathModule.basename(targetPath)}`, 2000, true);
-            }
-        };
-    }
-
-    const btnHtmlOpen = menu.querySelector('.menu-action-html-open');
-    if (btnHtmlOpen) {
-        btnHtmlOpen.onclick = (ev) => {
-            ev.stopPropagation(); closeMenu();
-            if (!targetPath) return;
-
-            if (typeof window.openHtmlMiniBrowser === 'function') {
-                window.openHtmlMiniBrowser(targetPath);
-            } else if (typeof window.createWebPopover === 'function') {
-                const fileUrl = 'file:///' + targetPath.replace(/\\/g, '/');
-                window.createWebPopover('html-preview-' + Date.now(), fileUrl, `HTML: ${require('path').basename(targetPath)}`, document.body, false);
             }
         };
     }

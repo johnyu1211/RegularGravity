@@ -1961,11 +1961,12 @@ function setupUI() {
             const path = require('path');
             
             const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
-            window.totalFilesCount = tree.split('\n').filter(line => line.startsWith('- ')).length;
+            const treeLines = (tree || '').split('\n').map(l => l.trim()).filter(Boolean);
+            window.totalFilesCount = treeLines.filter(l => !l.endsWith('/')).length;
             window.readFilesSet.clear();
             window.userMessageCount = 0;
             
-            const isEmpty = !tree || tree.trim() === '' || !tree.includes('- ');
+            const isEmpty = !tree || treeLines.length <= 1 || tree.includes('[Empty folder]') || tree.includes('[WARNING: No files');
             const startPrompt = isEmpty
                 ? `This folder is a completely empty new project. If you understand these instructions, ask the user what project to create.`
                 : `If you understand these instructions, read key entry files for analysis in one line using [CMD: read-file "path1"] [CMD: read-file "path2"].`;

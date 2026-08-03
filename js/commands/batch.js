@@ -537,8 +537,10 @@ async function executeWriteFileBatchSilent(writeCmds) {
     writeCmds.forEach((fileObj, idx) => {
         const filePath = fileObj.path;
         const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-        const nextFile = writeCmds[idx + 1] ? writeCmds[idx + 1].path : 'None';
-        const progressMsg = `Current: "${filePath}", Next: "${nextFile}" (${idx + 1}/${total})`;
+        const nextFile = writeCmds[idx + 1] ? writeCmds[idx + 1].path : null;
+        const progressMsg = nextFile 
+            ? `Updated (${idx + 1}/${total}): "${filePath}" → Next: "${nextFile}"` 
+            : (total > 1 ? `Updated (${idx + 1}/${total}): "${filePath}"` : `Updated: "${filePath}"`);
         try {
             const parentDir = path.dirname(targetPath);
             if (!fs.existsSync(parentDir)) {

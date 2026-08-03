@@ -14,11 +14,31 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
         if (deleteCmds.length > 0) {
             const displayDelete = deleteCmds.map(c => c.path).join(', ');
             const box = ChatUI.appendBubble('system', '');
-            const content = box.querySelector('.bubble-content');
+            if (box) box.style.display = 'block';
+            const content = box ? box.querySelector('.bubble-content') : null;
             const themeColor = "#ef4444"; 
             const glowShadow = "none";
 
-            content.innerHTML = `
+            const onContinue = () => {
+                if (box) box.remove();
+                if (window.activeCommandCleanup) window.activeCommandCleanup();
+                isDeleteApproved = true;
+                startWriteEditOrchestration();
+            };
+
+            const onCancel = () => {
+                if (box) box.remove();
+                if (window.activeCommandCleanup) window.activeCommandCleanup();
+                isDeleteApproved = false;
+                deleteCmds.forEach(c => {
+                    accumulatedFeedback += `[FILE DELETE ERROR: ${c.path} - User denied permission]\n`;
+                    ChatUI.appendBubble('system', `[ERROR] Deletion of ${c.path} denied by user.`);
+                });
+                startWriteEditOrchestration();
+            };
+
+            if (content) {
+                content.innerHTML = `
                 <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
                     <div style="font-weight: bold; color: #ff4444; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
@@ -30,28 +50,12 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                     <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: none;">ALLOW</button>
                     <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
                 </div>
-            `;
-
-            const onContinue = () => {
-                box.remove();
-                if (window.activeCommandCleanup) window.activeCommandCleanup();
-                isDeleteApproved = true;
-                startWriteEditOrchestration();
-            };
-
-            const onCancel = () => {
-                box.remove();
-                if (window.activeCommandCleanup) window.activeCommandCleanup();
-                isDeleteApproved = false;
-                deleteCmds.forEach(c => {
-                    accumulatedFeedback += `[FILE DELETE ERROR: ${c.path} - User denied permission]\n`;
-                    ChatUI.appendBubble('system', `[ERROR] Deletion of ${c.path} denied by user.`);
-                });
-                startWriteEditOrchestration();
-            };
-
-            content.querySelector('.cmd-run-btn').onclick = onContinue;
-            content.querySelector('.cmd-cancel-btn').onclick = onCancel;
+                `;
+                const runBtn = content.querySelector('.cmd-run-btn');
+                if (runBtn) runBtn.onclick = onContinue;
+                const cancelBtn = content.querySelector('.cmd-cancel-btn');
+                if (cancelBtn) cancelBtn.onclick = onCancel;
+            }
 
             if (typeof window.showCommandExecutionPanel === 'function') {
                 window.showCommandExecutionPanel(
@@ -225,10 +229,12 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 accumulatedFeedback += `\n[SYSTEM] Please use the \`read-file\` or \`read-file-range\` command to inspect the modified files and verify your edits: ${modifiedFilesList.join(', ')}\n`;
                 const fileCount = modifiedFilesList.length;
                 const currFile = modifiedFilesList[0];
-                const nextFile = fileCount > 1 ? modifiedFilesList[1] : 'None';
-                const toastMsg = `Current: "${currFile}", Next: "${nextFile}" (1/${fileCount})`;
+                const nextFile = fileCount > 1 ? modifiedFilesList[1] : null;
+                const toastMsg = nextFile 
+                    ? `Updated (1/${fileCount}): "${currFile}" → Next: "${nextFile}"` 
+                    : `Updated: "${currFile}"`;
                 if (typeof window.showUserScreenToast === 'function') {
-                    window.showUserScreenToast(toastMsg, 4000);
+                    window.showUserScreenToast(toastMsg, 3500);
                 }
             }
         }

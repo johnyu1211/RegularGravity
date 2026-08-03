@@ -331,18 +331,33 @@ const { dialog } = require('electron');
 const RECENT_PROJECTS_FILE = path.join(app.getPath('userData'), 'recent_projects.json');
 function loadRecentProjects() {
     try {
-        if (fs.existsSync(RECENT_PROJECTS_FILE)) return JSON.parse(fs.readFileSync(RECENT_PROJECTS_FILE, 'utf-8'));
+        if (fs.existsSync(RECENT_PROJECTS_FILE)) {
+            const data = JSON.parse(fs.readFileSync(RECENT_PROJECTS_FILE, 'utf-8'));
+            return Array.isArray(data) ? data.filter(p => p && p !== '__CLEAR__') : [];
+        }
     } catch(e) {}
     return [];
 }
 function saveRecentProjects(list) {
     try { fs.writeFileSync(RECENT_PROJECTS_FILE, JSON.stringify(list), 'utf-8'); } catch(e) {}
 }
-ipcMain.handle('select-folder-dialog', async () => {
-    const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
+let lastPickedParentDir = null;
+ipcMain.handle('select-folder-dialog', async (event, customDefaultPath) => {
+    let options = { properties: ['openDirectory'] };
+    if (customDefaultPath && fs.existsSync(customDefaultPath)) {
+        options.defaultPath = customDefaultPath;
+    } else if (lastPickedParentDir && fs.existsSync(lastPickedParentDir)) {
+        options.defaultPath = lastPickedParentDir;
+    }
+
+    const result = await dialog.showOpenDialog(mainWindow, options);
     if (result.canceled || !result.filePaths.length) return null;
     const selected = result.filePaths[0];
-    // Save recent projects (deduplicated, max 10)
+
+    try {
+        lastPickedParentDir = path.dirname(selected);
+    } catch(e) {}
+
     let recents = loadRecentProjects().filter(p => p !== selected);
     recents.unshift(selected);
     if (recents.length > 10) recents = recents.slice(0, 10);
@@ -350,7 +365,23 @@ ipcMain.handle('select-folder-dialog', async () => {
     return selected;
 });
 ipcMain.handle('get-recent-projects', async () => loadRecentProjects());
+ipcMain.handle('clear-recent-projects', async () => {
+    saveRecentProjects([]);
+    return true;
+});
+ipcMain.handle('remove-recent-project', async (event, folderPath) => {
+    let recents = loadRecentProjects().filter(p => p !== folderPath);
+    saveRecentProjects(recents);
+    return recents;
+});
+ipcMain.on('clear-recent-projects', () => {
+    saveRecentProjects([]);
+});
 ipcMain.on('save-recent-project', (event, folderPath) => {
+    if (folderPath === '__CLEAR__') {
+        saveRecentProjects([]);
+        return;
+    }
     let recents = loadRecentProjects().filter(p => p !== folderPath);
     recents.unshift(folderPath);
     if (recents.length > 10) recents = recents.slice(0, 10);
@@ -370,7 +401,17 @@ ipcMain.handle('get-directory-content', async (event, dirPath) => {
     }
 });
 ipcMain.on('reveal-in-explorer', (event, p) => {
-    if (p) shell.showItemInFolder(path.resolve(p));
+    if (!p) return;
+    const resolvedPath = path.resolve(p);
+    try {
+        if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
+            shell.openPath(resolvedPath);
+        } else {
+            shell.showItemInFolder(resolvedPath);
+        }
+    } catch (e) {
+        shell.showItemInFolder(resolvedPath);
+    }
 });
 ipcMain.on('relaunch-app', () => {
     app.relaunch();
@@ -507,6 +548,41 @@ ipcMain.on('execute-cmd', (event, arg) => {
             event.reply('cmd-output', { tabId, data: `[Shell Write Error] ${writeErr.message}\r\n` });
         }
     }
+});
+
+function killTerminalProcess(tabId) {
+    if (tabId && terminalProcesses[tabId]) {
+        try {
+            const proc = terminalProcesses[tabId];
+            if (proc.stdin && proc.stdin.writable) {
+                try { proc.stdin.write("exit\r\n"); } catch(e) {}
+            }
+            if (proc.pid) {
+                spawn('taskkill', ['/F', '/T', '/PID', proc.pid.toString()]);
+            } else {
+                proc.kill('SIGKILL');
+            }
+        } catch (e) {}
+        delete terminalProcesses[tabId];
+    }
+}
+
+ipcMain.on('close-terminal-tab', (event, tabId) => {
+    killTerminalProcess(tabId);
+});
+
+function killAllTerminalProcesses() {
+    Object.keys(terminalProcesses).forEach(tabId => {
+        killTerminalProcess(tabId);
+    });
+    stopDockMover();
+}
+
+app.on('before-quit', () => {
+    killAllTerminalProcesses();
+});
+app.on('will-quit', () => {
+    killAllTerminalProcesses();
 });
 // 4. BROWSER VIEW SYNC (Temporarily Disabled per user request - transitioning to <webview>)
 let agentBrowserView = null;

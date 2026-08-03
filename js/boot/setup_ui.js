@@ -354,6 +354,18 @@ function setupUI() {
             popover.style.height = 'calc(100% - 44px)';
             popover.style.maxHeight = '100%';
             popover.style.borderRadius = '0px';
+        } else if (key.startsWith('html-preview-')) {
+            const squareSize = Math.max(480, Math.min(window.innerWidth * 0.7, window.innerHeight * 0.7, 640));
+            popover.style.width = `${squareSize}px`;
+            popover.style.height = `${squareSize}px`;
+            popover.style.maxHeight = '90vh';
+            popover.style.maxWidth = '90vw';
+            popover.style.borderRadius = '14px';
+            popover.style.top = '50%';
+            popover.style.left = '50%';
+            popover.style.transform = 'translate(-50%, -50%)';
+            popover.style.right = 'auto';
+            popover.style.bottom = 'auto';
         } else {
             const defaultWidth = isRightAligned ? 600 : 410;
             const defaultHeight = isRightAligned ? 450 : 730;
@@ -363,8 +375,9 @@ function setupUI() {
             popover.style.borderRadius = '12px';
             popover.style.bottom = '50px';
 
-            const rect = buttonEl.getBoundingClientRect();
-            const parentRect = document.getElementById('editor-container').getBoundingClientRect();
+            const rect = buttonEl ? buttonEl.getBoundingClientRect() : { left: 100, right: 100 };
+            const parentEl = document.getElementById('editor-container') || document.body;
+            const parentRect = parentEl.getBoundingClientRect();
             
             if (isRightAligned) {
                 const rightOffset = parentRect.right - rect.right;
@@ -412,6 +425,12 @@ function setupUI() {
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
                         </span>
                     </div>
+                    <!-- DevTools Control (Wrench Icon) -->
+                    <span class="git-wv-devtools" style="cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; opacity: 0.8; transition: color 0.2s, opacity 0.2s;" title="Toggle DevTools">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                        </svg>
+                    </span>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
                     <span class="git-wv-minimize" style="cursor:pointer; color:var(--text-muted); display:flex; align-items:center;" title="Minimize Window">
@@ -523,6 +542,21 @@ function setupUI() {
         bottomBackBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoBack()) webview.goBack(); };
         bottomForwardBtn.onclick = (e) => { e.stopPropagation(); if (webview.canGoForward()) webview.goForward(); };
         reloadBtn.onclick = (e) => { e.stopPropagation(); webview.reload(); };
+        
+        const devToolsBtn = popover.querySelector('.git-wv-devtools');
+        if (devToolsBtn) {
+            devToolsBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (webview) {
+                    if (typeof webview.isDevToolsOpened === 'function' && webview.isDevToolsOpened()) {
+                        webview.closeDevTools();
+                    } else {
+                        webview.openDevTools({ mode: 'detach' });
+                    }
+                }
+            };
+        }
+
         minimizeBtn.onclick = (e) => {
             e.stopPropagation();
             popover.style.display = 'none';
@@ -624,6 +658,16 @@ function setupUI() {
         }
 
         setupWebPopoverResizing(popover, isRightAligned);
+    };
+
+    window.createWebPopover = createWebPopover;
+    window.openHtmlMiniBrowser = (filePath) => {
+        const pathModule = require('path');
+        const filename = pathModule.basename(filePath);
+        const fileUrl = 'file:///' + filePath.replace(/\\/g, '/');
+        let anchorBtn = document.getElementById('status-bar-shortcuts') || document.body;
+        const popoverKey = 'html-preview-' + Date.now();
+        createWebPopover(popoverKey, fileUrl, `HTML: ${filename}`, anchorBtn, false);
     };
 
     if (gitToggleBtn) {
@@ -1144,6 +1188,14 @@ function setupUI() {
                                 <span class="slider-toggle"></span>
                             </label>
                         </div>
+                        <!-- Use Emote -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;" title="Allow AI to output emotional emotes and trigger center screen animation">Use Emote</span>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="chk-use-emote" ${window.useEmote !== false ? 'checked' : ''}>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
                     </div>
                 `;
                 
@@ -1153,6 +1205,7 @@ function setupUI() {
                 const containerRefresh = document.getElementById('refresh-turn-container');
                 const chkAutoGemini = document.getElementById('chk-auto-gemini');
                 const chkPreferFullWrite = document.getElementById('chk-prefer-full-write');
+                const chkUseEmote = document.getElementById('chk-use-emote');
                 
                 const selSendFormat = document.getElementById('chk-send-format');
 
@@ -1173,7 +1226,8 @@ function setupUI() {
                         refreshTurnCount: parseInt(txtRefreshCount.value) || 35,
                         sendFormat: selSendFormat ? selSendFormat.value : 'md',
                         autoGemini: chkAutoGemini ? !!chkAutoGemini.checked : false,
-                        preferFullWrite: chkPreferFullWrite ? !!chkPreferFullWrite.checked : true
+                        preferFullWrite: chkPreferFullWrite ? !!chkPreferFullWrite.checked : true,
+                        useEmote: chkUseEmote ? !!chkUseEmote.checked : false
                     };
                     saveSettings(settingsData);
                     if (typeof window.reloadAgentSettings === 'function') window.reloadAgentSettings();
@@ -1183,6 +1237,7 @@ function setupUI() {
                 if (chkDebug) chkDebug.onchange = updateAndSave;
                 if (chkAutoGemini) chkAutoGemini.onchange = updateAndSave;
                 if (chkPreferFullWrite) chkPreferFullWrite.onchange = updateAndSave;
+                if (chkUseEmote) chkUseEmote.onchange = updateAndSave;
                 if (selSendFormat) selSendFormat.onchange = updateAndSave;
             }
             
@@ -1668,6 +1723,8 @@ function setupUI() {
             }
             const selPreferFullWrite = document.getElementById('settings-prefer-full-write');
             if (selPreferFullWrite) selPreferFullWrite.value = currentSettings.preferFullWrite !== false ? 'true' : 'false';
+            const selUseEmote = document.getElementById('settings-use-emote');
+            if (selUseEmote) selUseEmote.value = currentSettings.useEmote ? 'true' : 'false';
 
             if (dsModal) dsModal.style.display = 'flex';
         };
@@ -1680,6 +1737,7 @@ function setupUI() {
             const selSendFormat = document.getElementById('settings-send-format');
             const selAutoGemini = document.getElementById('settings-auto-gemini');
             const selPreferFullWrite = document.getElementById('settings-prefer-full-write');
+            const selUseEmote = document.getElementById('settings-use-emote');
             const settingsData = loadSettings();
             window.dragDropMode = true;
             settingsData.dragDropMode = true;
@@ -1696,6 +1754,10 @@ function setupUI() {
             if (selPreferFullWrite) {
                 window.preferFullWrite = (selPreferFullWrite.value === 'true');
                 settingsData.preferFullWrite = window.preferFullWrite;
+            }
+            if (selUseEmote) {
+                window.useEmote = (selUseEmote.value === 'true');
+                settingsData.useEmote = window.useEmote;
             }
             saveSettings(settingsData);
             if (typeof window.reloadAgentSettings === 'function') window.reloadAgentSettings();
@@ -1906,7 +1968,7 @@ function setupUI() {
             const isEmpty = !tree || tree.trim() === '' || !tree.includes('- ');
             const startPrompt = isEmpty
                 ? `This folder is a completely empty new project. If you understand these instructions, ask the user what project to create.`
-                : `If you understand these instructions, list key entry files for analysis in one line using [REQUEST: read-file "path1"] [REQUEST: read-file "path2"].`;
+                : `If you understand these instructions, read key entry files for analysis in one line using [CMD: read-file "path1"] [CMD: read-file "path2"].`;
 
             const webPayload = isEmpty
                 ? `${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim()

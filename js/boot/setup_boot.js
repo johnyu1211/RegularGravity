@@ -94,10 +94,17 @@ async function setupBoot() {
     if (runManualCmd) {
         runManualCmd.onclick = () => {
             const ta = document.getElementById('manual-cmd-textarea');
-            const rawText = ta ? ta.value.trim() : '';
+            let rawText = ta ? ta.value.trim() : '';
             if (!rawText) return;
             hideManualCmdPanel();
             if (ta) ta.value = '';
+
+            // Normalize escaped newlines and quotes if text was copied as encoded JSON
+            if (rawText.includes('\\n')) {
+                rawText = rawText.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+            }
+
+            window.dragDropMode = true;
 
             if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
                 ChatUI.appendBubble('system', `[SYSTEM] Processing manual CMD input:\n"${rawText.slice(0, 120)}${rawText.length > 120 ? '...' : ''}"`);
@@ -859,7 +866,7 @@ async function setupBoot() {
                             const startPrompt = isEmpty
                                 ? `This folder is a completely empty new project. If you understand these instructions, ask the user what project to create.`
                                 : window.dragDropMode 
-                                    ? `If you understand these instructions, ask the user to drop the key entry file for analysis using [REQUEST: read-file "actual/file/path"]. Do not request non-existent files.` 
+                                    ? `If you understand these instructions, ask the user to drop the key entry file for analysis using [CMD: read-file "actual/file/path"]. Do not request non-existent files.` 
                                     : `If you understand these instructions, request key entry files for analysis immediately using [CMD: read-file "actual/file/path"]. Do not request non-existent files.`;
 
                             const briefPayload = isEmpty
@@ -1041,7 +1048,7 @@ async function setupBoot() {
                             const chatLog = document.getElementById('local-chat-messages');
                             let lastUserBubble = null;
                             let baseName = pathModule.basename(filePath);
-                            if (baseName.startsWith('_project_read_bundle_')) {
+                            if (baseName.startsWith('Files_') || baseName.startsWith('_project_read_bundle_')) {
                                 baseName = 'Requested Files';
                             } else if (baseName.startsWith('_project_rules_')) {
                                 baseName = 'System Rules';

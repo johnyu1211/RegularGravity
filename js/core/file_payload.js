@@ -3,7 +3,7 @@ const _path = require('path');
 window.getSendingMdTimeTag = function() {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
-    return `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    return `${pad(d.getHours())}h${pad(d.getMinutes())}m${pad(d.getSeconds())}s`;
 };
 
 window.getSendingMdFolderTag = function() {

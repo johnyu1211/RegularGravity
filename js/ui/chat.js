@@ -1,7 +1,10 @@
 if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 window.generating = false;
 
-window.showUserScreenToast = function(message, duration = 4000) {
+const POSITIVE_EMOTES = ['js/e/def.png', 'js/e/joy.png', 'js/e/trust.png', 'js/e/antici.png', 'js/e/awe.png'];
+const NEGATIVE_EMOTES = ['js/e/sad.png', 'js/e/angr.png', 'js/e/fear.png', 'js/e/disgust.png', 'js/e/surpr.png'];
+
+window.showUserScreenToast = function(message, duration = 4000, isSuccess = true) {
     try {
         let toast = document.getElementById('app-user-toast');
         if (!toast) {
@@ -9,12 +12,12 @@ window.showUserScreenToast = function(message, duration = 4000) {
             toast.id = 'app-user-toast';
             toast.style.cssText = `
                 position: fixed;
-                bottom: 24px;
+                bottom: 64px;
                 right: 24px;
-                background: #18181b;
+                background: rgba(28, 28, 34, 0.88);
                 color: #22c55e;
-                border: 1px solid rgba(34, 197, 94, 0.4);
-                border-radius: 8px;
+                border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                border-radius: 10px;
                 padding: 10px 18px;
                 font-family: 'DM Sans', sans-serif;
                 font-size: 13px;
@@ -22,8 +25,9 @@ window.showUserScreenToast = function(message, duration = 4000) {
                 display: flex;
                 align-items: center;
                 gap: 10px;
-                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-                backdrop-filter: blur(8px);
+                box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
                 z-index: 999999;
                 transition: opacity 0.3s ease, transform 0.3s ease;
                 opacity: 0;
@@ -32,20 +36,49 @@ window.showUserScreenToast = function(message, duration = 4000) {
             `;
             document.body.appendChild(toast);
         }
-        toast.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <span>${message}</span>
-        `;
+
+        const lowerMsg = String(message || '').toLowerCase();
+        const isFailed = isSuccess === false || lowerMsg.includes('fail') || lowerMsg.includes('error') || lowerMsg.includes('err:');
+
+        toast.style.color = isFailed ? '#ef4444' : '#22c55e';
+
+        if (isFailed) {
+            toast.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>${message}</span>
+            `;
+        } else {
+            toast.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>${message}</span>
+            `;
+        }
+
+        const inspectorRight = document.getElementById('inspector-right') || document.getElementById('agent-view-dock') || document.getElementById('inspector-local-chat');
+        let targetX = '0';
+        if (inspectorRight) {
+            const rect = inspectorRight.getBoundingClientRect();
+            const rightCenter = (window.innerWidth - rect.right) + (rect.width / 2);
+            toast.style.right = `${rightCenter}px`;
+            targetX = '50%';
+        } else {
+            toast.style.right = '24px';
+            targetX = '0';
+        }
+
         toast.style.opacity = '1';
-        toast.style.transform = 'translateY(0)';
+        toast.style.transform = `translateX(${targetX}) translateY(0)`;
 
         if (window._userToastTimeout) clearTimeout(window._userToastTimeout);
         window._userToastTimeout = setTimeout(() => {
             if (toast) {
                 toast.style.opacity = '0';
-                toast.style.transform = 'translateY(12px)';
+                toast.style.transform = `translateX(${targetX}) translateY(12px)`;
             }
         }, duration);
     } catch(e) {
@@ -101,6 +134,11 @@ const ChatUI = {
                 box.style.display = 'none';
             }
         }
+        // 3-Stage Robust Emote Parser (Clean tags without triggering until AI completes)
+        if (role === 'ai' && typeof text === 'string' && window.useEmote !== false && typeof window.parseAndTriggerEmote === 'function') {
+            text = window.parseAndTriggerEmote(text, false);
+        }
+
         const content = document.createElement('div'); content.className = 'bubble-content';
         content.dataset.rawText = text;
         

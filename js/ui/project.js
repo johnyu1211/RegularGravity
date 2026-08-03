@@ -55,7 +55,7 @@ window.selectProject = async (folderPath) => {
     }
 };
 
-async function openProjectModal() {
+async function openProjectModal(newItemPath = null, isRefresh = false) {
     window.openProjectModal = openProjectModal; // self export
     const modal = document.getElementById('project-picker-modal');
     if (!modal) return;
@@ -71,14 +71,53 @@ async function openProjectModal() {
         list.innerHTML = recents.map((p, i) => {
             const name = p.split(/[\\/]/).pop() || p;
             const short = p.length > 48 ? '...' + p.slice(-45) : p;
-            
-            return `<div data-path="${p}" class="recent-project-item" onclick="window.selectProject(this.getAttribute('data-path'))">
+            const isNew = newItemPath && (p === newItemPath || (typeof p === 'string' && p.toLowerCase() === newItemPath.toLowerCase()));
+            const animClass = isRefresh ? 'recent-item-stagger' : (isNew ? 'recent-item-new' : '');
+            const delayStyle = isRefresh ? `style="animation-delay: ${i * 0.04}s;"` : '';
+
+            return `<div data-path="${p}" class="recent-project-item ${animClass}" ${delayStyle} onclick="window.selectProject(this.getAttribute('data-path'))">
                 <div style="min-width:0;">
                     <div class="recent-project-title" style="font-size:13px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition: color 0.2s;">${name}</div>
                     <div class="recent-project-path" style="font-size:10.5px; color:var(--text-muted); font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px; transition: color 0.2s;">${short}</div>
                 </div>
             </div>`;
         }).join('');
+    }
+
+    const addRecentBtn = document.getElementById('picker-add-recent-btn');
+    if (addRecentBtn) {
+        addRecentBtn.onclick = async () => {
+            let parentDir = null;
+            if (window._lastAddRecentPath) {
+                try {
+                    const path = require('path');
+                    parentDir = path.dirname(window._lastAddRecentPath);
+                } catch(e) {}
+            }
+            const selected = await ipcRenderer.invoke('select-folder-dialog', parentDir);
+            if (selected) {
+                window._lastAddRecentPath = selected;
+                ipcRenderer.send('save-recent-project', selected);
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const appData = process.env.APPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Roaming') : '');
+                    if (appData) {
+                        const file = path.join(appData, 'regular-gravity', 'recent_projects.json');
+                        let recents = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf-8')) : [];
+                        if (!Array.isArray(recents)) recents = [];
+                        recents = recents.filter(p => p !== selected);
+                        recents.unshift(selected);
+                        if (recents.length > 10) recents = recents.slice(0, 10);
+                        fs.writeFileSync(file, JSON.stringify(recents), 'utf-8');
+                    }
+                } catch(e) {}
+
+                if (typeof openProjectModal === 'function') {
+                    await openProjectModal(selected);
+                }
+            }
+        };
     }
 
     const browseBtn = document.getElementById('picker-browse-btn');
@@ -91,11 +130,53 @@ async function openProjectModal() {
 
     const refreshBtn = document.getElementById('picker-refresh-btn');
     if (refreshBtn) {
+        // Maintain cooling state on refresh button
+        if (window._isPickerRefreshCooling) {
+            refreshBtn.style.opacity = '0.35';
+            refreshBtn.style.cursor = 'not-allowed';
+            refreshBtn.style.pointerEvents = 'none';
+        } else {
+            refreshBtn.style.opacity = '1';
+            refreshBtn.style.cursor = 'pointer';
+            refreshBtn.style.pointerEvents = 'auto';
+        }
+
         refreshBtn.onclick = async () => {
+            if (window._isPickerRefreshCooling) return;
+            window._isPickerRefreshCooling = true;
+
+            refreshBtn.style.opacity = '0.35';
+            refreshBtn.style.cursor = 'not-allowed';
+            refreshBtn.style.pointerEvents = 'none';
+
             const icon = document.getElementById('picker-refresh-icon');
             if (icon) icon.style.transform = 'rotate(360deg)';
-            await openProjectModal();
+            
+            // 1. Staggered fade out of existing items from top to bottom
+            const items = document.querySelectorAll('.recent-project-item');
+            if (items.length > 0) {
+                items.forEach((item, index) => {
+                    item.style.transition = `all 0.15s ease ${index * 0.03}s`;
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateX(25px)';
+                });
+                await new Promise(r => setTimeout(r, items.length * 30 + 150));
+            }
+
+            // 2. Re-render list with staggered slide-in from top to bottom
+            await openProjectModal(null, true);
             setTimeout(() => { if (icon) icon.style.transform = 'none'; }, 300);
+
+            // 3. Reset 0.8-second cooldown
+            setTimeout(() => {
+                window._isPickerRefreshCooling = false;
+                const rBtn = document.getElementById('picker-refresh-btn');
+                if (rBtn) {
+                    rBtn.style.opacity = '1';
+                    rBtn.style.cursor = 'pointer';
+                    rBtn.style.pointerEvents = 'auto';
+                }
+            }, 800);
         };
     }
 
@@ -107,7 +188,165 @@ async function openProjectModal() {
             }
         };
     }
+
+    const eBtn = document.getElementById('picker-e-btn');
+    const secretTrigger = document.getElementById('secret-emote-trigger');
+    const mainView = document.getElementById('picker-main-container');
+    const emoteView = document.getElementById('picker-emote-container');
+    const emoteBackBtn = document.getElementById('picker-emote-back-btn');
+
+    const openEmoteView = () => {
+        if (mainView && emoteView) {
+            mainView.style.display = 'none';
+            emoteView.style.display = 'flex';
+        }
+    };
+
+    if (secretTrigger) secretTrigger.onclick = openEmoteView;
+    if (eBtn) eBtn.onclick = openEmoteView;
+
+    if (emoteBackBtn && mainView && emoteView) {
+        emoteBackBtn.onclick = () => {
+            emoteView.style.display = 'none';
+            mainView.style.display = 'block';
+        };
+    }
 }
+
+// ====== PROJECT PICKER RIGHT CLICK CONTEXT MENU (Clear List / Remove Item) ======
+document.addEventListener('contextmenu', (e) => {
+    const pickerModal = document.getElementById('project-picker-modal');
+    if (!pickerModal || pickerModal.style.display === 'none') return;
+    
+    if (pickerModal.contains(e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const oldMenu = document.getElementById('picker-context-menu');
+        if (oldMenu) oldMenu.remove();
+
+        const projectItem = e.target.closest('.recent-project-item');
+        const targetPath = projectItem ? projectItem.getAttribute('data-path') : null;
+
+        const menu = document.createElement('div');
+        menu.id = 'picker-context-menu';
+        menu.style.cssText = `
+            position: fixed;
+            left: ${Math.min(window.innerWidth - 180, e.clientX)}px;
+            top: ${Math.min(window.innerHeight - 120, e.clientY)}px;
+            z-index: 100000;
+            background: #252529;
+            border: none;
+            border-radius: 8px;
+            padding: 4px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            font-family: 'Outfit', sans-serif;
+            min-width: 160px;
+        `;
+
+        let menuHTML = '';
+        if (targetPath) {
+            menuHTML += `
+                <div id="btn-remove-single-recent" style="padding: 7px 12px; font-size: 12.5px; font-weight: 600; color: #f87171; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 8px; transition: background 0.15s;" onmouseenter="this.style.background='rgba(248, 113, 113, 0.12)'" onmouseleave="this.style.background='transparent'">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <span>Remove from list</span>
+                </div>
+                <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 4px 0;"></div>
+            `;
+        }
+
+        menuHTML += `
+            <div id="btn-clear-recent-list" style="padding: 7px 12px; font-size: 12.5px; font-weight: 600; color: #ef4444; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 8px; transition: background 0.15s;" onmouseenter="this.style.background='rgba(239, 68, 68, 0.12)'" onmouseleave="this.style.background='transparent'">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                <span>Clear List</span>
+            </div>
+        `;
+
+        menu.innerHTML = menuHTML;
+        document.body.appendChild(menu);
+
+        const closePickerMenu = () => { if (menu.parentNode) menu.remove(); };
+        setTimeout(() => { document.addEventListener('click', closePickerMenu, { once: true }); }, 10);
+
+        const removeSingleBtn = menu.querySelector('#btn-remove-single-recent');
+        if (removeSingleBtn && targetPath) {
+            removeSingleBtn.onclick = async (ev) => {
+                ev.stopPropagation();
+                closePickerMenu();
+                
+                if (projectItem) {
+                    projectItem.classList.add('recent-item-removing');
+                    await new Promise(r => setTimeout(r, 240));
+                }
+
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const appData = process.env.APPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Roaming') : '');
+                    if (appData) {
+                        const file = path.join(appData, 'regular-gravity', 'recent_projects.json');
+                        if (fs.existsSync(file)) {
+                            let recents = JSON.parse(fs.readFileSync(file, 'utf-8'));
+                            if (Array.isArray(recents)) {
+                                recents = recents.filter(p => p !== targetPath);
+                                fs.writeFileSync(file, JSON.stringify(recents), 'utf-8');
+                            }
+                        }
+                    }
+                } catch(e) {}
+
+                try {
+                    await ipcRenderer.invoke('remove-recent-project', targetPath);
+                } catch(err) {}
+
+                if (typeof openProjectModal === 'function') {
+                    await openProjectModal();
+                }
+            };
+        }
+
+        const clearBtn = menu.querySelector('#btn-clear-recent-list');
+        if (clearBtn) {
+            clearBtn.onclick = async (ev) => {
+                ev.stopPropagation();
+                closePickerMenu();
+
+                const items = document.querySelectorAll('.recent-project-item');
+                items.forEach(el => el.classList.add('recent-item-removing'));
+                if (items.length > 0) {
+                    await new Promise(r => setTimeout(r, 240));
+                }
+
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const appData = process.env.APPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Roaming') : '');
+                    if (appData) {
+                        const file = path.join(appData, 'regular-gravity', 'recent_projects.json');
+                        if (fs.existsSync(file)) {
+                            fs.writeFileSync(file, '[]', 'utf-8');
+                        }
+                    }
+                } catch(e) {}
+
+                try {
+                    await ipcRenderer.invoke('clear-recent-projects');
+                } catch (err) {}
+
+                const list = document.getElementById('recent-projects-list');
+                if (list) {
+                    list.innerHTML = `<div style="font-size:12px; color:#777; padding:10px 0; font-family:'JetBrains Mono',monospace; text-align:center;">No recent projects</div>`;
+                }
+
+                setTimeout(async () => {
+                    if (typeof openProjectModal === 'function') {
+                        await openProjectModal();
+                    }
+                }, 100);
+            };
+        }
+    }
+});
 
 function bindDragAndDrop() {
     // 1. Global folder drop handler on window
@@ -219,18 +458,15 @@ function bindDragAndDrop() {
 
                     const rawContent = fs.readFileSync(targetPath, 'utf-8');
                     const ext = filePath.split('.').pop().toLowerCase();
-                    const finalMessage = `[FILE DATA: ${filePath}]\n\`\`\`\n${rawContent}\n\`\`\`\n\nProceed to analyze this file.`;
-
                     ChatUI.appendBubble('system', `[SYSTEM] Drag & Drop: Injecting ${filePath} to Web AI...`);
 
-                    await injectWebPayload(finalMessage, 1);
-                    const response = await runExperimentalEngine('/marktag', finalMessage, null);
-                    
-                    if (chatOverlay && progressBox && projBtn) {
-                        chatOverlay.style.display = 'none';
-                        progressBox.style.display = 'none';
-                        projBtn.style.display = 'flex';
-                    }
+                    setTimeout(() => {
+                        if (chatOverlay && progressBox && projBtn) {
+                            chatOverlay.style.display = 'none';
+                            progressBox.style.display = 'none';
+                            projBtn.style.display = 'flex';
+                        }
+                    }, 500);
                 } else {
                     ChatUI.appendBubble('system', `[ERROR] Drag & Drop failed: File not found: ${filePath}`);
                 }
@@ -239,4 +475,148 @@ function bindDragAndDrop() {
             }
         };
     }
+}
+
+// ====== EXPLICIT EMOTE PARSER & TRIGGER ======
+window.parseAndTriggerEmote = function(text, shouldTrigger = true) {
+    if (typeof text !== 'string' || window.useEmote === false || !text.trim()) return text;
+    
+    const validEmotes = ['def', 'joy', 'sad', 'angr', 'fear', 'disgust', 'surpr', 'trust', 'antici', 'awe'];
+    let detectedEmote = null;
+
+    // Stage 1: Explicit emote tag with flexible separators (: _ - = space or brackets)
+    const stage1Match = text.match(/(?:<|\[|\(|\b)?emote\s*[:=\-_]?\s*([a-zA-Z0-9_-]+)(?:>|\]|\)|\b)?/i);
+    if (stage1Match && stage1Match[1]) {
+        const candidate = stage1Match[1].toLowerCase();
+        if (validEmotes.includes(candidate)) {
+            detectedEmote = candidate;
+            text = text.replace(/(?:<|\[|\(|\b)?emote\s*[:=\-_]?\s*[a-zA-Z0-9_-]+(?:>|\]|\)|\b)?/gi, '').trim();
+        }
+    }
+
+    // Stage 2: Explicit emotion keyword search in brackets or tags (e.g. [trust], <joy>)
+    if (!detectedEmote) {
+        for (const emo of validEmotes) {
+            const regex = new RegExp(`(?:<|\\[|\\()${emo}(?:>|\\]|\\))`, 'i');
+            if (regex.test(text)) {
+                detectedEmote = emo;
+                text = text.replace(regex, '').trim();
+                break;
+            }
+        }
+    }
+
+    // Trigger ONLY if an explicit emote tag was detected!
+    if (shouldTrigger && detectedEmote && typeof window.triggerCenterEmote === 'function') {
+        window.triggerCenterEmote(`js/e/${detectedEmote}.png`);
+    }
+
+    return text;
+};
+
+// ====== CENTER EMOTE TRIGGER FUNCTION ======
+window.triggerCenterEmote = function(src) {
+    const overlay = document.getElementById('center-emote-overlay');
+    const card = document.getElementById('center-emote-card');
+    const img = document.getElementById('center-emote-img');
+    const imgEye = document.getElementById('center-emote-img-eye');
+    const imgBody = document.getElementById('center-emote-img-body');
+
+    if (!overlay || !card || !img) return;
+
+    const targetPanel = document.getElementById('inspector-right') || document.getElementById('agent-view-dock') || document.getElementById('active-agent-webview') || document.getElementById('inspector-local-chat');
+    if (targetPanel) {
+        const rect = targetPanel.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+            overlay.style.top = `${rect.top}px`;
+            overlay.style.left = `${rect.left}px`;
+            overlay.style.width = `${rect.width}px`;
+            overlay.style.height = `${rect.height}px`;
+            overlay.style.bottom = 'auto';
+            overlay.style.right = 'auto';
+        }
+    } else {
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+    }
+
+    overlay.style.display = 'flex';
+    card.style.transform = 'scale(0.4)';
+    card.style.opacity = '0';
+
+    img.className = '';
+    if (imgEye) { imgEye.className = ''; imgEye.style.clipPath = 'inset(0 0 33.33% 0)'; }
+    if (imgBody) { imgBody.className = ''; imgBody.style.clipPath = 'inset(66.66% 0 0 0)'; }
+
+    const isFear = src.includes('fear.png');
+    const isTrust = src.includes('trust.png');
+    const isAwe = src.includes('awe.png');
+
+    if ((isFear || isTrust || isAwe) && imgEye && imgBody) {
+        img.style.display = 'none';
+        imgEye.src = src;
+        imgBody.src = src;
+        imgEye.style.display = 'block';
+        imgBody.style.display = 'block';
+
+        if (isTrust) {
+            imgEye.style.clipPath = 'inset(0 0 37.5% 0)';
+            imgBody.style.clipPath = 'inset(62.5% 0 0 0)';
+        } else {
+            imgEye.style.clipPath = 'inset(0 0 33.33% 0)';
+            imgBody.style.clipPath = 'inset(66.66% 0 0 0)';
+        }
+    } else {
+        img.src = src;
+        img.style.display = 'block';
+        if (imgEye) imgEye.style.display = 'none';
+        if (imgBody) imgBody.style.display = 'none';
+    }
+
+    requestAnimationFrame(() => {
+        card.style.transform = 'scale(1)';
+        card.style.opacity = '1';
+
+        // Apply emotion animations
+        if (src.includes('joy.png')) {
+            img.classList.add('emote-anim-joy');
+        } else if (src.includes('sad.png')) {
+            img.classList.add('emote-anim-sad');
+        } else if (src.includes('angr.png')) {
+            img.classList.add('emote-anim-angr');
+        } else if (src.includes('disgust.png')) {
+            img.classList.add('emote-anim-disgust');
+        } else if (src.includes('surpr.png')) {
+            img.classList.add('emote-anim-surpr');
+        } else if (src.includes('antici.png')) {
+            img.classList.add('emote-anim-antici');
+        } else if (isFear && imgEye) {
+            imgEye.classList.add('emote-anim-fear');
+        } else if (isTrust && imgEye && imgBody) {
+            imgEye.classList.add('emote-anim-trust-eye');
+            imgBody.classList.add('emote-anim-trust-mouth');
+        } else if (isAwe && imgEye && imgBody) {
+            imgEye.classList.add('emote-anim-awe-head');
+            imgBody.classList.add('emote-anim-awe-mouth');
+        }
+    });
+
+    clearTimeout(window._centerEmoteTimer);
+    window._centerEmoteTimer = setTimeout(() => {
+        card.style.transform = 'scale(0.7)';
+        card.style.opacity = '0';
+        setTimeout(() => {
+            overlay.style.display = 'none';
+            img.className = '';
+            if (imgEye) imgEye.className = '';
+        }, 220);
+    }, 3800);
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindDragAndDrop);
+} else {
+    bindDragAndDrop();
 }

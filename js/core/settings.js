@@ -23,13 +23,15 @@ window.reloadAgentSettings = function() {
             window.autoRefreshSession = !!settings.autoRefreshSession;
             window.refreshTurnCount = parseInt(settings.refreshTurnCount) || 35;
             window.sendFormat = ['pdf', 'jpeg', 'jpg'].includes(settings.sendFormat) ? settings.sendFormat : 'md';
-            window.autoGemini = !!settings.autoGemini;
+            window.autoGemini = settings.hasOwnProperty('autoGemini') ? !!settings.autoGemini : true;
             window.preferFullWrite = settings.hasOwnProperty('preferFullWrite') ? !!settings.preferFullWrite : true;
+            window.useEmote = settings.hasOwnProperty('useEmote') ? !!settings.useEmote : true;
             const homeBtn = document.getElementById('taskbar-home-btn');
             if (homeBtn) homeBtn.style.display = window.autoGemini ? 'none' : 'flex';
             return;
         }
     } catch(e) {}
+    window.useEmote = true;
     window.preferFullWrite = true;
     window.hideUIOverlay = true;
     window.debugMode = false;

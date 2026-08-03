@@ -293,7 +293,7 @@ function detectAndAskCommand(text) {
             const rawDir = listDirMatch[1] ? listDirMatch[1].trim().replace(/^["']|["']$/g, '') : '.';
             const dirPath = rawDir || '.';
             const res = resolvePathAndExists(dirPath);
-            readCmds.push({ path: res.path, isDirectory: true, exists: res.exists });
+            listDirCmds.push({ path: res.path, isDirectory: true, exists: res.exists });
         } else if (resetSessionMatch) {
             hasResetSession = true;
         } else {
@@ -308,7 +308,8 @@ function detectAndAskCommand(text) {
     const hasRunCommand = (runCommandCmds.length > 0);
     const hasSearchKeyword = (searchKeywordCmds.length > 0);
     const hasMoveFile = (moveFileCmds.length > 0);
-    const hasAnyAction = hasWriteFile || hasEditFile || hasDeleteFile || hasCreateDir || hasRunCommand || hasSearchKeyword || hasMoveFile;
+    const hasListDir = (listDirCmds.length > 0);
+    const hasAnyAction = hasWriteFile || hasEditFile || hasDeleteFile || hasCreateDir || hasRunCommand || hasSearchKeyword || hasMoveFile || hasListDir;
 
     if (hasAnyAction) {
         readCmds.length = 0;
@@ -495,13 +496,15 @@ function detectAndAskCommand(text) {
                 const finalPrompt = "Proceed to analyze the files above.";
                 combinedPayload += finalPrompt;
 
-                // Save to SendingMD file payload instead of direct text injection
-                const baseFileName = typeof window.makeSendingMdReadBundleName === 'function'
-                    ? window.makeSendingMdReadBundleName()
-                    : path.join('SendingMD', `read_bundle_${Date.now()}.md`);
+                // Save to SendingMD file payload with modern Files_filename_ filename naming
+                const targetFilePaths = readCmds.map(c => c.target);
+                const baseFileName = typeof window.makeSendingMdBundleName === 'function'
+                    ? window.makeSendingMdBundleName(targetFilePaths)
+                    : path.join('SendingMD', `Files_bundle_${Date.now()}.${window.getSendingMdExt ? window.getSendingMdExt() : 'md'}`);
 
                 const payload = await window.prepareFilePayload(baseFileName, combinedPayload);
 
+                window.dragDropMode = true;
                 if (typeof window.refreshTree === 'function') window.refreshTree();
 
                 if (typeof window.addFileToRequestedQueue === 'function') {
@@ -525,78 +528,9 @@ function detectAndAskCommand(text) {
             }
         };
 
-        const dropZone = document.getElementById('local-drop-zone');
-            if (dropZone) dropZone.style.display = 'none';
-
-            const localInput = document.getElementById('local-agent-input');
-            const sendBtn = document.getElementById('send-to-local');
-            const inputContainer = document.getElementById('local-input-container');
-
-            if (localInput && inputContainer) {
-                const vLC = document.getElementById('inspector-local-chat');
-                const vBH = document.getElementById('inspector-browser-hub');
-                if (vLC) {
-                    vLC.style.height = "100%";
-                    vLC.style.zIndex = '100';
-                }
-                
-                if (vBH) {
-                    vBH.style.position = 'absolute';
-                    vBH.style.top = '0';
-                    vBH.style.height = '100%';
-                    vBH.style.width = '100%';
-                    vBH.style.zIndex = '150';
-                    vBH.style.opacity = '1';
-                    vBH.style.pointerEvents = 'auto';
-                }
-
-                let fileBox = null;
-                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    fileBox = ChatUI.appendBubble('system', '');
-                    const fileBoxContent = fileBox ? fileBox.querySelector('.bubble-content') : null;
-                    if (fileBoxContent) {
-                        const themeColor = "#3b82f6";
-                        fileBoxContent.innerHTML = `
-                            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
-                                <div style="font-weight: bold; color: #3b82f6; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-                                    <span>READ FILE CONFIRMATION</span>
-                                </div>
-                                <span>Allow Web AI to read: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${fileNamesList}</strong>?</span>
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: none;">ALLOW</button>
-                                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
-                            </div>
-                        `;
-
-                        const onContinue = () => {
-                            if (fileBox) fileBox.remove();
-                            if (window.activeCommandCleanup) window.activeCommandCleanup();
-                            runRead();
-                        };
-
-                        const onCancel = () => {
-                            if (fileBox) fileBox.remove();
-                            if (window.activeCommandCleanup) window.activeCommandCleanup();
-                            ChatUI.appendBubble('system', `[DENIED] Blocked reading files: ${fileNamesList}`);
-                        };
-
-                        fileBoxContent.querySelector('.cmd-run-btn').onclick = onContinue;
-                        fileBoxContent.querySelector('.cmd-cancel-btn').onclick = onCancel;
-
-                        if (typeof window.showCommandExecutionPanel === 'function') {
-                            window.showCommandExecutionPanel(
-                                "Read File Confirmation",
-                                `Allow Web AI to read: ${fileNamesList}?`,
-                                onContinue,
-                                onCancel
-                            );
-                        }
-                    }
-                }
-            }
-        }
+        // Auto-execute read-file without asking confirmation modal
+        runRead();
+    }
     
     if (otherCmds.length > 0) {
         let accumulatedOtherFeedback = "";

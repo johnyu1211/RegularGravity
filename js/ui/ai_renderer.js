@@ -293,6 +293,12 @@ window.updateAiStreamBubble = (text) => {
 
 window.finalizeAiBubble = (response) => {
     if (!response) return;
+
+    // Trigger Emote Popup EXACTLY WHEN AI RESPONSE HAS FULLY FINISHED GENERATING
+    if (window.useEmote !== false && typeof window.parseAndTriggerEmote === 'function') {
+        window.parseAndTriggerEmote(response, true);
+    }
+
     const chatLog = document.getElementById('local-chat-messages');
     const targetBubble = window.lastActiveAiBubble;
     if (targetBubble && targetBubble.parentNode === chatLog) {

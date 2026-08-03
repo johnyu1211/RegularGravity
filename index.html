@@ -34,6 +34,7 @@
         <div class="titlebar-drag-area">
             <img src="png.png" class="titlebar-icon">
             <span class="titlebar-logo-text">REGULAR GRAVITY</span>
+            <span id="ui-zoom-pill" title="Reset UI Zoom (100% / Ctrl+Shift+0)" style="display: none; margin-left: -4px; font-family: 'DM Sans', 'Outfit', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; background: linear-gradient(to right, #8ba2f9, #b0c2fe); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; cursor: pointer; user-select: none; -webkit-app-region: no-drag;">(100%)</span>
         </div>
         <div class="titlebar-controls">
             <button class="titlebar-btn" id="win-fixture" title="Toggle Window Fixture Mode" style="display: none;">
@@ -59,13 +60,17 @@
 
     <!-- ====== PROJECT PICKER MODAL ====== -->
     <div id="project-picker-modal" style="position:fixed; top:30px; left:0; right:0; bottom:0; z-index:9999; background: var(--bg-color); display:flex; align-items:center; justify-content:center;">
-        <div style="background: var(--surface-color); border:1px solid var(--border-color); border-radius:16px; width:520px; max-width:90vw; box-shadow: none; overflow:hidden; animation:scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275);">
+        <!-- Main Project Selector View -->
+        <div id="picker-main-container" style="background: var(--surface-color); border:1px solid var(--border-color); border-radius:16px; width:520px; max-width:90vw; box-shadow: none; overflow:hidden; animation:scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275);">
             <!-- Header -->
-            <div style="padding:20px 28px 16px; border-bottom:1px solid #1a1a1a;">
+            <div style="padding:20px 28px 16px; border-bottom:none;">
                 <div style="display:flex; align-items:center; justify-content:space-between;">
-                    <span style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px;">Select Project Folder</span>
+                    <span style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px;">Select Project Fold<span id="secret-emote-trigger" style="cursor:pointer; -webkit-user-select:none; user-select:none;">e</span>r</span>
                     
                     <div style="display:flex; align-items:center; gap:8px;">
+                        <!-- Hidden Button E (Secret Easter Egg Triggered via Title 'e') -->
+                        <button id="picker-e-btn" style="display:none;"></button>
+
                         <!-- Notice Guide Button (Left of Refresh) -->
                         <button id="picker-notice-btn" style="background:transparent; border:none; color:var(--text-muted); padding:4px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:color 0.2s;" title="Show Operating Guidelines & Notice" onmouseenter="this.style.color='#fff';" onmouseleave="this.style.color='var(--text-muted)';">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
@@ -86,10 +91,96 @@
                 </div>
             </div>
             <!-- Footer Buttons -->
-            <div style="padding:16px 28px 24px; border-top:1px solid #1a1a1a; display:flex; gap:10px; justify-content:flex-end;">
+            <div style="padding:16px 28px 24px; border-top:none; display:flex; gap:10px; justify-content:flex-end; align-items:center;">
+                <button id="picker-add-recent-btn" style="background:#353537; color:var(--text-main, #fff); border:none; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s; font-family:'Outfit',sans-serif;">
+                    + Add Recent
+                </button>
                 <button id="picker-browse-btn" style="background:#468CF6; color:#fff; border:none; padding:10px 22px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.2s; font-family:'Outfit',sans-serif;">
                     Browse Folder
                 </button>
+            </div>
+        </div>
+
+        <!-- Emote Settings View (Triggered by 'e' button) -->
+        <div id="picker-emote-container" style="display: none; background: var(--surface-color); border:1px solid var(--border-color); border-radius:16px; width:520px; max-width:90vw; height:380px; box-shadow: none; overflow:hidden; animation:scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275); flex-direction:column;">
+            <!-- Emote View Header -->
+            <div style="padding:18px 24px 10px; border-bottom:none; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <button id="picker-emote-back-btn" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:4px; transition:color 0.2s;" title="Back to Project Selector" onmouseenter="this.style.color='#fff';" onmouseleave="this.style.color='var(--text-muted)';">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                    </button>
+                    <span style="font-size:14px; font-weight:800; color:#fff; letter-spacing:0.5px;">Emote Settings</span>
+                    <span style="font-size:10px; font-weight:700; color:var(--text-muted); background:rgba(255,255,255,0.06); padding:2px 7px; border-radius:10px;">10 Emotes</span>
+                </div>
+            </div>
+
+            <!-- Emotes Grid Area -->
+            <div id="emote-grid-list" style="flex:1; overflow-y:auto; padding:10px 24px 20px; display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; align-content:start;">
+                <!-- POSITIVE SECTION -->
+                <div style="grid-column: 1 / -1; font-size: 10.5px; font-weight: 800; color: #22c55e; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; margin-bottom: 2px; display: flex; align-items: center; gap: 6px;">
+                    <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#22c55e;"></span>
+                    POSITIVE
+                </div>
+                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/def.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
+                    <img src="js/e/def.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Default">
+                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Default</span>
+                </div>
+                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/joy.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
+                    <img src="js/e/joy.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Joy">
+                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Joy</span>
+                </div>
+                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/trust.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
+                    <img src="js/e/trust.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Trust">
+                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Trust</span>
+                </div>
+                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/antici.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
+                    <img src="js/e/antici.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Anticipation">
+                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Antici</span>
+                </div>
+                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/awe.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
+                    <img src="js/e/awe.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Awe">
+                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Awe</span>
+                </div>
+
+                <!-- NEGATIVE SECTION -->
+                <div style="grid-column: 1 / -1; font-size: 10.5px; font-weight: 800; color: #ef4444; letter-spacing: 1px; text-transform: uppercase; margin-top: 10px; margin-bottom: 2px; display: flex; align-items: center; gap: 6px;">
+                    <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#ef4444;"></span>
+                    NEGATIVE
+                </div>
+                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/sad.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
+                    <img src="js/e/sad.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Sad">
+                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Sad</span>
+                </div>
+                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/angr.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
+                    <img src="js/e/angr.png" style="width: 32px; height: 34px; object-fit: contain;" alt="Anger">
+                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Anger</span>
+                </div>
+                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/fear.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
+                    <img src="js/e/fear.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Fear">
+                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Fear</span>
+                </div>
+                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/disgust.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
+                    <img src="js/e/disgust.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Disgust">
+                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Disgust</span>
+                </div>
+                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/surpr.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
+                    <img src="js/e/surpr.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Surprise">
+                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Surprise</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ====== END PROJECT PICKER MODAL ====== -->
+
+    <!-- Center Emote Display Overlay -->
+    <div id="center-emote-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999999; pointer-events: none; align-items: center; justify-content: center;">
+        <div id="center-emote-card" style="background: radial-gradient(circle at center, rgba(32, 32, 38, 0.95) 0%, rgba(28, 28, 34, 0.45) 45%, rgba(20, 20, 25, 0) 75%); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); -webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 30%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0) 78%); mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 30%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0) 78%); border: none; border-radius: 50%; width: 500px; height: 500px; display: flex; align-items: center; justify-content: center; box-shadow: none; transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: scale(0.4); opacity: 0;">
+            <div id="center-emote-wrapper" style="position: relative; width: 150px; height: 150px; margin-left: -35px; margin-top: 28px;">
+                <img id="center-emote-img" src="" style="position: absolute; top:0; left:0; width:150px; height:150px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4));">
+                <!-- Eye Layer (Top 16px of 24px image) -->
+                <img id="center-emote-img-eye" src="" style="display: none; position: absolute; top:0; left:0; width:150px; height:150px; object-fit: contain; image-rendering: pixelated; clip-path: inset(0 0 33.33% 0); transform-origin: 50% 100px; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4));">
+                <!-- Mouth/Body Layer (Bottom 8px of 24px image - 100% static!) -->
+                <img id="center-emote-img-body" src="" style="display: none; position: absolute; top:0; left:0; width:150px; height:150px; object-fit: contain; image-rendering: pixelated; clip-path: inset(66.66% 0 0 0); filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4));">
             </div>
         </div>
     </div>
@@ -109,14 +200,6 @@
 
             <!-- Path bar is merged directly as the header instead of "EXPLORER" text -->
             <div class="section-header" style="height: 44px; min-height: 44px; display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 0 12px; border-bottom: none; background: var(--surface-low);">
-                <div id="path-display-container" style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; position: relative;" title="Click to copy path">
-                    <div id="path-display" style="font-size: 11px; font-family: 'DM Sans', 'Outfit', sans-serif; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; line-height: 1.2;">
-                        <span class="path-segment">/root</span>
-                    </div>
-                    <span id="path-copy-btn" title="Copy path" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; color: var(--text-muted); transition: opacity 0.2s, background 0.2s, color 0.2s;">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    </span>
-                </div>
                 <span id="graph-view-btn" class="header-btn" title="Project Graph View" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-dark); background: transparent; border: none; transition: all 0.2s; flex-shrink: 0;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="pointer-events:none;">
                         <line x1="12" y1="5" x2="6" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
@@ -127,6 +210,14 @@
                         <circle cx="18" cy="17" r="2.5" fill="var(--surface-low)" stroke="currentColor" stroke-width="2.5"></circle>
                     </svg>
                 </span>
+                <div id="path-display-container" style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; position: relative;" title="Click to copy path">
+                    <div id="path-display" style="font-size: 11px; font-family: 'DM Sans', 'Outfit', sans-serif; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; line-height: 1.2;">
+                        <span class="path-segment">/root</span>
+                    </div>
+                    <span id="path-copy-btn" title="Copy path" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; color: var(--text-muted); transition: opacity 0.2s, background 0.2s, color 0.2s;">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </span>
+                </div>
                 <span id="reveal-btn" class="header-btn" title="Reveal in Windows Explorer" style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; color: var(--text-dark); background: transparent; border: none; transition: all 0.2s; flex-shrink: 0;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 </span>
@@ -191,6 +282,7 @@
             <div class="section-header" id="editor-header" style="border-bottom: none; box-sizing: border-box; height: 44px; min-height: 44px; display: flex; align-items: center; padding: 0 15px; background: var(--surface-low);">
                 <h3 id="editor-header-title" style="margin:0; flex-shrink:0; font-size:12.5px; font-weight:600; color:var(--text-main); text-transform:none !important; letter-spacing:normal;"></h3>
                 <div id="editor-header-actions" style="margin-left: auto; display: none; gap: 8px; align-items:center;">
+                    <span id="editor-zoom-pill" title="Reset Font Size (100% / Ctrl+0)" onclick="window.setEditorFontSize(13)" style="display: none; align-items: center; justify-content: center; height: 26px; padding: 0 4px; border-radius: 0; cursor: pointer; color: var(--text-muted); background: transparent; border: none; font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', 'DM Sans', sans-serif; transition: color 0.2s; user-select: none;">100%</span>
                     <button id="btn-editor-edit" class="header-btn" title="View Mode (Click for Edit Mode </ >)" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border-radius: 6px; cursor: pointer; color: var(--text-muted); background: transparent; border: 1px solid transparent; box-shadow: none; transition: all 0.2s;">
                         <svg id="editor-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;">
                             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
@@ -264,7 +356,7 @@
                 <!-- Unified Integrated Gauge Capsule -->
                 <div id="gemini-usage-gauge-capsule" style="display: flex; align-items: center; height: 25px; background: rgba(255, 255, 255, 0.06); border-radius: 5px; overflow: hidden; box-sizing: border-box; border: none;">
                     <!-- Left Section: Integrated Reset Countdown Timer Badge -->
-                    <div id="gemini-usage-badge-section" style="padding: 0 9px; height: 100%; background: rgba(255, 255, 255, 0.12); border-right: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <div id="gemini-usage-badge-section" style="padding: 0 9px; height: 100%; background: #353537; border-right: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                         <span id="gemini-usage-reset-time" style="display: flex; align-items: center; justify-content: center; text-align: center; height: 100%; min-width: 44px; font-size: 10px; font-weight: 600; color: #ffffff; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; flex-shrink: 0;" title="Time until usage reset">--</span>
                     </div>
                     <!-- Right Section: Gauge Fill Bar Container with Centered Percentage Text -->
@@ -422,8 +514,8 @@
                                         <span style="font-size: 10.5px; color: var(--text-muted); line-height: 1.4;">Skip home screen and launch Gemini directly on boot</span>
                                     </div>
                                     <select id="settings-auto-gemini" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 6px; outline: none; font-family: inherit;">
+                                        <option value="true">ON (Default)</option>
                                         <option value="false">OFF</option>
-                                        <option value="true">ON</option>
                                     </select>
                                 </div>
                                 <div id="auto-gemini-off-warning" style="font-size: 10.5px; color: #f59e0b; display: none; line-height: 1.4; font-family: 'DM Sans', sans-serif; margin-top: 2px;">
@@ -438,6 +530,18 @@
                                     <span style="font-size: 10.5px; color: var(--text-muted); line-height: 1.4;">Force AI to write full updated files instead of snippet edits</span>
                                 </div>
                                 <select id="settings-prefer-full-write" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 6px; outline: none; font-family: inherit;">
+                                    <option value="true">ON (Default)</option>
+                                    <option value="false">OFF</option>
+                                </select>
+                            </div>
+
+                            <!-- Toggle: Use Emote Response -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                                <div style="display: flex; flex-direction: column; gap: 4px; max-width: 70%;">
+                                    <span style="font-size: 12px; font-weight: 600; color: #eee;">Use Emote</span>
+                                    <span style="font-size: 10.5px; color: var(--text-muted); line-height: 1.4;">Allow AI to output emotional emotes and trigger screen animation</span>
+                                </div>
+                                <select id="settings-use-emote" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 6px; outline: none; font-family: inherit;">
                                     <option value="true">ON (Default)</option>
                                     <option value="false">OFF</option>
                                 </select>

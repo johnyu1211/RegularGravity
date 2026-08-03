@@ -122,9 +122,14 @@ function switchSubTerminal(id) {
 }
 
 function closeSubTerminal(id) {
+    try {
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.send('close-terminal-tab', id);
+    } catch(e) {}
+
     const tabs = document.querySelectorAll('.sub-tab');
     if (tabs.length <= 1) {
-        window.terminalSessions[id].logs = [];
+        if (window.terminalSessions[id]) window.terminalSessions[id].logs = [];
         switchSubTerminal(id);
         
         const popoverWin = document.getElementById('terminal-popover');

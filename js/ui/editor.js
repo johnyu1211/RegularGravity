@@ -94,7 +94,7 @@ window.performRedo = function() {
 
 window.isEditingMode = false;
 
-window.saveCurrentEditorFile = function() {
+window.saveCurrentEditorFile = function(keepEditMode = false) {
     if (!window.currentEditingPath) return;
     const editorContent = document.getElementById('editor-content');
     if (!editorContent) return;
@@ -123,17 +123,22 @@ window.saveCurrentEditorFile = function() {
         
         window._lastSaveTimestamp = Date.now();
         fs.writeFileSync(window.currentEditingPath, newContent, 'utf-8');
-        window.isEditingMode = false;
-        editorContent.classList.remove('editor-editing-active');
-
-        if (editWrapper) editWrapper.style.display = 'none';
 
         if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
             const pathModule = require('path');
             ChatUI.appendBubble('system', `[SUCCESS] Saved ${pathModule.basename(window.currentEditingPath)} successfully.`);
         }
-        
-        window.openFileInEditor(window.currentEditingPath, targetLineNum);
+
+        if (keepEditMode && window.isEditingMode) {
+            if (typeof window.updateRawHighlight === 'function') {
+                window.updateRawHighlight();
+            }
+        } else {
+            window.isEditingMode = false;
+            editorContent.classList.remove('editor-editing-active');
+            if (editWrapper) editWrapper.style.display = 'none';
+            window.openFileInEditor(window.currentEditingPath, targetLineNum);
+        }
     } catch (e) {
         alert("Failed to save file: " + e.message);
     }
@@ -418,7 +423,28 @@ window.toggleEditorEditMode = function() {
                     editArea.selectionStart = editArea.selectionEnd = start + 4;
                     updateGutter();
                     updateRawHighlight();
+                    
+                    if (!window.editorUndoStack) window.editorUndoStack = [];
+                    window.editorUndoStack.push(editArea.value);
+                    if (window.editorUndoStack.length > 100) window.editorUndoStack.shift();
+                    window.editorRedoStack = [];
                 }
+            };
+
+            editArea.oninput = () => {
+                updateGutter();
+                updateRawHighlight();
+
+                clearTimeout(window.editorHistoryDebounce);
+                window.editorHistoryDebounce = setTimeout(() => {
+                    if (!window.editorUndoStack) window.editorUndoStack = [];
+                    const lastState = window.editorUndoStack[window.editorUndoStack.length - 1];
+                    if (lastState !== editArea.value) {
+                        window.editorUndoStack.push(editArea.value);
+                        if (window.editorUndoStack.length > 100) window.editorUndoStack.shift();
+                        window.editorRedoStack = [];
+                    }
+                }, 250);
             };
 
             editWrapper.appendChild(gutter);
@@ -428,6 +454,9 @@ window.toggleEditorEditMode = function() {
         }
 
         editArea.value = rawContent;
+        window.editorUndoStack = [rawContent];
+        window.editorRedoStack = [];
+
         if (typeof window.updateRawHighlight === 'function') window.updateRawHighlight();
         editWrapper.style.display = 'flex';
 
@@ -470,6 +499,51 @@ window.toggleEditorEditMode = function() {
     }
 };
 
+window.performUndo = function() {
+    const editArea = document.getElementById('editor-raw-textarea');
+    if (!editArea || !window.isEditingMode) return;
+    if (!window.editorUndoStack) window.editorUndoStack = [];
+    if (!window.editorRedoStack) window.editorRedoStack = [];
+
+    if (window.editorUndoStack.length > 1) {
+        const currentState = window.editorUndoStack.pop();
+        window.editorRedoStack.push(currentState);
+        const prevState = window.editorUndoStack[window.editorUndoStack.length - 1];
+        editArea.value = prevState;
+
+        const lineCount = (prevState.match(/\n/g) || []).length + 1;
+        let html = '';
+        for (let i = 1; i <= lineCount; i++) html += `<div>${i}</div>`;
+        const gutter = document.getElementById('editor-raw-gutter');
+        if (gutter) gutter.innerHTML = html;
+
+        if (typeof window.updateRawHighlight === 'function') window.updateRawHighlight();
+        if (typeof window.showUserScreenToast === 'function') window.showUserScreenToast("Undo", 1000);
+    }
+};
+
+window.performRedo = function() {
+    const editArea = document.getElementById('editor-raw-textarea');
+    if (!editArea || !window.isEditingMode) return;
+    if (!window.editorUndoStack) window.editorUndoStack = [];
+    if (!window.editorRedoStack) window.editorRedoStack = [];
+
+    if (window.editorRedoStack.length > 0) {
+        const nextState = window.editorRedoStack.pop();
+        window.editorUndoStack.push(nextState);
+        editArea.value = nextState;
+
+        const lineCount = (nextState.match(/\n/g) || []).length + 1;
+        let html = '';
+        for (let i = 1; i <= lineCount; i++) html += `<div>${i}</div>`;
+        const gutter = document.getElementById('editor-raw-gutter');
+        if (gutter) gutter.innerHTML = html;
+
+        if (typeof window.updateRawHighlight === 'function') window.updateRawHighlight();
+        if (typeof window.showUserScreenToast === 'function') window.showUserScreenToast("Redo", 1000);
+    }
+};
+
 window.cancelEditorEdit = function() {
     window.isEditingMode = false;
     const editorContent = document.getElementById('editor-content');
@@ -483,13 +557,128 @@ window.cancelEditorEdit = function() {
     }
 };
 
-window.addEventListener('keydown', (e) => {
+window.editorFontSize = parseFloat(localStorage.getItem('editorFontSize')) || 13;
+document.documentElement.style.setProperty('--editor-font-size', window.editorFontSize + 'px');
+
+let zoomRafPending = false;
+window.setEditorFontSize = function(size) {
+    const minSize = 13 * 0.65; // Minimum 65% (8.45px)
+    const maxSize = 26;        // Maximum 200% (26px)
+    window.editorFontSize = Math.min(maxSize, Math.max(minSize, Math.round(size * 10) / 10));
+    
+    if (!zoomRafPending) {
+        zoomRafPending = true;
+        requestAnimationFrame(() => {
+            zoomRafPending = false;
+            document.documentElement.style.setProperty('--editor-font-size', window.editorFontSize + 'px');
+            
+            const pct = Math.round((window.editorFontSize / 13) * 100);
+            const pill = document.getElementById('editor-zoom-pill');
+            if (pill) {
+                pill.innerText = `${pct}%`;
+                pill.title = `Font Size: ${window.editorFontSize}px (${pct}%) - Click to reset (100% / Ctrl+0)`;
+                if (pct !== 100) {
+                    pill.style.display = 'inline-flex';
+                    pill.style.color = 'var(--text-muted)';
+                    pill.style.background = 'transparent';
+                    pill.style.border = 'none';
+                } else {
+                    pill.style.display = 'none';
+                }
+            }
+
+            const area = document.getElementById('editor-raw-textarea');
+            const pre = document.getElementById('editor-raw-pre');
+            const gutter = document.getElementById('editor-raw-gutter');
+            if (area || pre || gutter) {
+                const lh = Math.round(window.editorFontSize * 1.55);
+                if (area) { area.style.fontSize = window.editorFontSize + 'px'; area.style.lineHeight = lh + 'px'; }
+                if (pre) { pre.style.fontSize = window.editorFontSize + 'px'; pre.style.lineHeight = lh + 'px'; }
+                if (gutter) { gutter.style.fontSize = Math.max(8, window.editorFontSize - 1) + 'px'; gutter.style.lineHeight = lh + 'px'; }
+            }
+        });
+    }
+
+    clearTimeout(window._zoomSaveTimer);
+    window._zoomSaveTimer = setTimeout(() => {
+        localStorage.setItem('editorFontSize', window.editorFontSize);
+    }, 300);
+};
+setTimeout(() => window.setEditorFontSize(window.editorFontSize), 100);
+
+// --- GLOBAL APP UI ZOOM (Electron webFrame) ---
+try {
+    const { webFrame } = require('electron');
+    let uiZoomFactor = parseFloat(localStorage.getItem('uiZoomFactor')) || 1.0;
+    webFrame.setZoomFactor(uiZoomFactor);
+
+    window.setAppUiZoom = function(factor) {
+        uiZoomFactor = Math.min(1.6, Math.max(0.65, Math.round(factor * 100) / 100));
+        localStorage.setItem('uiZoomFactor', uiZoomFactor);
+        webFrame.setZoomFactor(uiZoomFactor);
+
+        const pct = Math.round(uiZoomFactor * 100);
+        const pill = document.getElementById('ui-zoom-pill');
+        if (pill) {
+            pill.innerText = `(${pct}%)`;
+            pill.title = `UI Zoom: ${pct}% - Click to reset (100% / Ctrl+Shift+0)`;
+            if (pct !== 100) {
+                pill.style.display = 'inline-block';
+            } else {
+                pill.style.display = 'none';
+            }
+            if (!pill._hasClick) {
+                pill._hasClick = true;
+                pill.onclick = (e) => {
+                    if (e) e.stopPropagation();
+                    window.setAppUiZoom(1.0);
+                };
+            }
+        }
+    };
+    setTimeout(() => window.setAppUiZoom(uiZoomFactor), 150);
+
+    document.addEventListener('wheel', (e) => {
+        if (e.ctrlKey && e.shiftKey) {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 0.05 : -0.05;
+            window.setAppUiZoom(uiZoomFactor + delta);
+            return;
+        }
+        if (e.ctrlKey && e.target.closest('#editor-container')) {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 1 : -1;
+            window.setEditorFontSize(window.editorFontSize + delta);
+        }
+    }, { passive: false });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && (e.key === '=' || e.key === '+' || e.key === '-')) {
+            e.preventDefault();
+            const delta = e.key === '-' ? -0.05 : 0.05;
+            window.setAppUiZoom(uiZoomFactor + delta);
+            return;
+        }
+        if (e.ctrlKey && e.shiftKey && e.key === '0') {
+            e.preventDefault();
+            window.setAppUiZoom(1.0);
+            return;
+        }
+        if (e.ctrlKey && !e.shiftKey && (e.key === '=' || e.key === '+' || e.key === '-')) {
+            e.preventDefault();
+            const delta = (e.key === '-') ? -1 : 1;
+            window.setEditorFontSize(window.editorFontSize + delta);
+        }
+        if (e.ctrlKey && !e.shiftKey && e.key === '0') {
+            e.preventDefault();
+            window.setEditorFontSize(13);
+        }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         if (window.isEditingMode) {
-            window.saveCurrentEditorFile();
+            window.saveCurrentEditorFile(true);
         } else if (window.currentEditingPath) {
-            window.toggleEditorEditMode();
+            window.saveCurrentEditorFile(false);
         }
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
@@ -497,10 +686,25 @@ window.addEventListener('keydown', (e) => {
         window.toggleEditorEditMode();
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) window.performRedo();
+        if (window.isEditingMode) {
+            e.preventDefault();
+            if (e.shiftKey) {
+                window.performRedo();
+            } else {
+                window.performUndo();
+            }
+        }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        if (window.isEditingMode) {
+            e.preventDefault();
+            window.performRedo();
+        }
     }
 });
+} catch(err) {
+    console.error("UI Zoom Error:", err);
+}
 
 window.copyBlockContent = async (syncId, event) => {
     event.preventDefault();
@@ -958,7 +1162,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = f
                 };
 
                 const setZoom = (newScale, animate = true) => {
-                    scale = Math.min(Math.max(0.1, newScale), 5);
+                    scale = Math.min(Math.max(0.01, newScale), 50);
                     if (scale === 1) {
                         translateX = 0;
                         translateY = 0;
@@ -1110,7 +1314,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = f
                         let lineCount = i - popped.start + 1;
                         let safeTitle = popped.title.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         
-                        finalHTML += `</div></details><div class="rg-footer" data-end="${i}">${lineNumHTML}<div style="display:flex; align-items:center; flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span> <span class="footer-tag" style="margin-left: 8px;">// ${safeTitle}</span> <span style="color:var(--text-muted); font-size:10px; font-weight:bold; margin-left:8px; background:var(--surface-low); border: none; padding:1px 6px; border-radius:10px;">${lineCount} lines</span></div><div class="go-top-btn" onclick="const el = document.getElementById('editor-${popped.id}'); if(el){ document.getElementById('editor-scroll-container').scrollTo({top: el.offsetTop - 20, behavior: 'smooth'}); } event.stopPropagation();" title="Go to block start"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg></div></div></div>`;
+                        finalHTML += `</div></details><div class="rg-footer" data-end="${i}">${lineNumHTML}<div style="display:flex; align-items:center; flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:10px;"><span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine}</span> <span class="footer-tag" style="margin-left: 8px;">// ${safeTitle}</span> <span style="color:var(--text-muted); font-size:10px; font-weight:bold; margin-left:8px; background:var(--surface-low); border: none; padding:1px 6px; border-radius:10px;">${lineCount} lines</span></div><div class="go-top-btn" onclick="const sc=document.getElementById('editor-scroll-container'), el=document.getElementById('editor-${popped.id}'); if(sc && el){ const targetEl = el.closest('.rg-block') || el; const topPos = targetEl.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop; sc.scrollTo({top: topPos, behavior: 'smooth'}); const txt = targetEl.querySelector('.rg-header .line-code-text') || targetEl.querySelector('.line-code-text'); if(txt){ txt.classList.remove('text-blink-anim'); void txt.offsetWidth; txt.classList.add('text-blink-anim'); setTimeout(()=>txt.classList.remove('text-blink-anim'), 2000); } } event.stopPropagation();" title="Go to block start"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg></div></div></div>`;
                         minimapHTML += `</div></details><div class="mini-footer">${mmLine}</div>`;
                     } else {
                         finalHTML += `<div class="rg-line">${lineNumHTML} <span class="line-code-text" style="white-space:pre; outline:none;" spellcheck="false">${htmlLine || ' '}</span></div>`;
@@ -1126,7 +1330,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = f
 
                 editorContent.innerHTML = `
                     <style>
-                        .line-code-text { display: inline-block; vertical-align: middle; line-height: 1.5; padding: 2px 0; margin: 0; outline: none; box-sizing: border-box; }
+                        .line-code-text { display: inline-flex; align-items: center; align-self: center; line-height: 1.5; padding: 2px 0; margin: 0; outline: none; box-sizing: border-box; font-size: var(--editor-font-size, 13px); }
                         .editor-editing-active .line-code-text { cursor: text; border-radius: 2px; transition: background 0.15s, outline 0.15s; }
                         .editor-editing-active .line-code-text:hover { background: rgba(255, 255, 255, 0.05); }
                         .editor-editing-active .line-code-text:focus,
@@ -1134,23 +1338,25 @@ window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = f
                             background: rgba(56, 189, 248, 0.1) !important; 
                             outline: 1px dashed rgba(56, 189, 248, 0.5) !important; 
                             caret-color: var(--primary, #468CF6) !important;
-                            display: inline-block !important;
-                            vertical-align: middle !important;
+                            display: inline-flex !important;
+                            align-items: center !important;
+                            align-self: center !important;
                             line-height: 1.5 !important;
                             padding: 1px 4px !important;
                             box-sizing: border-box !important;
                         }
-                        .line-num { position: sticky; left: 0; z-index: 2; display: inline-flex; align-items: center; justify-content: flex-end; width: ${gutterWidth}px; min-width: ${gutterWidth}px; text-align: right; color: #555; user-select: none; margin-right: 12px; font-size: 11px; font-family: 'JetBrains Mono', monospace; border-right: 1px solid #333; padding-right: 8px; flex-shrink: 0; transition: color 0.1s; background: transparent; box-sizing: border-box; align-self: stretch; }
+                        .line-num { position: sticky; left: 0; z-index: 2; display: inline-flex; align-items: center; justify-content: flex-end; width: ${gutterWidth}px; min-width: ${gutterWidth}px; text-align: right; color: #555; user-select: none; margin-right: 12px; font-size: calc(var(--editor-font-size, 13px) - 1.5px); font-family: 'JetBrains Mono', monospace; border-right: 1px solid #333; padding-right: 8px; flex-shrink: 0; transition: color 0.1s; background: transparent; box-sizing: border-box; align-self: center; }
                         .rg-line .line-num { background: var(--bg-color); } .rg-line:hover .line-num { background: var(--surface-color); }
                         .rg-body .rg-line .line-num { background: var(--surface-lowest); } .rg-body .rg-line:hover .line-num { background: var(--surface-high); }
                         
-                        .rg-block { margin: 6px 4px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--surface-lowest); transition: border-color 0.15s; display: block; max-width: calc(100% - 8px); overflow: hidden; box-shadow: none !important; }
+                        .rg-block { margin: 6px 4px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--surface-lowest); transition: border-color 0.15s, box-shadow 0.15s; display: block; max-width: calc(100% - 8px); overflow: hidden; box-shadow: none !important; }
                         .rg-body .rg-block { margin: 2px 0 2px 12px; }
-                        .rg-block:hover { border-color: #ffffff; box-shadow: none !important; } .rg-block:has(.rg-block:hover) { border-color: var(--border-color) !important; }
+                        .rg-block:hover:not(:has(.rg-block:hover)) { position: relative; z-index: 100; border-color: #ffffff; box-shadow: none !important; }
+                        .rg-block:has(.rg-block:hover) { border-color: var(--border-color) !important; box-shadow: none !important; position: static !important; z-index: auto !important; }
                         
                         details:not([open]) > .rg-header { border-radius: 6px !important; box-shadow: none !important; }
                         details:not([open]), details[open] { box-shadow: none !important; }
-                        .rg-header { cursor: pointer; padding: 0 10px 0 0; background: var(--surface-color); display: flex; align-items: stretch; list-style: none; border-radius: 6px 6px 0 0; transition: background 0.1s; max-width: 100%; box-sizing: border-box; min-height: 24px; box-shadow: none !important; }
+                        .rg-header { cursor: pointer; padding: 0 10px 0 0; background: var(--surface-color); display: flex; align-items: center; list-style: none; border-radius: 6px 6px 0 0; transition: background 0.1s; max-width: 100%; box-sizing: border-box; min-height: 24px; box-shadow: none !important; }
                         .rg-header .line-num { padding-top: 3px; padding-bottom: 3px; }
                         .rg-header .line-code-text { padding-top: 2px; padding-bottom: 2px; }
                         .rg-header::-webkit-details-marker { display: none; } .rg-header:hover { background: var(--surface-high); box-shadow: none !important; } .rg-header:hover .line-num { color: #aaa; }
@@ -1188,6 +1394,13 @@ window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = f
                         
                         .search-highlight { background: rgba(212, 160, 23, 0.2) !important; border-radius: 2px; } .search-highlight .line-num { color: #d4a017 !important; font-weight: bold; }
                         .search-highlight-active { background: rgba(212, 160, 23, 0.6) !important; outline: 1px solid #d4a017; border-radius: 2px; } .search-highlight-active .line-num { color: #fff !important; background: #d4a017 !important; font-weight: bold; }
+                        
+                        @keyframes textBlink {
+                            0%, 100% { opacity: 1; }
+                            25%, 75% { opacity: 0.15; }
+                            50% { opacity: 1; text-shadow: 0 0 8px rgba(70, 140, 246, 0.8); }
+                        }
+                        .text-blink-anim { animation: textBlink 0.5s ease-in-out 3; }
                         
                         #minimap-thumb:hover { background: rgba(255, 255, 255, 0.15) !important; border-color: rgba(255, 255, 255, 0.4) !important; }
                         .mini-detail, .mini-body, .mini-footer { margin: 0; padding: 0; outline: none; } .mini-summary { list-style: none; margin: 0; padding: 0; display: block; } .mini-summary::-webkit-details-marker { display: none; }

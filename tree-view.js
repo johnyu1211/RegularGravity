@@ -259,13 +259,10 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
             const copyPathBtn = document.createElement('span');
             copyPathBtn.className = 'copy-path-btn';
             copyPathBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
-            copyPathBtn.title = isDir ? `Copy relative path (directory)` : `Copy relative path`;
+            copyPathBtn.title = isDir ? `Copy absolute path (directory)` : `Copy absolute path`;
             copyPathBtn.onclick = async (e) => {
                 e.stopPropagation();
-                const pathModule = require('path');
-                const root = window.projectRoot || process.cwd();
-                const relPath = pathModule.relative(root, fullPath).replace(/\\/g, '/') + (isDir ? ' (directory)' : '');
-                await navigator.clipboard.writeText(relPath);
+                await navigator.clipboard.writeText(fullPath);
                 
                 const originalIcon = copyPathBtn.innerHTML;
                 copyPathBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
@@ -796,8 +793,14 @@ window.showInlineTreeInput = function(parentDir, isFolder = false, targetNode = 
             try {
                 if (isFolder) {
                     fs.mkdirSync(newPath, { recursive: true });
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast(`Created folder: ${name}`, 2500, true);
+                    }
                 } else {
                     fs.writeFileSync(newPath, '', 'utf-8');
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast(`Created file: ${name}`, 2500, true);
+                    }
                 }
                 if (typeof window.refreshTreeAll === 'function') {
                     window.refreshTreeAll();
@@ -851,18 +854,33 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
     let menuHTML = '';
 
     if (targetPath) {
+        const hubHome = document.getElementById('agent-hub-home');
+        const hubWebview = document.getElementById('agent-hub-webview');
+        const activeWv = document.getElementById('active-agent-webview');
+        const wvSrc = activeWv ? (activeWv.src || activeWv.getAttribute('src') || '') : '';
+        
+        const isAiSessionActive = !!(
+            activeWv && wvSrc && wvSrc.startsWith('http') &&
+            hubWebview && hubWebview.style.display !== 'none' &&
+            (!hubHome || hubHome.style.display === 'none')
+        );
+
+        const toAiStyle = isAiSessionActive 
+            ? 'color: var(--primary, #468CF6); font-weight: 600; cursor: pointer;' 
+            : 'color: var(--text-muted); opacity: 0.45; cursor: not-allowed;';
+
         menuHTML += `
-            <div class="menu-item menu-action-to-ai" style="color: var(--primary, #468CF6); font-weight: 600;">
+            <div class="menu-item menu-action-to-ai" style="${toAiStyle}" title="${isAiSessionActive ? 'Add file to AI Queue' : 'Requires an active AI Chat session'}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 <span>To AI</span>
+            </div>
+            <div class="menu-item menu-action-html-open" style="color: #10b981; font-weight: 600;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                <span>HTML Open</span>
             </div>
             <div class="menu-item menu-action-open">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 <span>${isDir ? 'Open Folder' : 'Open File'}</span>
-            </div>
-            <div class="menu-item menu-action-copy-path">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                <span>Copy Path</span>
             </div>
             <div style="height: 1px; background: var(--border-color); margin: 4px 0;"></div>
         `;
@@ -938,6 +956,24 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
             ev.stopPropagation(); closeMenu();
             if (!targetPath) return;
 
+            const hubHome = document.getElementById('agent-hub-home');
+            const hubWebview = document.getElementById('agent-hub-webview');
+            const activeWv = document.getElementById('active-agent-webview');
+            const wvSrc = activeWv ? (activeWv.src || activeWv.getAttribute('src') || '') : '';
+            
+            const isAiSessionActive = !!(
+                activeWv && wvSrc && wvSrc.startsWith('http') &&
+                hubWebview && hubWebview.style.display !== 'none' &&
+                (!hubHome || hubHome.style.display === 'none')
+            );
+
+            if (!isAiSessionActive) {
+                if (typeof window.showUserScreenToast === 'function') {
+                    window.showUserScreenToast(`Connect to AI session first to use 'To AI'`, 3000, false);
+                }
+                return;
+            }
+
             const pathModule = require('path');
             const relPath = window.currentPath ? pathModule.relative(window.currentPath, targetPath) : pathModule.basename(targetPath);
 
@@ -958,20 +994,29 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
             if (typeof window.updateDragDropQueueUI === 'function') {
                 window.updateDragDropQueueUI();
             }
+
             if (typeof window.showUserScreenToast === 'function') {
-                window.showUserScreenToast(`Added to AI Queue: ${pathModule.basename(targetPath)}`, 2000);
+                window.showUserScreenToast(`Added to AI Queue: ${pathModule.basename(targetPath)}`, 2000, true);
             }
         };
     }
 
-    const btnCopyPath = menu.querySelector('.menu-action-copy-path');
-    if (btnCopyPath) {
-        btnCopyPath.onclick = (ev) => {
+    const btnHtmlOpen = menu.querySelector('.menu-action-html-open');
+    if (btnHtmlOpen) {
+        btnHtmlOpen.onclick = (ev) => {
             ev.stopPropagation(); closeMenu();
-            navigator.clipboard.writeText(targetPath);
-            if (typeof window.showUserScreenToast === 'function') window.showUserScreenToast(`Copied path: ${targetPath}`, 2500);
+            if (!targetPath) return;
+
+            if (typeof window.openHtmlMiniBrowser === 'function') {
+                window.openHtmlMiniBrowser(targetPath);
+            } else if (typeof window.createWebPopover === 'function') {
+                const fileUrl = 'file:///' + targetPath.replace(/\\/g, '/');
+                window.createWebPopover('html-preview-' + Date.now(), fileUrl, `HTML: ${require('path').basename(targetPath)}`, document.body, false);
+            }
         };
     }
+
+
 
     const btnNewFile = menu.querySelector('.menu-action-new-file');
     if (btnNewFile) {
@@ -1180,6 +1225,109 @@ const bindSidebarLeftContextMenu = () => {
         }
     });
 };
+
+// ====== TREE VIEW KEYBOARD ARROW NAVIGATION ======
+let isTreeViewFocused = false;
+
+document.addEventListener('mousedown', (e) => {
+    const treeContainer = document.getElementById('file-tree') || document.querySelector('.file-tree') || document.getElementById('explorer-container');
+    if (treeContainer && treeContainer.contains(e.target)) {
+        isTreeViewFocused = true;
+    } else {
+        isTreeViewFocused = false;
+    }
+}, true);
+
+document.addEventListener('mouseover', (e) => {
+    const treeContainer = document.getElementById('file-tree') || document.querySelector('.file-tree') || document.getElementById('explorer-container');
+    if (treeContainer && treeContainer.contains(e.target)) {
+        window._isMouseOverTree = true;
+    } else {
+        window._isMouseOverTree = false;
+    }
+}, true);
+
+function getVisibleFileItems() {
+    const allItems = Array.from(document.querySelectorAll('.file-item'));
+    return allItems.filter(item => {
+        return item.offsetParent !== null && item.offsetHeight > 0;
+    });
+}
+
+window.addEventListener('keydown', (e) => {
+    const isTreeActive = isTreeViewFocused || window._isMouseOverTree;
+    if (!isTreeActive) return;
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Enter') return;
+
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+        return;
+    }
+
+    const visibleItems = getVisibleFileItems();
+    if (visibleItems.length === 0) return;
+
+    let currentIndex = visibleItems.findIndex(el => el.classList.contains('active'));
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        const nextIndex = currentIndex < 0 ? 0 : Math.min(visibleItems.length - 1, currentIndex + 1);
+        const targetItem = visibleItems[nextIndex];
+        if (targetItem) {
+            targetItem.click();
+            targetItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        const prevIndex = currentIndex < 0 ? 0 : Math.max(0, currentIndex - 1);
+        const targetItem = visibleItems[prevIndex];
+        if (targetItem) {
+            targetItem.click();
+            targetItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (currentIndex >= 0) {
+            const currentItem = visibleItems[currentIndex];
+            const isDir = currentItem.classList.contains('directory');
+            const isExpanded = currentItem.querySelector('.tree-arrow')?.classList.contains('expanded');
+            if (isDir && isExpanded) {
+                currentItem.click();
+            } else {
+                const node = currentItem.closest('.tree-node');
+                const parentNode = node ? node.parentElement.closest('.tree-node') : null;
+                if (parentNode) {
+                    const parentItem = parentNode.querySelector('.file-item');
+                    if (parentItem) {
+                        parentItem.click();
+                        parentItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                }
+            }
+        }
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (currentIndex >= 0) {
+            const currentItem = visibleItems[currentIndex];
+            const isDir = currentItem.classList.contains('directory');
+            const isExpanded = currentItem.querySelector('.tree-arrow')?.classList.contains('expanded');
+            if (isDir && !isExpanded) {
+                currentItem.click();
+            }
+        }
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (currentIndex >= 0) {
+            const currentItem = visibleItems[currentIndex];
+            currentItem.click();
+        }
+    }
+}, true);
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bindSidebarLeftContextMenu);

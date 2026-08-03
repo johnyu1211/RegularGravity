@@ -11,22 +11,28 @@ window.getSystemRulesPrompt = function(forceFull = false) {
      [END]
    - Write: [CMD: write-file "path"] followed by \`\`\`lang\ncode\n\`\`\`.`;
 
+    const emoteRule = (window.useEmote !== false) ? 
+        `\n7. EMOTE RESPONSE RULE (MANDATORY): You MUST end your final response explanation with an emote tag (e.g. emote:trust, emote:joy, emote:def, emote:sad, emote:angr, emote:fear, emote:disgust, emote:surpr, emote:antici, emote:awe). NEVER omit the emote tag!` : ``;
+
+    const emoteReminder = (window.useEmote !== false) ? 
+        ` End response explanation text with an emote tag (e.g. emote:trust, emote:joy, emote:def). NEVER omit emote tag!` : ``;
+
     const fullRules = `
 [SYSTEM RULES]
-1. SEARCH: Never guess names/roles. Use [CMD: search-keyword "query"] or [CMD: list-dir "path"] first. If search fails 2-3x, ask user. Request multiple files in one turn: [REQUEST: read-file "path1"] [REQUEST: read-file "path2"].
-2. FILE OPS: Always read-file before editing. Never request read-file in the same turn as write/edit. After write/edit, wait for system feedback, and only request read-file/verify in the next turn to check correctness.
+1. SEARCH: Never guess names/roles. Use [CMD: search-keyword "query"] or [CMD: list-dir "path"] first. Read multiple files in one turn: [CMD: read-file "path1"] [CMD: read-file "path2"].
+2. FILE OPS: Always read-file before editing. Use [CMD: read-file "path"] directly to read files. Never read and write/edit in the same turn. After write/edit, wait for system feedback, and only request read-file/verify in the next turn to check correctness.
 ${editRule}
    - Delete/CreateDir/Move: [CMD: delete-file "path"], [CMD: create-dir "path"], [CMD: move-file "src" "dest"].
    - Sequential Output: When outputting or generating multiple files sequentially across turns, state the progress status below the code block (\`\`\`) at the end of your explanation text: Current: "path/fileA.ext", Next: "path/fileB.ext" (1/12).
 3. RUN CMD: [CMD: run-command "command"] (build, test, shell).
 4. RESET: Use [CMD: reset-session] if lagging.
 5. WAIT: Explain current state, do not plan, wait for user.
-6. LEAN CODE: Prefer minimal, simple implementation (YAGNI). Avoid over-engineering, redundant wrappers, or unused features. Maintain strict error handling and security.`;
+6. LEAN CODE: Prefer minimal, simple implementation (YAGNI). Avoid over-engineering, redundant wrappers, or unused features. Maintain strict error handling and security.${emoteRule}`;
 
     if (forceFull) {
         return fullRules;
     }
     return (window.preferFullWrite !== false) ?
-        "\n[REMINDER] Follow SystemRules.md. ALWAYS use [CMD: write-file] with FULL updated file content for file modifications. Output ONLY commands." :
-        "\n[REMINDER] Follow SystemRules.md. Edit format MUST include [SEARCH], [REPLACE], and [END] tags together in one turn. Never omit [REPLACE] or [END].";
+        `\n[REMINDER] Follow SystemRules.md. ALWAYS use [CMD: write-file] with FULL updated file content for file modifications. Output ONLY commands.${emoteReminder}` :
+        `\n[REMINDER] Follow SystemRules.md. Edit format MUST include [SEARCH], [REPLACE], and [END] tags together in one turn. Never omit [REPLACE] or [END].${emoteReminder}`;
 };

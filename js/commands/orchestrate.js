@@ -436,7 +436,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                             }
                             if (typeof window.showUserScreenToast === 'function') {
                                 const toastText = err ? `Command failed: "${c.command}"` : `Command executed: "${c.command}"`;
-                                window.showUserScreenToast(toastText, 3500);
+                                window.showUserScreenToast(toastText, 3500, !err);
                             }
                             accumulatedFeedback += `[COMMAND EXECUTION RESULT FOR "${c.command}"]: \n${output}\n\n`;
                             resolve();

@@ -349,7 +349,9 @@ function loadRecentProjects() {
     try {
         if (fs.existsSync(RECENT_PROJECTS_FILE)) {
             const data = JSON.parse(fs.readFileSync(RECENT_PROJECTS_FILE, 'utf-8'));
-            return Array.isArray(data) ? data.filter(p => p && p !== '__CLEAR__') : [];
+            if (Array.isArray(data)) {
+                return data.filter(p => p && p !== '__CLEAR__' && fs.existsSync(p));
+            }
         }
     } catch(e) {}
     return [];

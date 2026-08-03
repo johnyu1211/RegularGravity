@@ -16,6 +16,18 @@ async function fetchDirContent(dirPath) {
 }
 
 async function loadDirectory(targetPath, silent = false) {
+    if (targetPath !== 'DRIVES') {
+        const fs = require('fs');
+        if (!fs.existsSync(targetPath)) {
+            if (typeof window.showUserScreenToast === 'function' && !silent) {
+                window.showUserScreenToast(`Directory no longer exists: "${targetPath}"`, 4000, false);
+            }
+            if (typeof window.openProjectModal === 'function') {
+                window.openProjectModal();
+            }
+            return;
+        }
+    }
     window.currentPath = targetPath;
     if (targetPath === 'DRIVES') {
         if (window.loadDrives) await window.loadDrives();

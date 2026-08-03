@@ -4,8 +4,20 @@ window.projectRoot = null;
 window.selectProject = async (folderPath) => {
     if (!folderPath) return;
     
-    // Clean up any remaining _project_rules_ files in the target directory
     const fs = require('fs');
+    if (!fs.existsSync(folderPath)) {
+        if (typeof window.showUserScreenToast === 'function') {
+            window.showUserScreenToast(`Directory no longer exists: "${folderPath}"`, 4000, false);
+        }
+        try {
+            await ipcRenderer.invoke('remove-recent-project', folderPath);
+        } catch(e) {}
+        if (typeof openProjectModal === 'function') {
+            await openProjectModal(null, true);
+        }
+        return;
+    }
+    
     const path = require('path');
     try {
         const files = fs.readdirSync(folderPath);

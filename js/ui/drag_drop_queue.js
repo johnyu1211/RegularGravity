@@ -155,13 +155,19 @@ window.updateDragDropQueueUI = function() {
                     }
                     copyBtn.innerHTML = 'Copied!';
                     copyBtn.style.background = '#059669';
-                    setTimeout(() => {
-                        copyBtn.innerHTML = 'Copy';
-                        copyBtn.style.background = 'var(--primary)';
-                    }, 2000);
                     if (typeof window.showUserScreenToast === 'function') {
                         window.showUserScreenToast(`Copied "${fileName}"! Press Ctrl+V into AI chat.`, 2500, true);
                     }
+                    setTimeout(() => {
+                        if (typeof handleCloseQueue === 'function') {
+                            handleCloseQueue();
+                        } else if (containerEl) {
+                            containerEl.style.display = 'none';
+                            if (typeof syncBrowserView === 'function') syncBrowserView();
+                            window.toggleBackdropBlur(false);
+                            window.dragDropMode = false;
+                        }
+                    }, 400);
                 } catch(err) {}
             };
 

@@ -741,6 +741,7 @@ window.parseAndTriggerEmote = function(text, shouldTrigger = true) {
 
 // ====== CENTER EMOTE TRIGGER FUNCTION ======
 window.triggerCenterEmote = function(src) {
+    if (window.useEmote === false) return;
     const overlay = document.getElementById('center-emote-overlay');
     const card = document.getElementById('center-emote-card');
     const img = document.getElementById('center-emote-img');

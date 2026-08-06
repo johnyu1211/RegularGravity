@@ -153,6 +153,9 @@ async function setupBoot() {
     }
 
     const reCmdBtn = document.getElementById('taskbar-recmd-btn');
+    if (reCmdBtn && (!window.process || window.process.platform === 'browser')) {
+        reCmdBtn.style.display = 'none';
+    }
     if (reCmdBtn) {
         reCmdBtn.onclick = async () => {
             reCmdBtn.style.opacity = '0.5';

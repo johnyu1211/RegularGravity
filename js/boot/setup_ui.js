@@ -1963,13 +1963,14 @@ function setupUI() {
             const fs = require('fs');
             const path = require('path');
             
-            let tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
+            let rawTree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
+            let tree = (typeof rawTree === 'string') ? rawTree : '';
             if ((!tree || !tree.trim()) && window.activeWebDirHandle) {
                 const rootName = window.activeWebDirHandle.name || 'Project';
                 const fileKeys = Object.keys(window.webFileCache || {}).filter(k => !k.startsWith('.') && !k.includes('node_modules'));
                 tree = `${rootName}/\n` + (fileKeys.length > 0 ? fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n') : '  [Folder loaded]');
             }
-            const treeLines = (tree || '').split('\n').map(l => l.trim()).filter(Boolean);
+            const treeLines = tree.split('\n').map(l => l.trim()).filter(Boolean);
             window.totalFilesCount = treeLines.filter(l => !l.endsWith('/')).length;
             window.readFilesSet.clear();
             window.userMessageCount = 0;

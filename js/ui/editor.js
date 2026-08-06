@@ -1056,15 +1056,50 @@ window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = f
         const headerActions = document.getElementById('editor-header-actions');
         if (headerActions) headerActions.style.display = 'none';
 
+        const getMediaSrc = async (filePath, mimeType) => {
+            if (!window.process || window.process.platform === 'browser') {
+                const cleanP = filePath.replace(/\\/g, '/');
+                const fileName = cleanP.split('/').pop();
+                if (window.activeWebDirHandle) {
+                    try {
+                        const rootName = window.activeWebDirHandle.name;
+                        let currentHandle = window.activeWebDirHandle;
+                        if (cleanP !== rootName) {
+                            const relative = cleanP.replace(new RegExp('^' + rootName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[/\\\\]?'), '');
+                            const parts = relative.split(/[\\/]/).filter(Boolean);
+                            for (let i = 0; i < parts.length - 1; i++) {
+                                currentHandle = await currentHandle.getDirectoryHandle(parts[i]);
+                            }
+                            const fileHandle = await currentHandle.getFileHandle(parts[parts.length - 1]);
+                            const file = await fileHandle.getFile();
+                            return URL.createObjectURL(file);
+                        } else {
+                            const fileHandle = await currentHandle.getFileHandle(fileName);
+                            const file = await fileHandle.getFile();
+                            return URL.createObjectURL(file);
+                        }
+                    } catch(e) { console.warn("Media handle error:", e); }
+                }
+                const raw = (window.webFileCache && (window.webFileCache[cleanP] || window.webFileCache[fileName])) || '';
+                if (raw) {
+                    if (typeof raw === 'string' && raw.startsWith('data:')) return raw;
+                    const blob = new Blob([raw], { type: mimeType });
+                    return URL.createObjectURL(blob);
+                }
+            }
+            return `file:///${filePath.replace(/\\/g, '/')}`;
+        };
+
         if (ext === 'pdf') {
-            const fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+            const fileUrl = await getMediaSrc(filePath, 'application/pdf');
             editorContent.innerHTML = `<div id="editor-scroll-container" style="position: absolute; inset: 0; background:#0c0c0e;"><iframe src="${fileUrl}" style="width:100%; height:100%; border:none;"></iframe></div>`;
             return;
         }
 
         const videoExts = ['mp4', 'webm', 'ogv', 'mov', 'mkv'];
         if (videoExts.includes(ext)) {
-            const fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+            const mime = ext === 'mp4' ? 'video/mp4' : `video/${ext}`;
+            const fileUrl = await getMediaSrc(filePath, mime);
             editorContent.innerHTML = `
                 <div id="editor-scroll-container" style="position: absolute; inset: 0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#040406; padding: 24px; box-sizing:border-box;">
                     <div style="max-width: 90%; max-height: 85%; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.08); background: #000;">
@@ -1077,7 +1112,8 @@ window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = f
 
         const audioExts = ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'];
         if (audioExts.includes(ext)) {
-            const fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+            const mime = ext === 'mp3' ? 'audio/mpeg' : `audio/${ext}`;
+            const fileUrl = await getMediaSrc(filePath, mime);
             editorContent.innerHTML = `
                 <div id="editor-scroll-container" style="position: absolute; inset: 0; display:flex; justify-content:center; align-items:center; background:var(--bg-color); font-family:'DM Sans', 'Outfit', sans-serif; padding:20px; box-sizing:border-box;">
                     <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 36px 44px; display: flex; flex-direction: column; align-items: center; text-align: center; width: 380px; box-shadow: 0 20px 50px rgba(0,0,0,0.4);">
@@ -1117,9 +1153,13 @@ window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = f
         }
 
         if (imageExts.includes(ext)) {
-            const base64 = fs.readFileSync(filePath).toString('base64');
-            const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
-            
+            const mime = ext === 'svg' ? 'image/svg+xml' : (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`);
+            let imgSrc = await getMediaSrc(filePath, mime);
+            if (!imgSrc || (!imgSrc.startsWith('data:') && !imgSrc.startsWith('blob:') && !imgSrc.startsWith('file:'))) {
+                const base64 = fs.readFileSync(filePath).toString('base64');
+                imgSrc = `data:${mime};base64,${base64}`;
+            }
+
             editorContent.innerHTML = `
                 <div id="image-viewer-wrapper" style="position: absolute; inset: 0; background: #050505; display: flex; flex-direction: column; overflow: hidden; user-select: none;">
                     <!-- Floating Control Toolbar -->
@@ -1133,7 +1173,7 @@ window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = f
 
                     <!-- Image Pan/Zoom Container -->
                     <div id="image-zoom-container" style="flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; cursor: grab;">
-                        <img id="image-target-el" src="data:${mime};base64,${base64}" style="max-width: 90%; max-height: 90%; object-fit: contain; transform-origin: center center; transition: transform 0.05s ease-out; box-shadow: 0 8px 32px rgba(0,0,0,0.6); pointer-events: auto;">
+                        <img id="image-target-el" src="${imgSrc}" style="max-width: 90%; max-height: 90%; object-fit: contain; transform-origin: center center; transition: transform 0.05s ease-out; box-shadow: 0 8px 32px rgba(0,0,0,0.6); pointer-events: auto;">
                     </div>
                 </div>
             `;

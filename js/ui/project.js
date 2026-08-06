@@ -87,30 +87,67 @@ async function openProjectModal(newItemPath = null, isRefresh = false) {
     if (!modal) return;
     modal.style.display = 'flex';
 
+    const isBrowser = (!window.process || window.process.platform === 'browser');
     const recents = await ipcRenderer.invoke('get-recent-projects');
     const list = document.getElementById('recent-projects-list');
-    if (!list) return;
+    const recentsSection = list ? list.parentElement : null;
+    const addRecentBtn = document.getElementById('picker-add-recent-btn');
+    const refreshBtn = document.getElementById('picker-refresh-btn');
+    const browseBtn = document.getElementById('picker-browse-btn');
+    const footerBtns = browseBtn ? browseBtn.parentElement : null;
 
-    if (!recents || recents.length === 0) {
-        list.innerHTML = `<div style="font-size:12px; color:#777; padding:10px 0; font-family:'JetBrains Mono',monospace; text-align:center;">No recent projects</div>`;
+    if (isBrowser) {
+        if (recentsSection) recentsSection.style.display = 'none';
+        if (addRecentBtn) addRecentBtn.style.display = 'none';
+        if (refreshBtn) refreshBtn.style.display = 'none';
+        if (footerBtns) {
+            footerBtns.style.justifyContent = 'center';
+            footerBtns.style.padding = '36px 28px 44px';
+        }
+        if (browseBtn) {
+            browseBtn.style.padding = '14px 42px';
+            browseBtn.style.fontSize = '15px';
+            browseBtn.style.width = '100%';
+            browseBtn.style.maxWidth = '300px';
+            browseBtn.style.boxShadow = '0 8px 24px rgba(70, 140, 246, 0.35)';
+        }
     } else {
-        list.innerHTML = recents.map((p, i) => {
-            const name = p.split(/[\\/]/).pop() || p;
-            const short = p.length > 48 ? '...' + p.slice(-45) : p;
-            const isNew = newItemPath && (p === newItemPath || (typeof p === 'string' && p.toLowerCase() === newItemPath.toLowerCase()));
-            const animClass = isRefresh ? 'recent-item-stagger' : (isNew ? 'recent-item-new' : '');
-            const delayStyle = isRefresh ? `style="animation-delay: ${i * 0.04}s;"` : '';
-
-            return `<div data-path="${p}" class="recent-project-item ${animClass}" ${delayStyle} onclick="window.selectProject(this.getAttribute('data-path'))">
-                <div style="min-width:0;">
-                    <div class="recent-project-title" style="font-size:13px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition: color 0.2s;">${name}</div>
-                    <div class="recent-project-path" style="font-size:10.5px; color:var(--text-muted); font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px; transition: color 0.2s;">${short}</div>
-                </div>
-            </div>`;
-        }).join('');
+        if (recentsSection) recentsSection.style.display = 'block';
+        if (addRecentBtn) addRecentBtn.style.display = 'inline-block';
+        if (refreshBtn) refreshBtn.style.display = 'inline-block';
+        if (footerBtns) {
+            footerBtns.style.justifyContent = 'flex-end';
+            footerBtns.style.padding = '16px 28px 24px';
+        }
+        if (browseBtn) {
+            browseBtn.style.padding = '10px 22px';
+            browseBtn.style.fontSize = '13px';
+            browseBtn.style.width = 'auto';
+            browseBtn.style.boxShadow = 'none';
+        }
     }
 
-    const addRecentBtn = document.getElementById('picker-add-recent-btn');
+    if (list) {
+        if (!recents || recents.length === 0) {
+            list.innerHTML = `<div style="font-size:12px; color:#777; padding:10px 0; font-family:'JetBrains Mono',monospace; text-align:center;">No recent projects</div>`;
+        } else {
+            list.innerHTML = recents.map((p, i) => {
+                const name = p.split(/[\\/]/).pop() || p;
+                const short = p.length > 48 ? '...' + p.slice(-45) : p;
+                const isNew = newItemPath && (p === newItemPath || (typeof p === 'string' && p.toLowerCase() === newItemPath.toLowerCase()));
+                const animClass = isRefresh ? 'recent-item-stagger' : (isNew ? 'recent-item-new' : '');
+                const delayStyle = isRefresh ? `style="animation-delay: ${i * 0.04}s;"` : '';
+
+                return `<div data-path="${p}" class="recent-project-item ${animClass}" ${delayStyle} onclick="window.selectProject(this.getAttribute('data-path'))">
+                    <div style="min-width:0;">
+                        <div class="recent-project-title" style="font-size:13px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition: color 0.2s;">${name}</div>
+                        <div class="recent-project-path" style="font-size:10.5px; color:var(--text-muted); font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px; transition: color 0.2s;">${short}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    }
+
     if (addRecentBtn) {
         addRecentBtn.onclick = async () => {
             if (typeof window.showDirectoryPicker === 'function' && (!window.process || window.process.platform === 'browser')) {
@@ -174,7 +211,6 @@ async function openProjectModal(newItemPath = null, isRefresh = false) {
         };
     }
 
-    const browseBtn = document.getElementById('picker-browse-btn');
     if (browseBtn) {
         browseBtn.onclick = async () => {
             if (typeof window.showDirectoryPicker === 'function' && (!window.process || window.process.platform === 'browser')) {
@@ -201,7 +237,6 @@ async function openProjectModal(newItemPath = null, isRefresh = false) {
         };
     }
 
-    const refreshBtn = document.getElementById('picker-refresh-btn');
     if (refreshBtn) {
         // Maintain cooling state on refresh button
         if (window._isPickerRefreshCooling) {

@@ -949,7 +949,7 @@ window.pasteToBlock = async (syncId, event) => {
     }
 };
 
-window.openFileInEditor = (filePath, targetScrollTop = null, startInEditMode = false) => {
+window.openFileInEditor = async (filePath, targetScrollTop = null, startInEditMode = false) => {
     if (window.activeFileWatcherPath !== filePath) {
         try {
             if (window.activeFileWatcher) window.activeFileWatcher.close();

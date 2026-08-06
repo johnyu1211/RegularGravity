@@ -162,6 +162,32 @@
                 if (minBtn) minBtn.style.display = 'none';
                 if (maxBtn) maxBtn.style.display = 'none';
                 if (closeBtn) closeBtn.style.display = 'none';
+
+                const resetTimeSection = document.getElementById('gemini-usage-badge-section');
+                const percentTextEl = document.getElementById('gemini-usage-percent-text');
+                const gaugeBar = document.getElementById('gemini-usage-gauge-bar');
+                const gaugeBg = document.getElementById('gemini-usage-gauge-bg');
+
+                if (resetTimeSection) resetTimeSection.style.display = 'none';
+                if (gaugeBar) {
+                    gaugeBar.classList.remove('usage-loading-shimmer');
+                    gaugeBar.style.background = 'rgba(70, 140, 246, 0.15)';
+                }
+                if (gaugeBg) {
+                    gaugeBg.style.width = 'auto';
+                    gaugeBg.style.padding = '0 12px';
+                }
+                if (percentTextEl) {
+                    percentTextEl.innerHTML = `<span style="font-size: 11px; font-weight: 700; color: #468CF6; font-family: 'DM Sans', sans-serif;">View Usage</span>`;
+                }
+
+                const geminiBtn = document.getElementById('gemini-usage-toggle-btn');
+                if (geminiBtn) {
+                    geminiBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        window.open('https://aistudio.google.com/live', '_blank');
+                    };
+                }
             });
         }
     </script>

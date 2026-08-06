@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>GRAVITY</title>
     <link rel="icon" type="image/png" href="icon.png">
-    <link rel="stylesheet" href="style.css?v=1.2.0">
+    <link rel="stylesheet" href="style.css?v=1.2.1">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <script>
         var _module = typeof module !== 'undefined' ? module : undefined;
@@ -115,17 +115,112 @@
                                 window.webFileCache = window.webFileCache || {};
                                 window.webFileCache[cleanP] = content;
                                 window.webFileCache[fileName] = content;
+                                if (window.activeWebDirHandle && typeof window.saveFileToWebDirectory === 'function') {
+                                    window.saveFileToWebDirectory(cleanP, content).catch(e => {});
+                                }
                             }
                         },
                         mkdirSync: function() {},
                         readdirSync: function() { return []; },
                         statSync: function() { return { isDirectory: () => false }; },
-                        unlinkSync: function() {}
+                        unlinkSync: function(p) {
+                            if (typeof p === 'string') {
+                                const cleanP = p.replace(/\\/g, '/');
+                                const fileName = cleanP.split('/').pop();
+                                if (window.webFileCache) {
+                                    delete window.webFileCache[cleanP];
+                                    delete window.webFileCache[fileName];
+                                }
+                                if (window.activeWebDirHandle && typeof window.deleteFileFromWebDirectory === 'function') {
+                                    window.deleteFileFromWebDirectory(cleanP).catch(e => {});
+                                }
+                            }
+                        },
+                        rmSync: function(p) {
+                            if (typeof p === 'string') {
+                                const cleanP = p.replace(/\\/g, '/');
+                                const fileName = cleanP.split('/').pop();
+                                if (window.webFileCache) {
+                                    delete window.webFileCache[cleanP];
+                                    delete window.webFileCache[fileName];
+                                }
+                                if (window.activeWebDirHandle && typeof window.deleteFileFromWebDirectory === 'function') {
+                                    window.deleteFileFromWebDirectory(cleanP).catch(e => {});
+                                }
+                            }
+                        }
                     };
                 }
                 return {};
             };
         }
+
+        window.saveFileToWebDirectory = async function(filePath, content) {
+            if (!window.activeWebDirHandle) return false;
+            try {
+                const cleanP = String(filePath).replace(/\\/g, '/');
+                const rootName = window.activeWebDirHandle.name || 'Project';
+                let relative = cleanP;
+                if (cleanP.startsWith(rootName + '/')) {
+                    relative = cleanP.slice(rootName.length + 1);
+                }
+                const parts = relative.split('/').filter(Boolean);
+                let currentHandle = window.activeWebDirHandle;
+
+                for (let i = 0; i < parts.length - 1; i++) {
+                    currentHandle = await currentHandle.getDirectoryHandle(parts[i], { create: true });
+                }
+
+                const fileName = parts[parts.length - 1];
+                const fileHandle = await currentHandle.getFileHandle(fileName, { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(content);
+                await writable.close();
+
+                window.webFileCache = window.webFileCache || {};
+                window.webFileCache[cleanP] = content;
+                window.webFileCache[fileName] = content;
+                window.webFileCache[relative] = content;
+
+                console.log(`[saveFileToWebDirectory] Successfully saved to local disk: ${relative}`);
+                return true;
+            } catch(err) {
+                console.error("[saveFileToWebDirectory] Disk save error:", err);
+                return false;
+            }
+        };
+
+        window.deleteFileFromWebDirectory = async function(filePath) {
+            if (!window.activeWebDirHandle) return false;
+            try {
+                const cleanP = String(filePath).replace(/\\/g, '/');
+                const rootName = window.activeWebDirHandle.name || 'Project';
+                let relative = cleanP;
+                if (cleanP.startsWith(rootName + '/')) {
+                    relative = cleanP.slice(rootName.length + 1);
+                }
+                const parts = relative.split('/').filter(Boolean);
+                let currentHandle = window.activeWebDirHandle;
+
+                for (let i = 0; i < parts.length - 1; i++) {
+                    currentHandle = await currentHandle.getDirectoryHandle(parts[i]);
+                }
+
+                const fileName = parts[parts.length - 1];
+                await currentHandle.removeEntry(fileName);
+
+                if (window.webFileCache) {
+                    delete window.webFileCache[cleanP];
+                    delete window.webFileCache[fileName];
+                    delete window.webFileCache[relative];
+                }
+                console.log(`[deleteFileFromWebDirectory] Successfully deleted from local disk: ${relative}`);
+                return true;
+            } catch(err) {
+                console.error("[deleteFileFromWebDirectory] Disk delete error:", err);
+                return false;
+            }
+        };
         if (typeof window.process === 'undefined') {
             window.process = { cwd: function() { return '.'; }, platform: 'browser', env: {} };
         }
@@ -1332,26 +1427,26 @@
     <script src="js/webview/usage_crawler.js"></script>
 
     <!-- UI Modules -->
-    <script src="js/ui/dialogs.js?v=1.2.0"></script>
-    <script src="js/ui/project.js?v=1.2.0"></script>
-    <script src="js/ui/terminal.js?v=1.2.0"></script>
-    <script src="js/ui/editor.js?v=1.2.0"></script>
-    <script src="js/ui/chat.js?v=1.2.0"></script>
-    <script src="js/ui/graph_view.js?v=1.2.0"></script>
-    <script src="js/ui/drag_drop_queue.js?v=1.2.0"></script>
-    <script src="js/ui/command_panel.js?v=1.2.0"></script>
-    <script src="js/ui/explorer.js?v=1.2.0"></script>
-    <script src="js/ui/ai_renderer.js?v=1.2.0"></script>
+    <script src="js/ui/dialogs.js?v=1.2.1"></script>
+    <script src="js/ui/project.js?v=1.2.1"></script>
+    <script src="js/ui/terminal.js?v=1.2.1"></script>
+    <script src="js/ui/editor.js?v=1.2.1"></script>
+    <script src="js/ui/chat.js?v=1.2.1"></script>
+    <script src="js/ui/graph_view.js?v=1.2.1"></script>
+    <script src="js/ui/drag_drop_queue.js?v=1.2.1"></script>
+    <script src="js/ui/command_panel.js?v=1.2.1"></script>
+    <script src="js/ui/explorer.js?v=1.2.1"></script>
+    <script src="js/ui/ai_renderer.js?v=1.2.1"></script>
 
     <!-- Commands Orchestration -->
-    <script src="js/commands/detect.js?v=1.2.0"></script>
-    <script src="js/commands/orchestrate.js?v=1.2.0"></script>
+    <script src="js/commands/detect.js?v=1.2.1"></script>
+    <script src="js/commands/orchestrate.js?v=1.2.1"></script>
 
     <!-- Boot Setup Modules -->
-    <script src="js/boot/setup_boot.js?v=1.2.0"></script>
-    <script src="js/boot/setup_ui.js?v=1.2.0"></script>
+    <script src="js/boot/setup_boot.js?v=1.2.1"></script>
+    <script src="js/boot/setup_ui.js?v=1.2.1"></script>
 
     <!-- Main Entry Point -->
-    <script src="js/main_ui.js?v=1.2.0"></script>
+    <script src="js/main_ui.js?v=1.2.1"></script>
 </body>
 </html>

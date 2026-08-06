@@ -42,7 +42,10 @@
                             setZoomFactor: function() {},
                             getZoomFactor: function() { return 1; }
                         },
-                        shell: { openPath: function() {}, openExternal: function() {} }
+                        shell: {
+                            openPath: function() {},
+                            openExternal: function(url) { if (url) window.open(url, '_blank'); }
+                        }
                     };
                 }
                 if (mod === 'path') {
@@ -149,6 +152,18 @@
         if (typeof _module !== 'undefined') module = _module;
         if (typeof _exports !== 'undefined') exports = _exports;
         if (typeof _require !== 'undefined') require = _require;
+
+        if (typeof window.process === 'undefined' || window.process.platform === 'browser') {
+            window.isWebMode = true;
+            document.addEventListener('DOMContentLoaded', () => {
+                const minBtn = document.getElementById('win-min');
+                const maxBtn = document.getElementById('win-max');
+                const closeBtn = document.getElementById('win-close');
+                if (minBtn) minBtn.style.display = 'none';
+                if (maxBtn) maxBtn.style.display = 'none';
+                if (closeBtn) closeBtn.style.display = 'none';
+            });
+        }
     </script>
     <script src="file-utils.js"></script>
     <script src="tree-view.js"></script>

@@ -48,9 +48,30 @@
                 if (mod === 'path') {
                     return {
                         join: function(...args) { return args.filter(Boolean).join('/').replace(/\/+/g, '/'); },
-                        dirname: function(p) { return p ? p.split('/').slice(0, -1).join('/') || '.' : '.'; },
-                        basename: function(p) { return p ? p.split('/').pop() : ''; },
-                        extname: function(p) { return p && p.includes('.') ? '.' + p.split('.').pop() : ''; }
+                        dirname: function(p) { return p ? p.split(/[\\/]/).slice(0, -1).join('/') || '.' : '.'; },
+                        basename: function(p, ext) {
+                            if (!p) return '';
+                            let base = p.split(/[\\/]/).pop();
+                            if (ext && base.endsWith(ext)) base = base.slice(0, -ext.length);
+                            return base;
+                        },
+                        extname: function(p) { return p && p.includes('.') ? '.' + p.split('.').pop() : ''; },
+                        relative: function(from, to) {
+                            if (!from || !to) return to || '';
+                            const cleanFrom = from.replace(/\\/g, '/').split('/').filter(Boolean);
+                            const cleanTo = to.replace(/\\/g, '/').split('/').filter(Boolean);
+                            let i = 0;
+                            while (i < cleanFrom.length && i < cleanTo.length && cleanFrom[i] === cleanTo[i]) {
+                                i++;
+                            }
+                            const upCount = cleanFrom.length - i;
+                            const relParts = Array(upCount).fill('..').concat(cleanTo.slice(i));
+                            return relParts.join('/') || '.';
+                        },
+                        resolve: function(...args) { return args.filter(Boolean).join('/').replace(/\/+/g, '/'); },
+                        normalize: function(p) { return p ? p.replace(/\\/g, '/').replace(/\/+/g, '/') : ''; },
+                        isAbsolute: function(p) { return p ? p.startsWith('/') || /^[a-zA-Z]:/.test(p) : false; },
+                        sep: '/'
                     };
                 }
                 if (mod === 'fs') {

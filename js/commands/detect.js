@@ -427,15 +427,6 @@ function detectAndAskCommand(text) {
             const ext = f.path.split('.').pop().toLowerCase();
             mergedContent += "## [FILE DATA: " + f.path + "]\n```" + ext + "\n" + fileContent + "\n```\n\n";
         });
-        
-        const baseFileName = window.makeSendingMdBundleName(readCmds.map(f => f.path));
-        window.prepareFilePayload(baseFileName, mergedContent).then(payload => {
-            if (typeof window.addFileToRequestedQueue === 'function') {
-                window.addFileToRequestedQueue(payload.relativePath);
-            }
-        }).catch(e => {
-            console.error("Failed to prepare read bundle file:", e);
-        });
     }
     
     // Missing files handling is done inside runRead with clear user error notification

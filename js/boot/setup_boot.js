@@ -17,10 +17,19 @@ async function setupBoot() {
     const runManualCmd = document.getElementById('run-manual-cmd');
 
     const getLatestAiMsgText = async () => {
-        const aiBubbles = Array.from(document.querySelectorAll('.chat-bubble.ai, .chat-bubble[data-role="ai"]'));
+        const aiBubbles = Array.from(document.querySelectorAll('.chat-bubble.ai, .chat-bubble[data-role="ai"], .chat-message-ai'));
         if (aiBubbles.length > 0) {
+            for (let i = aiBubbles.length - 1; i >= 0; i--) {
+                const contentEl = aiBubbles[i].querySelector('.bubble-content') || aiBubbles[i];
+                if (contentEl) {
+                    const txt = contentEl.dataset.rawText || contentEl.innerText || contentEl.textContent || '';
+                    if (txt.includes('[CMD:') || txt.includes('[REQUEST:') || txt.includes('```') || /\b(create-dir|mkdir|write-file|read-file|edit-file|delete-file|run-command)\b/i.test(txt)) {
+                        return txt.trim();
+                    }
+                }
+            }
             const lastBubble = aiBubbles[aiBubbles.length - 1];
-            const contentEl = lastBubble.querySelector('.bubble-content');
+            const contentEl = lastBubble.querySelector('.bubble-content') || lastBubble;
             if (contentEl) {
                 const txt = contentEl.dataset.rawText || contentEl.innerText || contentEl.textContent || '';
                 if (txt.trim()) return txt.trim();
@@ -38,7 +47,7 @@ async function setupBoot() {
                             const cmdMatched = topElems.filter(el => {
                                 try {
                                     const t = el.innerText || el.textContent || '';
-                                    return t.includes('[CMD:') || t.includes('[REQUEST:') || t.includes('\`\`\`');
+                                    return t.includes('[CMD:') || t.includes('[REQUEST:') || t.includes('\`\`\`') || /\\b(create-dir|mkdir|write-file|read-file|edit-file|delete-file|run-command)\\b/i.test(t);
                                 } catch(e) { return false; }
                             });
                             if (cmdMatched.length > 0) {

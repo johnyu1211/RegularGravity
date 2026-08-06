@@ -146,10 +146,11 @@ function stopUsageMatrixShuffle() {}
 
 window.fetchGeminiUsagePercent = function() {
     if (!window.process || window.process.platform === 'browser') {
-        if (typeof window.showUserScreenToast === 'function') {
-            window.showUserScreenToast('Opening Gemini AI Studio in new tab...', 3000, true);
+        if (typeof window.createWebPopover === 'function') {
+            window.createWebPopover('https://aistudio.google.com/live', 'Gemini AI Studio Usage');
+        } else {
+            window.open('https://aistudio.google.com/live', '_blank');
         }
-        window.open('https://aistudio.google.com/live', '_blank');
         return;
     }
     try {

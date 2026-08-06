@@ -135,6 +135,25 @@ async function openProjectModal(newItemPath = null, isRefresh = false) {
     const browseBtn = document.getElementById('picker-browse-btn');
     if (browseBtn) {
         browseBtn.onclick = async () => {
+            if (typeof window.showDirectoryPicker === 'function' && (!window.process || window.process.platform === 'browser')) {
+                try {
+                    const dirHandle = await window.showDirectoryPicker();
+                    if (dirHandle) {
+                        window.webFileCache = {};
+                        window.activeWebDirHandle = dirHandle;
+                        if (typeof window.showUserScreenToast === 'function') {
+                            window.showUserScreenToast(`Loading folder "${dirHandle.name}"...`, 3000, true);
+                        }
+                        if (typeof window.cacheWebDirectory === 'function') {
+                            await window.cacheWebDirectory(dirHandle, dirHandle.name);
+                        }
+                        window.selectProject(dirHandle.name);
+                    }
+                } catch(e) {
+                    console.log("Directory picker canceled:", e);
+                }
+                return;
+            }
             const selected = await ipcRenderer.invoke('select-folder-dialog');
             if (selected) window.selectProject(selected);
         };

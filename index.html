@@ -49,11 +49,23 @@
                 }
                 if (mod === 'fs') {
                     return {
-                        existsSync: function() { return false; },
-                        readFileSync: function() { return ''; },
-                        writeFileSync: function() {},
+                        existsSync: function(p) { return true; },
+                        readFileSync: function(p) {
+                            if (typeof p !== 'string') return '';
+                            const cleanP = p.replace(/\\/g, '/');
+                            const fileName = cleanP.split('/').pop();
+                            return (window.webFileCache && (window.webFileCache[cleanP] || window.webFileCache[fileName])) || '';
+                        },
+                        writeFileSync: function(p, content) {
+                            if (typeof p === 'string') {
+                                const cleanP = p.replace(/\\/g, '/');
+                                window.webFileCache = window.webFileCache || {};
+                                window.webFileCache[cleanP] = content;
+                            }
+                        },
                         readdirSync: function() { return []; },
-                        statSync: function() { return { isDirectory: () => false }; }
+                        statSync: function() { return { isDirectory: () => false }; },
+                        unlinkSync: function() {}
                     };
                 }
                 return {};
@@ -62,6 +74,27 @@
         if (typeof window.process === 'undefined') {
             window.process = { cwd: function() { return '.'; }, platform: 'browser', env: {} };
         }
+
+        window.webFileCache = window.webFileCache || {};
+        window.cacheWebDirectory = async function(dirHandle, pathPrefix = '') {
+            try {
+                for await (const entry of dirHandle.values()) {
+                    const fullPath = pathPrefix ? `${pathPrefix}/${entry.name}` : entry.name;
+                    if (entry.kind === 'directory') {
+                        if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
+                            await window.cacheWebDirectory(entry, fullPath);
+                        }
+                    } else if (entry.kind === 'file') {
+                        try {
+                            const file = await entry.getFile();
+                            const text = await file.text();
+                            window.webFileCache[fullPath] = text;
+                            window.webFileCache[entry.name] = text;
+                        } catch(e) {}
+                    }
+                }
+            } catch(e) { console.error("Web directory cache error:", e); }
+        };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">

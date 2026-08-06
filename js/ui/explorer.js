@@ -1,4 +1,29 @@
-window.fetchDirContent = async (p) => await ipcRenderer.invoke('get-directory-content', p);
+window.fetchDirContent = async (p) => {
+    if (window.activeWebDirHandle && (!window.process || window.process.platform === 'browser')) {
+        try {
+            const files = [];
+            let currentHandle = window.activeWebDirHandle;
+            const rootName = window.activeWebDirHandle.name;
+            if (p && p !== rootName && p !== 'DRIVES') {
+                const relative = p.replace(new RegExp('^' + rootName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[/\\\\]?'), '');
+                const parts = relative.split(/[\\/]/).filter(Boolean);
+                for (const part of parts) {
+                    currentHandle = await currentHandle.getDirectoryHandle(part);
+                }
+            }
+            for await (const entry of currentHandle.values()) {
+                files.push({
+                    name: entry.name,
+                    isDir: entry.kind === 'directory'
+                });
+            }
+            return files;
+        } catch(e) {
+            console.warn("Web directory fetch fallback:", e);
+        }
+    }
+    return await ipcRenderer.invoke('get-directory-content', p);
+};
 
 function formatPathDisplay(pathStr) {
     if (pathStr === 'DRIVES') return 'THIS PC';

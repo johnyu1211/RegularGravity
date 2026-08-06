@@ -373,7 +373,14 @@ async function setupBoot() {
 
                 if ((!projectTree || !projectTree.trim()) && window.activeWebDirHandle) {
                     const rootName = window.activeWebDirHandle.name || 'Project';
-                    const fileKeys = Object.keys(window.webFileCache || {}).filter(k => !k.startsWith('.') && !k.includes('node_modules'));
+                    const fileKeys = Object.keys(window.webFileCache || {}).filter(k => 
+                        !k.startsWith('.') && 
+                        !k.includes('node_modules') && 
+                        !k.includes('SendingMD') && 
+                        !k.includes('FollowThisORDER') && 
+                        !k.includes('Files_') && 
+                        !k.includes('ListDir_')
+                    );
                     projectTree = `${rootName}/\n` + (fileKeys.length > 0 ? fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n') : '  [Folder loaded]');
                 }
 

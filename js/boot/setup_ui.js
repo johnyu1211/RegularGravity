@@ -1967,7 +1967,14 @@ function setupUI() {
             let tree = (typeof rawTree === 'string') ? rawTree : '';
             if ((!tree || !tree.trim()) && window.activeWebDirHandle) {
                 const rootName = window.activeWebDirHandle.name || 'Project';
-                const fileKeys = Object.keys(window.webFileCache || {}).filter(k => !k.startsWith('.') && !k.includes('node_modules'));
+                const fileKeys = Object.keys(window.webFileCache || {}).filter(k => 
+                    !k.startsWith('.') && 
+                    !k.includes('node_modules') && 
+                    !k.includes('SendingMD') && 
+                    !k.includes('FollowThisORDER') && 
+                    !k.includes('Files_') && 
+                    !k.includes('ListDir_')
+                );
                 tree = `${rootName}/\n` + (fileKeys.length > 0 ? fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n') : '  [Folder loaded]');
             }
             const treeLines = tree.split('\n').map(l => l.trim()).filter(Boolean);

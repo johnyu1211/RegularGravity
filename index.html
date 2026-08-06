@@ -194,11 +194,13 @@
 
                 const gitToggleBtn = document.getElementById('git-toggle-btn');
                 const termToggleBtn = document.getElementById('terminal-toggle-btn');
+                const divider = document.getElementById('editor-status-divider');
                 const statusBar = document.getElementById('editor-status-bar');
 
                 if (gitToggleBtn) gitToggleBtn.style.right = '112px';
                 if (termToggleBtn) termToggleBtn.style.right = '148px';
-                if (statusBar) statusBar.style.paddingRight = '190px';
+                if (divider) divider.style.right = '188px';
+                if (statusBar) statusBar.style.paddingRight = '195px';
             });
         }
     </script>
@@ -538,7 +540,7 @@
             </div>
 
             <!-- Vertical Divider -->
-            <div style="position: absolute; right: 242px; bottom: 10px; height: 24px; width: 1px; background: var(--border-color); z-index: 1001;"></div>
+            <div id="editor-status-divider" style="position: absolute; right: 242px; bottom: 10px; height: 24px; width: 1px; background: var(--border-color); z-index: 1001;"></div>
 
             <!-- Floating GitHub Popover Trigger -->
             <div id="git-toggle-btn" title="Toggle GitHub Git Integration" style="position: absolute; right: 165px; bottom: 5px; z-index: 1001; width: 34px; height: 34px; border-radius: 50%; background: transparent; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(255, 255, 255, 0.45); box-shadow: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.85;">

@@ -111,10 +111,13 @@
                         writeFileSync: function(p, content) {
                             if (typeof p === 'string') {
                                 const cleanP = p.replace(/\\/g, '/');
+                                const fileName = cleanP.split('/').pop();
                                 window.webFileCache = window.webFileCache || {};
                                 window.webFileCache[cleanP] = content;
+                                window.webFileCache[fileName] = content;
                             }
                         },
+                        mkdirSync: function() {},
                         readdirSync: function() { return []; },
                         statSync: function() { return { isDirectory: () => false }; },
                         unlinkSync: function() {}

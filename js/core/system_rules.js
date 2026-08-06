@@ -1,4 +1,12 @@
 window.getSystemRulesPrompt = function(forceFull = false) {
+    const isBrowserMode = !!(
+        window.isWebMode || 
+        (typeof window.require === 'undefined') || 
+        (typeof window.process !== 'undefined' && window.process && window.process.platform === 'browser') ||
+        (typeof window.process === 'undefined')
+    );
+    const isEmoteEnabled = (window.useEmote !== false) && !isBrowserMode;
+
     const editRule = (window.preferFullWrite !== false) ? 
         `   - File Modification (Full Replacement): To modify or update any file, MUST output the FULL complete updated code using [CMD: write-file "path"] followed by \`\`\`lang\nfull_code\n\`\`\`. Do NOT use partial edit-file snippets.
    - Modularization: Files up to 100-500 lines are fine. Before a file grows too large (500+ lines), proactively refactor and split code into separate modular files and folders.` :
@@ -11,10 +19,10 @@ window.getSystemRulesPrompt = function(forceFull = false) {
      [END]
    - Write: [CMD: write-file "path"] followed by \`\`\`lang\ncode\n\`\`\`.`;
 
-    const emoteRule = (window.useEmote !== false) ? 
+    const emoteRule = isEmoteEnabled ? 
         `\n7. EMOTE RESPONSE RULE (MANDATORY): You MUST end your final response explanation with an emote tag (e.g. emote:trust, emote:joy, emote:def, emote:sad, emote:angr, emote:fear, emote:disgust, emote:surpr, emote:antici, emote:awe). NEVER omit the emote tag!` : ``;
 
-    const emoteReminder = (window.useEmote !== false) ? 
+    const emoteReminder = isEmoteEnabled ? 
         ` End response explanation text with an emote tag (e.g. emote:trust, emote:joy, emote:def). NEVER omit emote tag!` : ``;
 
     const fullRules = `

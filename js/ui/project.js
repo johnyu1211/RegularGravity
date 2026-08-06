@@ -99,6 +99,34 @@ async function openProjectModal(newItemPath = null, isRefresh = false) {
     const addRecentBtn = document.getElementById('picker-add-recent-btn');
     if (addRecentBtn) {
         addRecentBtn.onclick = async () => {
+            if (typeof window.showDirectoryPicker === 'function' && (!window.process || window.process.platform === 'browser')) {
+                try {
+                    const dirHandle = await window.showDirectoryPicker();
+                    if (dirHandle) {
+                        window.webFileCache = {};
+                        window.activeWebDirHandle = dirHandle;
+                        window.webDirectoryHandles = window.webDirectoryHandles || {};
+                        window.webDirectoryHandles[dirHandle.name] = dirHandle;
+                        if (typeof window.cacheWebDirectory === 'function') {
+                            await window.cacheWebDirectory(dirHandle, dirHandle.name);
+                        }
+                        let recents = [];
+                        try { recents = JSON.parse(localStorage.getItem('recent_projects') || '[]'); } catch(e) {}
+                        if (!Array.isArray(recents)) recents = [];
+                        recents = recents.filter(p => p !== dirHandle.name);
+                        recents.unshift(dirHandle.name);
+                        if (recents.length > 10) recents = recents.slice(0, 10);
+                        localStorage.setItem('recent_projects', JSON.stringify(recents));
+
+                        if (typeof openProjectModal === 'function') {
+                            await openProjectModal(dirHandle.name, true);
+                        }
+                    }
+                } catch(e) {
+                    console.log("Directory picker canceled:", e);
+                }
+                return;
+            }
             let parentDir = null;
             if (window._lastAddRecentPath) {
                 try {

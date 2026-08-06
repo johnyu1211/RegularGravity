@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>GRAVITY</title>
     <link rel="icon" type="image/png" href="icon.png">
-    <link rel="stylesheet" href="style.css?v=1.2.5">
+    <link rel="stylesheet" href="style.css?v=1.2.6">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <script>
         var _module = typeof module !== 'undefined' ? module : undefined;
@@ -121,7 +121,11 @@
                                 }
                             }
                         },
-                        mkdirSync: function() {},
+                        mkdirSync: function(p) {
+                            if (typeof p === 'string' && window.activeWebDirHandle && typeof window.createDirectoryInWebDirectory === 'function') {
+                                window.createDirectoryInWebDirectory(p).catch(e => {});
+                            }
+                        },
                         readdirSync: function() { return []; },
                         statSync: function() { return { isDirectory: () => false }; },
                         unlinkSync: function(p) {
@@ -237,7 +241,36 @@
                 console.warn("[deleteFileFromWebDirectory] Disk delete warning:", err.message);
                 return false;
             }
+        window.createDirectoryInWebDirectory = async function(dirPath) {
+            if (!window.activeWebDirHandle) return false;
+            try {
+                let cleanP = String(dirPath || '').replace(/\\/g, '/').trim();
+                const rootName = window.activeWebDirHandle.name || '';
+                cleanP = cleanP.replace(/^[a-zA-Z]:[/]/, '');
+
+                if (rootName && cleanP.startsWith(rootName + '/')) {
+                    cleanP = cleanP.slice(rootName.length + 1);
+                }
+
+                const parts = cleanP.split('/').filter(p => p && p !== '.' && p !== '..');
+                if (parts.length === 0) return false;
+
+                let currentHandle = window.activeWebDirHandle;
+
+                for (let i = 0; i < parts.length; i++) {
+                    const dirName = parts[i];
+                    if (!dirName || dirName === '.' || dirName === '..' || dirName.includes(':')) continue;
+                    currentHandle = await currentHandle.getDirectoryHandle(dirName, { create: true });
+                }
+
+                console.log(`[createDirectoryInWebDirectory] Successfully created directory on local disk: ${cleanP}`);
+                return true;
+            } catch(err) {
+                console.warn("[createDirectoryInWebDirectory] Disk mkdir warning:", err.message);
+                return false;
+            }
         };
+
         if (typeof window.process === 'undefined') {
             window.process = { cwd: function() { return '.'; }, platform: 'browser', env: {} };
         }
@@ -1507,26 +1540,26 @@
     <script src="js/webview/usage_crawler.js"></script>
 
     <!-- UI Modules -->
-    <script src="js/ui/dialogs.js?v=1.2.5"></script>
-    <script src="js/ui/project.js?v=1.2.5"></script>
-    <script src="js/ui/terminal.js?v=1.2.5"></script>
-    <script src="js/ui/editor.js?v=1.2.5"></script>
-    <script src="js/ui/chat.js?v=1.2.5"></script>
-    <script src="js/ui/graph_view.js?v=1.2.5"></script>
-    <script src="js/ui/drag_drop_queue.js?v=1.2.5"></script>
-    <script src="js/ui/command_panel.js?v=1.2.5"></script>
-    <script src="js/ui/explorer.js?v=1.2.5"></script>
-    <script src="js/ui/ai_renderer.js?v=1.2.5"></script>
+    <script src="js/ui/dialogs.js?v=1.2.6"></script>
+    <script src="js/ui/project.js?v=1.2.6"></script>
+    <script src="js/ui/terminal.js?v=1.2.6"></script>
+    <script src="js/ui/editor.js?v=1.2.6"></script>
+    <script src="js/ui/chat.js?v=1.2.6"></script>
+    <script src="js/ui/graph_view.js?v=1.2.6"></script>
+    <script src="js/ui/drag_drop_queue.js?v=1.2.6"></script>
+    <script src="js/ui/command_panel.js?v=1.2.6"></script>
+    <script src="js/ui/explorer.js?v=1.2.6"></script>
+    <script src="js/ui/ai_renderer.js?v=1.2.6"></script>
 
     <!-- Commands Orchestration -->
-    <script src="js/commands/detect.js?v=1.2.5"></script>
-    <script src="js/commands/orchestrate.js?v=1.2.5"></script>
+    <script src="js/commands/detect.js?v=1.2.6"></script>
+    <script src="js/commands/orchestrate.js?v=1.2.6"></script>
 
     <!-- Boot Setup Modules -->
-    <script src="js/boot/setup_boot.js?v=1.2.5"></script>
-    <script src="js/boot/setup_ui.js?v=1.2.5"></script>
+    <script src="js/boot/setup_boot.js?v=1.2.6"></script>
+    <script src="js/boot/setup_ui.js?v=1.2.6"></script>
 
     <!-- Main Entry Point -->
-    <script src="js/main_ui.js?v=1.2.5"></script>
+    <script src="js/main_ui.js?v=1.2.6"></script>
 </body>
 </html>

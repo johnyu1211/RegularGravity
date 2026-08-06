@@ -188,6 +188,14 @@
                         window.open('https://aistudio.google.com/live', '_blank');
                     };
                 }
+
+                const gitToggleBtn = document.getElementById('git-toggle-btn');
+                const termToggleBtn = document.getElementById('terminal-toggle-btn');
+                const statusBar = document.getElementById('editor-status-bar');
+
+                if (gitToggleBtn) gitToggleBtn.style.right = '112px';
+                if (termToggleBtn) termToggleBtn.style.right = '148px';
+                if (statusBar) statusBar.style.paddingRight = '190px';
             });
         }
     </script>

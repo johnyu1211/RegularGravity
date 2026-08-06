@@ -121,9 +121,12 @@ window.updateDragDropQueueUI = function() {
                     
                     try {
                         const blob = new Blob([fileContent], { type: 'text/markdown' });
-                        const fileObj = new File([blob], fileName, { type: 'text/markdown' });
-                        if (e.dataTransfer.items && e.dataTransfer.items.add) {
-                            e.dataTransfer.items.add(fileObj);
+                        const fileObj = new File([blob], fileName, { type: 'text/markdown', lastModified: Date.now() });
+                        const blobUrl = URL.createObjectURL(blob);
+                        e.dataTransfer.setData('DownloadURL', `text/markdown:${fileName}:${blobUrl}`);
+                        if (e.dataTransfer.items) {
+                            try { e.dataTransfer.items.clear(); } catch(err) {}
+                            try { e.dataTransfer.items.add(fileObj); } catch(err) {}
                         }
                     } catch(err) {}
                 } catch(e) {}
@@ -149,7 +152,7 @@ window.updateDragDropQueueUI = function() {
             btnContainer.style.cssText = 'display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;';
 
             const copyBtn = document.createElement('button');
-            copyBtn.innerHTML = '📋 Copy';
+            copyBtn.innerHTML = 'Copy';
             copyBtn.style.cssText = 'background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:#fff; font-size:10.5px; padding:3px 8px; border-radius:5px; cursor:pointer; font-weight:600;';
             copyBtn.onclick = (e) => {
                 e.stopPropagation();
@@ -164,7 +167,7 @@ window.updateDragDropQueueUI = function() {
             };
 
             const dlBtn = document.createElement('button');
-            dlBtn.innerHTML = '📥 Download';
+            dlBtn.innerHTML = 'Download';
             dlBtn.style.cssText = 'background:var(--primary); border:none; color:#fff; font-size:10.5px; padding:3px 9px; border-radius:5px; cursor:pointer; font-weight:700;';
             dlBtn.onclick = (e) => {
                 e.stopPropagation();

@@ -336,7 +336,15 @@ async function setupBoot() {
             treeBtn.style.opacity = '0.5';
             treeBtn.style.pointerEvents = 'none';
             try {
-                const projectTree = await ipcRenderer.invoke('vault-get-tree', window.currentPath || window.projectRoot || process.cwd());
+                let rawTree = await ipcRenderer.invoke('vault-get-tree', window.currentPath || window.projectRoot || '.');
+                let projectTree = typeof rawTree === 'string' ? rawTree : (rawTree && typeof rawTree === 'object' && typeof rawTree.tree === 'string' ? rawTree.tree : '');
+
+                if ((!projectTree || !projectTree.trim()) && window.activeWebDirHandle) {
+                    const rootName = window.activeWebDirHandle.name || 'Project';
+                    const fileKeys = Object.keys(window.webFileCache || {}).filter(k => !k.startsWith('.') && !k.includes('node_modules'));
+                    projectTree = `${rootName}/\n` + (fileKeys.length > 0 ? fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n') : '  [Folder loaded]');
+                }
+
                 const treeFileName = window.makeSendingMdTreeName();
                 const treeContent = `The current project folder contains the following files:\n${projectTree || '(empty)'}\n\n${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge receipt of the updated project tree.`;
                 

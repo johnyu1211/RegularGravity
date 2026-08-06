@@ -145,6 +145,13 @@ function startUsageMatrixShuffle() {}
 function stopUsageMatrixShuffle() {}
 
 window.fetchGeminiUsagePercent = function() {
+    if (!window.process || window.process.platform === 'browser') {
+        if (typeof window.showUserScreenToast === 'function') {
+            window.showUserScreenToast('Opening Gemini AI Studio in new tab...', 3000, true);
+        }
+        window.open('https://aistudio.google.com/live', '_blank');
+        return;
+    }
     try {
         if (isUsageCrawling) {
             console.log('[GeminiUsage] Crawl already in progress, skipping...');

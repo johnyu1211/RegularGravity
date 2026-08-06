@@ -505,11 +505,18 @@ async function setupBoot() {
             }
         }
 
+        const isBrowserMode = (!window.process || window.process.platform === 'browser');
         const dock = document.getElementById('agent-view-dock'); dock.innerHTML = '';
-        const wv = document.createElement('webview'); wv.id = 'active-agent-webview'; wv.src = u;
-        wv.useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-        wv.style = "width:100%; height:100%; border:none;"; wv.setAttribute('allowpopups', '');
-        wv.addEventListener('contextmenu', () => wv.openDevTools());
+        const wv = isBrowserMode ? document.createElement('iframe') : document.createElement('webview');
+        wv.id = 'active-agent-webview'; wv.src = u;
+        if (!isBrowserMode) {
+            wv.useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+            wv.setAttribute('allowpopups', '');
+            wv.addEventListener('contextmenu', () => wv.openDevTools());
+        } else {
+            wv.setAttribute('allow', 'clipboard-read; clipboard-write');
+        }
+        wv.style = "width:100%; height:100%; border:none;";
         
         wv.addEventListener('did-navigate', () => {
             if (typeof window.injectGuestDropInterceptor === 'function') {

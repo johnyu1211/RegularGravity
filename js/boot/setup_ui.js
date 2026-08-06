@@ -442,7 +442,10 @@ function setupUI() {
                 </div>
             </div>
             <div style="flex: 1; position: relative; background: #0d1117;">
-                <webview class="web-webview-el" src="${url}" useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" style="width: 100%; height: 100%; border: none;" allowpopups></webview>
+                ${(!window.process || window.process.platform === 'browser')
+                    ? `<iframe class="web-webview-el" src="${url}" style="width: 100%; height: 100%; border: none;" allow="clipboard-read; clipboard-write"></iframe>`
+                    : `<webview class="web-webview-el" src="${url}" useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" style="width: 100%; height: 100%; border: none;" allowpopups></webview>`
+                }
             </div>
             <!-- Bottom Taskbar Navigation Footer (Mobile Style) -->
             <div class="web-popover-bottom-bar" style="height: 38px; min-height: 38px; border-top: none; display: flex; align-items: center; justify-content: space-between; padding: 0 68px; background: #060608; user-select: none; z-index: 10;">

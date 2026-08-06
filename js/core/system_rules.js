@@ -24,6 +24,7 @@ window.getSystemRulesPrompt = function(forceFull = false) {
 ${editRule}
    - Delete/CreateDir/Move: [CMD: delete-file "path"], [CMD: create-dir "path"], [CMD: move-file "src" "dest"].
    - Sequential Output: When outputting or generating multiple files sequentially across turns, state the progress status below the code block (\`\`\`) at the end of your explanation text: Current: "path/fileA.ext", Next: "path/fileB.ext" (1/12).
+   - Relative Paths: All file paths in commands MUST be relative to current project root. NEVER prefix paths with the root folder name itself (e.g. use "js/main.js", NOT "ProjectRoot/js/main.js").
 3. RUN CMD: [CMD: run-command "command"] (build, test, shell).
 4. RESET: Use [CMD: reset-session] if lagging.
 5. WAIT: Explain current state, do not plan, wait for user.

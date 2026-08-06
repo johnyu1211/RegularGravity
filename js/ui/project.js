@@ -211,6 +211,111 @@ async function openProjectModal(newItemPath = null, isRefresh = false) {
         if (mainView && emoteView) {
             mainView.style.display = 'none';
             emoteView.style.display = 'flex';
+
+            if (typeof window.reloadAgentSettings === 'function') window.reloadAgentSettings();
+
+            const chkEmote = document.getElementById('chk-use-emote-setting');
+            if (chkEmote) chkEmote.checked = window.useEmote !== false;
+
+            const defaultKeys = ['def', 'joy', 'trust', 'antici', 'awe', 'sad', 'angr', 'fear', 'disgust', 'surpr'];
+            const defaultGrid = document.getElementById('default-emote-urls-grid');
+            if (defaultGrid) {
+                const customMap = window.customEmotes || {};
+                defaultGrid.innerHTML = defaultKeys.map(k => {
+                    const currentUrl = customMap[k] || '';
+                    const previewSrc = currentUrl || `js/e/${k}.png`;
+                    return `
+                        <div style="background:var(--surface-high, #252529); border:none; border-radius:8px; padding:8px 10px; display:flex; align-items:center; gap:8px;">
+                            <img src="${previewSrc}" style="width:24px; height:24px; object-fit:contain; flex-shrink:0; background:rgba(0,0,0,0.2); border-radius:4px; padding:2px; cursor:pointer;" title="Click to play preview" onclick="const url=this.parentNode.querySelector('.def-emote-url-input')?.value.trim(); window.triggerCenterEmote(url||'js/e/${k}.png');" onerror="this.src='js/e/${k}.png';">
+                            <span style="font-size:10.5px; font-weight:700; color:var(--text-main); width:45px; flex-shrink:0; font-family:'Outfit',sans-serif; cursor:pointer; -webkit-user-select:none; user-select:none; transition:color 0.2s;" title="Click to play preview" onmouseenter="this.style.color='#468CF6';" onmouseleave="this.style.color='var(--text-main)';" onclick="const url=this.parentNode.querySelector('.def-emote-url-input')?.value.trim(); window.triggerCenterEmote(url||'js/e/${k}.png');">${k}</span>
+                            <input class="def-emote-url-input" data-key="${k}" type="text" value="${currentUrl.replace(/"/g, '&quot;')}" placeholder="Default PNG" style="flex:1; min-width:0; background:var(--surface-low, #18181b); border:none; color:#eee; font-size:10px; padding:4px 7px; border-radius:5px; outline:none;">
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const extraList = document.getElementById('extra-custom-emotes-list');
+            if (extraList) {
+                const customMap = window.customEmotes || {};
+                const extraKeys = Object.keys(customMap).filter(k => !defaultKeys.includes(k));
+                
+                const renderExtraRow = (keyVal = '', urlVal = '') => {
+                    const row = document.createElement('div');
+                    row.className = 'extra-emote-row';
+                    row.style.cssText = 'display:flex; align-items:center; gap:8px; background:transparent; border:none; padding:4px 0;';
+                    row.innerHTML = `
+                        <input class="extra-emote-key" type="text" value="${keyVal.replace(/"/g, '&quot;')}" placeholder="Key (e.g. happiness)" style="width:105px; flex-shrink:0; background:var(--surface-low, #18181b); border:none; color:#eee; font-size:10.5px; padding:4px 7px; border-radius:5px; outline:none; font-weight:600;">
+                        <input class="extra-emote-url" type="text" value="${urlVal.replace(/"/g, '&quot;')}" placeholder="Image URL (https://...)" style="flex:1; min-width:0; background:var(--surface-low, #18181b); border:none; color:#eee; font-size:10.5px; padding:4px 7px; border-radius:5px; outline:none;">
+                        <button type="button" class="play-extra-emote-btn" style="background:rgba(255,255,255,0.06); border:none; color:var(--text-muted, #aaa); cursor:pointer; font-size:10px; font-weight:700; padding:3px 8px; border-radius:5px; flex-shrink:0; transition:all 0.2s;" onmouseenter="this.style.color='#fff'; this.style.background='rgba(255,255,255,0.12)';" onmouseleave="this.style.color='var(--text-muted, #aaa)'; this.style.background='rgba(255,255,255,0.06)';" title="Test play emote animation">▶ Play</button>
+                        <button type="button" class="del-extra-emote-btn" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:13px; font-weight:bold; padding:2px 6px;">✕</button>
+                    `;
+                    row.querySelector('.play-extra-emote-btn').onclick = () => {
+                        const url = row.querySelector('.extra-emote-url')?.value.trim();
+                        if (url && typeof window.triggerCenterEmote === 'function') {
+                            window.triggerCenterEmote(url);
+                        }
+                    };
+                    row.querySelector('.del-extra-emote-btn').onclick = () => row.remove();
+                    return row;
+                };
+
+                extraList.innerHTML = '';
+                extraKeys.forEach(k => {
+                    extraList.appendChild(renderExtraRow(k, customMap[k]));
+                });
+
+                const addBtn = document.getElementById('btn-add-custom-emote-item');
+                if (addBtn) {
+                    addBtn.onclick = () => {
+                        extraList.appendChild(renderExtraRow('', ''));
+                    };
+                }
+            }
+
+            const saveBtn = document.getElementById('btn-save-emote-settings');
+            if (saveBtn) {
+                saveBtn.onclick = () => {
+                    const newCustomMap = {};
+
+                    document.querySelectorAll('.def-emote-url-input').forEach(inp => {
+                        const k = inp.dataset.key;
+                        const val = inp.value.trim();
+                        if (k && val) newCustomMap[k] = val;
+                    });
+
+                    document.querySelectorAll('.extra-emote-row').forEach(row => {
+                        const keyInp = row.querySelector('.extra-emote-key');
+                        const urlInp = row.querySelector('.extra-emote-url');
+                        if (keyInp && urlInp) {
+                            const k = keyInp.value.trim().toLowerCase();
+                            const val = urlInp.value.trim();
+                            if (k && val) newCustomMap[k] = val;
+                        }
+                    });
+
+                    const useEmoteVal = !!document.getElementById('chk-use-emote-setting')?.checked;
+                    window.useEmote = useEmoteVal;
+                    window.customEmotes = newCustomMap;
+
+                    try {
+                        const _path = require('path');
+                        const _fs = require('fs');
+                        const gravityRoot = window.appRootPath || process.cwd();
+                        const settingsFile = _path.join(gravityRoot, 'Settings.json');
+                        let currentSettings = {};
+                        if (_fs.existsSync(settingsFile)) {
+                            try { currentSettings = JSON.parse(_fs.readFileSync(settingsFile, 'utf-8')); } catch(e) {}
+                        }
+                        currentSettings.useEmote = useEmoteVal;
+                        currentSettings.customEmotes = newCustomMap;
+                        _fs.writeFileSync(settingsFile, JSON.stringify(currentSettings, null, 2), 'utf-8');
+                    } catch(e) { console.error("Failed to save emote settings:", e); }
+
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast("Emote Settings Saved!", 2500, true);
+                    }
+                };
+            }
         }
     };
 
@@ -493,22 +598,26 @@ function bindDragAndDrop() {
 window.parseAndTriggerEmote = function(text, shouldTrigger = true) {
     if (typeof text !== 'string' || window.useEmote === false || !text.trim()) return text;
     
-    const validEmotes = ['def', 'joy', 'sad', 'angr', 'fear', 'disgust', 'surpr', 'trust', 'antici', 'awe'];
+    const defaultEmotes = ['def', 'joy', 'sad', 'angr', 'fear', 'disgust', 'surpr', 'trust', 'antici', 'awe'];
+    const customMap = window.customEmotes || {};
+    const extraCustomKeys = Object.keys(customMap);
+    const allEmoteKeys = Array.from(new Set([...defaultEmotes, ...extraCustomKeys]));
+    
     let detectedEmote = null;
 
     // Stage 1: Explicit emote tag with flexible separators (: _ - = space or brackets)
     const stage1Match = text.match(/(?:<|\[|\(|\b)?emote\s*[:=\-_]?\s*([a-zA-Z0-9_-]+)(?:>|\]|\)|\b)?/i);
     if (stage1Match && stage1Match[1]) {
         const candidate = stage1Match[1].toLowerCase();
-        if (validEmotes.includes(candidate)) {
+        if (allEmoteKeys.includes(candidate)) {
             detectedEmote = candidate;
             text = text.replace(/(?:<|\[|\(|\b)?emote\s*[:=\-_]?\s*[a-zA-Z0-9_-]+(?:>|\]|\)|\b)?/gi, '').trim();
         }
     }
 
-    // Stage 2: Explicit emotion keyword search in brackets or tags (e.g. [trust], <joy>)
+    // Stage 2: Explicit emotion keyword search in brackets or tags (e.g. [trust], <joy>, [love])
     if (!detectedEmote) {
-        for (const emo of validEmotes) {
+        for (const emo of allEmoteKeys) {
             const regex = new RegExp(`(?:<|\\[|\\()${emo}(?:>|\\]|\\))`, 'i');
             if (regex.test(text)) {
                 detectedEmote = emo;
@@ -524,7 +633,9 @@ window.parseAndTriggerEmote = function(text, shouldTrigger = true) {
         if (!window.lastEmoteTriggerTime || (now - window.lastEmoteTriggerTime > 4000) || window.lastEmoteTriggerTag !== detectedEmote) {
             window.lastEmoteTriggerTime = now;
             window.lastEmoteTriggerTag = detectedEmote;
-            window.triggerCenterEmote(`js/e/${detectedEmote}.png`);
+            
+            let emoteSrc = customMap[detectedEmote] || `js/e/${detectedEmote}.png`;
+            window.triggerCenterEmote(emoteSrc);
         }
     }
 

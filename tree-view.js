@@ -1,3 +1,4 @@
+if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 
 // Tree View Rendering for Poor man's Gravity
 // Pure logic for directory tree
@@ -876,7 +877,7 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
             </div>
             <div class="menu-item menu-action-open">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                <span>${isDir ? 'Open Folder' : 'Open File'}</span>
+                <span>${isDir ? 'Open Folder in PC' : 'Open File in PC'}</span>
             </div>
             <div style="height: 1px; background: var(--border-color); margin: 4px 0;"></div>
         `;
@@ -895,10 +896,12 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20 20"></path></svg>
             <span>Refresh</span>
         </div>
+        ${!isDir ? `
         <div class="menu-item menu-action-reveal">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
             <span>Reveal in Explorer</span>
         </div>
+        ` : ''}
     `;
 
     if (targetPath) {
@@ -938,10 +941,13 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
     if (btnOpen) {
         btnOpen.onclick = (ev) => {
             ev.stopPropagation(); closeMenu();
-            if (isDir) {
-                window.loadDirectory(targetPath);
-            } else if (window.openFileInEditor) {
-                window.openFileInEditor(targetPath, null, true);
+            if (targetPath) {
+                try {
+                    const ipc = (typeof ipcRenderer !== 'undefined') ? ipcRenderer : require('electron').ipcRenderer;
+                    ipc.send('open-file-os', targetPath);
+                } catch(e) {
+                    console.error("Failed to trigger open-file-os:", e);
+                }
             }
         };
     }

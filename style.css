@@ -1748,7 +1748,7 @@ input:checked + .slider:before {
     cursor: pointer;
     inset: 0;
     background-color: var(--surface-high);
-    border: 1px solid var(--border-color);
+    border: none;
     transition: .3s;
     border-radius: 20px;
 }
@@ -1768,10 +1768,10 @@ input:checked + .slider:before {
 /* Switch Toggle Styles */
 .switch-toggle input:checked + .slider-toggle {
     background-color: var(--primary);
-    border-color: var(--primary);
+    border: none;
 }
 .switch-toggle input:checked + .slider-toggle:before {
-    transform: translateX(14px);
+    transform: translate(14px, -50%);
     background-color: #fff;
 }
 .slider-toggle:before {
@@ -1779,8 +1779,9 @@ input:checked + .slider:before {
     content: "";
     height: 12px;
     width: 12px;
-    left: 3px;
-    bottom: 3px;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
     background-color: var(--text-muted);
     transition: .3s;
     border-radius: 50%;

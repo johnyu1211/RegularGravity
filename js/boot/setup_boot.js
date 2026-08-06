@@ -32,10 +32,13 @@ async function setupBoot() {
                 const wvText = await wv.executeJavaScript(`
                     (() => {
                         try {
-                            const cmdMatched = Array.from(document.querySelectorAll('message-content, model-response, [data-message-author-role="assistant"], .assistant-message, .model-response-text, div, section, article')).filter(el => {
+                            const rawElems = Array.from(document.querySelectorAll('message-content, model-response, [data-message-author-role="assistant"], .assistant-message, .model-response-text, [data-test-id="model-response"]'));
+                            const topElems = rawElems.filter(el => !rawElems.some(other => other !== el && other.contains(el)));
+                            
+                            const cmdMatched = topElems.filter(el => {
                                 try {
                                     const t = el.innerText || el.textContent || '';
-                                    return t.includes('[CMD:') || t.includes('[REQUEST:');
+                                    return t.includes('[CMD:') || t.includes('[REQUEST:') || t.includes('\`\`\`');
                                 } catch(e) { return false; }
                             });
                             if (cmdMatched.length > 0) {
@@ -44,14 +47,10 @@ async function setupBoot() {
                                 if (text) return text;
                             }
 
-                            const selectors = ['[data-is-streaming="false"]', '.model-response-text', '.assistant-message', '[data-message-author-role="assistant"]', 'message-content', '.message-content', 'model-response', '[data-test-id="model-response"]'];
-                            for (let s of selectors) {
-                                const elems = Array.from(document.querySelectorAll(s));
-                                if (elems.length > 0) {
-                                    const lastEl = elems[elems.length - 1];
-                                    const text = (lastEl.innerText || lastEl.textContent || '').trim();
-                                    if (text) return text;
-                                }
+                            if (topElems.length > 0) {
+                                const lastEl = topElems[topElems.length - 1];
+                                const text = (lastEl.innerText || lastEl.textContent || '').trim();
+                                if (text) return text;
                             }
                             return '';
                         } catch(e) { return ''; }
@@ -151,10 +150,13 @@ async function setupBoot() {
                             lastAiText = await wv.executeJavaScript(`
                                 (() => {
                                      try {
-                                         const cmdMatched = Array.from(document.querySelectorAll('message-content, model-response, [data-message-author-role="assistant"], .assistant-message, .model-response-text, div, section, article')).filter(el => {
+                                         const rawElems = Array.from(document.querySelectorAll('message-content, model-response, [data-message-author-role="assistant"], .assistant-message, .model-response-text, [data-test-id="model-response"]'));
+                                         const topElems = rawElems.filter(el => !rawElems.some(other => other !== el && other.contains(el)));
+                                         
+                                         const cmdMatched = topElems.filter(el => {
                                              try {
                                                  const t = el.innerText || el.textContent || '';
-                                                 return t.includes('[CMD:') || t.includes('[REQUEST:');
+                                                 return t.includes('[CMD:') || t.includes('[REQUEST:') || t.includes('\`\`\`');
                                              } catch(e) { return false; }
                                          });
                                          if (cmdMatched.length > 0) {
@@ -163,16 +165,10 @@ async function setupBoot() {
                                              if (text) return text;
                                          }
 
-                                         const selectors = ['[data-is-streaming="false"]', '.model-response-text', '.assistant-message', '[data-message-author-role="assistant"]', 'message-content', '.message-content', 'model-response', '[data-test-id="model-response"]'];
-                                         for (let s of selectors) {
-                                             try {
-                                                 const elems = Array.from(document.querySelectorAll(s));
-                                                 if (elems.length > 0) {
-                                                     const lastEl = elems[elems.length - 1];
-                                                     const text = (lastEl.innerText || lastEl.textContent || '').trim();
-                                                     if (text) return text;
-                                                 }
-                                             } catch(e) {}
+                                         if (topElems.length > 0) {
+                                             const lastEl = topElems[topElems.length - 1];
+                                             const text = (lastEl.innerText || lastEl.textContent || '').trim();
+                                             if (text) return text;
                                          }
                                          return '';
                                      } catch(e) { return ''; }

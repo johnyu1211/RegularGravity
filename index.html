@@ -65,7 +65,7 @@
             <!-- Header -->
             <div style="padding:20px 28px 16px; border-bottom:none;">
                 <div style="display:flex; align-items:center; justify-content:space-between;">
-                    <span style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px;">Select Project Fold<span id="secret-emote-trigger" style="cursor:pointer; -webkit-user-select:none; user-select:none;">e</span>r</span>
+                    <span style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px;">Select Project Fold<span id="secret-emote-trigger" style="cursor:pointer; -webkit-user-select:none; user-select:none; transition:color 0.2s;" onmouseenter="this.style.color='var(--primary, #468CF6)';" onmouseleave="this.style.color='inherit';">e</span>r</span>
                     
                     <div style="display:flex; align-items:center; gap:8px;">
                         <!-- Hidden Button E (Secret Easter Egg Triggered via Title 'e') -->
@@ -102,60 +102,57 @@
         </div>
 
         <!-- Emote Settings View (Triggered by 'e' button) -->
-        <div id="picker-emote-container" style="display: none; background: var(--surface-color); border:1px solid var(--border-color); border-radius:16px; width:520px; max-width:90vw; height:380px; box-shadow: none; overflow:hidden; animation:scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275); flex-direction:column;">
+        <div id="picker-emote-container" style="display: none; background: var(--surface-color); border:1px solid var(--border-color); border-radius:16px; width:580px; max-width:92vw; height:480px; box-shadow: none; overflow:hidden; animation:scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275); flex-direction:column;">
             <!-- Emote View Header -->
-            <div style="padding:18px 24px 10px; border-bottom:none; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+            <div style="padding:14px 20px 12px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <button id="picker-emote-back-btn" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:4px; transition:color 0.2s;" title="Back to Project Selector" onmouseenter="this.style.color='#fff';" onmouseleave="this.style.color='var(--text-muted)';">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                     </button>
                     <span style="font-size:14px; font-weight:800; color:#fff; letter-spacing:0.5px;">Emote Settings</span>
-                    <span style="font-size:10px; font-weight:700; color:var(--text-muted); background:rgba(255,255,255,0.06); padding:2px 7px; border-radius:10px;">10 Emotes</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:11.5px; font-weight:600; color:var(--text-muted);">Use Emotes</span>
+                    <label class="switch-toggle" style="transform: scale(0.85); margin: 0;">
+                        <input type="checkbox" id="chk-use-emote-setting">
+                        <span class="slider-toggle"></span>
+                    </label>
                 </div>
             </div>
 
-            <!-- Emotes Grid Area -->
-            <div id="emote-grid-list" style="flex:1; overflow-y:auto; padding:16px 24px 20px; display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; align-content:start;">
-                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/def.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
-                    <img src="js/e/def.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Default">
-                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Default</span>
+            <!-- Emotes Body Area (Scrollable) -->
+            <div id="emote-settings-body" style="flex:1; overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:16px;">
+                <!-- 10 Default Emotes Section -->
+                <div>
+                    <div style="font-size:11.5px; font-weight:700; color:var(--text-main); margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                        <span>Default Emote URLs (10 Slots)</span>
+                        <span style="font-size:10px; color:var(--text-muted); font-weight:normal;">Leave blank for default PNG</span>
+                    </div>
+                    <div id="default-emote-urls-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                        <!-- Dynamically populated in project.js -->
+                    </div>
                 </div>
-                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/joy.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
-                    <img src="js/e/joy.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Joy">
-                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Joy</span>
+
+                <!-- Extra Custom Emotes Section -->
+                <div style="padding-top:10px;">
+                    <div style="font-size:11.5px; font-weight:700; color:var(--text-main); margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                        <span>Additional Custom Emotes</span>
+                        <button id="btn-add-custom-emote-item" style="background:transparent; border:none; color:#468CF6; font-size:11px; font-weight:600; padding:3px 8px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Add Extra Emote
+                        </button>
+                    </div>
+                    <div id="extra-custom-emotes-list" style="display:flex; flex-direction:column; gap:8px;">
+                        <!-- Dynamically populated in project.js -->
+                    </div>
                 </div>
-                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/trust.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
-                    <img src="js/e/trust.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Trust">
-                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Trust</span>
-                </div>
-                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/antici.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
-                    <img src="js/e/antici.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Anticipation">
-                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Antici</span>
-                </div>
-                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/awe.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
-                    <img src="js/e/awe.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Awe">
-                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Awe</span>
-                </div>
-                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/sad.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
-                    <img src="js/e/sad.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Sad">
-                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Sad</span>
-                </div>
-                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/angr.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
-                    <img src="js/e/angr.png" style="width: 32px; height: 34px; object-fit: contain;" alt="Anger">
-                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Anger</span>
-                </div>
-                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/fear.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
-                    <img src="js/e/fear.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Fear">
-                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Fear</span>
-                </div>
-                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/disgust.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
-                    <img src="js/e/disgust.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Disgust">
-                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Disgust</span>
-                </div>
-                <div class="emote-card" onclick="window.triggerCenterEmote('js/e/surpr.png')" style="background: var(--surface-high, #252529); border: 1px solid var(--border-color, #333); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);" onmouseenter="this.style.borderColor='#ef4444'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color, #333)'; this.style.transform='none';">
-                    <img src="js/e/surpr.png" style="width: 32px; height: 32px; object-fit: contain;" alt="Surprise">
-                    <span style="font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Outfit', sans-serif;">Surprise</span>
-                </div>
+            </div>
+
+            <!-- Footer Save Action -->
+            <div style="padding:10px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:8px; background:var(--surface-color); flex-shrink:0;">
+                <button id="btn-save-emote-settings" style="background:var(--primary, #468CF6); border:none; color:#fff; font-size:11.5px; font-weight:700; padding:6px 16px; border-radius:8px; cursor:pointer; transition:opacity 0.2s;">
+                    Save Emote Settings
+                </button>
             </div>
         </div>
     </div>

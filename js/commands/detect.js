@@ -70,14 +70,72 @@ function detectAndAskCommand(text) {
     if (foundCmds.length === 0 && text.includes('```')) {
         let inferredPath = null;
         
-        // Strategy 1: Check for Current: "path/file.ext" or Next: "path/file.ext" line
-        const currentMatch = text.match(/Current:\s*"([^"]+\.[a-zA-Z0-9]+)"/i) || text.match(/Next:\s*"([^"]+\.[a-zA-Z0-9]+)"/i);
-        if (currentMatch) {
-            inferredPath = currentMatch[1].trim();
+        // Strategy 0: Bottom-Up Line-by-Line Scanner above code blocks
+        // Skips language labels (HTML, JavaScript, Python, CSS, etc.) and searches upward for [CMD:], standalone command, or file path.
+        // Stops immediately at the first match so previous section/turn commands are never included.
+        const lines = text.split(/\r?\n/);
+        const langRegex = /^(html|htm|javascript|js|typescript|ts|jsx|tsx|css|scss|sass|less|python|py|bash|sh|zsh|powershell|ps1|batch|bat|cmd|shell|json|json5|xml|markdown|md|cpp|c\+\+|c|cs|csharp|java|kotlin|kt|swift|objc|sql|mysql|postgres|sqlite|php|ruby|rb|rust|rs|go|golang|yaml|yml|toml|ini|text|txt|vue|svelte|docker|dockerfile|graphql|dart|elixir|erlang|haskell|scala|assembly|asm|r|matlab|cmake|make|makefile|nginx|env)$/i;
+
+        for (let i = 0; i < lines.length; i++) {
+            const trimmedLine = lines[i].trim();
+            if (trimmedLine.startsWith('```')) {
+                // Code block found at index i. Scan upwards from line i-1
+                for (let j = i - 1; j >= 0; j--) {
+                    const lineStr = lines[j].trim();
+                    if (!lineStr) continue; // Skip blank lines
+
+                    // Clean line for label inspection
+                    const cleanLabel = lineStr.replace(/[`\s\*\#\:\-\_]/g, '');
+
+                    // Skip language labels, closing backticks, or short non-path labels without dots/commands
+                    const isLangLabel = langRegex.test(lineStr) || langRegex.test(cleanLabel) || lineStr.startsWith('```');
+                    const isGenericLabel = !lineStr.includes('.') && !lineStr.includes('[') && !lineStr.includes('write-file') && !lineStr.includes('read-file') && cleanLabel.length < 25;
+
+                    if (isLangLabel || isGenericLabel) {
+                        continue;
+                    }
+
+                    // Check 1: [CMD: ...] or [REQUEST: ...] tag
+                    const tagMatch = lineStr.match(/\[(CMD|REQUEST|COMMAND|EXEC):\s*([^\]]+)\]/i);
+                    if (tagMatch) {
+                        const cleanCmd = tagMatch[2].trim();
+                        if (cleanCmd && !cleanCmd.includes('...')) {
+                            foundCmds.push(cleanCmd);
+                        }
+                        break; // Stop scanning upward for this code block
+                    }
+
+                    // Check 2: Standalone command format like `write-file "path"`
+                    const cmdFormatMatch = lineStr.match(/^[`\s]*(read-file|write-file|edit-file|delete-file|run-command|list-dir|search-keyword|move-file)\b\s*(.*)/i);
+                    if (cmdFormatMatch) {
+                        foundCmds.push(lineStr.replace(/^[`\s]+|[`\s]+$/g, ''));
+                        break; // Stop scanning upward for this code block
+                    }
+
+                    // Check 3: File heading/title above code block (e.g. `index.html`, ### index.html, File: index.html, Current: "index.html")
+                    const pathMatch = lineStr.match(/(?:\d+\.\s*|###\s*|##\s*|#\s*|\*\*\s*|File:\s*|Current:\s*"|Next:\s*")?`?([a-zA-Z0-9_\-\.\/]+\.(?:js|css|html|json|md|py|java|c|cpp|h|ts|jsx|tsx))`?/i);
+                    if (pathMatch) {
+                        inferredPath = pathMatch[1].trim();
+                        break; // Stop scanning upward for this code block
+                    }
+
+                    // Stop scanning if non-matching line is reached
+                    break;
+                }
+            }
+            if (foundCmds.length > 0 || inferredPath) break;
         }
 
-        // Strategy 2: Check for filename heading/title line above code block (e.g. `js/main.js`, ### js/main.js, 6. `js/main.js`)
-        if (!inferredPath) {
+        // Strategy 1: Check for Current: "path/file.ext" or Next: "path/file.ext" line
+        if (foundCmds.length === 0 && !inferredPath) {
+            const currentMatch = text.match(/Current:\s*"([^"]+\.[a-zA-Z0-9]+)"/i) || text.match(/Next:\s*"([^"]+\.[a-zA-Z0-9]+)"/i);
+            if (currentMatch) {
+                inferredPath = currentMatch[1].trim();
+            }
+        }
+
+        // Strategy 2: Check for filename heading/title line above code block
+        if (foundCmds.length === 0 && !inferredPath) {
             const headingMatch = text.match(/(?:^|\n)(?:\d+\.\s*|###\s*|##\s*|#\s*|\*\*\s*|File:\s*)?`?([a-zA-Z0-9_\-\.\/]+\.(?:js|css|html|json|md|py|java|c|cpp|h|ts|jsx|tsx))`?\s*(?:\n|\r\n)\s*```/i);
             if (headingMatch) {
                 inferredPath = headingMatch[1].trim();
@@ -85,22 +143,22 @@ function detectAndAskCommand(text) {
         }
 
         // Strategy 3: Check for first comment line inside code block (e.g. // js/main.js, /* style.css */, <!-- index.html -->)
-        if (!inferredPath) {
+        if (foundCmds.length === 0 && !inferredPath) {
             const commentMatch = text.match(/```[a-zA-Z]*\r?\n\s*(?:\/\/|\/\*|<!--)\s*`?([a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9]+)`?/i);
             if (commentMatch) {
                 inferredPath = commentMatch[1].trim();
             }
         }
 
-        // Strategy 4: Check for numbered list of files in explanation text below (e.g. 6. `js/main.js`)
-        if (!inferredPath) {
+        // Strategy 4: Check for numbered list of files in explanation text below
+        if (foundCmds.length === 0 && !inferredPath) {
             const listMatch = text.match(/\d+\.\s*`([a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9]+)`/i);
             if (listMatch) {
                 inferredPath = listMatch[1].trim();
             }
         }
 
-        if (inferredPath) {
+        if (foundCmds.length === 0 && inferredPath) {
             console.log(`[AutoRepairCMD] Inferred missing [CMD: write-file "${inferredPath}"] command for code block!`);
             foundCmds.push(`write-file "${inferredPath}"`);
         }

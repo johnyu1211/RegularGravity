@@ -135,9 +135,9 @@ ipcMain.handle('vault-get-tree', async (event, projectPath) => {
     const rootName = path.basename(root) || 'root';
     const treeLines = buildHierarchicalTree(root, 1);
     if (!treeLines || treeLines.length === 0) {
-        return `${rootName}/\n  [Empty folder]`;
+        return `[Project Root: . (${rootName})]\n  [Empty folder]`;
     }
-    return `${rootName}/\n${treeLines.join('\n')}`;
+    return `[Project Root: . (${rootName}) - All command paths must be relative to this root]\n${treeLines.join('\n')}`;
 });
 ipcMain.handle('vault-search', async (event, { query }) => {
     if (!query || query.length < 2) return "";
@@ -429,6 +429,23 @@ ipcMain.on('reveal-in-explorer', (event, p) => {
         }
     } catch (e) {
         shell.showItemInFolder(resolvedPath);
+    }
+});
+ipcMain.on('open-file-os', async (event, p) => {
+    if (!p) return;
+    try {
+        const resolvedPath = path.resolve(p);
+        const normalizedPath = path.normalize(resolvedPath);
+        if (fs.existsSync(normalizedPath)) {
+            const err = await shell.openPath(normalizedPath);
+            if (err) {
+                console.warn("openPath returned error, using openExternal fallback:", err);
+                const fileUrl = require('url').pathToFileURL(normalizedPath).href;
+                await shell.openExternal(fileUrl);
+            }
+        }
+    } catch (e) {
+        console.error("open-file-os error:", e);
     }
 });
 ipcMain.on('relaunch-app', () => {

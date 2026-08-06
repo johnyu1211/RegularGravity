@@ -2045,9 +2045,11 @@ function setupUI() {
                     status: 'PENDING'
                 }];
 
-                if (typeof window.injectGuestDropInterceptor === 'function') {
-                    window.injectGuestDropInterceptor();
-                }
+                try {
+                    if (typeof window.injectGuestDropInterceptor === 'function') {
+                        window.injectGuestDropInterceptor();
+                    }
+                } catch(e) {}
 
                 const cleanupDragDrop = () => {
                     if (window.activeDragDropCleanup === cleanupDragDrop) {

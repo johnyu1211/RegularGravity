@@ -71,9 +71,10 @@ window.triggerGuestSend = function() {
 };
 
 window.injectGuestDropInterceptor = function() {
-    const wv = document.getElementById('active-agent-webview');
-    if (!wv) return;
-    wv.executeJavaScript(`
+    try {
+        const wv = document.getElementById('active-agent-webview');
+        if (!wv || typeof wv.executeJavaScript !== 'function') return;
+        wv.executeJavaScript(`
         (() => {
             try {
                 if (window.guestDropListener) {
@@ -235,4 +236,7 @@ window.injectGuestDropInterceptor = function() {
             }
         })();
     `).catch(err => console.error("Failed to inject guest drop interceptor:", err));
+    } catch(err) {
+        console.warn("[GuestInterceptor] Injection caught safely:", err);
+    }
 };

@@ -238,9 +238,11 @@ async function setupBoot() {
                     status: 'PENDING'
                 }];
 
-                if (typeof window.injectGuestDropInterceptor === 'function') {
-                    window.injectGuestDropInterceptor();
-                }
+                try {
+                    if (typeof window.injectGuestDropInterceptor === 'function') {
+                        window.injectGuestDropInterceptor();
+                    }
+                } catch(e) {}
 
                 const rulesSendCleanup = () => {
                     if (window.activeDragDropCleanup === rulesSendCleanup) {

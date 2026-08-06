@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>GRAVITY</title>
     <link rel="icon" type="image/png" href="icon.png">
-    <link rel="stylesheet" href="style.css?v=1.0.8">
+    <link rel="stylesheet" href="style.css?v=1.0.9">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <script>
         var _module = typeof module !== 'undefined' ? module : undefined;
@@ -752,12 +752,12 @@
 
                         <!-- 2. Title/Close bar -->
                         <div style="display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
-                            <span style="font-size: 11px; font-weight: 700; color: #fff; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em;">REQUIRED FILES</span>
+                            <span id="drag-drop-queue-title-text" style="font-size: 11px; font-weight: 700; color: #fff; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em;">REQUIRED FILES</span>
                             <span id="close-drag-drop-queue" style="cursor: pointer; color: var(--text-dark); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s; pointer-events: auto;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-dark)'" title="Close Overlay">&times;</span>
                         </div>
 
                         <!-- 3. Description & Warnings -->
-                        <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4; font-family: 'DM Sans', sans-serif;">
+                        <div id="drag-drop-queue-desc-text" style="font-size: 11px; color: var(--text-muted); line-height: 1.4; font-family: 'DM Sans', sans-serif;">
                             Files requested by AI. <strong>Drag &amp; drop items</strong> into the Web AI input field.
                         </div>
                         <div id="drag-drop-queue-warning" style="font-size: 11px; color: var(--error); font-weight: 600; display: none; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; opacity: 0.9;">
@@ -1327,26 +1327,26 @@
     <script src="js/webview/usage_crawler.js"></script>
 
     <!-- UI Modules -->
-    <script src="js/ui/dialogs.js?v=1.0.8"></script>
-    <script src="js/ui/project.js?v=1.0.8"></script>
-    <script src="js/ui/terminal.js?v=1.0.8"></script>
-    <script src="js/ui/editor.js?v=1.0.8"></script>
-    <script src="js/ui/chat.js?v=1.0.8"></script>
-    <script src="js/ui/graph_view.js?v=1.0.8"></script>
-    <script src="js/ui/drag_drop_queue.js?v=1.0.8"></script>
-    <script src="js/ui/command_panel.js?v=1.0.8"></script>
-    <script src="js/ui/explorer.js?v=1.0.8"></script>
-    <script src="js/ui/ai_renderer.js?v=1.0.8"></script>
+    <script src="js/ui/dialogs.js?v=1.0.9"></script>
+    <script src="js/ui/project.js?v=1.0.9"></script>
+    <script src="js/ui/terminal.js?v=1.0.9"></script>
+    <script src="js/ui/editor.js?v=1.0.9"></script>
+    <script src="js/ui/chat.js?v=1.0.9"></script>
+    <script src="js/ui/graph_view.js?v=1.0.9"></script>
+    <script src="js/ui/drag_drop_queue.js?v=1.0.9"></script>
+    <script src="js/ui/command_panel.js?v=1.0.9"></script>
+    <script src="js/ui/explorer.js?v=1.0.9"></script>
+    <script src="js/ui/ai_renderer.js?v=1.0.9"></script>
 
     <!-- Commands Orchestration -->
-    <script src="js/commands/detect.js?v=1.0.8"></script>
-    <script src="js/commands/orchestrate.js?v=1.0.8"></script>
+    <script src="js/commands/detect.js?v=1.0.9"></script>
+    <script src="js/commands/orchestrate.js?v=1.0.9"></script>
 
     <!-- Boot Setup Modules -->
-    <script src="js/boot/setup_boot.js?v=1.0.8"></script>
-    <script src="js/boot/setup_ui.js?v=1.0.8"></script>
+    <script src="js/boot/setup_boot.js?v=1.0.9"></script>
+    <script src="js/boot/setup_ui.js?v=1.0.9"></script>
 
     <!-- Main Entry Point -->
-    <script src="js/main_ui.js?v=1.0.8"></script>
+    <script src="js/main_ui.js?v=1.0.9"></script>
 </body>
 </html>

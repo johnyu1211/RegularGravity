@@ -80,10 +80,21 @@ window.updateDragDropQueueUI = function() {
         return;
     }
     
+    const isBrowserMode = !window.process || window.process.platform === 'browser';
+    const titleEl = document.getElementById('drag-drop-queue-title-text');
+    const descEl = document.getElementById('drag-drop-queue-desc-text');
+    if (isBrowserMode) {
+        if (titleEl) titleEl.innerText = 'COPY PAYLOAD HELPER';
+        if (descEl) descEl.innerHTML = 'Click <strong>[Copy]</strong> ➔ Paste (Ctrl+V) into AI Chat ➔ Press Enter.';
+    } else {
+        if (titleEl) titleEl.innerText = 'REQUIRED FILES';
+        if (descEl) descEl.innerHTML = 'Files requested by AI. <strong>Drag &amp; drop items</strong> into the Web AI input field.';
+    }
+
     window.requestedFilesQueue.forEach(item => {
         const itemEl = document.createElement('div');
         itemEl.className = 'queue-item';
-        itemEl.draggable = item.status === 'PENDING';
+        itemEl.draggable = item.status === 'PENDING' && !isBrowserMode;
         itemEl.setAttribute('data-filepath', item.absolutePath);
         
         const isCompleted = item.status === 'COMPLETED';
@@ -110,35 +121,9 @@ window.updateDragDropQueueUI = function() {
             itemEl.style.borderColor = isCompleted ? 'rgba(255, 255, 255, 0.05)' : 'var(--border-color)';
         };
         itemEl.ondragstart = (e) => {
-            if (!window.process || window.process.platform === 'browser') {
-                try {
-                    const fs = require('fs');
-                    const fileContent = fs.readFileSync(item.absolutePath, 'utf-8');
-                    const fileName = item.relativePath ? item.relativePath.split(/[\\/]/).pop() : 'file.md';
-
-                    e.dataTransfer.setData('text/plain', fileContent);
-                    e.dataTransfer.setData('text/html', `<pre>${fileContent}</pre>`);
-                    
-                    try {
-                        const blob = new Blob([fileContent], { type: 'text/markdown' });
-                        const fileObj = new File([blob], fileName, { type: 'text/markdown', lastModified: Date.now() });
-                        const blobUrl = URL.createObjectURL(blob);
-                        e.dataTransfer.setData('DownloadURL', `text/markdown:${fileName}:${blobUrl}`);
-                        if (e.dataTransfer.items) {
-                            try { e.dataTransfer.items.clear(); } catch(err) {}
-                            try { e.dataTransfer.items.add(fileObj); } catch(err) {}
-                        }
-                    } catch(err) {}
-                } catch(e) {}
-            } else {
+            if (!isBrowserMode) {
                 e.preventDefault();
                 ipcRenderer.send('ondragstart', item.absolutePath);
-            }
-        };
-        itemEl.onclick = (e) => {
-            e.stopPropagation();
-            if (typeof window.openFileInEditor === 'function' && item.absolutePath) {
-                window.openFileInEditor(item.absolutePath);
             }
         };
         
@@ -147,44 +132,51 @@ window.updateDragDropQueueUI = function() {
             <span class="queue-file-name" style="font-size: 12px; color: ${isCompleted ? 'var(--text-muted)' : 'var(--text-main)'}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px; ${isCompleted ? 'text-decoration: line-through;' : ''}" title="${item.relativePath}">${fileName}</span>
         `;
 
-        if (!window.process || window.process.platform === 'browser') {
+        if (isBrowserMode) {
             const btnContainer = document.createElement('div');
             btnContainer.style.cssText = 'display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;';
 
             const copyBtn = document.createElement('button');
             copyBtn.innerHTML = 'Copy';
-            copyBtn.style.cssText = 'background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:#fff; font-size:10.5px; padding:3px 8px; border-radius:5px; cursor:pointer; font-weight:600;';
-            copyBtn.onclick = (e) => {
-                e.stopPropagation();
+            copyBtn.style.cssText = 'background:var(--primary); border:none; color:#fff; font-size:11px; padding:4px 14px; border-radius:5px; cursor:pointer; font-weight:700; transition:all 0.2s;';
+            
+            const doCopyAction = (e) => {
+                if (e) e.stopPropagation();
                 try {
                     const fs = require('fs');
                     const text = fs.readFileSync(item.absolutePath, 'utf-8');
-                    navigator.clipboard.writeText(text);
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text);
+                    }
+                    const chatInputEl = document.getElementById('local-agent-input');
+                    if (chatInputEl) {
+                        chatInputEl.value = text;
+                        chatInputEl.focus();
+                    }
+                    copyBtn.innerHTML = 'Copied!';
+                    copyBtn.style.background = '#059669';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = 'Copy';
+                        copyBtn.style.background = 'var(--primary)';
+                    }, 2000);
                     if (typeof window.showUserScreenToast === 'function') {
-                        window.showUserScreenToast(`Copied "${fileName}" to clipboard!`, 2500, true);
+                        window.showUserScreenToast(`Copied "${fileName}"! Press Ctrl+V into AI chat.`, 2500, true);
                     }
                 } catch(err) {}
             };
 
-            const dlBtn = document.createElement('button');
-            dlBtn.innerHTML = 'Download';
-            dlBtn.style.cssText = 'background:var(--primary); border:none; color:#fff; font-size:10.5px; padding:3px 9px; border-radius:5px; cursor:pointer; font-weight:700;';
-            dlBtn.onclick = (e) => {
-                e.stopPropagation();
-                try {
-                    const fs = require('fs');
-                    const text = fs.readFileSync(item.absolutePath, 'utf-8');
-                    const blob = new Blob([text], { type: 'text/markdown' });
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = fileName;
-                    a.click();
-                } catch(err) {}
-            };
+            copyBtn.onclick = doCopyAction;
+            itemEl.onclick = doCopyAction;
 
             btnContainer.appendChild(copyBtn);
-            btnContainer.appendChild(dlBtn);
             itemEl.appendChild(btnContainer);
+        } else {
+            itemEl.onclick = (e) => {
+                e.stopPropagation();
+                if (typeof window.openFileInEditor === 'function' && item.absolutePath) {
+                    window.openFileInEditor(item.absolutePath);
+                }
+            };
         }
         
         listEl.appendChild(itemEl);

@@ -15,6 +15,45 @@
         if (typeof module !== 'undefined') module = undefined;
         if (typeof exports !== 'undefined') exports = undefined;
         if (typeof require !== 'undefined') require = undefined;
+
+        // Browser environment shim for Node/Electron Primitives
+        if (typeof window.require === 'undefined') {
+            window.require = function(mod) {
+                if (mod === 'electron') {
+                    return {
+                        ipcRenderer: {
+                            on: function() {},
+                            send: function() {},
+                            invoke: function() { return Promise.resolve(null); },
+                            removeListener: function() {},
+                            removeAllListeners: function() {}
+                        },
+                        shell: { openPath: function() {}, openExternal: function() {} }
+                    };
+                }
+                if (mod === 'path') {
+                    return {
+                        join: function(...args) { return args.filter(Boolean).join('/').replace(/\/+/g, '/'); },
+                        dirname: function(p) { return p ? p.split('/').slice(0, -1).join('/') || '.' : '.'; },
+                        basename: function(p) { return p ? p.split('/').pop() : ''; },
+                        extname: function(p) { return p && p.includes('.') ? '.' + p.split('.').pop() : ''; }
+                    };
+                }
+                if (mod === 'fs') {
+                    return {
+                        existsSync: function() { return false; },
+                        readFileSync: function() { return ''; },
+                        writeFileSync: function() {},
+                        readdirSync: function() { return []; },
+                        statSync: function() { return { isDirectory: () => false }; }
+                    };
+                }
+                return {};
+            };
+        }
+        if (typeof window.process === 'undefined') {
+            window.process = { cwd: function() { return '.'; }, platform: 'browser', env: {} };
+        }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">

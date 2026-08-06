@@ -8,9 +8,9 @@ window.getSendingMdTimeTag = function() {
 
 window.getSendingMdFolderTag = function() {
     try {
-        const cur = window.currentPath || window.projectRoot || process.cwd();
+        const cur = window.currentPath || window.projectRoot || (window.activeWebDirHandle && window.activeWebDirHandle.name) || 'Project';
         const name = _path.basename(cur) || 'Project';
-        return name.replace(/[^a-zA-Z0-9_\-]/g, '_');
+        return name.replace(/[^\w\u3131-\u318E\uAC00-\uD7A3\-]/gi, '_').replace(/_+/g, '_') || 'Project';
     } catch(e) {
         return 'Project';
     }
@@ -40,7 +40,7 @@ window.makeSendingMdListDirName = function(dirPath = '.') {
     if (dirPath === '.' || dirPath === './' || dirPath === '.\\') {
         folderTag = window.getSendingMdFolderTag();
     }
-    folderTag = folderTag.replace(/[^a-zA-Z0-9_\-]/g, '_');
+    folderTag = folderTag.replace(/[^\w\u3131-\u318E\uAC00-\uD7A3\-]/gi, '_').replace(/_+/g, '_');
     return _path.join('SendingMD', `ListDir_${folderTag}_${timeTag}.${ext}`);
 };
 
@@ -51,9 +51,13 @@ window.makeSendingMdBundleName = function(filePaths = []) {
         return _path.join('SendingMD', `Files_bundle_${timeTag}.${ext}`);
     }
     const names = filePaths.map(f => {
-        const b = _path.basename(f);
-        return b.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
-    });
+        const b = _path.basename(f || '');
+        return b.replace(/[^\w\s\u3131-\u318E\uAC00-\uD7A3\.\-]/gi, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+    }).filter(Boolean);
+
+    if (names.length === 0) {
+        return _path.join('SendingMD', `Files_bundle_${timeTag}.${ext}`);
+    }
 
     if (names.length <= 3) {
         return _path.join('SendingMD', `Files_${names.join('_')}_${timeTag}.${ext}`);

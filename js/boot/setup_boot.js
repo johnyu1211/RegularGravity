@@ -78,7 +78,15 @@ async function setupBoot() {
                 return;
             }
             const ta = document.getElementById('manual-cmd-textarea');
-            const latestText = await getLatestAiMsgText();
+            let latestText = await getLatestAiMsgText();
+            if ((!latestText || !latestText.trim()) && navigator.clipboard && navigator.clipboard.readText) {
+                try {
+                    const clipText = await navigator.clipboard.readText();
+                    if (clipText && clipText.trim() && (clipText.includes('[CMD:') || clipText.includes('write-file') || clipText.includes('read-file') || clipText.includes('```'))) {
+                        latestText = clipText.trim();
+                    }
+                } catch(e) {}
+            }
             if (latestText && ta) {
                 ta.value = latestText;
             }
@@ -104,9 +112,20 @@ async function setupBoot() {
     if (cancelManualCmd) cancelManualCmd.onclick = hideManualCmdPanel;
 
     if (runManualCmd) {
-        runManualCmd.onclick = () => {
+        runManualCmd.onclick = async () => {
             const ta = document.getElementById('manual-cmd-textarea');
             let rawText = ta ? ta.value.trim() : '';
+
+            if (!rawText && navigator.clipboard && navigator.clipboard.readText) {
+                try {
+                    const clipText = await navigator.clipboard.readText();
+                    if (clipText && clipText.trim()) {
+                        rawText = clipText.trim();
+                        if (ta) ta.value = rawText;
+                    }
+                } catch(e) {}
+            }
+
             if (!rawText) return;
             hideManualCmdPanel();
             if (ta) ta.value = '';

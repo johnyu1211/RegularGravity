@@ -145,9 +145,6 @@ function startUsageMatrixShuffle() {}
 function stopUsageMatrixShuffle() {}
 
 window.fetchGeminiUsagePercent = function() {
-    if (!window.process || window.process.platform === 'browser') {
-        return;
-    }
     try {
         if (isUsageCrawling) {
             console.log('[GeminiUsage] Crawl already in progress, skipping...');
@@ -164,6 +161,63 @@ window.fetchGeminiUsagePercent = function() {
                 stopUsageMatrixShuffle();
             }
         }, 15000);
+
+        const isBrowserMode = (!window.process || window.process.platform === 'browser');
+        if (isBrowserMode) {
+            console.log('[GeminiUsage] Starting silent background usage check in browser mode...');
+            setTimeout(() => {
+                let res = null;
+                try {
+                    const activeWv = document.getElementById('active-agent-webview');
+                    if (activeWv && activeWv.contentDocument) {
+                        const winDoc = activeWv.contentDocument;
+                        const bodyTxt = winDoc.body ? winDoc.body.innerText : '';
+                        let foundPercent = null;
+                        const candidates = Array.from(winDoc.querySelectorAll('.gds-emphasized-body-l, [class*="gds-emphasized-body-l"], div, span, p'));
+                        for (const el of candidates) {
+                            const txt = (el.innerText || el.textContent || '').trim();
+                            const m = txt.match(/(\d{1,3})\s*%/);
+                            if (m && m[1]) {
+                                foundPercent = m[1] + '%';
+                                break;
+                            }
+                        }
+                        if (!foundPercent) {
+                            const m = bodyTxt.match(/(\d{1,3})\s*%/);
+                            if (m && m[1]) foundPercent = m[1] + '%';
+                        }
+                        let remainingText = '';
+                        const allSpans = Array.from(winDoc.querySelectorAll('span, div, p'));
+                        for (const el of allSpans) {
+                            const txt = (el.innerText || el.textContent || '').trim();
+                            if (txt.includes('남음') || txt.includes('까지') || txt.includes('재설정') || txt.toLowerCase().includes('reset') || txt.toLowerCase().includes('remaining')) {
+                                if (txt.length < 60) { remainingText = txt; break; }
+                            }
+                        }
+                        if (foundPercent) {
+                            res = { foundPercent, remainingText };
+                        }
+                    }
+                } catch(e) {}
+
+                if (res && res.foundPercent) {
+                    console.log('[GeminiUsage] Silently updated usage in browser mode:', res);
+                    const el1 = document.getElementById('taskbar-gemini-usage-percent');
+                    const el2 = document.getElementById('modal-gemini-usage-percent');
+                    const gaugeBar = document.getElementById('taskbar-gemini-usage-gauge-fill');
+                    const remPct = parseInt(res.foundPercent, 10);
+                    if (!isNaN(remPct)) {
+                        if (el1) el1.innerText = remPct + '%';
+                        if (el2) el2.innerText = remPct + '%';
+                        if (gaugeBar) gaugeBar.style.width = Math.min(100, remPct) + '%';
+                    }
+                }
+                isUsageCrawling = false;
+                clearTimeout(crawlTimeoutTimer);
+                stopUsageMatrixShuffle();
+            }, 1200);
+            return;
+        }
 
         console.log('[GeminiUsage] Starting usage percent crawl via background webview...');
         const activeWv = document.getElementById('active-agent-webview');

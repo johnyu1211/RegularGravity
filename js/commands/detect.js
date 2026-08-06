@@ -589,11 +589,11 @@ function detectAndAskCommand(text) {
                 const finalPrompt = "Proceed to analyze the files above.";
                 combinedPayload += finalPrompt;
 
-                // Save to SendingMD file payload with modern Files_filename_ filename naming
-                const targetFilePaths = readCmds.map(c => c.target);
+                // Save to SendingMD file payload with modern file names
+                const targetFilePaths = existingCmds.map(c => typeof c === 'string' ? c : (c.path || c.target || c.filePath || 'file.md'));
                 const baseFileName = typeof window.makeSendingMdBundleName === 'function'
                     ? window.makeSendingMdBundleName(targetFilePaths)
-                    : path.join('SendingMD', `Files_bundle_${Date.now()}.${window.getSendingMdExt ? window.getSendingMdExt() : 'md'}`);
+                    : path.join('SendingMD', `Files_${targetFilePaths.slice(0, 3).map(f => path.basename(f)).join('_')}_${Date.now()}.${window.getSendingMdExt ? window.getSendingMdExt() : 'md'}`);
 
                 const payload = await window.prepareFilePayload(baseFileName, combinedPayload);
 

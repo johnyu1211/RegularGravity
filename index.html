@@ -56,11 +56,30 @@
                 if (mod === 'fs') {
                     return {
                         existsSync: function(p) { return true; },
-                        readFileSync: function(p) {
+                        readFileSync: function(p, options) {
                             if (typeof p !== 'string') return '';
                             const cleanP = p.replace(/\\/g, '/');
                             const fileName = cleanP.split('/').pop();
-                            return (window.webFileCache && (window.webFileCache[cleanP] || window.webFileCache[fileName])) || '';
+                            let raw = (window.webFileCache && (window.webFileCache[cleanP] || window.webFileCache[fileName])) || '';
+                            
+                            const resObj = {
+                                toString: function(enc) {
+                                    if (enc === 'base64') {
+                                        try {
+                                            if (typeof raw === 'string' && raw.startsWith('data:image')) {
+                                                return raw.split(',')[1] || '';
+                                            }
+                                            return btoa(unescape(encodeURIComponent(raw)));
+                                        } catch(e) { return ''; }
+                                    }
+                                    return String(raw);
+                                },
+                                replace: function(...args) { return String(raw).replace(...args); },
+                                split: function(...args) { return String(raw).split(...args); },
+                                trim: function() { return String(raw).trim(); }
+                            };
+                            if (options === 'utf-8' || options === 'utf8') return String(raw);
+                            return resObj;
                         },
                         writeFileSync: function(p, content) {
                             if (typeof p === 'string') {

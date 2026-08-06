@@ -530,13 +530,22 @@ function detectAndAskCommand(text) {
 
                     if (fs.existsSync(targetPath)) {
                         if (fileObj.isDirectory || fs.statSync(targetPath).isDirectory()) {
-                            let treeText = "";
-                            if (typeof ipcRenderer !== 'undefined' && ipcRenderer.invoke) {
-                                treeText = await ipcRenderer.invoke('vault-get-tree', targetPath);
+                            let rawTree = (typeof ipcRenderer !== 'undefined' && ipcRenderer.invoke) ? await ipcRenderer.invoke('vault-get-tree', targetPath) : '';
+                            let treeText = typeof rawTree === 'string' ? rawTree : (rawTree && typeof rawTree === 'object' && typeof rawTree.tree === 'string' ? rawTree.tree : '');
+
+                            if ((!treeText || !treeText.trim()) && window.activeWebDirHandle) {
+                                const rootName = window.activeWebDirHandle.name || 'Project';
+                                const fileKeys = Object.keys(window.webFileCache || {}).filter(k => !k.startsWith('.') && !k.includes('node_modules'));
+                                treeText = `${rootName}/\n` + (fileKeys.length > 0 ? fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n') : '  [Folder loaded]');
                             }
-                            if (!treeText) {
-                                const files = fs.readdirSync(targetPath);
-                                treeText = files.map(f => `- ${f}`).join('\n') || "(Directory is empty)";
+
+                            if (!treeText || !treeText.trim()) {
+                                try {
+                                    const files = fs.readdirSync(targetPath);
+                                    treeText = files.map(f => `- ${f}`).join('\n') || "(Directory is empty)";
+                                } catch(e) {
+                                    treeText = "(Directory is empty)";
+                                }
                             }
                             fileContentPayload = `[PROJECT TREE: ${filePath}]\n${treeText}\n\n`;
                         } else {

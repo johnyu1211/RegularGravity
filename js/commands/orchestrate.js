@@ -282,13 +282,22 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 try {
                     const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
                     if (fs.existsSync(targetPath)) {
-                        let treeText = "";
-                        if (typeof ipcRenderer !== 'undefined' && ipcRenderer.invoke) {
-                            treeText = await ipcRenderer.invoke('vault-get-tree', targetPath);
+                        let rawTree = (typeof ipcRenderer !== 'undefined' && ipcRenderer.invoke) ? await ipcRenderer.invoke('vault-get-tree', targetPath) : '';
+                        let treeText = typeof rawTree === 'string' ? rawTree : (rawTree && typeof rawTree === 'object' && typeof rawTree.tree === 'string' ? rawTree.tree : '');
+
+                        if ((!treeText || !treeText.trim()) && window.activeWebDirHandle) {
+                            const rootName = window.activeWebDirHandle.name || 'Project';
+                            const fileKeys = Object.keys(window.webFileCache || {}).filter(k => !k.startsWith('.') && !k.includes('node_modules'));
+                            treeText = `${rootName}/\n` + (fileKeys.length > 0 ? fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n') : '  [Folder loaded]');
                         }
-                        if (!treeText) {
-                            const files = fs.readdirSync(targetPath);
-                            treeText = files.map(f => `- ${f}`).join('\n') || "(Directory is empty)";
+
+                        if (!treeText || !treeText.trim()) {
+                            try {
+                                const files = fs.readdirSync(targetPath);
+                                treeText = files.map(f => `- ${f}`).join('\n') || "(Directory is empty)";
+                            } catch(e) {
+                                treeText = "(Directory is empty)";
+                            }
                         }
 
                         const d = new Date();

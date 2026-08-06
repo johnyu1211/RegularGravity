@@ -304,6 +304,9 @@ async function setupBoot() {
     }, 2000);
 
     const emptySendMdBtn = document.getElementById('taskbar-empty-sendmd-btn');
+    if (emptySendMdBtn && (!window.process || window.process.platform === 'browser')) {
+        emptySendMdBtn.style.display = 'none';
+    }
     if (emptySendMdBtn) {
         emptySendMdBtn.onclick = () => {
             try {

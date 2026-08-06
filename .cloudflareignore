@@ -1,0 +1,14 @@
+node_modules
+.git
+.gemini
+lib/venv
+lib/playwright-browsers
+dist
+out
+gravity_vault
+SendingMD
+TestFolder
+*.exe
+*.dll
+*.pdb
+Settings.json

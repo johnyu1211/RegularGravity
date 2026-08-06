@@ -532,9 +532,6 @@ async function setupBoot() {
             if (typeof window.injectGuestDropInterceptor === 'function') {
                 window.injectGuestDropInterceptor();
             }
-            if (typeof window.fetchGeminiUsagePercent === 'function') {
-                window.fetchGeminiUsagePercent();
-            }
             const currentUrl = wv.getURL();
             if (!currentUrl || currentUrl === 'about:blank' || !currentUrl.startsWith('http')) {
                 return;

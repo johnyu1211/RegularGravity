@@ -25,6 +25,8 @@
                             on: function() {},
                             send: function() {},
                             invoke: function(channel) {
+                                if (channel === 'get-recent-projects') return Promise.resolve([]);
+                                if (channel === 'read-active-log' || channel === 'read-log-file') return Promise.resolve("");
                                 return Promise.resolve({ activeLogPath: '', logs: [], tree: [], projects: [], status: 'ok' });
                             },
                             removeListener: function() {},

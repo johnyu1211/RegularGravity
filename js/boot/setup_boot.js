@@ -297,6 +297,13 @@ async function setupBoot() {
     }
 
     window.updateSendingMdCountBadge = function() {
+        if (!window.process || window.process.platform === 'browser' || window.isWebMode) {
+            const emptySendMdBtn = document.getElementById('taskbar-empty-sendmd-btn');
+            if (emptySendMdBtn) emptySendMdBtn.style.display = 'none';
+            const reCmdBtn = document.getElementById('taskbar-recmd-btn');
+            if (reCmdBtn) reCmdBtn.style.display = 'none';
+            return;
+        }
         try {
             const fs = require('fs');
             const path = require('path');
@@ -326,7 +333,7 @@ async function setupBoot() {
     }, 2000);
 
     const emptySendMdBtn = document.getElementById('taskbar-empty-sendmd-btn');
-    if (emptySendMdBtn && (!window.process || window.process.platform === 'browser')) {
+    if (emptySendMdBtn && (!window.process || window.process.platform === 'browser' || window.isWebMode)) {
         emptySendMdBtn.style.display = 'none';
     }
     if (emptySendMdBtn) {

@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>GRAVITY</title>
     <link rel="icon" type="image/png" href="icon.png">
-    <link rel="stylesheet" href="style.css?v=1.2.3">
+    <link rel="stylesheet" href="style.css?v=1.2.4">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <script>
         var _module = typeof module !== 'undefined' ? module : undefined;
@@ -241,6 +241,58 @@
         if (typeof window.process === 'undefined') {
             window.process = { cwd: function() { return '.'; }, platform: 'browser', env: {} };
         }
+
+        window.generateBrowserTreeString = function(fileKeys = [], rootName = 'Project') {
+            const root = {};
+
+            fileKeys.forEach(filePath => {
+                let cleanP = String(filePath || '').replace(/\\/g, '/').trim();
+                if (rootName && cleanP.startsWith(rootName + '/')) {
+                    cleanP = cleanP.slice(rootName.length + 1);
+                }
+                const parts = cleanP.split('/').filter(p => p && p !== '.' && p !== '..' && !p.startsWith('SendingMD') && !p.includes('FollowThisORDER') && !p.startsWith('Files_') && !p.startsWith('ListDir_'));
+                
+                let curr = root;
+                parts.forEach((part, idx) => {
+                    if (idx === parts.length - 1) {
+                        curr[part] = null;
+                    } else {
+                        if (!curr[part] || typeof curr[part] !== 'object') {
+                            curr[part] = {};
+                        }
+                        curr = curr[part];
+                    }
+                });
+            });
+
+            function formatNode(node, prefix = '') {
+                if (!node || typeof node !== 'object') return '';
+                const keys = Object.keys(node);
+                keys.sort((a, b) => {
+                    const isADir = node[a] !== null;
+                    const isBDir = node[b] !== null;
+                    if (isADir !== isBDir) return isADir ? -1 : 1;
+                    return a.localeCompare(b);
+                });
+
+                let result = '';
+                keys.forEach((key, index) => {
+                    const isLast = index === keys.length - 1;
+                    const connector = isLast ? '└── ' : '├── ';
+                    const childPrefix = isLast ? '    ' : '│   ';
+                    const isDir = node[key] !== null;
+
+                    result += `${prefix}${connector}${key}${isDir ? '/' : ''}\n`;
+                    if (isDir) {
+                        result += formatNode(node[key], prefix + childPrefix);
+                    }
+                });
+                return result;
+            }
+
+            const treeBody = formatNode(root);
+            return `${rootName}/\n` + (treeBody.trim() ? treeBody : '  (Directory is empty)');
+        };
 
         window.webFileCache = window.webFileCache || {};
         window.cacheWebDirectory = async function(dirHandle, pathPrefix = '') {
@@ -1444,26 +1496,26 @@
     <script src="js/webview/usage_crawler.js"></script>
 
     <!-- UI Modules -->
-    <script src="js/ui/dialogs.js?v=1.2.3"></script>
-    <script src="js/ui/project.js?v=1.2.3"></script>
-    <script src="js/ui/terminal.js?v=1.2.3"></script>
-    <script src="js/ui/editor.js?v=1.2.3"></script>
-    <script src="js/ui/chat.js?v=1.2.3"></script>
-    <script src="js/ui/graph_view.js?v=1.2.3"></script>
-    <script src="js/ui/drag_drop_queue.js?v=1.2.3"></script>
-    <script src="js/ui/command_panel.js?v=1.2.3"></script>
-    <script src="js/ui/explorer.js?v=1.2.3"></script>
-    <script src="js/ui/ai_renderer.js?v=1.2.3"></script>
+    <script src="js/ui/dialogs.js?v=1.2.4"></script>
+    <script src="js/ui/project.js?v=1.2.4"></script>
+    <script src="js/ui/terminal.js?v=1.2.4"></script>
+    <script src="js/ui/editor.js?v=1.2.4"></script>
+    <script src="js/ui/chat.js?v=1.2.4"></script>
+    <script src="js/ui/graph_view.js?v=1.2.4"></script>
+    <script src="js/ui/drag_drop_queue.js?v=1.2.4"></script>
+    <script src="js/ui/command_panel.js?v=1.2.4"></script>
+    <script src="js/ui/explorer.js?v=1.2.4"></script>
+    <script src="js/ui/ai_renderer.js?v=1.2.4"></script>
 
     <!-- Commands Orchestration -->
-    <script src="js/commands/detect.js?v=1.2.3"></script>
-    <script src="js/commands/orchestrate.js?v=1.2.3"></script>
+    <script src="js/commands/detect.js?v=1.2.4"></script>
+    <script src="js/commands/orchestrate.js?v=1.2.4"></script>
 
     <!-- Boot Setup Modules -->
-    <script src="js/boot/setup_boot.js?v=1.2.3"></script>
-    <script src="js/boot/setup_ui.js?v=1.2.3"></script>
+    <script src="js/boot/setup_boot.js?v=1.2.4"></script>
+    <script src="js/boot/setup_ui.js?v=1.2.4"></script>
 
     <!-- Main Entry Point -->
-    <script src="js/main_ui.js?v=1.2.3"></script>
+    <script src="js/main_ui.js?v=1.2.4"></script>
 </body>
 </html>

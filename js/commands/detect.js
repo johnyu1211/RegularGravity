@@ -543,7 +543,9 @@ function detectAndAskCommand(text) {
                                     !k.includes('Files_') && 
                                     !k.includes('ListDir_')
                                 );
-                                treeText = `${rootName}/\n` + (fileKeys.length > 0 ? fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n') : '  [Folder loaded]');
+                                treeText = typeof window.generateBrowserTreeString === 'function'
+                                    ? window.generateBrowserTreeString(fileKeys, rootName)
+                                    : `${rootName}/\n` + fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n');
                             }
 
                             if (!treeText || !treeText.trim()) {

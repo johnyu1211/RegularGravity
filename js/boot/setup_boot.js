@@ -381,7 +381,9 @@ async function setupBoot() {
                         !k.includes('Files_') && 
                         !k.includes('ListDir_')
                     );
-                    projectTree = `${rootName}/\n` + (fileKeys.length > 0 ? fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n') : '  [Folder loaded]');
+                    projectTree = typeof window.generateBrowserTreeString === 'function'
+                        ? window.generateBrowserTreeString(fileKeys, rootName)
+                        : `${rootName}/\n` + fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n');
                 }
 
                 const treeFileName = window.makeSendingMdTreeName();

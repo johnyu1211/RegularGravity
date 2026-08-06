@@ -1975,7 +1975,9 @@ function setupUI() {
                     !k.includes('Files_') && 
                     !k.includes('ListDir_')
                 );
-                tree = `${rootName}/\n` + (fileKeys.length > 0 ? fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n') : '  [Folder loaded]');
+                tree = typeof window.generateBrowserTreeString === 'function'
+                    ? window.generateBrowserTreeString(fileKeys, rootName)
+                    : `${rootName}/\n` + fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n');
             }
             const treeLines = tree.split('\n').map(l => l.trim()).filter(Boolean);
             window.totalFilesCount = treeLines.filter(l => !l.endsWith('/')).length;

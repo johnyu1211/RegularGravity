@@ -44,12 +44,13 @@ function detectAndAskCommand(text) {
         console.log("[BriefingShield] Activated: Ignoring any non-read commands during briefing response.");
     }
 
-    const cmdRegex = /\[(CMD|REQUEST|COMMAND|EXEC):\s*([^\]]+)\]/gi;
+    const cmdRegex = /\[(CMD|REQUEST|COMMAND|EXEC):\s*([^\]\r\n]+)\]?/gi;
     let match;
     const foundCmds = [];
     while ((match = cmdRegex.exec(text)) !== null) {
-        const cleanCmd = match[2].trim();
+        let cleanCmd = match[2].trim();
         if (cleanCmd) {
+            if (cleanCmd.endsWith(']')) cleanCmd = cleanCmd.slice(0, -1).trim();
             if (cleanCmd === '...' || cleanCmd.includes('...')) continue;
             if (cleanCmd.includes('경로') || cleanCmd.includes('path') || cleanCmd.includes('요청')) continue;
             foundCmds.push(cleanCmd);
@@ -57,10 +58,10 @@ function detectAndAskCommand(text) {
     }
 
     if (foundCmds.length === 0) {
-        const lines = text.split('\n');
+        const lines = text.split(/\r?\n/);
         for (let line of lines) {
             let trimmed = line.trim().replace(/^[`\s]+|[`\s]+$/g, '');
-            if (/^(read-file|write-file|edit-file|edit-file-range|read-file-full|read-file-range|delete-file|run-command|list-dir|search-keyword|move-file|reset-session)\b/i.test(trimmed)) {
+            if (/^(read-file|write-file|edit-file|edit-file-range|read-file-full|read-file-range|delete-file|create-dir|mkdir|run-command|list-dir|search-keyword|move-file|reset-session)\b/i.test(trimmed)) {
                 foundCmds.push(trimmed);
             }
         }
@@ -70,24 +71,18 @@ function detectAndAskCommand(text) {
     if (foundCmds.length === 0 && text.includes('```')) {
         let inferredPath = null;
         
-        // Strategy 0: Bottom-Up Line-by-Line Scanner above code blocks
-        // Skips language labels (HTML, JavaScript, Python, CSS, etc.) and searches upward for [CMD:], standalone command, or file path.
-        // Stops immediately at the first match so previous section/turn commands are never included.
         const lines = text.split(/\r?\n/);
         const langRegex = /^(html|htm|javascript|js|typescript|ts|jsx|tsx|css|scss|sass|less|python|py|bash|sh|zsh|powershell|ps1|batch|bat|cmd|shell|json|json5|xml|markdown|md|cpp|c\+\+|c|cs|csharp|java|kotlin|kt|swift|objc|sql|mysql|postgres|sqlite|php|ruby|rb|rust|rs|go|golang|yaml|yml|toml|ini|text|txt|vue|svelte|docker|dockerfile|graphql|dart|elixir|erlang|haskell|scala|assembly|asm|r|matlab|cmake|make|makefile|nginx|env)$/i;
 
         for (let i = 0; i < lines.length; i++) {
             const trimmedLine = lines[i].trim();
             if (trimmedLine.startsWith('```')) {
-                // Code block found at index i. Scan upwards from line i-1
                 for (let j = i - 1; j >= 0; j--) {
                     const lineStr = lines[j].trim();
-                    if (!lineStr) continue; // Skip blank lines
+                    if (!lineStr) continue;
 
-                    // Clean line for label inspection
                     const cleanLabel = lineStr.replace(/[`\s\*\#\:\-\_]/g, '');
 
-                    // Skip language labels, closing backticks, or short non-path labels without dots/commands
                     const isLangLabel = langRegex.test(lineStr) || langRegex.test(cleanLabel) || lineStr.startsWith('```');
                     const isGenericLabel = !lineStr.includes('.') && !lineStr.includes('[') && !lineStr.includes('write-file') && !lineStr.includes('read-file') && cleanLabel.length < 25;
 
@@ -95,32 +90,28 @@ function detectAndAskCommand(text) {
                         continue;
                     }
 
-                    // Check 1: [CMD: ...] or [REQUEST: ...] tag
-                    const tagMatch = lineStr.match(/\[(CMD|REQUEST|COMMAND|EXEC):\s*([^\]]+)\]/i);
+                    const tagMatch = lineStr.match(/\[(CMD|REQUEST|COMMAND|EXEC):\s*([^\]\r\n]+)\]?/i);
                     if (tagMatch) {
-                        const cleanCmd = tagMatch[2].trim();
+                        let cleanCmd = tagMatch[2].trim();
+                        if (cleanCmd.endsWith(']')) cleanCmd = cleanCmd.slice(0, -1).trim();
                         if (cleanCmd && !cleanCmd.includes('...')) {
                             foundCmds.push(cleanCmd);
                         }
-                        break; // Stop scanning upward for this code block
+                        break;
                     }
 
-                    // Check 2: Standalone command format like `write-file "path"`
-                    const cmdFormatMatch = lineStr.match(/^[`\s]*(read-file|write-file|edit-file|delete-file|run-command|list-dir|search-keyword|move-file)\b\s*(.*)/i);
+                    const cmdFormatMatch = lineStr.match(/^[`\s]*(read-file|write-file|edit-file|delete-file|create-dir|mkdir|run-command|list-dir|search-keyword|move-file)\b\s*(.*)/i);
                     if (cmdFormatMatch) {
                         foundCmds.push(lineStr.replace(/^[`\s]+|[`\s]+$/g, ''));
-                        break; // Stop scanning upward for this code block
+                        break;
                     }
 
-                    // Check 3: File heading/title above code block (e.g. `index.html`, ### index.html, File: index.html, Current: "index.html")
                     const pathMatch = lineStr.match(/(?:\d+\.\s*|###\s*|##\s*|#\s*|\*\*\s*|File:\s*|Current:\s*"|Next:\s*")?`?([a-zA-Z0-9_\-\.\/]+\.(?:js|css|html|json|md|py|java|c|cpp|h|ts|jsx|tsx))`?/i);
                     if (pathMatch) {
                         inferredPath = pathMatch[1].trim();
-                        break; // Stop scanning upward for this code block
+                        break;
                     }
 
-                    // Stop scanning if non-matching line is reached
-                    break;
                 }
             }
             if (foundCmds.length > 0 || inferredPath) break;

@@ -24,9 +24,15 @@
                         ipcRenderer: {
                             on: function() {},
                             send: function() {},
-                            invoke: function() { return Promise.resolve(null); },
+                            invoke: function(channel) {
+                                return Promise.resolve({ activeLogPath: '', logs: [], tree: [], projects: [], status: 'ok' });
+                            },
                             removeListener: function() {},
                             removeAllListeners: function() {}
+                        },
+                        webFrame: {
+                            setZoomFactor: function() {},
+                            getZoomFactor: function() { return 1; }
                         },
                         shell: { openPath: function() {}, openExternal: function() {} }
                     };

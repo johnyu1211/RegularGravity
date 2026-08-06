@@ -4,18 +4,32 @@ window.projectRoot = null;
 window.selectProject = async (folderPath) => {
     if (!folderPath) return;
     
-    const fs = require('fs');
-    if (!fs.existsSync(folderPath)) {
-        if (typeof window.showUserScreenToast === 'function') {
-            window.showUserScreenToast(`Directory no longer exists: "${folderPath}"`, 4000, false);
+    if (typeof window.showDirectoryPicker === 'function' && (!window.process || window.process.platform === 'browser')) {
+        window.webDirectoryHandles = window.webDirectoryHandles || {};
+        if (window.webDirectoryHandles[folderPath]) {
+            window.activeWebDirHandle = window.webDirectoryHandles[folderPath];
+            if (typeof window.cacheWebDirectory === 'function') {
+                await window.cacheWebDirectory(window.activeWebDirHandle, folderPath);
+            }
+        } else if (!window.activeWebDirHandle || window.activeWebDirHandle.name !== folderPath) {
+            try {
+                if (typeof window.showUserScreenToast === 'function') {
+                    window.showUserScreenToast(`Grant access for "${folderPath}"`, 3000, true);
+                }
+                const dirHandle = await window.showDirectoryPicker();
+                if (dirHandle) {
+                    window.webDirectoryHandles[dirHandle.name] = dirHandle;
+                    window.activeWebDirHandle = dirHandle;
+                    folderPath = dirHandle.name;
+                    if (typeof window.cacheWebDirectory === 'function') {
+                        await window.cacheWebDirectory(dirHandle, folderPath);
+                    }
+                }
+            } catch(e) {
+                console.log("Web project selection cancelled:", e);
+                return;
+            }
         }
-        try {
-            await ipcRenderer.invoke('remove-recent-project', folderPath);
-        } catch(e) {}
-        if (typeof openProjectModal === 'function') {
-            await openProjectModal(null, true);
-        }
-        return;
     }
     
     const path = require('path');
@@ -444,6 +458,12 @@ document.addEventListener('contextmenu', (e) => {
                 }
 
                 try {
+                    let recents = JSON.parse(localStorage.getItem('recent_projects') || '[]');
+                    recents = recents.filter(p => p !== targetPath);
+                    localStorage.setItem('recent_projects', JSON.stringify(recents));
+                } catch(e) {}
+
+                try {
                     const fs = require('fs');
                     const path = require('path');
                     const appData = process.env.APPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Roaming') : '');
@@ -464,22 +484,24 @@ document.addEventListener('contextmenu', (e) => {
                 } catch(err) {}
 
                 if (typeof openProjectModal === 'function') {
-                    await openProjectModal();
+                    await openProjectModal(null, true);
                 }
             };
         }
 
-        const clearBtn = menu.querySelector('#btn-clear-recent-list');
-        if (clearBtn) {
-            clearBtn.onclick = async (ev) => {
+        const clearListBtn = menu.querySelector('#btn-clear-recent-list');
+        if (clearListBtn) {
+            clearListBtn.onclick = async (ev) => {
                 ev.stopPropagation();
                 closePickerMenu();
-
+                
                 const items = document.querySelectorAll('.recent-project-item');
                 items.forEach(el => el.classList.add('recent-item-removing'));
                 if (items.length > 0) {
                     await new Promise(r => setTimeout(r, 240));
                 }
+
+                try { localStorage.setItem('recent_projects', JSON.stringify([])); } catch(e) {}
 
                 try {
                     const fs = require('fs');
@@ -497,16 +519,9 @@ document.addEventListener('contextmenu', (e) => {
                     await ipcRenderer.invoke('clear-recent-projects');
                 } catch (err) {}
 
-                const list = document.getElementById('recent-projects-list');
-                if (list) {
-                    list.innerHTML = `<div style="font-size:12px; color:#777; padding:10px 0; font-family:'JetBrains Mono',monospace; text-align:center;">No recent projects</div>`;
+                if (typeof openProjectModal === 'function') {
+                    await openProjectModal(null, true);
                 }
-
-                setTimeout(async () => {
-                    if (typeof openProjectModal === 'function') {
-                        await openProjectModal();
-                    }
-                }, 100);
             };
         }
     }

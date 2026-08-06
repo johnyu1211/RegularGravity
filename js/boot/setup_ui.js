@@ -1963,7 +1963,12 @@ function setupUI() {
             const fs = require('fs');
             const path = require('path');
             
-            const tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
+            let tree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
+            if ((!tree || !tree.trim()) && window.activeWebDirHandle) {
+                const rootName = window.activeWebDirHandle.name || 'Project';
+                const fileKeys = Object.keys(window.webFileCache || {}).filter(k => !k.startsWith('.') && !k.includes('node_modules'));
+                tree = `${rootName}/\n` + (fileKeys.length > 0 ? fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n') : '  [Folder loaded]');
+            }
             const treeLines = (tree || '').split('\n').map(l => l.trim()).filter(Boolean);
             window.totalFilesCount = treeLines.filter(l => !l.endsWith('/')).length;
             window.readFilesSet.clear();
@@ -1978,6 +1983,25 @@ function setupUI() {
                 ? `${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim()
                 : `The current project folder contains the following files:\n${tree}\n\n${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim();
             
+            if (!window.process || window.process.platform === 'browser') {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(webPayload);
+                    }
+                } catch(e) {}
+                const chatInputEl = document.getElementById('local-agent-input');
+                if (chatInputEl) {
+                    chatInputEl.value = webPayload;
+                    chatInputEl.focus();
+                }
+                if (typeof window.showUserScreenToast === 'function') {
+                    window.showUserScreenToast('Copied Project Info & Rules to Clipboard!', 3500, true);
+                }
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    ChatUI.appendBubble('system', '[SYSTEM] Copied Project Info & Rules to Clipboard! Paste (Ctrl+V) into your AI chat.');
+                }
+            }
+
             if (!window.dragDropMode) {
                 window.requestedFilesQueue = [];
                 window.activeDragDropCleanup = null;

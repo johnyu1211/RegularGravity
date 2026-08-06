@@ -110,8 +110,27 @@ window.updateDragDropQueueUI = function() {
             itemEl.style.borderColor = isCompleted ? 'rgba(255, 255, 255, 0.05)' : 'var(--border-color)';
         };
         itemEl.ondragstart = (e) => {
-            e.preventDefault();
-            ipcRenderer.send('ondragstart', item.absolutePath);
+            if (!window.process || window.process.platform === 'browser') {
+                try {
+                    const fs = require('fs');
+                    const fileContent = fs.readFileSync(item.absolutePath, 'utf-8');
+                    const fileName = item.relativePath ? item.relativePath.split(/[\\/]/).pop() : 'file.md';
+
+                    e.dataTransfer.setData('text/plain', fileContent);
+                    e.dataTransfer.setData('text/html', `<pre>${fileContent}</pre>`);
+                    
+                    try {
+                        const blob = new Blob([fileContent], { type: 'text/markdown' });
+                        const fileObj = new File([blob], fileName, { type: 'text/markdown' });
+                        if (e.dataTransfer.items && e.dataTransfer.items.add) {
+                            e.dataTransfer.items.add(fileObj);
+                        }
+                    } catch(err) {}
+                } catch(e) {}
+            } else {
+                e.preventDefault();
+                ipcRenderer.send('ondragstart', item.absolutePath);
+            }
         };
         itemEl.onclick = (e) => {
             e.stopPropagation();
@@ -120,9 +139,50 @@ window.updateDragDropQueueUI = function() {
             }
         };
         
+        const fileName = item.relativePath.split(/[\\/]/).pop();
         itemEl.innerHTML = `
-            <span class="queue-file-name" style="font-size: 12px; color: ${isCompleted ? 'var(--text-muted)' : 'var(--text-main)'}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px; ${isCompleted ? 'text-decoration: line-through;' : ''}" title="${item.relativePath}">${item.relativePath.split(/[\\/]/).pop()}</span>
+            <span class="queue-file-name" style="font-size: 12px; color: ${isCompleted ? 'var(--text-muted)' : 'var(--text-main)'}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; padding: 2px 4px; ${isCompleted ? 'text-decoration: line-through;' : ''}" title="${item.relativePath}">${fileName}</span>
         `;
+
+        if (!window.process || window.process.platform === 'browser') {
+            const btnContainer = document.createElement('div');
+            btnContainer.style.cssText = 'display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;';
+
+            const copyBtn = document.createElement('button');
+            copyBtn.innerHTML = '📋 Copy';
+            copyBtn.style.cssText = 'background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:#fff; font-size:10.5px; padding:3px 8px; border-radius:5px; cursor:pointer; font-weight:600;';
+            copyBtn.onclick = (e) => {
+                e.stopPropagation();
+                try {
+                    const fs = require('fs');
+                    const text = fs.readFileSync(item.absolutePath, 'utf-8');
+                    navigator.clipboard.writeText(text);
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast(`Copied "${fileName}" to clipboard!`, 2500, true);
+                    }
+                } catch(err) {}
+            };
+
+            const dlBtn = document.createElement('button');
+            dlBtn.innerHTML = '📥 Download';
+            dlBtn.style.cssText = 'background:var(--primary); border:none; color:#fff; font-size:10.5px; padding:3px 9px; border-radius:5px; cursor:pointer; font-weight:700;';
+            dlBtn.onclick = (e) => {
+                e.stopPropagation();
+                try {
+                    const fs = require('fs');
+                    const text = fs.readFileSync(item.absolutePath, 'utf-8');
+                    const blob = new Blob([text], { type: 'text/markdown' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = fileName;
+                    a.click();
+                } catch(err) {}
+            };
+
+            btnContainer.appendChild(copyBtn);
+            btnContainer.appendChild(dlBtn);
+            itemEl.appendChild(btnContainer);
+        }
         
         listEl.appendChild(itemEl);
     });

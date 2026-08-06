@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>GRAVITY</title>
     <link rel="icon" type="image/png" href="icon.png">
-    <link rel="stylesheet" href="style.css?v=1.2.1">
+    <link rel="stylesheet" href="style.css?v=1.2.2">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <script>
         var _module = typeof module !== 'undefined' ? module : undefined;
@@ -158,20 +158,29 @@
         window.saveFileToWebDirectory = async function(filePath, content) {
             if (!window.activeWebDirHandle) return false;
             try {
-                const cleanP = String(filePath).replace(/\\/g, '/');
-                const rootName = window.activeWebDirHandle.name || 'Project';
-                let relative = cleanP;
-                if (cleanP.startsWith(rootName + '/')) {
-                    relative = cleanP.slice(rootName.length + 1);
+                let cleanP = String(filePath || '').replace(/\\/g, '/').trim();
+                const rootName = window.activeWebDirHandle.name || '';
+
+                cleanP = cleanP.replace(/^[a-zA-Z]:[/]/, '');
+
+                if (rootName && cleanP.startsWith(rootName + '/')) {
+                    cleanP = cleanP.slice(rootName.length + 1);
                 }
-                const parts = relative.split('/').filter(Boolean);
+
+                const parts = cleanP.split('/').filter(p => p && p !== '.' && p !== '..');
+                if (parts.length === 0) return false;
+
                 let currentHandle = window.activeWebDirHandle;
 
                 for (let i = 0; i < parts.length - 1; i++) {
-                    currentHandle = await currentHandle.getDirectoryHandle(parts[i], { create: true });
+                    const dirName = parts[i];
+                    if (!dirName || dirName === '.' || dirName === '..' || dirName.includes(':')) continue;
+                    currentHandle = await currentHandle.getDirectoryHandle(dirName, { create: true });
                 }
 
                 const fileName = parts[parts.length - 1];
+                if (!fileName || fileName.includes(':')) return false;
+
                 const fileHandle = await currentHandle.getFileHandle(fileName, { create: true });
                 const writable = await fileHandle.createWritable();
                 await writable.write(content);
@@ -180,12 +189,11 @@
                 window.webFileCache = window.webFileCache || {};
                 window.webFileCache[cleanP] = content;
                 window.webFileCache[fileName] = content;
-                window.webFileCache[relative] = content;
 
-                console.log(`[saveFileToWebDirectory] Successfully saved to local disk: ${relative}`);
+                console.log(`[saveFileToWebDirectory] Successfully saved to local disk: ${cleanP}`);
                 return true;
             } catch(err) {
-                console.error("[saveFileToWebDirectory] Disk save error:", err);
+                console.warn("[saveFileToWebDirectory] Disk save warning:", err.message);
                 return false;
             }
         };
@@ -193,31 +201,39 @@
         window.deleteFileFromWebDirectory = async function(filePath) {
             if (!window.activeWebDirHandle) return false;
             try {
-                const cleanP = String(filePath).replace(/\\/g, '/');
-                const rootName = window.activeWebDirHandle.name || 'Project';
-                let relative = cleanP;
-                if (cleanP.startsWith(rootName + '/')) {
-                    relative = cleanP.slice(rootName.length + 1);
+                let cleanP = String(filePath || '').replace(/\\/g, '/').trim();
+                const rootName = window.activeWebDirHandle.name || '';
+
+                cleanP = cleanP.replace(/^[a-zA-Z]:[/]/, '');
+
+                if (rootName && cleanP.startsWith(rootName + '/')) {
+                    cleanP = cleanP.slice(rootName.length + 1);
                 }
-                const parts = relative.split('/').filter(Boolean);
+
+                const parts = cleanP.split('/').filter(p => p && p !== '.' && p !== '..');
+                if (parts.length === 0) return false;
+
                 let currentHandle = window.activeWebDirHandle;
 
                 for (let i = 0; i < parts.length - 1; i++) {
-                    currentHandle = await currentHandle.getDirectoryHandle(parts[i]);
+                    const dirName = parts[i];
+                    if (!dirName || dirName === '.' || dirName === '..' || dirName.includes(':')) continue;
+                    currentHandle = await currentHandle.getDirectoryHandle(dirName);
                 }
 
                 const fileName = parts[parts.length - 1];
+                if (!fileName || fileName.includes(':')) return false;
+
                 await currentHandle.removeEntry(fileName);
 
                 if (window.webFileCache) {
                     delete window.webFileCache[cleanP];
                     delete window.webFileCache[fileName];
-                    delete window.webFileCache[relative];
                 }
-                console.log(`[deleteFileFromWebDirectory] Successfully deleted from local disk: ${relative}`);
+                console.log(`[deleteFileFromWebDirectory] Successfully deleted from local disk: ${cleanP}`);
                 return true;
             } catch(err) {
-                console.error("[deleteFileFromWebDirectory] Disk delete error:", err);
+                console.warn("[deleteFileFromWebDirectory] Disk delete warning:", err.message);
                 return false;
             }
         };
@@ -1427,26 +1443,26 @@
     <script src="js/webview/usage_crawler.js"></script>
 
     <!-- UI Modules -->
-    <script src="js/ui/dialogs.js?v=1.2.1"></script>
-    <script src="js/ui/project.js?v=1.2.1"></script>
-    <script src="js/ui/terminal.js?v=1.2.1"></script>
-    <script src="js/ui/editor.js?v=1.2.1"></script>
-    <script src="js/ui/chat.js?v=1.2.1"></script>
-    <script src="js/ui/graph_view.js?v=1.2.1"></script>
-    <script src="js/ui/drag_drop_queue.js?v=1.2.1"></script>
-    <script src="js/ui/command_panel.js?v=1.2.1"></script>
-    <script src="js/ui/explorer.js?v=1.2.1"></script>
-    <script src="js/ui/ai_renderer.js?v=1.2.1"></script>
+    <script src="js/ui/dialogs.js?v=1.2.2"></script>
+    <script src="js/ui/project.js?v=1.2.2"></script>
+    <script src="js/ui/terminal.js?v=1.2.2"></script>
+    <script src="js/ui/editor.js?v=1.2.2"></script>
+    <script src="js/ui/chat.js?v=1.2.2"></script>
+    <script src="js/ui/graph_view.js?v=1.2.2"></script>
+    <script src="js/ui/drag_drop_queue.js?v=1.2.2"></script>
+    <script src="js/ui/command_panel.js?v=1.2.2"></script>
+    <script src="js/ui/explorer.js?v=1.2.2"></script>
+    <script src="js/ui/ai_renderer.js?v=1.2.2"></script>
 
     <!-- Commands Orchestration -->
-    <script src="js/commands/detect.js?v=1.2.1"></script>
-    <script src="js/commands/orchestrate.js?v=1.2.1"></script>
+    <script src="js/commands/detect.js?v=1.2.2"></script>
+    <script src="js/commands/orchestrate.js?v=1.2.2"></script>
 
     <!-- Boot Setup Modules -->
-    <script src="js/boot/setup_boot.js?v=1.2.1"></script>
-    <script src="js/boot/setup_ui.js?v=1.2.1"></script>
+    <script src="js/boot/setup_boot.js?v=1.2.2"></script>
+    <script src="js/boot/setup_ui.js?v=1.2.2"></script>
 
     <!-- Main Entry Point -->
-    <script src="js/main_ui.js?v=1.2.1"></script>
+    <script src="js/main_ui.js?v=1.2.2"></script>
 </body>
 </html>

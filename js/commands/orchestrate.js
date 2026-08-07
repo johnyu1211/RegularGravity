@@ -188,11 +188,14 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                     const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
                     if (!fs.existsSync(targetPath)) {
                         fs.mkdirSync(targetPath, { recursive: true });
-                        accumulatedFeedback += `[DIRECTORY CREATED: ${c.path}]\n`;
-                        ChatUI.appendBubble('system', `[SUCCESS] Created directory: ${c.path}`);
-                        if (typeof window.showUserScreenToast === 'function') {
-                            window.showUserScreenToast(`Directory created: "${c.path}"`, 3500);
-                        }
+                    }
+                    if (window.activeWebDirHandle && typeof window.createDirectoryInWebDirectory === 'function') {
+                        await window.createDirectoryInWebDirectory(c.path);
+                    }
+                    accumulatedFeedback += `[DIRECTORY CREATED: ${c.path}]\n`;
+                    ChatUI.appendBubble('system', `[SUCCESS] Created directory: ${c.path}`);
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast(`Directory created: "${c.path}"`, 3500);
                     }
                 } catch(err) {
                     accumulatedFeedback += `[DIRECTORY CREATE ERROR: ${c.path} - ${err.message}]\n`;

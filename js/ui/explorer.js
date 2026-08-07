@@ -94,9 +94,15 @@ window.loadDirectory = async (p) => {
         if (revealBtn && !window.hasRevealBind) {
             revealBtn.onclick = (e) => {
                 e.stopPropagation();
-                if (window.currentPath && window.currentPath !== 'DRIVES') {
+                if (window.isWebMode || (window.process && window.process.platform === 'browser') || typeof window.require === 'undefined') {
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast("In Web Browser mode, files are managed inside the web app.", 3500, true);
+                    }
+                } else if (window.currentPath && window.currentPath !== 'DRIVES') {
                     const { ipcRenderer } = require('electron');
-                    ipcRenderer.send('reveal-in-explorer', window.currentPath);
+                    if (ipcRenderer && ipcRenderer.send) {
+                        ipcRenderer.send('reveal-in-explorer', window.currentPath);
+                    }
                 }
             };
             window.hasRevealBind = true;

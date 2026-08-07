@@ -1036,7 +1036,11 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
     if (btnReveal) {
         btnReveal.onclick = (ev) => {
             ev.stopPropagation(); closeMenu();
-            if (typeof ipcRenderer !== 'undefined') {
+            if (window.isWebMode || (window.process && window.process.platform === 'browser') || typeof window.require === 'undefined') {
+                if (typeof window.showUserScreenToast === 'function') {
+                    window.showUserScreenToast("In Web Browser mode, files are managed inside the web app.", 3500, true);
+                }
+            } else if (typeof ipcRenderer !== 'undefined' && ipcRenderer.send) {
                 ipcRenderer.send('reveal-in-explorer', targetPath || activePath);
             }
         };

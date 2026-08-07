@@ -566,6 +566,12 @@ async function executeWriteFileBatchSilent(writeCmds) {
             ChatUI.appendBubble('system', "[ERROR] Failed to write " + filePath + ": " + err.message);
         }
     });
+    if (window.activeWebDirHandle && typeof window.cacheWebDirectory === 'function') {
+        await window.cacheWebDirectory(window.activeWebDirHandle);
+    }
+    if (typeof window.refreshTree === 'function') {
+        window.refreshTree();
+    }
     if (typeof window.loadDirectory === 'function' && window.currentPath) {
         window.loadDirectory(window.currentPath);
     }

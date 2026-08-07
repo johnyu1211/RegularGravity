@@ -60,6 +60,7 @@ window.updateDragDropQueueUI = function() {
         if (typeof syncBrowserView === 'function') syncBrowserView();
         window.toggleBackdropBlur(false);
         window.dragDropMode = false;
+        window.requestedFilesQueue = [];
         if (typeof window.setCoverLifted === 'function') {
             window.setCoverLifted(false);
         }

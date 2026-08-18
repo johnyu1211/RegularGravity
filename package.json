@@ -4,7 +4,11 @@
   "description": "Regular Gravity",
   "main": "js/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-packager . RegularGravity --platform=win32 --arch=x64 --out=dist --overwrite"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6"
   },
   "dependencies": {
     "electron": "^30.0.0"

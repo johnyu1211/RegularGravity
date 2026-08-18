@@ -4,8 +4,10 @@ lib/playwright-browsers/
 *.exe
 *.dll
 *.pdb
+RegularGravity.exe
 dist/
 out/
+build/
 renderer.log
 Settings.json
 gravity_vault/

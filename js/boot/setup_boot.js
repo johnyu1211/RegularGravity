@@ -108,6 +108,18 @@ async function setupBoot() {
         }
     };
 
+    const scrollTopManualCmd = document.getElementById('scroll-top-manual-cmd');
+    if (scrollTopManualCmd) {
+        scrollTopManualCmd.onclick = () => {
+            const ta = document.getElementById('manual-cmd-textarea');
+            if (ta) {
+                ta.scrollTop = 0;
+                ta.setSelectionRange(0, 0);
+                ta.focus();
+            }
+        };
+    }
+
     if (closeManualCmd) closeManualCmd.onclick = hideManualCmdPanel;
     if (cancelManualCmd) cancelManualCmd.onclick = hideManualCmdPanel;
 
@@ -308,7 +320,8 @@ async function setupBoot() {
             const fs = require('fs');
             const path = require('path');
             const gravityRoot = window.appRootPath || process.cwd();
-            const sendingMdDir = path.join(gravityRoot, 'SendingMD');
+            const subDir = (typeof window.getSendingMdSubDir === 'function') ? window.getSendingMdSubDir() : path.join('gravity_vault', 'SendingMD');
+            const sendingMdDir = path.join(gravityRoot, subDir);
             let count = 0;
             if (fs.existsSync(sendingMdDir)) {
                 const subfiles = fs.readdirSync(sendingMdDir);
@@ -327,8 +340,10 @@ async function setupBoot() {
         } catch(e) {}
     };
 
+    if (typeof window.cleanSendingMdOldFiles === 'function') window.cleanSendingMdOldFiles();
     window.updateSendingMdCountBadge();
     setInterval(() => {
+        if (typeof window.cleanSendingMdOldFiles === 'function') window.cleanSendingMdOldFiles();
         if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
     }, 2000);
 
@@ -342,7 +357,8 @@ async function setupBoot() {
                 const fs = require('fs');
                 const path = require('path');
                 const gravityRoot = window.appRootPath || process.cwd();
-                const sendingMdDir = path.join(gravityRoot, 'SendingMD');
+                const subDir = (typeof window.getSendingMdSubDir === 'function') ? window.getSendingMdSubDir() : path.join('gravity_vault', 'SendingMD');
+                const sendingMdDir = path.join(gravityRoot, subDir);
                 let count = 0;
                 if (fs.existsSync(sendingMdDir)) {
                     const subfiles = fs.readdirSync(sendingMdDir);
@@ -362,86 +378,105 @@ async function setupBoot() {
         };
     }
 
-    const treeBtn = document.getElementById('taskbar-manual-tree-btn');
-    if (treeBtn) {
-        treeBtn.onclick = async () => {
+    window.executeTreeSend = async (targetDirPath) => {
+        const treeBtn = document.getElementById('taskbar-manual-tree-btn');
+        if (treeBtn) {
             treeBtn.style.opacity = '0.5';
             treeBtn.style.pointerEvents = 'none';
-            try {
-                let rawTree = await ipcRenderer.invoke('vault-get-tree', window.currentPath || window.projectRoot || '.');
-                let projectTree = typeof rawTree === 'string' ? rawTree : (rawTree && typeof rawTree === 'object' && typeof rawTree.tree === 'string' ? rawTree.tree : '');
+        }
+        try {
+            const checkPath = targetDirPath || window.currentPath || window.projectRoot || '.';
+            let rawTree = await ipcRenderer.invoke('vault-get-tree', checkPath);
+            let projectTree = typeof rawTree === 'string' ? rawTree : (rawTree && typeof rawTree === 'object' && typeof rawTree.tree === 'string' ? rawTree.tree : '');
 
-                if ((!projectTree || !projectTree.trim()) && window.activeWebDirHandle) {
-                    const rootName = window.activeWebDirHandle.name || 'Project';
-                    const fileKeys = Object.keys(window.webFileCache || {}).filter(k => 
-                        !k.startsWith('.') && 
-                        !k.includes('node_modules') && 
-                        !k.includes('SendingMD') && 
-                        !k.includes('FollowThisORDER') && 
-                        !k.includes('Files_') && 
-                        !k.includes('ListDir_')
-                    );
-                    projectTree = typeof window.generateBrowserTreeString === 'function'
-                        ? window.generateBrowserTreeString(fileKeys, rootName)
-                        : `${rootName}/\n` + fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n');
+            if ((!projectTree || !projectTree.trim()) && window.activeWebDirHandle) {
+                const rootName = window.activeWebDirHandle.name || 'Project';
+                const fileKeys = Object.keys(window.webFileCache || {}).filter(k => 
+                    !k.startsWith('.') && 
+                    !k.includes('node_modules') && 
+                    !k.includes('SendingMD') && 
+                    !k.includes('FollowThisORDER') && 
+                    !k.includes('Files_') && 
+                    !k.includes('ListDir_')
+                );
+                projectTree = typeof window.generateBrowserTreeString === 'function'
+                    ? window.generateBrowserTreeString(fileKeys, rootName)
+                    : `${rootName}/\n` + fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n');
+            }
+
+            const treeFileName = window.makeSendingMdTreeName();
+            const treeContent = `The current project folder contains the following files:\n${projectTree || '(empty)'}\n\n${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge receipt of the updated project tree.`;
+            
+            const payload = await window.prepareFilePayload(treeFileName, treeContent);
+
+            if (typeof window.refreshTree === 'function') window.refreshTree();
+
+            window.requestedFilesQueue = [{
+                absolutePath: payload.absolutePath,
+                relativePath: payload.relativePath,
+                status: 'PENDING'
+            }];
+
+            if (typeof window.injectGuestDropInterceptor === 'function') {
+                window.injectGuestDropInterceptor();
+            }
+
+            const treeSendCleanup = () => {
+                if (window.activeDragDropCleanup === treeSendCleanup) {
+                    window.activeDragDropCleanup = null;
+                    window.activeDragDropContinue = null;
                 }
-
-                const treeFileName = window.makeSendingMdTreeName();
-                const treeContent = `The current project folder contains the following files:\n${projectTree || '(empty)'}\n\n${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge receipt of the updated project tree.`;
-                
-                const payload = await window.prepareFilePayload(treeFileName, treeContent);
-
-                if (typeof window.refreshTree === 'function') window.refreshTree();
-
-                window.requestedFilesQueue = [{
-                    absolutePath: payload.absolutePath,
-                    relativePath: payload.relativePath,
-                    status: 'PENDING'
-                }];
-
-                if (typeof window.injectGuestDropInterceptor === 'function') {
-                    window.injectGuestDropInterceptor();
-                }
-
-                const treeSendCleanup = () => {
-                    if (window.activeDragDropCleanup === treeSendCleanup) {
-                        window.activeDragDropCleanup = null;
-                        window.activeDragDropContinue = null;
-                    }
-                    window.dragDropMode = false;
-                    window.requestedFilesQueue = [];
-                    if (typeof window.updateDragDropQueueUI === 'function') {
-                        window.updateDragDropQueueUI();
-                    }
-                };
-
-                window.activeDragDropCleanup = treeSendCleanup;
-                window.activeDragDropContinue = async () => {};
-                window.dragDropMode = true;
-
+                window.dragDropMode = false;
+                window.requestedFilesQueue = [];
                 if (typeof window.updateDragDropQueueUI === 'function') {
                     window.updateDragDropQueueUI();
                 }
+            };
 
-                ChatUI.appendBubble('system', '[SYSTEM] Project Tree queued for sending. Drop the file into the AI chat.');
-            } catch(e) {
-                ChatUI.appendBubble('system', `[ERROR] Failed to prepare project tree: ${e.message}`);
-            } finally {
+            window.activeDragDropCleanup = treeSendCleanup;
+            window.activeDragDropContinue = async () => {};
+            window.dragDropMode = true;
+
+            if (typeof window.updateDragDropQueueUI === 'function') {
+                window.updateDragDropQueueUI();
+            }
+
+            ChatUI.appendBubble('system', '[SYSTEM] Project Tree queued for sending. Drop the file into the AI chat.');
+            if (typeof window.showUserScreenToast === 'function') {
+                window.showUserScreenToast('Project Tree queued in Drag & Drop', 3500);
+            }
+            return payload;
+        } catch(e) {
+            ChatUI.appendBubble('system', `[ERROR] Failed to prepare project tree: ${e.message}`);
+            throw e;
+        } finally {
+            if (treeBtn) {
                 treeBtn.style.opacity = '1';
                 treeBtn.style.pointerEvents = 'auto';
             }
-        };
+        }
+    };
+
+    const treeBtn = document.getElementById('taskbar-manual-tree-btn');
+    if (treeBtn) {
+        treeBtn.onclick = () => window.executeTreeSend();
     }
 
     grid.querySelectorAll('.agent-app:not(#add-agent-app-card)').forEach(el => el.remove());
 
-    const showBrowserConfirm = (targetUrl) => {
+    const showBrowserConfirm = (targetUrl, customTitle, customDesc) => {
         return new Promise((resolve) => {
             const modal = document.getElementById('browser-confirm-modal');
             const okBtn = document.getElementById('browser-confirm-ok');
             const cancelBtn = document.getElementById('browser-confirm-cancel');
             const closeBtn = document.getElementById('browser-confirm-close');
+            const titleEl = document.getElementById('browser-confirm-title') || modal?.querySelector('span[style*="font-size: 13px"]');
+            const descEl = document.getElementById('browser-confirm-desc') || modal?.querySelector('div[style*="font-size: 11.5px"]');
+
             if (!modal || !okBtn || !cancelBtn) return resolve('continue');
+
+            if (titleEl) titleEl.innerText = customTitle || 'PROJECT TRANSFER';
+            if (descEl) descEl.innerText = customDesc || 'Do you want to send current project folder information to this AI? This sends file structures for analysis.';
 
             const geminiIcon = document.getElementById('browser-confirm-gemini-icon');
             const faviconImg = document.getElementById('browser-confirm-favicon');
@@ -490,6 +525,7 @@ async function setupBoot() {
             }
         });
     };
+    window.showBrowserConfirm = showBrowserConfirm;
 
     window.setTaskbarActionsVisible = function(visible) {
         document.querySelectorAll('.taskbar-action-btn').forEach(btn => {

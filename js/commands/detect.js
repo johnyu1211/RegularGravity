@@ -19,7 +19,8 @@ function detectAndAskCommand(text) {
             });
             // Clean up SendingMD folder
             const gravityRoot = window.appRootPath || process.cwd();
-            const sendingMdDir = path.join(gravityRoot, 'SendingMD');
+            const subDir = (typeof window.getSendingMdSubDir === 'function') ? window.getSendingMdSubDir() : path.join('gravity_vault', 'SendingMD');
+            const sendingMdDir = path.join(gravityRoot, subDir);
             if (fs.existsSync(sendingMdDir)) {
                 const subfiles = fs.readdirSync(sendingMdDir);
                 subfiles.forEach(file => {
@@ -210,7 +211,7 @@ function detectAndAskCommand(text) {
             let tp = path.resolve(window.currentPath || process.cwd(), fp);
             let ex = fs.existsSync(tp);
             if (!ex) {
-                const prefixRegex = /^SendingMD[\\/]/i;
+                const prefixRegex = /^(?:gravity_vault[\\/])?SendingMD[\\/]/i;
                 if (prefixRegex.test(fp)) {
                     const stripped = fp.replace(prefixRegex, '');
                     const strippedTp = path.resolve(window.currentPath || process.cwd(), stripped);
@@ -398,7 +399,32 @@ function detectAndAskCommand(text) {
     const hasSearchKeyword = (searchKeywordCmds.length > 0);
     const hasMoveFile = (moveFileCmds.length > 0);
     const hasListDir = (listDirCmds.length > 0);
-    const hasAnyAction = hasWriteFile || hasEditFile || hasDeleteFile || hasCreateDir || hasRunCommand || hasSearchKeyword || hasMoveFile || hasListDir;
+    const hasModifyingAction = hasWriteFile || hasEditFile || hasDeleteFile || hasCreateDir || hasRunCommand || hasSearchKeyword || hasMoveFile;
+
+    // Handle pure tree / directory info requests with Treesending bottom sheet
+    const isPureTreeRequest = (hasListDir || (readCmds.length > 0 && readCmds.every(f => f.isDirectory || f.path === '.' || f.path === './' || !f.path))) && !hasModifyingAction;
+
+    if (isPureTreeRequest) {
+        const targetDir = listDirCmds[0]?.path || readCmds[0]?.path || '.';
+        (async () => {
+            const confirmResult = (typeof window.showBrowserConfirm === 'function')
+                ? await window.showBrowserConfirm(null, "PROJECT TRANSFER", "AI is requesting current project folder information. Send project tree structure?")
+                : 'send';
+
+            if (confirmResult === 'send' || confirmResult === true) {
+                if (typeof window.executeTreeSend === 'function') {
+                    await window.executeTreeSend(targetDir);
+                }
+            } else {
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    ChatUI.appendBubble('system', '[SYSTEM] Project tree transmission skipped by user.');
+                }
+            }
+        })();
+        return;
+    }
+
+    const hasAnyAction = hasModifyingAction;
 
     if (hasAnyAction) {
         readCmds.length = 0;
@@ -611,7 +637,7 @@ function detectAndAskCommand(text) {
                 const targetFilePaths = existingCmds.map(c => typeof c === 'string' ? c : (c.path || c.target || c.filePath || 'file.md'));
                 const baseFileName = typeof window.makeSendingMdBundleName === 'function'
                     ? window.makeSendingMdBundleName(targetFilePaths)
-                    : path.join('SendingMD', `Files_${targetFilePaths.slice(0, 3).map(f => path.basename(f)).join('_')}_${Date.now()}.${window.getSendingMdExt ? window.getSendingMdExt() : 'md'}`);
+                    : path.join('gravity_vault', 'SendingMD', `Files_${targetFilePaths.slice(0, 3).map(f => path.basename(f)).join('_')}_${Date.now()}.${window.getSendingMdExt ? window.getSendingMdExt() : 'md'}`);
 
                 const payload = await window.prepareFilePayload(baseFileName, combinedPayload);
 

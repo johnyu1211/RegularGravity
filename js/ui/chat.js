@@ -1,8 +1,8 @@
 if (typeof ipcRenderer === 'undefined') { var { ipcRenderer } = require('electron'); }
 window.generating = false;
 
-const POSITIVE_EMOTES = ['js/e/def.png', 'js/e/joy.png', 'js/e/trust.png', 'js/e/antici.png', 'js/e/awe.png'];
-const NEGATIVE_EMOTES = ['js/e/sad.png', 'js/e/angr.png', 'js/e/fear.png', 'js/e/disgust.png', 'js/e/surpr.png'];
+const POSITIVE_EMOTES = ['assets/emotes/def.png', 'assets/emotes/joy.png', 'assets/emotes/trust.png', 'assets/emotes/antici.png', 'assets/emotes/awe.png'];
+const NEGATIVE_EMOTES = ['assets/emotes/sad.png', 'assets/emotes/angr.png', 'assets/emotes/fear.png', 'assets/emotes/disgust.png', 'assets/emotes/surpr.png'];
 
 window.showUserScreenToast = function(message, duration = 4000, isSuccess = true) {
     try {

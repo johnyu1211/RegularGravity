@@ -7,8 +7,8 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>GRAVITY</title>
-    <link rel="icon" type="image/png" href="icon.png">
-    <link rel="stylesheet" href="style.css?v=1.1.0">
+    <link rel="icon" type="image/png" href="assets/icon.png">
+    <link rel="stylesheet" href="css/style.css?v=1.1.0">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <script>
         var _module = typeof module !== 'undefined' ? module : undefined;
@@ -435,15 +435,15 @@
             });
         }
     </script>
-    <script src="file-utils.js"></script>
-    <script src="tree-view.js"></script>
+    <script src="js/core/file_utils.js"></script>
+    <script src="js/ui/tree_view.js"></script>
 </head>
 <body style="margin:0; padding:0; height:100vh; overflow:hidden; background: var(--bg-color);">
 
     <!-- Custom Windows Titlebar -->
     <div class="custom-titlebar">
         <div class="titlebar-drag-area">
-            <img src="png.png" class="titlebar-icon">
+            <img src="assets/icon.png" class="titlebar-icon">
             <span class="titlebar-logo-text">REGULAR GRAVITY</span>
             <span id="ui-zoom-pill" title="Reset UI Zoom (100% / Ctrl+Shift+0)" style="display: none; margin-left: -4px; font-family: 'DM Sans', 'Outfit', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; background: linear-gradient(to right, #8ba2f9, #b0c2fe); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; cursor: pointer; user-select: none; -webkit-app-region: no-drag;">(100%)</span>
         </div>
@@ -943,6 +943,18 @@
                                     <option value="false">OFF</option>
                                 </select>
                             </div>
+
+                            <!-- Toggle: Auto Delete SendingMD -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                                <div style="display: flex; flex-direction: column; gap: 4px; max-width: 70%;">
+                                    <span style="font-size: 12px; font-weight: 600; color: #eee;">Auto Delete SendingMD</span>
+                                    <span style="font-size: 10.5px; color: var(--text-muted); line-height: 1.4;">Automatically clean SendingMD when it reaches 15 files, keeping 3 latest</span>
+                                </div>
+                                <select id="settings-auto-delete-sendingmd" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 6px; outline: none; font-family: inherit;">
+                                    <option value="true">ON (Default)</option>
+                                    <option value="false">OFF</option>
+                                </select>
+                            </div>
                         </div>
                         
                         <!-- Global Actions Footer -->
@@ -1026,7 +1038,10 @@
                             <span id="close-manual-cmd-container" style="cursor: pointer; color: var(--text-dark); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-dark)'" title="Close Panel">&times;</span>
                         </div>
                         <textarea id="manual-cmd-textarea" placeholder="Paste AI text containing [REQUEST: read-file ...] or [CMD: ...] to execute manually..." style="width: 100%; flex: 1; min-height: 0; background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 8px 10px; outline: none; resize: none; border-radius: 6px; font-family: 'JetBrains Mono', monospace; line-height: 1.4; box-sizing: border-box;"></textarea>
-                        <div style="display: flex; gap: 8px; flex-shrink: 0; justify-content: flex-end;">
+                        <div style="display: flex; gap: 8px; flex-shrink: 0; justify-content: flex-end; align-items: center;">
+                            <button id="scroll-top-manual-cmd" title="Scroll to Top" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                            </button>
                             <button id="cancel-manual-cmd" style="background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11px; font-family: 'DM Sans', sans-serif;">CANCEL</button>
                             <button id="run-manual-cmd" style="background: linear-gradient(135deg, #468CF6, #468CF6dd); color: white; border: none; padding: 6px 18px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif;">EXECUTE COMMANDS</button>
                         </div>
@@ -1043,10 +1058,10 @@
                 </div>
                 <div style="background: var(--surface-color); border-top: 1px solid var(--border-color); border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-radius: 20px 20px 0 0; width: 100%; max-width: 100%; padding: 24px 24px 32px 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 -8px 30px rgba(0,0,0,0.4); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-sizing: border-box;">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="font-size: 13px; font-weight: 700; color: var(--text-main); letter-spacing: 0.5px;">PROJECT TRANSFER</span>
+                        <span id="browser-confirm-title" style="font-size: 13px; font-weight: 700; color: var(--text-main); letter-spacing: 0.5px;">PROJECT TRANSFER</span>
                         <span id="browser-confirm-close" style="cursor: pointer; color: var(--text-muted); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'" title="Cancel & Close">&times;</span>
                     </div>
-                    <div style="font-size: 11.5px; color: var(--text-muted); line-height: 1.6; font-weight: 500;">
+                    <div id="browser-confirm-desc" style="font-size: 11.5px; color: var(--text-muted); line-height: 1.6; font-weight: 500;">
                         Do you want to send current project folder information to this AI? This sends file structures for analysis.
                     </div>
                     <div style="display: flex; gap: 10px; justify-content: flex-end;">
@@ -1166,7 +1181,7 @@
             <div style="display: flex; flex-direction: column; gap: 18px; font-size: 11.5px; color: var(--text-muted); line-height: 1.65;">
                 <div>
                     <div style="font-weight: 700; color: #fff; margin-bottom: 4px;">1. File Transmission Payload</div>
-                    When sharing files or rules, temporary <code style="color:var(--primary);">.md</code> files are created in <code style="color:var(--primary);">SendingMD/</code> and passed to Web AI.
+                    When sharing files or rules, temporary <code style="color:var(--primary);">.md</code> files are created in <code style="color:var(--primary);">gravity_vault/SendingMD/</code> and passed to Web AI.
                 </div>
                 <div>
                     <div style="font-weight: 700; color: #fff; margin-bottom: 4px;">2. Smart Command Deck</div>

@@ -228,7 +228,7 @@ let dockedHwnd = null;
 let moverProcess = null;
 function startDockMover() {
     if (moverProcess && !moverProcess.killed) return;
-    const scriptPath = path.join(__dirname, 'js/ui/dock_mover.ps1');
+    const scriptPath = path.join(__dirname, 'ui/dock_mover.ps1');
     moverProcess = spawn('powershell.exe', [
         '-NoProfile',
         '-ExecutionPolicy', 'Bypass',
@@ -286,7 +286,7 @@ function createWindow() {
         height: 900,
         backgroundColor: '#141416',
         frame: false,
-        icon: path.join(__dirname, 'png.png'),
+        icon: path.join(app.getAppPath(), 'assets', 'icon.png'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -325,7 +325,7 @@ function createWindow() {
         }
     });
  
-    mainWindow.loadFile('index.html');
+    mainWindow.loadFile(path.join(app.getAppPath(), 'index.html'));
 }
 ipcMain.on('window-minimize', () => {
     if (mainWindow) mainWindow.minimize();
@@ -507,7 +507,7 @@ ipcMain.on('ondragstart', (event, filePath) => {
     const resolvedPath = path.resolve(filePath);
     console.log("[MainDrag] Resolved path:", resolvedPath);
     
-    const iconPath = path.join(__dirname, 'png.png');
+    const iconPath = path.join(app.getAppPath(), 'assets', 'icon.png');
     const dragIcon = nativeImage.createFromPath(iconPath);
     console.log("[MainDrag] Physical drag icon loaded?", !dragIcon.isEmpty());
     

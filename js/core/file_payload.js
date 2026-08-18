@@ -23,14 +23,18 @@ window.getSendingMdExt = function() {
     return 'md';
 };
 
+window.getSendingMdSubDir = function() {
+    return _path.join('gravity_vault', 'SendingMD');
+};
+
 window.makeSendingMdTreeName = function() {
     const ext = window.getSendingMdExt();
-    return _path.join('SendingMD', `${window.getSendingMdFolderTag()}_${window.getSendingMdTimeTag()}.${ext}`);
+    return _path.join(window.getSendingMdSubDir(), `${window.getSendingMdFolderTag()}_${window.getSendingMdTimeTag()}.${ext}`);
 };
 
 window.makeSendingMdRulesName = function() {
     const ext = window.getSendingMdExt();
-    return _path.join('SendingMD', `FollowThisORDER_${window.getSendingMdTimeTag()}.${ext}`);
+    return _path.join(window.getSendingMdSubDir(), `FollowThisORDER_${window.getSendingMdTimeTag()}.${ext}`);
 };
 
 window.makeSendingMdListDirName = function(dirPath = '.') {
@@ -41,14 +45,14 @@ window.makeSendingMdListDirName = function(dirPath = '.') {
         folderTag = window.getSendingMdFolderTag();
     }
     folderTag = folderTag.replace(/[^\w\u3131-\u318E\uAC00-\uD7A3\-]/gi, '_').replace(/_+/g, '_');
-    return _path.join('SendingMD', `ListDir_${folderTag}_${timeTag}.${ext}`);
+    return _path.join(window.getSendingMdSubDir(), `ListDir_${folderTag}_${timeTag}.${ext}`);
 };
 
 window.makeSendingMdBundleName = function(filePaths = []) {
     const ext = window.getSendingMdExt();
     const timeTag = window.getSendingMdTimeTag();
     if (!filePaths || filePaths.length === 0) {
-        return _path.join('SendingMD', `Files_bundle_${timeTag}.${ext}`);
+        return _path.join(window.getSendingMdSubDir(), `Files_bundle_${timeTag}.${ext}`);
     }
     const names = filePaths.map(f => {
         const b = _path.basename(f || '');
@@ -56,15 +60,15 @@ window.makeSendingMdBundleName = function(filePaths = []) {
     }).filter(Boolean);
 
     if (names.length === 0) {
-        return _path.join('SendingMD', `Files_bundle_${timeTag}.${ext}`);
+        return _path.join(window.getSendingMdSubDir(), `Files_bundle_${timeTag}.${ext}`);
     }
 
     if (names.length <= 3) {
-        return _path.join('SendingMD', `Files_${names.join('_')}_${timeTag}.${ext}`);
+        return _path.join(window.getSendingMdSubDir(), `Files_${names.join('_')}_${timeTag}.${ext}`);
     } else {
         const first3 = names.slice(0, 3).join('_');
         const remaining = names.length - 3;
-        return _path.join('SendingMD', `Files_${first3}_${remaining}more_${timeTag}.${ext}`);
+        return _path.join(window.getSendingMdSubDir(), `Files_${first3}_${remaining}more_${timeTag}.${ext}`);
     }
 };
 
@@ -121,10 +125,52 @@ window.generateJpegFromText = function(text, targetJpegPath) {
     });
 };
 
+window.cleanSendingMdOldFiles = function() {
+    if (window.auto_delete_SendingMD === false) return;
+    try {
+        const fs = require('fs');
+        const gravityRoot = window.appRootPath || process.cwd();
+        const subDir = (typeof window.getSendingMdSubDir === 'function') ? window.getSendingMdSubDir() : _path.join('gravity_vault', 'SendingMD');
+        const sendingMdDir = _path.join(gravityRoot, subDir);
+
+        if (!fs.existsSync(sendingMdDir)) return;
+
+        const subfiles = fs.readdirSync(sendingMdDir).filter(f => !f.startsWith('.'));
+        if (subfiles.length >= 15) {
+            const fileStats = subfiles.map(f => {
+                const fp = _path.join(sendingMdDir, f);
+                try {
+                    const stat = fs.statSync(fp);
+                    return { file: f, path: fp, mtime: stat.mtimeMs };
+                } catch(e) {
+                    return { file: f, path: fp, mtime: 0 };
+                }
+            }).sort((a, b) => b.mtime - a.mtime);
+
+            // Keep the latest 3 files, delete the older files (index >= 3)
+            const filesToDelete = fileStats.slice(3);
+            let deletedCount = 0;
+            for (const item of filesToDelete) {
+                try {
+                    fs.unlinkSync(item.path);
+                    deletedCount++;
+                } catch(e) {}
+            }
+
+            if (deletedCount > 0) {
+                console.log(`[AutoDeleteSendingMD] SendingMD reached ${subfiles.length} files. Cleaned ${deletedCount} older files, kept latest 3.`);
+                if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
+            }
+        }
+    } catch(e) {
+        console.error("[AutoDeleteSendingMD] Cleanup error:", e);
+    }
+};
+
 window.prepareFilePayload = async function(baseFileName, mdContent) {
     const fs = require('fs');
     const gravityRoot = window.appRootPath || process.cwd();
-    const sendingMdDir = _path.join(gravityRoot, 'SendingMD');
+    const sendingMdDir = _path.join(gravityRoot, window.getSendingMdSubDir ? window.getSendingMdSubDir() : _path.join('gravity_vault', 'SendingMD'));
     if (!fs.existsSync(sendingMdDir)) fs.mkdirSync(sendingMdDir, { recursive: true });
 
     const mdPath = _path.join(gravityRoot, baseFileName);
@@ -135,6 +181,7 @@ window.prepareFilePayload = async function(baseFileName, mdContent) {
         const jpegPath = _path.join(gravityRoot, jpegFileName);
         const ok = await window.generateJpegFromText(mdContent, jpegPath);
         if (ok && fs.existsSync(jpegPath)) {
+            if (typeof window.cleanSendingMdOldFiles === 'function') window.cleanSendingMdOldFiles();
             if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
             return { relativePath: jpegFileName, absolutePath: jpegPath };
         }
@@ -150,10 +197,12 @@ window.prepareFilePayload = async function(baseFileName, mdContent) {
             htmlContent: htmlContent
         });
         if (success && fs.existsSync(pdfPath)) {
+            if (typeof window.cleanSendingMdOldFiles === 'function') window.cleanSendingMdOldFiles();
             if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
             return { relativePath: pdfFileName, absolutePath: pdfPath };
         }
     }
+    if (typeof window.cleanSendingMdOldFiles === 'function') window.cleanSendingMdOldFiles();
     if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
     return { relativePath: baseFileName, absolutePath: mdPath };
 };

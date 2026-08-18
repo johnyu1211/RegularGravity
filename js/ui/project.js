@@ -319,11 +319,11 @@ async function openProjectModal(newItemPath = null, isRefresh = false) {
                 const customMap = window.customEmotes || {};
                 defaultGrid.innerHTML = defaultKeys.map(k => {
                     const currentUrl = customMap[k] || '';
-                    const previewSrc = currentUrl || `js/e/${k}.png`;
+                    const previewSrc = currentUrl || `assets/emotes/${k}.png`;
                     return `
                         <div style="background:var(--surface-high, #252529); border:none; border-radius:8px; padding:8px 10px; display:flex; align-items:center; gap:8px;">
-                            <img src="${previewSrc}" style="width:24px; height:24px; object-fit:contain; flex-shrink:0; background:rgba(0,0,0,0.2); border-radius:4px; padding:2px; cursor:pointer;" title="Click to play preview" onclick="const url=this.parentNode.querySelector('.def-emote-url-input')?.value.trim(); window.triggerCenterEmote(url||'js/e/${k}.png');" onerror="this.src='js/e/${k}.png';">
-                            <span style="font-size:10.5px; font-weight:700; color:var(--text-main); width:45px; flex-shrink:0; font-family:'Outfit',sans-serif; cursor:pointer; -webkit-user-select:none; user-select:none; transition:color 0.2s;" title="Click to play preview" onmouseenter="this.style.color='#468CF6';" onmouseleave="this.style.color='var(--text-main)';" onclick="const url=this.parentNode.querySelector('.def-emote-url-input')?.value.trim(); window.triggerCenterEmote(url||'js/e/${k}.png');">${k}</span>
+                            <img src="${previewSrc}" style="width:24px; height:24px; object-fit:contain; flex-shrink:0; background:rgba(0,0,0,0.2); border-radius:4px; padding:2px; cursor:pointer;" title="Click to play preview" onclick="const url=this.parentNode.querySelector('.def-emote-url-input')?.value.trim(); window.triggerCenterEmote(url||'assets/emotes/${k}.png');" onerror="this.src='assets/emotes/${k}.png';">
+                            <span style="font-size:10.5px; font-weight:700; color:var(--text-main); width:45px; flex-shrink:0; font-family:'Outfit',sans-serif; cursor:pointer; -webkit-user-select:none; user-select:none; transition:color 0.2s;" title="Click to play preview" onmouseenter="this.style.color='#468CF6';" onmouseleave="this.style.color='var(--text-main)';" onclick="const url=this.parentNode.querySelector('.def-emote-url-input')?.value.trim(); window.triggerCenterEmote(url||'assets/emotes/${k}.png');">${k}</span>
                             <input class="def-emote-url-input" data-key="${k}" type="text" value="${currentUrl.replace(/"/g, '&quot;')}" placeholder="Default PNG" style="flex:1; min-width:0; background:var(--surface-low, #18181b); border:none; color:#eee; font-size:10px; padding:4px 7px; border-radius:5px; outline:none;">
                         </div>
                     `;
@@ -731,7 +731,7 @@ window.parseAndTriggerEmote = function(text, shouldTrigger = true) {
             window.lastEmoteTriggerTime = now;
             window.lastEmoteTriggerTag = detectedEmote;
             
-            let emoteSrc = customMap[detectedEmote] || `js/e/${detectedEmote}.png`;
+            let emoteSrc = customMap[detectedEmote] || `assets/emotes/${detectedEmote}.png`;
             window.triggerCenterEmote(emoteSrc);
         }
     }

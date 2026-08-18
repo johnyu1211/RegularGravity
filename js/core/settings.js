@@ -26,6 +26,7 @@ window.reloadAgentSettings = function() {
             window.autoGemini = settings.hasOwnProperty('autoGemini') ? !!settings.autoGemini : true;
             window.preferFullWrite = settings.hasOwnProperty('preferFullWrite') ? !!settings.preferFullWrite : true;
             window.useEmote = settings.hasOwnProperty('useEmote') ? !!settings.useEmote : true;
+            window.auto_delete_SendingMD = settings.hasOwnProperty('auto_delete_SendingMD') ? !!settings.auto_delete_SendingMD : (settings.hasOwnProperty('autoDeleteSendingMD') ? !!settings.autoDeleteSendingMD : true);
             window.customEmotes = (settings.customEmotes && typeof settings.customEmotes === 'object') ? settings.customEmotes : {};
             const homeBtn = document.getElementById('taskbar-home-btn');
             if (homeBtn) homeBtn.style.display = window.autoGemini ? 'none' : 'flex';
@@ -33,6 +34,7 @@ window.reloadAgentSettings = function() {
         }
     } catch(e) {}
     window.useEmote = true;
+    window.auto_delete_SendingMD = true;
     window.customEmotes = {};
     window.preferFullWrite = true;
     window.hideUIOverlay = true;

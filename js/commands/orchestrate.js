@@ -71,13 +71,12 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
     };
 
     const startWriteEditOrchestration = () => {
-        if (writeCmds.length > 0 || editCmds.length > 0 || createDirCmds.length > 0 || moveCmds.length > 0 || listDirCmds.length > 0 || searchKeywordCmds.length > 0) {
+        if (writeCmds.length > 0 || editCmds.length > 0 || createDirCmds.length > 0 || moveCmds.length > 0 || searchKeywordCmds.length > 0) {
             const displayModify = [
                 ...writeCmds.map(c => `[NEW] ${c.path}`),
                 ...editCmds.map(c => `[MODIFY] ${c.path}`),
                 ...createDirCmds.map(c => `[MKDIR] ${c.path}`),
                 ...moveCmds.map(c => `[MOVE] ${c.src} → ${c.dest}`),
-                ...listDirCmds.map(c => `[TREE] ${c.path}`),
                 ...searchKeywordCmds.map(c => `[SEARCH] ${c.keyword}`)
             ].join(', ');
 
@@ -320,7 +319,7 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
 
                         const baseFileName = typeof window.makeSendingMdListDirName === 'function'
                             ? window.makeSendingMdListDirName(c.path)
-                            : path.join('SendingMD', `ListDir_${window.getSendingMdTimeTag ? window.getSendingMdTimeTag() : Date.now()}.md`);
+                            : path.join('gravity_vault', 'SendingMD', `ListDir_${window.getSendingMdTimeTag ? window.getSendingMdTimeTag() : Date.now()}.md`);
 
                         const payload = await window.prepareFilePayload(baseFileName, mdContent);
 

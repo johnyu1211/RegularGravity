@@ -62,8 +62,22 @@ function detectAndAskCommand(text) {
         const lines = text.split(/\r?\n/);
         for (let line of lines) {
             let trimmed = line.trim().replace(/^[`\s]+|[`\s]+$/g, '');
-            if (/^(read-file|write-file|edit-file|edit-file-range|read-file-full|read-file-range|delete-file|create-dir|mkdir|run-command|list-dir|search-keyword|move-file|reset-session)\b/i.test(trimmed)) {
+            // Strip leading comment markers like //, /*, <!--, #
+            trimmed = trimmed.replace(/^(?:\/\/|\/\*+|<!--+|#)\s*/, '').replace(/(?:\*+\/|-->)$/, '').trim();
+            if (/^(read-file|write-file|edit-file|edit-file-range|read-file-full|read-file-range|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file|reset-session)\b/i.test(trimmed)) {
                 foundCmds.push(trimmed);
+            }
+        }
+    }
+
+    // Check if code block starts with a comment-style command
+    if (foundCmds.length === 0 && text.includes('```')) {
+        const blockCommentCmdMatch = text.match(/```[a-zA-Z]*\r?\n\s*(?:\/\/|\/\*+|<!--+|#)\s*(?:\[?(?:CMD|REQUEST|COMMAND|EXEC):\s*)?(read-file|write-file|edit-file|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file)\s+(?:"([^"]+)"|'([^']+)'|([^\s\r\n\]]+))/i);
+        if (blockCommentCmdMatch) {
+            const action = blockCommentCmdMatch[1].toLowerCase();
+            const p = (blockCommentCmdMatch[2] || blockCommentCmdMatch[3] || blockCommentCmdMatch[4] || '').trim();
+            if (p) {
+                foundCmds.push(`${action} "${p}"`);
             }
         }
     }
@@ -101,7 +115,7 @@ function detectAndAskCommand(text) {
                         break;
                     }
 
-                    const cmdFormatMatch = lineStr.match(/^[`\s]*(read-file|write-file|edit-file|delete-file|create-dir|mkdir|run-command|list-dir|search-keyword|move-file)\b\s*(.*)/i);
+                    const cmdFormatMatch = lineStr.match(/^[`\s]*(read-file|write-file|edit-file|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file)\b\s*(.*)/i);
                     if (cmdFormatMatch) {
                         foundCmds.push(lineStr.replace(/^[`\s]+|[`\s]+$/g, ''));
                         break;
@@ -151,8 +165,10 @@ function detectAndAskCommand(text) {
         }
 
         if (foundCmds.length === 0 && inferredPath) {
-            console.log(`[AutoRepairCMD] Inferred missing [CMD: write-file "${inferredPath}"] command for code block!`);
-            foundCmds.push(`write-file "${inferredPath}"`);
+            const hasDiffOrChunk = text.includes('<<<<<<<') || text.includes('[SEARCH]') || text.includes('=======') || /^[+-]\s/m.test(text);
+            const inferredAction = hasDiffOrChunk ? 'edit-file' : 'write-file';
+            console.log(`[AutoRepairCMD] Inferred missing [CMD: ${inferredAction} "${inferredPath}"] command for code block!`);
+            foundCmds.push(`${inferredAction} "${inferredPath}"`);
         }
     }
 
@@ -193,8 +209,8 @@ function detectAndAskCommand(text) {
         const writeMatch = cmd.match(/^write-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
         const editRangeMatch = cmd.match(/^edit-file-range\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))\s+(\d+)-(\d+)$/i);
         const editMatch = cmd.match(/^edit-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
-        const deleteMatch = cmd.match(/^delete-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
-        const createDirMatch = cmd.match(/^create-dir\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
+        const deleteMatch = cmd.match(/^(?:delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir)\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
+        const createDirMatch = cmd.match(/^(?:create-dir|create-folder|create-directory|mkdir)\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
         const runCommandMatch = cmd.match(/^run-command\s+(.*)$/i);
         const searchKeywordMatch = cmd.match(/^search-keyword\s+(.*)$/i);
         const moveFileMatch = cmd.match(/^move-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
@@ -315,53 +331,54 @@ function detectAndAskCommand(text) {
 
             const filePath = getParsedPath(editMatch).trim();
             const cmdIdx = findCmdIdx(text, rawCmd);
-            if (cmdIdx !== -1) {
-                const subText = text.substring(cmdIdx);
-                const parsedBlocks = window.parseSearchReplaceBlocks(subText, filePath);
-                if (parsedBlocks.length > 0) {
-                    parsedBlocks.forEach(block => {
-                        if (block.hasDivider) {
-                            editCmds.push({ type: 'block', path: filePath, search: block.search, replace: block.replace });
-                        } else if (block.search && block.replace) {
-                            editCmds.push({ type: 'block', path: filePath, search: block.search, replace: block.replace });
-                        }
-                    });
-                } else {
-                    const sMarker = "<<<<<<<";
-                    const rMarker = ">>>>>>>";
-                    const sIdx = subText.indexOf(sMarker);
-                    const rIdx = subText.indexOf(rMarker);
-                    if (sIdx !== -1 && rIdx !== -1 && sIdx < rIdx) {
-                        const rawBlock = subText.substring(sIdx + sMarker.length, rIdx).trim();
-                        try {
-                            const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
-                            if (fs.existsSync(targetPath)) {
-                                const fileContent = fs.readFileSync(targetPath, 'utf-8').replace(/\r/g, '');
-                                const fileContentNorm = fileContent.replace(/\s+/g, '');
+            const subText = (cmdIdx !== -1) ? text.substring(cmdIdx) : text;
+            let parsedBlocks = window.parseSearchReplaceBlocks(subText, filePath);
+            if (parsedBlocks.length === 0 && subText !== text) {
+                parsedBlocks = window.parseSearchReplaceBlocks(text, filePath);
+            }
+            if (parsedBlocks.length > 0) {
+                parsedBlocks.forEach(block => {
+                    if (block.hasDivider) {
+                        editCmds.push({ type: 'block', path: filePath, search: block.search, replace: block.replace });
+                    } else if (block.search && block.replace) {
+                        editCmds.push({ type: 'block', path: filePath, search: block.search, replace: block.replace });
+                    }
+                });
+            } else {
+                const sMarker = "<<<<<<<";
+                const rMarker = ">>>>>>>";
+                const sIdx = subText.indexOf(sMarker);
+                const rIdx = subText.indexOf(rMarker);
+                if (sIdx !== -1 && rIdx !== -1 && sIdx < rIdx) {
+                    const rawBlock = subText.substring(sIdx + sMarker.length, rIdx).trim();
+                    try {
+                        const targetPath = path.resolve(window.currentPath || process.cwd(), filePath);
+                        if (fs.existsSync(targetPath)) {
+                            const fileContent = fs.readFileSync(targetPath, 'utf-8').replace(/\r/g, '');
+                            const fileContentNorm = fileContent.replace(/\s+/g, '');
+                            
+                            const lines = rawBlock.split(/\r?\n/);
+                            for (let k = lines.length - 1; k >= 1; k--) {
+                                const searchCand = lines.slice(0, k).join('\n').trim();
+                                const replaceCand = lines.slice(k).join('\n').trim();
                                 
-                                const lines = rawBlock.split(/\r?\n/);
-                                for (let k = lines.length - 1; k >= 1; k--) {
-                                    const searchCand = lines.slice(0, k).join('\n').trim();
-                                    const replaceCand = lines.slice(k).join('\n').trim();
-                                    
-                                    const searchCandNorm = searchCand.replace(/\s+/g, '');
-                                    if (searchCandNorm && fileContentNorm.includes(searchCandNorm)) {
-                                        editCmds.push({ type: 'block', path: filePath, search: searchCand, replace: replaceCand });
-                                        break;
-                                    }
+                                const searchCandNorm = searchCand.replace(/\s+/g, '');
+                                if (searchCandNorm && fileContentNorm.includes(searchCandNorm)) {
+                                    editCmds.push({ type: 'block', path: filePath, search: searchCand, replace: replaceCand });
+                                    break;
                                 }
                             }
-                        } catch (err) {
-                            console.error("Resilient parser error:", err);
                         }
+                    } catch (err) {
+                        console.error("Resilient parser error:", err);
                     }
                 }
             }
         } else if (deleteMatch) {
-            const filePath = getParsedPath(deleteMatch).trim();
+            const filePath = getParsedPath(deleteMatch).trim().replace(/[\\/]+$/, '');
             deleteCmds.push({ path: filePath });
         } else if (createDirMatch) {
-            const dirPath = getParsedPath(createDirMatch).trim();
+            const dirPath = getParsedPath(createDirMatch).trim().replace(/[\\/]+$/, '');
             createDirCmds.push({ path: dirPath });
         } else if (runCommandMatch) {
             let cmdStr = runCommandMatch[1].trim();

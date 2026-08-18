@@ -68,27 +68,41 @@ async function showManualInputUI(statusBub) {
 }
 
 const extractScript = `(function(){
-    const selectors = [
+    const turnSelectors = [
+        'model-response',
+        'message-content',
         '[data-message-author-role="assistant"]',
         '.font-claude-message',
-        'model-response .markdown', 
-        'message-content .markdown-prose', 
         'div[class*="model-response"]',
         'div[class*="message-content"]',
-        'message-content',
-        'model-response',
         '[data-testid="message-content"]',
         '.response-content',
-        '.markdown',
-        '.prose'
+        '.conversation-turn[data-role="assistant"]',
+        '.conversation-turn',
+        '.assistant-message'
     ];
     
     let targetNode = null;
-    for (let sel of selectors) {
-        const nodes = document.querySelectorAll(sel);
+    for (let sel of turnSelectors) {
+        const nodes = Array.from(document.querySelectorAll(sel));
         if (nodes.length > 0) {
-            targetNode = nodes[nodes.length - 1]; // 가장 최신 응답
-            break;
+            // Pick outermost top-level node for the last message
+            const topNodes = nodes.filter(el => !nodes.some(other => other !== el && other.contains(el)));
+            if (topNodes.length > 0) {
+                targetNode = topNodes[topNodes.length - 1];
+                break;
+            }
+        }
+    }
+    
+    if (!targetNode) {
+        const fallbackSelectors = ['.markdown', '.prose', 'article'];
+        for (let sel of fallbackSelectors) {
+            const nodes = Array.from(document.querySelectorAll(sel));
+            if (nodes.length > 0) {
+                targetNode = nodes[nodes.length - 1];
+                break;
+            }
         }
     }
     

@@ -117,8 +117,17 @@ window.parseSearchReplaceBlocks = (text, filePath = null) => {
                       .trim();
         };
         
+        let fullMatchStr = text.substring(sIdx, rIdx + rLen);
+        const prefixBefore = text.substring(0, sIdx);
+        const suffixAfter = text.substring(rIdx + rLen);
+        const fenceBeforeMatch = prefixBefore.match(/```[a-zA-Z]*\r?\n\s*$/);
+        const fenceAfterMatch = suffixAfter.match(/^\s*\r?\n```/);
+        if (fenceBeforeMatch && fenceAfterMatch) {
+            fullMatchStr = text.substring(sIdx - fenceBeforeMatch[0].length, rIdx + rLen + fenceAfterMatch[0].length);
+        }
+
         blocks.push({
-            fullMatch: text.substring(sIdx, rIdx + rLen),
+            fullMatch: fullMatchStr,
             search: stripFences(searchVal),
             replace: stripFences(replaceVal),
             hasDivider: hasDivider,
@@ -188,9 +197,18 @@ window.parseSearchReplaceBlocks = (text, filePath = null) => {
                       .replace(/```$/, '')
                       .trim();
         };
+
+        let fullMatchStr = text.substring(sIdx, rIdx + rLen);
+        const prefixBefore = text.substring(0, sIdx);
+        const suffixAfter = text.substring(rIdx + rLen);
+        const fenceBeforeMatch = prefixBefore.match(/```[a-zA-Z]*\r?\n\s*$/);
+        const fenceAfterMatch = suffixAfter.match(/^\s*\r?\n```/);
+        if (fenceBeforeMatch && fenceAfterMatch) {
+            fullMatchStr = text.substring(sIdx - fenceBeforeMatch[0].length, rIdx + rLen + fenceAfterMatch[0].length);
+        }
         
         blocks.push({
-            fullMatch: text.substring(sIdx, rIdx + rLen),
+            fullMatch: fullMatchStr,
             search: stripFences(searchVal),
             replace: stripFences(replaceVal),
             hasDivider: true,

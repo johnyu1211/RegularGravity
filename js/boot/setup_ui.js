@@ -33,7 +33,7 @@ function setupUI() {
             if (homeEl) homeEl.style.display = 'flex';
             const _rb3 = document.getElementById('taskbar-manual-rules-btn'); if (_rb3) _rb3.style.display = 'none';
             const _tb3 = document.getElementById('taskbar-manual-tree-btn'); if (_tb3) _tb3.style.display = 'none';
-            const _rc3 = document.getElementById('taskbar-recmd-btn'); if (_rc3) _rc3.style.display = 'none';
+            const _rc3 = document.getElementById('taskbar-send-mode-btn') || document.getElementById('taskbar-recmd-btn'); if (_rc3) _rc3.style.display = 'none';
             if (typeof syncBrowserView === 'function') syncBrowserView();
             return;
         }
@@ -1185,9 +1185,9 @@ function setupUI() {
                         </div>
                         <!-- Prefer Full File Replace -->
                         <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
-                            <span style="font-weight:600; color:#eee; font-size:11.5px;" title="Force AI to output full updated file (write-file) instead of snippet edits">Full File Overwrite (write-file)</span>
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;" title="Force AI to output full updated file (write-file) instead of chunk snippet edits">Full File Overwrite (write-file)</span>
                             <label class="switch-toggle">
-                                <input type="checkbox" id="chk-prefer-full-write" ${window.preferFullWrite !== false ? 'checked' : ''}>
+                                <input type="checkbox" id="chk-prefer-full-write" ${window.preferFullWrite === true ? 'checked' : ''}>
                                 <span class="slider-toggle"></span>
                             </label>
                         </div>
@@ -1238,12 +1238,13 @@ function setupUI() {
                         refreshTurnCount: parseInt(txtRefreshCount.value) || 35,
                         sendFormat: selSendFormat ? selSendFormat.value : 'md',
                         autoGemini: chkAutoGemini ? !!chkAutoGemini.checked : false,
-                        preferFullWrite: chkPreferFullWrite ? !!chkPreferFullWrite.checked : true,
+                        preferFullWrite: chkPreferFullWrite ? !!chkPreferFullWrite.checked : false,
                         useEmote: chkUseEmote ? !!chkUseEmote.checked : false,
                         auto_delete_SendingMD: chkAutoDeleteSendingMD ? !!chkAutoDeleteSendingMD.checked : true
                     };
                     saveSettings(settingsData);
                     if (typeof window.reloadAgentSettings === 'function') window.reloadAgentSettings();
+                    if (typeof window.updateSendModeButtonUI === 'function') window.updateSendModeButtonUI();
                 };
                 
                 if (txtRefreshCount) txtRefreshCount.onchange = updateAndSave;
@@ -1736,7 +1737,7 @@ function setupUI() {
                 };
             }
             const selPreferFullWrite = document.getElementById('settings-prefer-full-write');
-            if (selPreferFullWrite) selPreferFullWrite.value = currentSettings.preferFullWrite !== false ? 'true' : 'false';
+            if (selPreferFullWrite) selPreferFullWrite.value = currentSettings.preferFullWrite === true ? 'true' : 'false';
             const selUseEmote = document.getElementById('settings-use-emote');
             if (selUseEmote) selUseEmote.value = currentSettings.useEmote ? 'true' : 'false';
             const selAutoDeleteSendingMD = document.getElementById('settings-auto-delete-sendingmd');
@@ -1782,6 +1783,7 @@ function setupUI() {
             }
             saveSettings(settingsData);
             if (typeof window.reloadAgentSettings === 'function') window.reloadAgentSettings();
+            if (typeof window.updateSendModeButtonUI === 'function') window.updateSendModeButtonUI();
             
             if (typeof window.updateDragDropQueueUI === 'function') {
                 window.updateDragDropQueueUI();

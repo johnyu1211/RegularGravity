@@ -397,7 +397,10 @@ async function executeDeleteFileBatch(deleteCmds) {
                 
                 const stat = fs.statSync(targetPath);
                 if (stat.isDirectory()) {
-                    fs.rmSync(targetPath, { recursive: true, force: true });
+                    fs.rmSync(targetPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+                    if (window.expandedPaths && typeof window.expandedPaths.delete === 'function') {
+                        window.expandedPaths.delete(targetPath);
+                    }
                 } else {
                     fs.unlinkSync(targetPath);
                 }

@@ -149,34 +149,39 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                     const rootPath = path.resolve(window.currentPath || process.cwd());
                     if (targetPath === rootPath || targetPath === window.projectRoot || targetPath === process.cwd()) {
                         console.warn("[DeleteGuard] Blocked attempt to delete root project directory!");
-                        accumulatedFeedback += `[FILE DELETE BLOCKED: Cannot delete root project directory]\n`;
+                        accumulatedFeedback += `[DELETE BLOCKED: Cannot delete root project directory]\n`;
                         ChatUI.appendBubble('system', `[WARN] Blocked deletion of root project directory.`);
                         continue;
                     }
                     if (fs.existsSync(targetPath)) {
                         const stat = fs.statSync(targetPath);
-                        if (stat.isDirectory()) {
-                            fs.rmSync(targetPath, { recursive: true, force: true });
+                        const isDir = stat.isDirectory();
+                        if (isDir) {
+                            fs.rmSync(targetPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+                            if (window.expandedPaths && typeof window.expandedPaths.delete === 'function') {
+                                window.expandedPaths.delete(targetPath);
+                            }
                         } else {
                             fs.unlinkSync(targetPath);
                         }
-                        accumulatedFeedback += `[FILE DELETE SUCCESS: ${c.path}]\n`;
-                        ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path}`);
+                        accumulatedFeedback += `[${isDir ? 'DIR' : 'FILE'} DELETE SUCCESS: ${c.path}]\n`;
+                        ChatUI.appendBubble('system', `[SUCCESS] Deleted ${isDir ? 'folder' : 'file'}: ${c.path}`);
                         if (typeof window.showUserScreenToast === 'function') {
                             window.showUserScreenToast(`Deleted: "${c.path}"`, 3500);
                         }
                     } else {
-                        accumulatedFeedback += `[FILE DELETE SUCCESS: ${c.path} (Already gone)]\n`;
+                        accumulatedFeedback += `[DELETE SUCCESS: ${c.path} (Already gone)]\n`;
                         ChatUI.appendBubble('system', `[SUCCESS] Deleted ${c.path} (Already gone)`);
                         if (typeof window.showUserScreenToast === 'function') {
                             window.showUserScreenToast(`Already gone: "${c.path}"`, 3500, true);
                         }
                     }
                 } catch (err) {
-                    accumulatedFeedback += `[FILE DELETE ERROR: ${c.path} - ${err.message}]\n`;
+                    accumulatedFeedback += `[DELETE ERROR: ${c.path} - ${err.message}]\n`;
                     ChatUI.appendBubble('system', `[ERROR] Failed to delete ${c.path}: ${err.message}`);
                 }
             }
+            if (typeof window.refreshTree === 'function') window.refreshTree();
         }
 
         if (createDirCmds.length > 0 && isWriteEditApproved) {

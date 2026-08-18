@@ -164,91 +164,45 @@ async function setupBoot() {
         };
     }
 
-    const reCmdBtn = document.getElementById('taskbar-recmd-btn');
-    if (reCmdBtn && (!window.process || window.process.platform === 'browser')) {
-        reCmdBtn.style.display = 'none';
-    }
-    if (reCmdBtn) {
-        reCmdBtn.onclick = async () => {
-            reCmdBtn.style.opacity = '0.5';
-            reCmdBtn.style.pointerEvents = 'none';
-            try {
-                let lastAiText = null;
+    window.updateSendModeButtonUI = function() {
+        const btn = document.getElementById('taskbar-send-mode-btn') || document.getElementById('taskbar-recmd-btn');
+        if (!btn) return;
+        const isFull = (window.preferFullWrite === true);
+        btn.style.background = "rgba(255, 255, 255, 0.04)";
+        btn.style.borderColor = "var(--border-color)";
+        btn.style.color = "var(--text-main)";
+        btn.style.boxShadow = "none";
 
-                // 1. Try fetching text from local chat UI bubbles (latest AI response)
-                const aiBubbles = Array.from(document.querySelectorAll('.chat-bubble.ai, .chat-bubble[data-role="ai"]'));
-                if (aiBubbles.length > 0) {
-                    const lastBubble = aiBubbles[aiBubbles.length - 1];
-                    const contentEl = lastBubble.querySelector('.bubble-content');
-                    if (contentEl) {
-                        lastAiText = contentEl.dataset.rawText || contentEl.innerText || contentEl.textContent;
-                    }
-                }
+        if (isFull) {
+            btn.innerHTML = `<span style="font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">FULL</span>`;
+            btn.title = "Current Mode: FULL (write-file) - Click to switch to CHUNK (Partial Edit)";
+        } else {
+            btn.innerHTML = `<span style="font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">CHUNK</span>`;
+            btn.title = "Current Mode: CHUNK (edit-file) - Click to switch to FULL (write-file)";
+        }
+    };
 
-                // 2. If not found in local UI, attempt reading latest AI response from Webview DOM
-                if (!lastAiText || !lastAiText.trim()) {
-                    const wv = document.getElementById('active-agent-webview');
-                    if (wv && typeof wv.executeJavaScript === 'function') {
-                        try {
-                            lastAiText = await wv.executeJavaScript(`
-                                (() => {
-                                     try {
-                                         const rawElems = Array.from(document.querySelectorAll('message-content, model-response, [data-message-author-role="assistant"], .assistant-message, .model-response-text, [data-test-id="model-response"]'));
-                                         const topElems = rawElems.filter(el => !rawElems.some(other => other !== el && other.contains(el)));
-                                         
-                                         const cmdMatched = topElems.filter(el => {
-                                             try {
-                                                 const t = el.innerText || el.textContent || '';
-                                                 return t.includes('[CMD:') || t.includes('[REQUEST:') || t.includes('\`\`\`');
-                                             } catch(e) { return false; }
-                                         });
-                                         if (cmdMatched.length > 0) {
-                                             const lastMatched = cmdMatched[cmdMatched.length - 1];
-                                             const text = (lastMatched.innerText || lastMatched.textContent || '').trim();
-                                             if (text) return text;
-                                         }
+    const sendModeBtn = document.getElementById('taskbar-send-mode-btn') || document.getElementById('taskbar-recmd-btn');
+    if (sendModeBtn) {
+        window.updateSendModeButtonUI();
+        sendModeBtn.onclick = () => {
+            window.preferFullWrite = !window.preferFullWrite;
+            const settingsData = (typeof loadSettings === 'function') ? loadSettings() : {};
+            settingsData.preferFullWrite = window.preferFullWrite;
+            if (typeof saveSettings === 'function') saveSettings(settingsData);
 
-                                         if (topElems.length > 0) {
-                                             const lastEl = topElems[topElems.length - 1];
-                                             const text = (lastEl.innerText || lastEl.textContent || '').trim();
-                                             if (text) return text;
-                                         }
-                                         return '';
-                                     } catch(e) { return ''; }
-                                })()
-                            `);
-                        } catch(wvErr) {
-                            console.warn("[RE-CMD] Webview executeJavaScript caught safely:", wvErr);
-                            lastAiText = '';
-                        }
-                    }
-                }
+            window.updateSendModeButtonUI();
 
-                if (lastAiText && lastAiText.trim()) {
-                    window.dragDropMode = true;
-                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                        ChatUI.appendBubble('system', '[SYSTEM] RE-CMD: Re-parsing latest AI message for local commands...');
-                    }
-                    if (typeof detectAndAskCommand === 'function') {
-                        detectAndAskCommand(lastAiText);
-                    } else {
-                        if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                            ChatUI.appendBubble('system', '[ERROR] RE-CMD: detectAndAskCommand function unavailable.');
-                        }
-                    }
-                } else {
-                    if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                        ChatUI.appendBubble('system', '[WARN] RE-CMD: No recent AI message found to re-read.');
-                    }
-                }
-            } catch(e) {
-                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    ChatUI.appendBubble('system', `[ERROR] RE-CMD: ${e.message}`);
-                }
-            } finally {
-                reCmdBtn.style.opacity = '1';
-                reCmdBtn.style.pointerEvents = 'auto';
+            const modeName = window.preferFullWrite ? "FULL (Full Write)" : "CHUNK (Partial Edit)";
+            if (typeof window.showUserScreenToast === 'function') {
+                window.showUserScreenToast(`Send Mode: ${modeName}`, 2500);
             }
+
+            // Sync open modals if any
+            const selDiscovery = document.getElementById('settings-prefer-full-write');
+            if (selDiscovery) selDiscovery.value = window.preferFullWrite ? 'true' : 'false';
+            const chkLocal = document.getElementById('chk-prefer-full-write');
+            if (chkLocal) chkLocal.checked = window.preferFullWrite;
         };
     }
 
@@ -312,8 +266,8 @@ async function setupBoot() {
         if (!window.process || window.process.platform === 'browser' || window.isWebMode) {
             const emptySendMdBtn = document.getElementById('taskbar-empty-sendmd-btn');
             if (emptySendMdBtn) emptySendMdBtn.style.display = 'none';
-            const reCmdBtn = document.getElementById('taskbar-recmd-btn');
-            if (reCmdBtn) reCmdBtn.style.display = 'none';
+            const sendModeBtn = document.getElementById('taskbar-send-mode-btn') || document.getElementById('taskbar-recmd-btn');
+            if (sendModeBtn) sendModeBtn.style.display = 'none';
             return;
         }
         try {
@@ -877,20 +831,38 @@ async function setupBoot() {
                     };
 
                     const checkAndSend = () => {
-                        const selectors = [
-                            'message-content',
+                        const turnSelectors = [
                             'model-response',
-                            'model-response .markdown', 
-                            'message-content .markdown-prose', 
-                            '[data-testid="message-content"]', 
-                            '.response-content'
+                            'message-content',
+                            '[data-message-author-role="assistant"]',
+                            '.font-claude-message',
+                            'div[class*="model-response"]',
+                            'div[class*="message-content"]',
+                            '[data-testid="message-content"]',
+                            '.response-content',
+                            '.conversation-turn[data-role="assistant"]',
+                            '.conversation-turn',
+                            '.assistant-message'
                         ];
                         let lastAiBubble = null;
-                        for (let sel of selectors) {
-                            const nodes = document.querySelectorAll(sel);
+                        for (let sel of turnSelectors) {
+                            const nodes = Array.from(document.querySelectorAll(sel));
                             if (nodes.length > 0) {
-                                lastAiBubble = nodes[nodes.length - 1];
-                                break;
+                                const topNodes = nodes.filter(el => !nodes.some(other => other !== el && other.contains(el)));
+                                if (topNodes.length > 0) {
+                                    lastAiBubble = topNodes[topNodes.length - 1];
+                                    break;
+                                }
+                            }
+                        }
+                        if (!lastAiBubble) {
+                            const fallbackSelectors = ['.markdown', '.prose', 'article'];
+                            for (let sel of fallbackSelectors) {
+                                const nodes = Array.from(document.querySelectorAll(sel));
+                                if (nodes.length > 0) {
+                                    lastAiBubble = nodes[nodes.length - 1];
+                                    break;
+                                }
                             }
                         }
                         if (!lastAiBubble) return;

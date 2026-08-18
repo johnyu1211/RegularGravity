@@ -339,7 +339,10 @@ async function setupBoot() {
             treeBtn.style.pointerEvents = 'none';
         }
         try {
-            const checkPath = targetDirPath || window.currentPath || window.projectRoot || '.';
+            const path = require('path');
+            const checkPath = (targetDirPath && targetDirPath !== '.' && targetDirPath !== './' && targetDirPath !== '.\\')
+                ? path.resolve(window.currentPath || window.projectRoot || process.cwd(), targetDirPath)
+                : (window.currentPath || window.projectRoot || process.cwd());
             let rawTree = await ipcRenderer.invoke('vault-get-tree', checkPath);
             let projectTree = typeof rawTree === 'string' ? rawTree : (rawTree && typeof rawTree === 'object' && typeof rawTree.tree === 'string' ? rawTree.tree : '');
 

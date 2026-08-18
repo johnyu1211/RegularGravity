@@ -154,7 +154,9 @@ async function dirContainsMatch(dirPath, query) {
         if (!Array.isArray(files)) return false;
         const q = query.toLowerCase();
         for (const file of files) {
-            if (!file || !file.name || file.name.toLowerCase().startsWith('_project')) continue;
+            if (!file || !file.name) continue;
+            const lname = file.name.toLowerCase();
+            if (lname.startsWith('_project') || lname === 'gravity_vault' || lname === 'sendingmd') continue;
             if (file.name.toLowerCase().includes(q)) return true;
             if (file.isDir && !file.isParentEntry) {
                 const sep = (dirPath.endsWith('\\') || dirPath.endsWith('/')) ? '' : '\\';
@@ -177,8 +179,11 @@ async function renderLevel(parentPath, files, container, level, searchQuery = ''
         if (!file) continue;
         
         const name = file.name;
-        if (name && name.toLowerCase().startsWith('_project')) {
-            continue;
+        if (name) {
+            const lname = name.toLowerCase();
+            if (lname.startsWith('_project') || lname === 'gravity_vault' || lname === 'sendingmd') {
+                continue;
+            }
         }
         const isDir = file.isDir;
         const isParentEntry = file.isParentEntry === true;

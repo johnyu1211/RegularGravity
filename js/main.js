@@ -87,7 +87,7 @@ ipcMain.on('vault-reset-session', (event, { logPath }) => {
     // Stub: 로컬 AI 세션 초기화 비활성화
 });
 ipcMain.handle('vault-get-tree', async (event, projectPath) => {
-    const root = projectPath || process.cwd();
+    const root = projectPath ? path.resolve(projectPath) : process.cwd();
     const ignore = ['node_modules', '.git', 'gravity_vault', 'dist', 'build', 'lib', 'scratch', 'out', '.vs', '.idea', 'SendingMD'];
 
     function buildHierarchicalTree(dir, depth = 0) {
@@ -409,10 +409,13 @@ ipcMain.handle('get-directory-content', async (event, dirPath) => {
     try {
         const targetPath = dirPath || process.cwd();
         const files = fs.readdirSync(targetPath, { withFileTypes: true });
-        return files.map(file => ({
-            name: file.name,
-            isDir: file.isDirectory()
-        }));
+        const ignoreList = ['gravity_vault', 'SendingMD', 'node_modules', '.git'];
+        return files
+            .filter(file => !ignoreList.includes(file.name) && !file.name.startsWith('_project_'))
+            .map(file => ({
+                name: file.name,
+                isDir: file.isDirectory()
+            }));
     } catch (err) {
         console.error('Dir Read Error:', err);
         return [];

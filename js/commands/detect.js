@@ -419,10 +419,14 @@ function detectAndAskCommand(text) {
     const hasModifyingAction = hasWriteFile || hasEditFile || hasDeleteFile || hasCreateDir || hasRunCommand || hasSearchKeyword || hasMoveFile;
 
     // Handle pure tree / directory info requests with Treesending bottom sheet
-    const isPureTreeRequest = (hasListDir || (readCmds.length > 0 && readCmds.every(f => f.isDirectory || f.path === '.' || f.path === './' || !f.path))) && !hasModifyingAction;
+    const isPureTreeRequest = (hasListDir || (readCmds.length > 0 && readCmds.every(f => f.isDirectory || f.path === '.' || f.path === './' || f.path === '.\\' || !f.path))) && !hasModifyingAction;
 
     if (isPureTreeRequest) {
-        const targetDir = listDirCmds[0]?.path || readCmds[0]?.path || '.';
+        const path = require('path');
+        const rawTargetDir = listDirCmds[0]?.path || readCmds[0]?.path || '.';
+        const targetDir = (rawTargetDir && rawTargetDir !== '.' && rawTargetDir !== './' && rawTargetDir !== '.\\')
+            ? path.resolve(window.currentPath || window.projectRoot || process.cwd(), rawTargetDir)
+            : (window.currentPath || window.projectRoot || process.cwd());
         (async () => {
             const confirmResult = (typeof window.showBrowserConfirm === 'function')
                 ? await window.showBrowserConfirm(null, "PROJECT TRANSFER", "AI is requesting current project folder information. Send project tree structure?")

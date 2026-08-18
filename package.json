@@ -5,13 +5,35 @@
   "main": "js/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-packager . RegularGravity --platform=win32 --arch=x64 --icon=assets/icon.ico --out=dist --overwrite"
+    "build": "electron-packager . RegularGravity --platform=win32 --arch=x64 --icon=assets/icon.ico --out=dist --overwrite",
+    "dist": "electron-builder --win portable"
   },
+  "build": {
+    "appId": "com.regulargravity.app",
+    "productName": "RegularGravity",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "assets/icon.ico"
+    },
+    "portable": {
+      "artifactName": "RegularGravity-Portable.exe"
+    },
+    "files": [
+      "assets/**/*",
+      "css/**/*",
+      "js/**/*",
+      "index.html",
+      "package.json"
+    ]
+  },
+  "author": "John Yu",
   "devDependencies": {
     "@electron/packager": "^18.3.6",
+    "electron": "^30.0.0",
+    "electron-builder": "^26.15.3",
     "electron-packager": "^17.1.2"
-  },
-  "dependencies": {
-    "electron": "^30.0.0"
   }
 }

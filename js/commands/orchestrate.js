@@ -435,47 +435,18 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
             const onContinue = async () => {
                 box.remove();
                 if (window.activeCommandCleanup) window.activeCommandCleanup();
-                const { exec } = require('child_process');
+                
                 for (const c of runCommandCmds) {
-                    ChatUI.appendBubble('system', `[SYSTEM] Running command: ${c.command}...\n`);
-                    let loaderBox = ChatUI.appendBubble('system', '');
-                    const loaderContent = loaderBox.querySelector('.bubble-content');
-                    if (loaderContent) {
-                        loaderContent.innerHTML = `
-                            <div style="display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-muted);">
-                                <div class="terminal-loading-spinner" style="width: 12px; height: 12px; border-width: 1.5px;"></div>
-                                <span>Executing: ${c.command}</span>
-                            </div>
-                        `;
+                    ChatUI.appendBubble('system', `[SYSTEM] Dispatched to internal terminal: ${c.command}\n`);
+                    
+                    if (typeof window.executeCommandInTerminal === 'function') {
+                        window.executeCommandInTerminal(c.command);
                     }
                     
-                    await new Promise(resolve => {
-                        exec(c.command, { cwd: window.currentPath || process.cwd(), timeout: 45000 }, async (err, stdout, stderr) => {
-                            if (loaderBox) loaderBox.remove();
-                            const output = (stdout + '\n' + stderr).trim() || "[No output]";
-                            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                                const resBox = ChatUI.appendBubble('system', '');
-                                const resContent = resBox.querySelector('.bubble-content');
-                                if (resContent) {
-                                    resContent.innerHTML = `
-                                        <div style="background: var(--surface-low); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.4;">
-                                            <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: ${err ? '#FF5252' : '#4CAF50'}; margin-bottom: 8px;">
-                                                <span>${err ? '❌ Command Failed' : '✅ Command Succeeded'}</span>
-                                                <span style="color: var(--text-muted); font-size: 10.5px; font-weight: normal;">(&quot;${c.command}&quot;)</span>
-                                            </div>
-                                            <pre style="margin: 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; overflow-x: auto; color: var(--text-main); font-size: 11px; max-height: 200px; white-space: pre-wrap;">${output.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-                                        </div>
-                                    `;
-                                }
-                            }
-                            if (typeof window.showUserScreenToast === 'function') {
-                                const toastText = err ? `Command failed: "${c.command}"` : `Command executed: "${c.command}"`;
-                                window.showUserScreenToast(toastText, 3500, !err);
-                            }
-                            accumulatedFeedback += `[COMMAND EXECUTION RESULT FOR "${c.command}"]: \n${output}\n\n`;
-                            resolve();
-                        });
-                    });
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast(`Executed in Terminal: "${c.command}"`, 3500, true);
+                    }
+                    accumulatedFeedback += `[COMMAND DISPATCHED TO INTERNAL TERMINAL]: "${c.command}"\n(The command has been launched in the interactive terminal window.)\n\n`;
                 }
                 await submitConsolidatedFeedback(accumulatedFeedback);
             };

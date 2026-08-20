@@ -153,3 +153,84 @@ function closeSubTerminal(id) {
         }
     }
 }
+
+window.openTerminalPopover = function() {
+    const popover = document.getElementById('terminal-popover');
+    if (!popover) return;
+    window.hasTerminalBeenOpened = true;
+    popover.style.display = 'flex';
+    if (typeof window.bringPopoverToFront === 'function') {
+        window.bringPopoverToFront(popover);
+    } else {
+        popover.style.zIndex = '5000';
+    }
+    if (window.terminalCount === 0) {
+        addSubTerminal(true);
+    } else if (window.activeSubTabId) {
+        switchSubTerminal(window.activeSubTabId);
+    }
+    if (typeof window.updateTaskbarButtonStyles === 'function') {
+        window.updateTaskbarButtonStyles();
+    }
+    window.dispatchEvent(new Event('resize'));
+};
+
+window.executeCommandInTerminal = function(cmdStr) {
+    if (!cmdStr || typeof cmdStr !== 'string') return;
+    const cleanCmd = cmdStr.trim();
+    if (!cleanCmd) return;
+
+    if (typeof window.openTerminalPopover === 'function') {
+        window.openTerminalPopover();
+    }
+
+    if (!window.activeSubTabId || !window.terminalSessions[window.activeSubTabId]) {
+        addSubTerminal(true);
+    }
+
+    const tId = window.activeSubTabId || 'sub-1';
+    const session = window.terminalSessions[tId];
+    if (session) {
+        session.history = session.history || [];
+        session.history.push(cleanCmd);
+        session.historyIndex = -1;
+        session.logs = session.logs || [];
+        session.logs.push({ type: 'cmd', text: `> ${cleanCmd}` });
+    }
+
+    if (typeof updateSubTerminalTitle === 'function') {
+        updateSubTerminalTitle(tId, cleanCmd);
+    }
+    if (typeof switchSubTerminal === 'function') {
+        switchSubTerminal(tId);
+    }
+
+    if (cleanCmd.toLowerCase().startsWith('cd ')) {
+        let targetDir = cleanCmd.substring(3).trim().replace(/['"]/g, '');
+        const pathModule = require('path');
+        const fsModule = require('fs');
+        try {
+            const curCwd = session?.cwd || window.currentPath || process.cwd();
+            let newPath = pathModule.isAbsolute(targetDir) ? targetDir : pathModule.resolve(curCwd, targetDir);
+            if (fsModule.existsSync(newPath) && fsModule.statSync(newPath).isDirectory()) {
+                if (session) session.cwd = newPath;
+                if (typeof updateTerminalPrompt === 'function') updateTerminalPrompt();
+            }
+        } catch(err) {
+            console.error(err);
+        }
+    }
+
+    const activeCwd = session?.cwd || window.currentPath || window.projectRoot || process.cwd();
+    ipcRenderer.send('execute-cmd', {
+        tabId: tId,
+        command: cleanCmd,
+        cwd: activeCwd
+    });
+
+    const tI = document.getElementById('terminal-main-input');
+    if (tI) {
+        tI.value = '';
+        setTimeout(() => { tI.focus(); }, 150);
+    }
+};

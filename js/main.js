@@ -553,29 +553,45 @@ ipcMain.on('execute-cmd', (event, arg) => {
         try {
             terminalProcesses[tabId] = spawn('powershell.exe', ['-NoExit', '-Command', '-'], {
                 cwd: safeCwd,
-                env: { ...process.env, PYTHONIOENCODING: 'utf-8', LANG: 'en_US.UTF-8' }
+                env: {
+                    ...process.env,
+                    PYTHONIOENCODING: 'utf-8',
+                    PYTHONUNBUFFERED: '1',
+                    FORCE_COLOR: '1',
+                    LANG: 'en_US.UTF-8'
+                }
             });
             
             terminalProcesses[tabId].on('error', (err) => {
-                event.reply('cmd-output', { tabId, data: `[Shell Error] ${err.message}\r\n` });
+                if (event.sender && !event.sender.isDestroyed()) {
+                    event.sender.send('cmd-output', { tabId, data: `[Shell Error] ${err.message}\r\n` });
+                }
             });
- 
-            // Force UTF-8 Encoding
+
+            // Force UTF-8 Encoding & Unbuffered stream preferences
             terminalProcesses[tabId].stdin.write("[Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
             terminalProcesses[tabId].stdin.write("$OutputEncoding = [System.Text.Encoding]::UTF8\r\n");
+            terminalProcesses[tabId].stdin.write("$ProgressPreference = 'SilentlyContinue'\r\n");
+            terminalProcesses[tabId].stdin.write("$env:PYTHONUNBUFFERED = '1'\r\n");
             
-    if (safeCwd) {
-        terminalProcesses[tabId].stdin.write(`Set-Location -LiteralPath "${safeCwd.replace(/"/g, '""')}"\r\n`);
-    }
- 
+            if (safeCwd) {
+                terminalProcesses[tabId].stdin.write(`Set-Location -LiteralPath "${safeCwd.replace(/"/g, '""')}"\r\n`);
+            }
+
             terminalProcesses[tabId].stdout.on('data', (data) => {
-                event.reply('cmd-output', { tabId, data: data.toString() });
+                if (event.sender && !event.sender.isDestroyed()) {
+                    event.sender.send('cmd-output', { tabId, data: data.toString('utf8') });
+                }
             });
             terminalProcesses[tabId].stderr.on('data', (data) => {
-                event.reply('cmd-output', { tabId, data: data.toString() });
+                if (event.sender && !event.sender.isDestroyed()) {
+                    event.sender.send('cmd-output', { tabId, data: data.toString('utf8') });
+                }
             });
         } catch (spawnErr) {
-            event.reply('cmd-output', { tabId, data: `[Shell Spawn Error] ${spawnErr.message}\r\n` });
+            if (event.sender && !event.sender.isDestroyed()) {
+                event.sender.send('cmd-output', { tabId, data: `[Shell Spawn Error] ${spawnErr.message}\r\n` });
+            }
         }
     }
     

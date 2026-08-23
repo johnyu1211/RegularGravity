@@ -174,9 +174,9 @@
                 undoBtn.disabled = false;
                 undoBtn.style.opacity = '1';
                 undoBtn.style.cursor = 'pointer';
-                undoBtn.style.background = 'var(--surface-high)';
-                undoBtn.style.color = '#ffffff';
-                undoBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+                undoBtn.style.background = '';
+                undoBtn.style.color = '';
+                undoBtn.style.borderColor = '';
                 undoBtn.title = `Undo Last AI Changes (${count} available in history)`;
                 if (badge) {
                     badge.innerText = count.toString();
@@ -184,11 +184,11 @@
                 }
             } else {
                 undoBtn.disabled = true;
-                undoBtn.style.opacity = '0.38';
+                undoBtn.style.opacity = '0.35';
                 undoBtn.style.cursor = 'not-allowed';
-                undoBtn.style.background = 'transparent';
-                undoBtn.style.color = 'var(--text-muted)';
-                undoBtn.style.borderColor = 'transparent';
+                undoBtn.style.background = '';
+                undoBtn.style.color = '';
+                undoBtn.style.borderColor = '';
                 undoBtn.title = 'No AI changes to undo';
                 if (badge) {
                     badge.innerText = '0';

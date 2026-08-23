@@ -185,9 +185,9 @@ window.toggleEditorEditMode = function() {
             gutter = document.createElement('div');
             gutter.id = 'editor-raw-gutter';
             gutter.style = `
-                width: 44px; min-width: 44px; background: var(--surface-lowest); color: #555;
-                text-align: right; padding: 16px 8px 16px 0; font-family: 'JetBrains Mono', monospace;
-                font-size: 12.5px; line-height: 1.6; user-select: none; border-right: 1px solid var(--border-color);
+                width: 48px; min-width: 48px; background: var(--surface-lowest); color: var(--text-dark, #666);
+                text-align: right; padding: 16px 10px 16px 0; font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
+                font-size: 12px; line-height: 20px; user-select: none; border-right: 1px solid var(--border-color);
                 overflow: hidden; box-sizing: border-box; flex-shrink: 0;
             `;
 
@@ -197,12 +197,12 @@ window.toggleEditorEditMode = function() {
 
             const rawPre = document.createElement('pre');
             rawPre.id = 'editor-raw-pre';
-            rawPre.style = `position: absolute; inset: 0; margin: 0; padding: 16px 20px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 20px; tab-size: 4; white-space: pre; overflow: hidden; pointer-events: none; box-sizing: border-box; background: transparent;`;
+            rawPre.style = `position: absolute; inset: 0; margin: 0; padding: 16px 20px; font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace; font-size: 12.5px; line-height: 20px; tab-size: 4; white-space: pre; overflow: hidden; pointer-events: none; box-sizing: border-box; background: transparent; z-index: 1; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; letter-spacing: 0px; word-spacing: normal;`;
 
             const rawCode = document.createElement('code');
             rawCode.id = 'editor-raw-code';
             rawCode.className = 'hljs';
-            rawCode.style = `background: transparent; padding: 0; margin: 0; font-family: inherit; font-size: inherit; line-height: 20px; white-space: pre; display: block;`;
+            rawCode.style = `background: transparent; padding: 0; margin: 0; font-family: inherit; font-size: inherit; line-height: 20px; white-space: pre; display: block; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; letter-spacing: 0px; word-spacing: normal;`;
             rawPre.appendChild(rawCode);
 
             editArea = document.createElement('textarea');
@@ -212,10 +212,10 @@ window.toggleEditorEditMode = function() {
             editArea.setAttribute('autocorrect', 'off');
             editArea.setAttribute('autocapitalize', 'off');
             editArea.style = `
-                position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; color: transparent; caret-color: #ffffff;
-                font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 20px;
+                position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; color: #38bdf8; -webkit-text-fill-color: transparent; caret-color: #38bdf8 !important;
+                font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace; font-size: 12.5px; line-height: 20px;
                 padding: 16px 20px; border: none; outline: none; resize: none; box-sizing: border-box;
-                tab-size: 4; white-space: pre; overflow: auto;
+                tab-size: 4; white-space: pre; overflow: auto; z-index: 2; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; letter-spacing: 0px; word-spacing: normal;
             `;
 
             editContainer.appendChild(rawPre);
@@ -228,7 +228,7 @@ window.toggleEditorEditMode = function() {
                     lastLineCount = lineCount;
                     let html = '';
                     for (let i = 1; i <= lineCount; i++) {
-                        html += `<div>${i}</div>`;
+                        html += `<div class="gutter-num" style="height: 20px; line-height: 20px; font-size: 12px; box-sizing: border-box; margin: 0; padding: 0; color: var(--text-dark, #666);">${i}</div>`;
                     }
                     gutter.innerHTML = html;
                 }
@@ -464,12 +464,12 @@ window.toggleEditorEditMode = function() {
         const lineCount = (rawContent.match(/\n/g) || []).length + 1;
         let html = '';
         for (let i = 1; i <= lineCount; i++) {
-            html += `<div>${i}</div>`;
+            html += `<div class="gutter-num" style="height: 20px; line-height: 20px; font-size: 12px; box-sizing: border-box; margin: 0; padding: 0; color: var(--text-dark, #666);">${i}</div>`;
         }
         gutter.innerHTML = html;
 
         const applyEditScroll = () => {
-            const target = Math.max(0, (currentLineNum - 1) * 19.5);
+            const target = Math.max(0, (currentLineNum - 1) * 20);
             editArea.scrollTop = target;
             gutter.scrollTop = target;
         };
@@ -513,7 +513,7 @@ window.performUndo = function() {
 
         const lineCount = (prevState.match(/\n/g) || []).length + 1;
         let html = '';
-        for (let i = 1; i <= lineCount; i++) html += `<div>${i}</div>`;
+        for (let i = 1; i <= lineCount; i++) html += `<div class="gutter-num" style="height: 20px; line-height: 20px; font-size: 12px; box-sizing: border-box; margin: 0; padding: 0; color: var(--text-dark, #666);">${i}</div>`;
         const gutter = document.getElementById('editor-raw-gutter');
         if (gutter) gutter.innerHTML = html;
 
@@ -535,7 +535,7 @@ window.performRedo = function() {
 
         const lineCount = (nextState.match(/\n/g) || []).length + 1;
         let html = '';
-        for (let i = 1; i <= lineCount; i++) html += `<div>${i}</div>`;
+        for (let i = 1; i <= lineCount; i++) html += `<div class="gutter-num" style="height: 20px; line-height: 20px; font-size: 12px; box-sizing: border-box; margin: 0; padding: 0; color: var(--text-dark, #666);">${i}</div>`;
         const gutter = document.getElementById('editor-raw-gutter');
         if (gutter) gutter.innerHTML = html;
 
@@ -593,8 +593,22 @@ window.setEditorFontSize = function(size) {
             if (area || pre || gutter) {
                 const lh = Math.round(window.editorFontSize * 1.55);
                 if (area) { area.style.fontSize = window.editorFontSize + 'px'; area.style.lineHeight = lh + 'px'; }
-                if (pre) { pre.style.fontSize = window.editorFontSize + 'px'; pre.style.lineHeight = lh + 'px'; }
-                if (gutter) { gutter.style.fontSize = Math.max(8, window.editorFontSize - 1) + 'px'; gutter.style.lineHeight = lh + 'px'; }
+                if (pre) {
+                    pre.style.fontSize = window.editorFontSize + 'px';
+                    pre.style.lineHeight = lh + 'px';
+                    pre.querySelectorAll('.raw-code-line').forEach(el => {
+                        el.style.height = lh + 'px';
+                        el.style.lineHeight = lh + 'px';
+                    });
+                }
+                if (gutter) {
+                    gutter.style.fontSize = Math.max(8, window.editorFontSize - 1) + 'px';
+                    gutter.style.lineHeight = lh + 'px';
+                    gutter.querySelectorAll('.gutter-num').forEach(el => {
+                        el.style.height = lh + 'px';
+                        el.style.lineHeight = lh + 'px';
+                    });
+                }
             }
         });
     }

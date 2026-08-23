@@ -550,9 +550,122 @@ body {
     color: var(--text-main);
 }
 
+/* ===== FILE VIEWER EDIT MODE (PERFECT ALIGNMENT & CARET) ===== */
+#editor-raw-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 70px;
+    bottom: 0;
+    display: flex;
+    background: var(--bg-color);
+    z-index: 1000;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+#editor-raw-gutter {
+    width: 48px;
+    min-width: 48px;
+    background: var(--surface-lowest);
+    color: var(--text-dark, #666);
+    text-align: right;
+    padding: 16px 10px 16px 0;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 20px;
+    user-select: none;
+    border-right: 1px solid var(--border-color);
+    overflow: hidden;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+#editor-raw-gutter .gutter-num {
+    height: 20px;
+    line-height: 20px;
+    font-size: 12px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    color: var(--text-dark, #666);
+}
+
+#editor-raw-container {
+    position: relative;
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-color);
+}
+
+#editor-raw-pre {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 16px 20px;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
+    font-size: 12.5px;
+    line-height: 20px;
+    tab-size: 4;
+    white-space: pre;
+    overflow: hidden;
+    pointer-events: none;
+    box-sizing: border-box;
+    background: transparent;
+    z-index: 1;
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+    letter-spacing: 0px;
+    word-spacing: normal;
+}
+
+#editor-raw-code {
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 20px;
+    white-space: pre;
+    display: block;
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+    letter-spacing: 0px;
+    word-spacing: normal;
+}
+
+#editor-raw-textarea {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    color: #38bdf8;
+    -webkit-text-fill-color: transparent;
+    caret-color: #38bdf8 !important;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace !important;
+    font-size: 12.5px !important;
+    line-height: 20px !important;
+    padding: 16px 20px !important;
+    border: none !important;
+    outline: none !important;
+    resize: none !important;
+    box-sizing: border-box !important;
+    tab-size: 4 !important;
+    white-space: pre !important;
+    overflow: auto !important;
+    z-index: 2;
+    font-variant-ligatures: none !important;
+    font-feature-settings: "liga" 0, "calt" 0 !important;
+    letter-spacing: 0px !important;
+    word-spacing: normal !important;
+}
+
 #editor-raw-textarea::selection {
-    background: rgba(56, 189, 248, 0.35);
-    color: transparent;
+    background: rgba(56, 189, 248, 0.35) !important;
+    -webkit-text-fill-color: #ffffff !important;
+    color: #ffffff !important;
 }
 
 .header-btn:hover {

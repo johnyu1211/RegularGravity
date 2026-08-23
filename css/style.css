@@ -2031,6 +2031,19 @@ button:focus, .btn:focus, [role="button"]:focus, input[type="button"]:focus, inp
     margin-left: 5px;
 }
 
+#taskbar-undo-btn .undo-badge-full {
+    display: none;
+}
+#taskbar-undo-btn .undo-badge-short {
+    display: inline;
+}
+#taskbar-undo-btn:hover .undo-badge-full {
+    display: inline;
+}
+#taskbar-undo-btn:hover .undo-badge-short {
+    display: none;
+}
+
 /* Gemini Usage Preloader Animation */
 @keyframes usageFillFade {
     0% {

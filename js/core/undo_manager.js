@@ -177,9 +177,9 @@
                 undoBtn.style.background = '';
                 undoBtn.style.color = '';
                 undoBtn.style.borderColor = '';
-                undoBtn.title = `Undo Last AI Changes (${count} available in history)`;
+                undoBtn.title = `Undo Last AI Changes (${count}/${this.maxHistory} in history)`;
                 if (badge) {
-                    badge.innerText = count.toString();
+                    badge.innerHTML = `<span class="undo-badge-short">${count}</span><span class="undo-badge-full">${count}/${this.maxHistory}</span>`;
                     badge.style.display = 'inline-block';
                 }
             } else {
@@ -191,7 +191,7 @@
                 undoBtn.style.borderColor = '';
                 undoBtn.title = 'No AI changes to undo';
                 if (badge) {
-                    badge.innerText = '0';
+                    badge.innerHTML = `<span class="undo-badge-short">0</span><span class="undo-badge-full">0/${this.maxHistory}</span>`;
                     badge.style.display = 'none';
                 }
             }

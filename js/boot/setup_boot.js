@@ -263,74 +263,10 @@ async function setupBoot() {
     }
 
     window.updateSendingMdCountBadge = function() {
-        if (!window.process || window.process.platform === 'browser' || window.isWebMode) {
-            const emptySendMdBtn = document.getElementById('taskbar-empty-sendmd-btn');
-            if (emptySendMdBtn) emptySendMdBtn.style.display = 'none';
-            const sendModeBtn = document.getElementById('taskbar-send-mode-btn') || document.getElementById('taskbar-recmd-btn');
-            if (sendModeBtn) sendModeBtn.style.display = 'none';
-            return;
-        }
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const gravityRoot = window.appRootPath || process.cwd();
-            const subDir = (typeof window.getSendingMdSubDir === 'function') ? window.getSendingMdSubDir() : path.join('gravity_vault', 'SendingMD');
-            const sendingMdDir = path.join(gravityRoot, subDir);
-            let count = 0;
-            if (fs.existsSync(sendingMdDir)) {
-                const subfiles = fs.readdirSync(sendingMdDir);
-                count = subfiles.filter(f => !f.startsWith('.')).length;
-            }
-            const badge = document.getElementById('taskbar-sendmd-count-badge');
-            if (badge) {
-                if (count > 0) {
-                    badge.innerText = count;
-                    badge.style.display = 'inline';
-                } else {
-                    badge.innerText = '';
-                    badge.style.display = 'none';
-                }
-            }
-        } catch(e) {}
+        // Automatically handled on AI response
     };
 
     if (typeof window.cleanSendingMdOldFiles === 'function') window.cleanSendingMdOldFiles();
-    window.updateSendingMdCountBadge();
-    setInterval(() => {
-        if (typeof window.cleanSendingMdOldFiles === 'function') window.cleanSendingMdOldFiles();
-        if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
-    }, 2000);
-
-    const emptySendMdBtn = document.getElementById('taskbar-empty-sendmd-btn');
-    if (emptySendMdBtn && (!window.process || window.process.platform === 'browser' || window.isWebMode)) {
-        emptySendMdBtn.style.display = 'none';
-    }
-    if (emptySendMdBtn) {
-        emptySendMdBtn.onclick = () => {
-            try {
-                const fs = require('fs');
-                const path = require('path');
-                const gravityRoot = window.appRootPath || process.cwd();
-                const subDir = (typeof window.getSendingMdSubDir === 'function') ? window.getSendingMdSubDir() : path.join('gravity_vault', 'SendingMD');
-                const sendingMdDir = path.join(gravityRoot, subDir);
-                let count = 0;
-                if (fs.existsSync(sendingMdDir)) {
-                    const subfiles = fs.readdirSync(sendingMdDir);
-                    for (const file of subfiles) {
-                        try {
-                            fs.unlinkSync(path.join(sendingMdDir, file));
-                            count++;
-                        } catch(e) {}
-                    }
-                }
-                if (typeof window.refreshTree === 'function') window.refreshTree();
-                if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
-                ChatUI.appendBubble('system', `[SYSTEM] Cleaned ${count} temporary file(s) from SendingMD folder.`);
-            } catch(e) {
-                ChatUI.appendBubble('system', `[ERROR] Failed to empty SendingMD folder: ${e.message}`);
-            }
-        };
-    }
 
     window.executeTreeSend = async (targetDirPath) => {
         const treeBtn = document.getElementById('taskbar-manual-tree-btn');

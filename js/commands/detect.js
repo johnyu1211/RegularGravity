@@ -13,25 +13,34 @@ function detectAndAskCommand(text) {
             // Clean up root leftovers
             const files = fs.readdirSync(dir);
             files.forEach(file => {
-                if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
+                if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_') || file.startsWith('FollowThisORDER_') || file.startsWith('Files_') || file.startsWith('ListDir_')) && file.endsWith('.md')) {
                     try { fs.unlinkSync(path.join(dir, file)); } catch(e) {}
                 }
             });
-            // Clean up SendingMD folder
-            const gravityRoot = window.appRootPath || process.cwd();
-            const subDir = (typeof window.getSendingMdSubDir === 'function') ? window.getSendingMdSubDir() : path.join('gravity_vault', 'SendingMD');
-            const sendingMdDir = path.join(gravityRoot, subDir);
-            if (fs.existsSync(sendingMdDir)) {
-                const subfiles = fs.readdirSync(sendingMdDir);
-                subfiles.forEach(file => {
-                    if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_')) && file.endsWith('.md')) {
-                        try { fs.unlinkSync(path.join(sendingMdDir, file)); } catch(e) {}
-                    }
-                });
+        }
+        
+        // Clean up all temporary files in SendingMD folder once AI has responded
+        const gravityRoot = window.appRootPath || process.cwd();
+        const subDir = (typeof window.getSendingMdSubDir === 'function') ? window.getSendingMdSubDir() : path.join('gravity_vault', 'SendingMD');
+        const sendingMdDir = path.join(gravityRoot, subDir);
+        if (fs.existsSync(sendingMdDir)) {
+            const subfiles = fs.readdirSync(sendingMdDir);
+            let cleanedCount = 0;
+            subfiles.forEach(file => {
+                if (!file.startsWith('.')) {
+                    try {
+                        fs.unlinkSync(path.join(sendingMdDir, file));
+                        cleanedCount++;
+                    } catch(e) {}
+                }
+            });
+            if (cleanedCount > 0) {
+                console.log(`[AutoCleanSendingMD] Cleaned ${cleanedCount} temporary file(s) from SendingMD on AI response.`);
+                if (typeof window.updateSendingMdCountBadge === 'function') window.updateSendingMdCountBadge();
             }
-            if (typeof window.refreshTree === 'function') {
-                window.refreshTree();
-            }
+        }
+        if (typeof window.refreshTree === 'function') {
+            window.refreshTree();
         }
     } catch(e) {}
 

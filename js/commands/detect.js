@@ -672,6 +672,22 @@ function detectAndAskCommand(text) {
                 const payload = await window.prepareFilePayload(baseFileName, combinedPayload);
 
                 window.dragDropMode = true;
+                if (!window.activeDragDropContinue) {
+                    window.activeDragDropContinue = async () => {};
+                }
+                const cleanup = () => {
+                    if (window.activeDragDropCleanup === cleanup) {
+                        window.activeDragDropCleanup = null;
+                        window.activeDragDropContinue = null;
+                    }
+                    window.dragDropMode = false;
+                    window.requestedFilesQueue = [];
+                    if (typeof window.updateDragDropQueueUI === 'function') {
+                        window.updateDragDropQueueUI();
+                    }
+                };
+                window.activeDragDropCleanup = cleanup;
+
                 if (typeof window.refreshTree === 'function') window.refreshTree();
 
                 if (typeof window.addFileToRequestedQueue === 'function') {

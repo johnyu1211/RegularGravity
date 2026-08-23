@@ -1005,6 +1005,22 @@ window.showFolderContextMenu = function(e, targetPath = null, isDir = true) {
             }
 
             window.dragDropMode = true;
+            if (!window.activeDragDropContinue) {
+                window.activeDragDropContinue = async () => {};
+            }
+            const cleanup = () => {
+                if (window.activeDragDropCleanup === cleanup) {
+                    window.activeDragDropCleanup = null;
+                    window.activeDragDropContinue = null;
+                }
+                window.dragDropMode = false;
+                window.requestedFilesQueue = [];
+                if (typeof window.updateDragDropQueueUI === 'function') {
+                    window.updateDragDropQueueUI();
+                }
+            };
+            window.activeDragDropCleanup = cleanup;
+
             if (typeof window.updateDragDropQueueUI === 'function') {
                 window.updateDragDropQueueUI();
             }

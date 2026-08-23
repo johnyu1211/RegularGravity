@@ -1048,8 +1048,8 @@ async function setupBoot() {
                         }
                         return;
                     }
-                    
-                    if (window.dragDropMode && window.activeDragDropContinue) {
+                        const hasQueueItems = window.requestedFilesQueue && window.requestedFilesQueue.length > 0;
+                    if (window.dragDropMode || hasQueueItems) {
                         const pathModule = require('path');
                         const droppedName = pathModule.basename(filePath).toLowerCase();
                         
@@ -1122,15 +1122,16 @@ async function setupBoot() {
                         const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                         if (stillPending.length === 0) {
                             if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-                            const filesToClean = [...window.requestedFilesQueue];
+                            window.dragDropMode = false;
+                            window.requestedFilesQueue = [];
+                            if (typeof window.updateDragDropQueueUI === 'function') {
+                                window.updateDragDropQueueUI();
+                            }
+                            const continueFunc = window.activeDragDropContinue;
+                            window.activeDragDropContinue = null;
+                            window.activeDragDropCleanup = null;
+                            
                             setTimeout(async () => {
-                                const continueFunc = window.activeDragDropContinue;
-                                
-                                window.requestedFilesQueue = [];
-                                if (typeof window.updateDragDropQueueUI === 'function') {
-                                    window.updateDragDropQueueUI();
-                                }
-
                                 if (continueFunc && continueFunc.isReal) {
                                     continueFunc();
                                 } else {

@@ -2235,17 +2235,19 @@ function setupUI() {
                     
                     const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                     if (stillPending.length === 0) {
-                        if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-                        window.dragDropMode = false;
-                        window.requestedFilesQueue = [];
-                        if (typeof window.updateDragDropQueueUI === 'function') {
-                            window.updateDragDropQueueUI();
-                        }
                         const continueFunc = window.activeDragDropContinue;
+                        const cleanupFunc = window.activeDragDropCleanup;
                         window.activeDragDropContinue = null;
                         window.activeDragDropCleanup = null;
                         
+                        // Delay closing bottom sheet by 2 seconds so file attachment finishes smoothly
                         setTimeout(() => {
+                            if (cleanupFunc) cleanupFunc();
+                            window.dragDropMode = false;
+                            window.requestedFilesQueue = [];
+                            if (typeof window.updateDragDropQueueUI === 'function') {
+                                window.updateDragDropQueueUI();
+                            }
                             if (continueFunc && continueFunc.isReal) {
                                 continueFunc();
                             } else {
@@ -2253,7 +2255,7 @@ function setupUI() {
                                     window.triggerGuestSend();
                                 }
                             }
-                        }, 500);
+                        }, 2000);
                     }
                 } else {
                     const fsModule = require('fs');

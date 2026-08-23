@@ -1121,17 +1121,20 @@ async function setupBoot() {
                         
                         const stillPending = window.requestedFilesQueue.filter(item => item.status === 'PENDING' || item.status === 'UPLOADING');
                         if (stillPending.length === 0) {
-                            if (window.activeDragDropCleanup) window.activeDragDropCleanup();
-                            window.dragDropMode = false;
-                            window.requestedFilesQueue = [];
-                            if (typeof window.updateDragDropQueueUI === 'function') {
-                                window.updateDragDropQueueUI();
-                            }
                             const continueFunc = window.activeDragDropContinue;
+                            const cleanupFunc = window.activeDragDropCleanup;
                             window.activeDragDropContinue = null;
                             window.activeDragDropCleanup = null;
                             
+                            // Delay closing bottom sheet by 2 seconds so file attachment finishes smoothly
                             setTimeout(async () => {
+                                if (cleanupFunc) cleanupFunc();
+                                window.dragDropMode = false;
+                                window.requestedFilesQueue = [];
+                                if (typeof window.updateDragDropQueueUI === 'function') {
+                                    window.updateDragDropQueueUI();
+                                }
+
                                 if (continueFunc && continueFunc.isReal) {
                                     continueFunc();
                                 } else {
@@ -1160,7 +1163,7 @@ async function setupBoot() {
                                         }).catch(err => console.error("Error in response monitoring:", err));
                                     }
                                 }
-                            }, 500);
+                            }, 2000);
                         }
                     } else {
                         const fs = require('fs');

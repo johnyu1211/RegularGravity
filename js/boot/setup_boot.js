@@ -269,9 +269,19 @@ async function setupBoot() {
                 window.UndoManager.undo();
             }
         };
-        if (window.UndoManager) {
-            window.UndoManager.updateButtonUI();
-        }
+    }
+
+    const redoBtn = document.getElementById('taskbar-redo-btn');
+    if (redoBtn) {
+        redoBtn.onclick = () => {
+            if (window.UndoManager) {
+                window.UndoManager.redo();
+            }
+        };
+    }
+
+    if (window.UndoManager) {
+        window.UndoManager.updateButtonUI();
     }
 
     window.updateSendingMdCountBadge = function() {

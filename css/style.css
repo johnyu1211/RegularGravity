@@ -2044,6 +2044,19 @@ button:focus, .btn:focus, [role="button"]:focus, input[type="button"]:focus, inp
     display: none;
 }
 
+#taskbar-redo-btn .redo-badge-full {
+    display: none;
+}
+#taskbar-redo-btn .redo-badge-short {
+    display: inline;
+}
+#taskbar-redo-btn:hover .redo-badge-full {
+    display: inline;
+}
+#taskbar-redo-btn:hover .redo-badge-short {
+    display: none;
+}
+
 /* Gemini Usage Preloader Animation */
 @keyframes usageFillFade {
     0% {

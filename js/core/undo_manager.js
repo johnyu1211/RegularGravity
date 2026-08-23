@@ -9,6 +9,7 @@
         constructor() {
             this.maxHistory = 10;
             this.undoStack = []; // Array of Transactions
+            this.redoStack = []; // Array of Undone Transactions
             this.currentTransaction = null;
         }
 
@@ -18,7 +19,7 @@
                 id: Date.now(),
                 timestamp: new Date(),
                 description,
-                actions: [] // Array of { action, targetPath, beforeContent, beforeExists, fromPath, toPath }
+                actions: [] // Array of { action, targetPath, beforeContent, beforeExists, afterContent, afterExists, fromPath, toPath }
             };
         }
 
@@ -47,7 +48,9 @@
                     action: actionType, // 'write', 'edit', 'delete'
                     targetPath: normPath,
                     beforeExists: exists,
-                    beforeContent: beforeContent
+                    beforeContent: beforeContent,
+                    afterExists: false,
+                    afterContent: null
                 });
             } catch(err) {
                 console.error("[UndoManager] Error recording pre-state:", err);
@@ -64,7 +67,8 @@
                     action: 'move',
                     fromPath: normFrom,
                     toPath: normTo,
-                    beforeExists: fs.existsSync(normFrom)
+                    beforeExists: fs.existsSync(normFrom),
+                    afterExists: false
                 });
             } catch(err) {
                 console.error("[UndoManager] Error recording pre-move:", err);
@@ -78,10 +82,33 @@
                 return;
             }
 
+            // Capture post-execution states for Redo capability
+            if (fs) {
+                for (const item of this.currentTransaction.actions) {
+                    if (item.action === 'move') {
+                        item.afterExists = fs.existsSync(item.toPath);
+                    } else {
+                        const exists = fs.existsSync(item.targetPath);
+                        item.afterExists = exists;
+                        item.afterContent = null;
+                        if (exists) {
+                            try {
+                                const stat = fs.statSync(item.targetPath);
+                                if (stat.isFile()) {
+                                    item.afterContent = fs.readFileSync(item.targetPath, 'utf8');
+                                }
+                            } catch(e) {}
+                        }
+                    }
+                }
+            }
+
             this.undoStack.push(this.currentTransaction);
             if (this.undoStack.length > this.maxHistory) {
                 this.undoStack.shift(); // Keep maximum 10 items
             }
+            // Clear redo stack upon new AI file modifications
+            this.redoStack = [];
             this.currentTransaction = null;
             this.updateButtonUI();
         }
@@ -138,6 +165,12 @@
                     }
                 }
 
+                // Push undone transaction to redoStack
+                this.redoStack.push(transaction);
+                if (this.redoStack.length > this.maxHistory) {
+                    this.redoStack.shift();
+                }
+
                 // Refresh tree view
                 if (typeof window.refreshTree === 'function') {
                     window.refreshTree();
@@ -163,36 +196,146 @@
             }
         }
 
-        // Update the Taskbar UNDO button state and badge
-        updateButtonUI() {
-            const undoBtn = document.getElementById('taskbar-undo-btn');
-            const badge = document.getElementById('taskbar-undo-count-badge');
-            if (!undoBtn) return;
-
-            const count = this.undoStack.length;
-            if (count > 0) {
-                undoBtn.disabled = false;
-                undoBtn.style.opacity = '1';
-                undoBtn.style.cursor = 'pointer';
-                undoBtn.style.background = '';
-                undoBtn.style.color = '';
-                undoBtn.style.borderColor = '';
-                undoBtn.title = `Undo Last AI Changes (${count}/${this.maxHistory} in history)`;
-                if (badge) {
-                    badge.innerHTML = `<span class="undo-badge-short">${count}</span><span class="undo-badge-full">${count}/${this.maxHistory}</span>`;
-                    badge.style.display = 'inline-block';
+        // Perform Redo: re-apply the most recently undone transaction
+        redo() {
+            if (this.redoStack.length === 0 || !fs || !path) {
+                if (typeof window.showUserScreenToast === 'function') {
+                    window.showUserScreenToast("No undone AI changes to redo", 2000, false);
                 }
-            } else {
-                undoBtn.disabled = true;
-                undoBtn.style.opacity = '0.35';
-                undoBtn.style.cursor = 'not-allowed';
-                undoBtn.style.background = '';
-                undoBtn.style.color = '';
-                undoBtn.style.borderColor = '';
-                undoBtn.title = 'No AI changes to undo';
-                if (badge) {
-                    badge.innerHTML = `<span class="undo-badge-short">0</span><span class="undo-badge-full">0/${this.maxHistory}</span>`;
-                    badge.style.display = 'none';
+                return false;
+            }
+
+            const transaction = this.redoStack.pop();
+            const reappliedFiles = [];
+
+            try {
+                // Re-apply actions in normal forward order
+                for (const item of transaction.actions) {
+                    if (item.action === 'move') {
+                        if (fs.existsSync(item.fromPath)) {
+                            const parentDir = path.dirname(item.toPath);
+                            if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+                            fs.renameSync(item.fromPath, item.toPath);
+                            reappliedFiles.push(path.basename(item.toPath));
+                        }
+                    } else if (item.afterExists) {
+                        // File existed after AI execution -> Re-write AI modified content
+                        if (item.afterContent !== null) {
+                            const parentDir = path.dirname(item.targetPath);
+                            if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+                            fs.writeFileSync(item.targetPath, item.afterContent, 'utf8');
+                            reappliedFiles.push(path.basename(item.targetPath));
+                        }
+                    } else {
+                        // File was deleted by AI -> Delete it again
+                        if (fs.existsSync(item.targetPath)) {
+                            fs.unlinkSync(item.targetPath);
+                            reappliedFiles.push(path.basename(item.targetPath) + ' (deleted)');
+                        }
+                    }
+
+                    // If active editor is currently viewing this file, reload editor content
+                    if (window.currentEditingFile && path.resolve(window.currentEditingFile) === item.targetPath) {
+                        if (typeof window.loadFileIntoEditor === 'function') {
+                            window.loadFileIntoEditor(item.targetPath);
+                        }
+                    }
+                }
+
+                // Push re-applied transaction back into undoStack
+                this.undoStack.push(transaction);
+                if (this.undoStack.length > this.maxHistory) {
+                    this.undoStack.shift();
+                }
+
+                // Refresh tree view
+                if (typeof window.refreshTree === 'function') {
+                    window.refreshTree();
+                }
+
+                this.updateButtonUI();
+
+                const summaryText = reappliedFiles.length > 0 ? reappliedFiles.join(', ') : 'files';
+                if (typeof window.showUserScreenToast === 'function') {
+                    window.showUserScreenToast(`↪ Re-applied AI changes: ${summaryText}`, 3500, true);
+                }
+                if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                    ChatUI.appendBubble('system', `[SYSTEM] ↪ Re-applied AI changes for: ${summaryText}`);
+                }
+                return true;
+            } catch(err) {
+                console.error("[UndoManager] Error during redo:", err);
+                if (typeof window.showUserScreenToast === 'function') {
+                    window.showUserScreenToast(`Redo failed: ${err.message}`, 3500, false);
+                }
+                this.updateButtonUI();
+                return false;
+            }
+        }
+
+        // Update the Taskbar UNDO & REDO button state and badge
+        updateButtonUI() {
+            // UNDO Button
+            const undoBtn = document.getElementById('taskbar-undo-btn');
+            const undoBadge = document.getElementById('taskbar-undo-count-badge');
+            if (undoBtn) {
+                const count = this.undoStack.length;
+                if (count > 0) {
+                    undoBtn.disabled = false;
+                    undoBtn.style.opacity = '1';
+                    undoBtn.style.cursor = 'pointer';
+                    undoBtn.style.background = '';
+                    undoBtn.style.color = '';
+                    undoBtn.style.borderColor = '';
+                    undoBtn.title = `Undo Last AI Changes (${count}/${this.maxHistory} in history)`;
+                    if (undoBadge) {
+                        undoBadge.innerHTML = `<span class="undo-badge-short">${count}</span><span class="undo-badge-full">${count}/${this.maxHistory}</span>`;
+                        undoBadge.style.display = 'inline-block';
+                    }
+                } else {
+                    undoBtn.disabled = true;
+                    undoBtn.style.opacity = '0.35';
+                    undoBtn.style.cursor = 'not-allowed';
+                    undoBtn.style.background = '';
+                    undoBtn.style.color = '';
+                    undoBtn.style.borderColor = '';
+                    undoBtn.title = 'No AI changes to undo';
+                    if (undoBadge) {
+                        undoBadge.innerHTML = `<span class="undo-badge-short">0</span><span class="undo-badge-full">0/${this.maxHistory}</span>`;
+                        undoBadge.style.display = 'none';
+                    }
+                }
+            }
+
+            // REDO Button
+            const redoBtn = document.getElementById('taskbar-redo-btn');
+            const redoBadge = document.getElementById('taskbar-redo-count-badge');
+            if (redoBtn) {
+                const count = this.redoStack.length;
+                if (count > 0) {
+                    redoBtn.disabled = false;
+                    redoBtn.style.opacity = '1';
+                    redoBtn.style.cursor = 'pointer';
+                    redoBtn.style.background = '';
+                    redoBtn.style.color = '';
+                    redoBtn.style.borderColor = '';
+                    redoBtn.title = `Redo Last Undone Changes (${count}/${this.maxHistory} in history)`;
+                    if (redoBadge) {
+                        redoBadge.innerHTML = `<span class="redo-badge-short">${count}</span><span class="redo-badge-full">${count}/${this.maxHistory}</span>`;
+                        redoBadge.style.display = 'inline-block';
+                    }
+                } else {
+                    redoBtn.disabled = true;
+                    redoBtn.style.opacity = '0.35';
+                    redoBtn.style.cursor = 'not-allowed';
+                    redoBtn.style.background = '';
+                    redoBtn.style.color = '';
+                    redoBtn.style.borderColor = '';
+                    redoBtn.title = 'No undone AI changes to redo';
+                    if (redoBadge) {
+                        redoBadge.innerHTML = `<span class="redo-badge-short">0</span><span class="redo-badge-full">0/${this.maxHistory}</span>`;
+                        redoBadge.style.display = 'none';
+                    }
                 }
             }
         }

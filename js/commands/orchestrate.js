@@ -140,9 +140,40 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
     };
 
     const runDiskModifications = async () => {
+        const fs = require('fs');
+        const path = require('path');
+
+        if (window.UndoManager) {
+            window.UndoManager.beginTransaction("AI File Changes");
+            
+            if (deleteCmds.length > 0 && isDeleteApproved) {
+                deleteCmds.forEach(c => {
+                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                    window.UndoManager.recordPreState(targetPath, 'delete');
+                });
+            }
+            if (writeCmds.length > 0 && isWriteEditApproved) {
+                writeCmds.forEach(c => {
+                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                    window.UndoManager.recordPreState(targetPath, 'write');
+                });
+            }
+            if (editCmds.length > 0 && isWriteEditApproved) {
+                editCmds.forEach(c => {
+                    const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
+                    window.UndoManager.recordPreState(targetPath, 'edit');
+                });
+            }
+            if (moveCmds.length > 0 && isWriteEditApproved) {
+                moveCmds.forEach(c => {
+                    const srcPath = path.resolve(window.currentPath || process.cwd(), c.src);
+                    const destPath = path.resolve(window.currentPath || process.cwd(), c.dest);
+                    window.UndoManager.recordPreMove(srcPath, destPath);
+                });
+            }
+        }
+
         if (deleteCmds.length > 0 && isDeleteApproved) {
-            const fs = require('fs');
-            const path = require('path');
             for (const c of deleteCmds) {
                 try {
                     const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
@@ -185,8 +216,6 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
         }
 
         if (createDirCmds.length > 0 && isWriteEditApproved) {
-            const fs = require('fs');
-            const path = require('path');
             for (const c of createDirCmds) {
                 try {
                     const targetPath = path.resolve(window.currentPath || process.cwd(), c.path);
@@ -250,8 +279,6 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
         }
 
         if (moveCmds.length > 0 && isWriteEditApproved) {
-            const fs = require('fs');
-            const path = require('path');
             for (const c of moveCmds) {
                 try {
                     const srcPath = path.resolve(window.currentPath || process.cwd(), c.src);
@@ -276,6 +303,10 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                     ChatUI.appendBubble('system', `[ERROR] Failed to move ${c.src}: ${err.message}`);
                 }
             }
+        }
+
+        if (window.UndoManager) {
+            window.UndoManager.commitTransaction();
         }
 
         if (typeof window.loadDirectory === 'function' && window.currentPath) {

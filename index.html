@@ -943,18 +943,6 @@
                                     <option value="false">OFF</option>
                                 </select>
                             </div>
-
-                            <!-- Toggle: Auto Delete SendingMD -->
-                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
-                                <div style="display: flex; flex-direction: column; gap: 4px; max-width: 70%;">
-                                    <span style="font-size: 12px; font-weight: 600; color: #eee;">Auto Delete SendingMD</span>
-                                    <span style="font-size: 10.5px; color: var(--text-muted); line-height: 1.4;">Automatically clean SendingMD when it reaches 15 files, keeping 3 latest</span>
-                                </div>
-                                <select id="settings-auto-delete-sendingmd" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 6px; outline: none; font-family: inherit;">
-                                    <option value="true">ON (Default)</option>
-                                    <option value="false">OFF</option>
-                                </select>
-                            </div>
                         </div>
                         
                         <!-- Global Actions Footer -->
@@ -1082,6 +1070,11 @@
                       <button id="taskbar-manual-rules-btn" class="taskbar-action-btn" title="Send System Rules to Web AI">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                           <span class="btn-text">RULES SEND</span>
+                      </button>
+                      <button id="taskbar-undo-btn" class="taskbar-action-btn" title="Undo Last AI File Changes" disabled style="opacity: 0.38; cursor: not-allowed;">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
+                          <span class="btn-text">UNDO</span>
+                          <span id="taskbar-undo-count-badge" style="display: none; font-size: 10px; font-weight: 800; background: rgba(255,255,255,0.15); padding: 1px 5px; border-radius: 10px; margin-left: 4px;">0</span>
                       </button>
                   </div>
 
@@ -1558,6 +1551,7 @@
     <script src="js/core/file_payload.js"></script>
     <script src="js/core/vault.js"></script>
     <script src="js/core/session_reset.js"></script>
+    <script src="js/core/undo_manager.js"></script>
 
     <!-- Webview Modules -->
     <script src="js/webview/guest_interceptor.js"></script>

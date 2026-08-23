@@ -1199,14 +1199,6 @@ function setupUI() {
                                 <span class="slider-toggle"></span>
                             </label>
                         </div>
-                        <!-- Auto Delete SendingMD -->
-                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
-                            <span style="font-weight:600; color:#eee; font-size:11.5px;" title="Automatically clean SendingMD when it reaches 15 files, keeping 3 latest">Auto Delete SendingMD (15+ -> Keep 3)</span>
-                            <label class="switch-toggle">
-                                <input type="checkbox" id="chk-auto-delete-sendingmd" ${window.auto_delete_SendingMD !== false ? 'checked' : ''}>
-                                <span class="slider-toggle"></span>
-                            </label>
-                        </div>
                     </div>
                 `;
                 
@@ -1217,7 +1209,6 @@ function setupUI() {
                 const chkAutoGemini = document.getElementById('chk-auto-gemini');
                 const chkPreferFullWrite = document.getElementById('chk-prefer-full-write');
                 const chkUseEmote = document.getElementById('chk-use-emote');
-                const chkAutoDeleteSendingMD = document.getElementById('chk-auto-delete-sendingmd');
                 
                 const selSendFormat = document.getElementById('chk-send-format');
 
@@ -1240,7 +1231,7 @@ function setupUI() {
                         autoGemini: chkAutoGemini ? !!chkAutoGemini.checked : false,
                         preferFullWrite: chkPreferFullWrite ? !!chkPreferFullWrite.checked : false,
                         useEmote: chkUseEmote ? !!chkUseEmote.checked : false,
-                        auto_delete_SendingMD: chkAutoDeleteSendingMD ? !!chkAutoDeleteSendingMD.checked : true
+                        auto_delete_SendingMD: true
                     };
                     saveSettings(settingsData);
                     if (typeof window.reloadAgentSettings === 'function') window.reloadAgentSettings();
@@ -1252,7 +1243,6 @@ function setupUI() {
                 if (chkAutoGemini) chkAutoGemini.onchange = updateAndSave;
                 if (chkPreferFullWrite) chkPreferFullWrite.onchange = updateAndSave;
                 if (chkUseEmote) chkUseEmote.onchange = updateAndSave;
-                if (chkAutoDeleteSendingMD) chkAutoDeleteSendingMD.onchange = updateAndSave;
                 if (selSendFormat) selSendFormat.onchange = updateAndSave;
             }
             
@@ -1740,8 +1730,6 @@ function setupUI() {
             if (selPreferFullWrite) selPreferFullWrite.value = currentSettings.preferFullWrite === true ? 'true' : 'false';
             const selUseEmote = document.getElementById('settings-use-emote');
             if (selUseEmote) selUseEmote.value = currentSettings.useEmote ? 'true' : 'false';
-            const selAutoDeleteSendingMD = document.getElementById('settings-auto-delete-sendingmd');
-            if (selAutoDeleteSendingMD) selAutoDeleteSendingMD.value = (currentSettings.auto_delete_SendingMD !== false) ? 'true' : 'false';
 
             if (dsModal) dsModal.style.display = 'flex';
         };
@@ -1755,7 +1743,6 @@ function setupUI() {
             const selAutoGemini = document.getElementById('settings-auto-gemini');
             const selPreferFullWrite = document.getElementById('settings-prefer-full-write');
             const selUseEmote = document.getElementById('settings-use-emote');
-            const selAutoDeleteSendingMD = document.getElementById('settings-auto-delete-sendingmd');
             const settingsData = loadSettings();
             window.dragDropMode = true;
             settingsData.dragDropMode = true;
@@ -1777,10 +1764,7 @@ function setupUI() {
                 window.useEmote = (selUseEmote.value === 'true');
                 settingsData.useEmote = window.useEmote;
             }
-            if (selAutoDeleteSendingMD) {
-                window.auto_delete_SendingMD = (selAutoDeleteSendingMD.value === 'true');
-                settingsData.auto_delete_SendingMD = window.auto_delete_SendingMD;
-            }
+            settingsData.auto_delete_SendingMD = true;
             saveSettings(settingsData);
             if (typeof window.reloadAgentSettings === 'function') window.reloadAgentSettings();
             if (typeof window.updateSendModeButtonUI === 'function') window.updateSendModeButtonUI();

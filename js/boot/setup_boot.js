@@ -262,6 +262,18 @@ async function setupBoot() {
         };
     }
 
+    const undoBtn = document.getElementById('taskbar-undo-btn');
+    if (undoBtn) {
+        undoBtn.onclick = () => {
+            if (window.UndoManager) {
+                window.UndoManager.undo();
+            }
+        };
+        if (window.UndoManager) {
+            window.UndoManager.updateButtonUI();
+        }
+    }
+
     window.updateSendingMdCountBadge = function() {
         // Automatically handled on AI response
     };

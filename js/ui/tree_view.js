@@ -521,6 +521,13 @@ async function toggleFolderNode(node, fullPath, level, searchQuery) {
 window.renderTree = renderTree;
 window.expandedPaths = new Set();
 
+window.refreshTree = function() {
+    if (typeof window.loadDirectory === 'function') {
+        window.loadDirectory(window.currentPath || window.projectRoot || (typeof process !== 'undefined' ? process.cwd() : ''));
+    }
+};
+window.refreshTreeAll = window.refreshTree;
+
 window.toggleFolderSubTree = async (folderPath, event) => {
     if (event) {
         event.stopPropagation();

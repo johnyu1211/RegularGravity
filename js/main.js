@@ -7,18 +7,27 @@ const crypto = require('crypto');
 let watcher = null;
 let currentLogsPath = null;
 let currentKnowledgePath = null;
+let watcherDebounceTimer = null;
 function setupFileWatcher(projectPath) {
     if (watcher) {
         try { watcher.close(); } catch(e) {}
+        watcher = null;
     }
-    if (!fs.existsSync(projectPath)) return;
+    if (!projectPath || projectPath === 'DRIVES' || !fs.existsSync(projectPath)) return;
     try {
         watcher = fs.watch(projectPath, { recursive: true }, (eventType, filename) => {
-            if (filename && !filename.includes('node_modules') && !filename.includes('.git') && !filename.includes('gravity_vault') && !filename.startsWith('_project_')) {
+            if (filename) {
+                const fn = filename.toLowerCase();
+                if (fn.includes('node_modules') || fn.includes('.git') || fn.includes('gravity_vault') || fn.includes('sendingmd') || fn.startsWith('_project_')) {
+                    return;
+                }
+            }
+            clearTimeout(watcherDebounceTimer);
+            watcherDebounceTimer = setTimeout(() => {
                 if (mainWindow && !mainWindow.isDestroyed()) {
                     mainWindow.webContents.send('refresh-explorer');
                 }
-            }
+            }, 300);
         });
     } catch(err) {
         console.error("setupFileWatcher error:", err);
@@ -404,6 +413,7 @@ ipcMain.on('save-recent-project', (event, folderPath) => {
     recents.unshift(folderPath);
     if (recents.length > 10) recents = recents.slice(0, 10);
     saveRecentProjects(recents);
+    setupFileWatcher(folderPath);
 });
 ipcMain.handle('get-directory-content', async (event, dirPath) => {
     try {

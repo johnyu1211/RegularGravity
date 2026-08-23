@@ -197,12 +197,12 @@ window.toggleEditorEditMode = function() {
 
             const rawPre = document.createElement('pre');
             rawPre.id = 'editor-raw-pre';
-            rawPre.style = `position: absolute; inset: 0; margin: 0; padding: 16px 20px; font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace; font-size: 12.5px; line-height: 20px; tab-size: 4; white-space: pre; overflow: hidden; pointer-events: none; box-sizing: border-box; background: transparent; z-index: 1; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; letter-spacing: 0px; word-spacing: normal;`;
+            rawPre.style = `position: absolute; inset: 0; margin: 0; padding: 16px 20px; font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace; font-size: 12.5px; line-height: 20px; tab-size: 4; white-space: pre; overflow: hidden; pointer-events: none; box-sizing: border-box; background: transparent; z-index: 1; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; letter-spacing: 0px; word-spacing: 0px;`;
 
             const rawCode = document.createElement('code');
             rawCode.id = 'editor-raw-code';
             rawCode.className = 'hljs';
-            rawCode.style = `background: transparent; padding: 0; margin: 0; font-family: inherit; font-size: inherit; line-height: 20px; white-space: pre; display: block; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; letter-spacing: 0px; word-spacing: normal;`;
+            rawCode.style = `background: transparent; padding: 0; margin: 0; font-family: inherit; font-size: inherit; line-height: 20px; white-space: pre; display: block; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; letter-spacing: 0px; word-spacing: 0px;`;
             rawPre.appendChild(rawCode);
 
             editArea = document.createElement('textarea');
@@ -212,10 +212,11 @@ window.toggleEditorEditMode = function() {
             editArea.setAttribute('autocorrect', 'off');
             editArea.setAttribute('autocapitalize', 'off');
             editArea.style = `
-                position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; color: #38bdf8; -webkit-text-fill-color: transparent; caret-color: #38bdf8 !important;
-                font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace; font-size: 12.5px; line-height: 20px;
-                padding: 16px 20px; border: none; outline: none; resize: none; box-sizing: border-box;
-                tab-size: 4; white-space: pre; overflow: auto; z-index: 2; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; letter-spacing: 0px; word-spacing: normal;
+                position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 16px 20px;
+                background: transparent; color: #ffffff; -webkit-text-fill-color: transparent; caret-color: #ffffff !important;
+                font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace; font-size: 12.5px; line-height: 20px;
+                border: none; outline: none; resize: none; box-sizing: border-box;
+                tab-size: 4; white-space: pre; overflow: auto; z-index: 2; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; letter-spacing: 0px; word-spacing: 0px;
             `;
 
             editContainer.appendChild(rawPre);
@@ -235,51 +236,6 @@ window.toggleEditorEditMode = function() {
                 gutter.scrollTop = editArea.scrollTop;
             };
 
-            const addIndentGuides = (htmlString) => {
-                const lines = htmlString.split('\n');
-                let lastIndentCount = 0;
-                
-                const lineIndents = lines.map(line => {
-                    const textOnly = line.replace(/<[^>]*>/g, '');
-                    if (textOnly.trim() === '') return -1;
-                    let count = 0;
-                    for (let char of textOnly) {
-                        if (char === ' ') count++;
-                        else if (char === '\t') count += 4;
-                        else break;
-                    }
-                    return count;
-                });
-
-                return lines.map((line, idx) => {
-                    let spaceCount = lineIndents[idx];
-                    if (spaceCount === -1) {
-                        let nextIndent = 0;
-                        for (let j = idx + 1; j < lineIndents.length; j++) {
-                            if (lineIndents[j] !== -1) { nextIndent = lineIndents[j]; break; }
-                        }
-                        spaceCount = Math.min(lastIndentCount, nextIndent);
-                    } else {
-                        lastIndentCount = spaceCount;
-                    }
-
-                    let rawMatch = line.match(/^([ \t]+)/);
-                    let rest = rawMatch ? line.substring(rawMatch[1].length) : line;
-                    
-                    let step = 4;
-                    let guidesHTML = '';
-                    let count = 0;
-                    if (spaceCount > 0) {
-                        while (count < spaceCount) {
-                            let width = Math.min(step, spaceCount - count);
-                            guidesHTML += `<span class="indent-guide-line" style="display:inline-block; width:${width}ch; border-right: 1px solid rgba(255, 255, 255, 0.12); margin-right: 4px; box-sizing: border-box; height: 20px; line-height: 20px; vertical-align: top; user-select: none; transition: border-color 0.15s ease, background-color 0.15s ease;"></span>`;
-                            count += width;
-                        }
-                    }
-                    return `<div class="raw-code-line" style="display: block; position: relative; width: max-content; min-width: 100%; height: 20px; line-height: 20px; margin: 0; padding: 0; box-sizing: border-box; transition: background 0.1s;">${guidesHTML}${rest}</div>`;
-                }).join('');
-            };
-
             const updateRawHighlight = () => {
                 const codeEl = document.getElementById('editor-raw-code');
                 const preEl = document.getElementById('editor-raw-pre');
@@ -297,7 +253,11 @@ window.toggleEditorEditMode = function() {
                     highlighted = val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 }
                 
-                codeEl.innerHTML = addIndentGuides(highlighted);
+                const lines = highlighted.split('\n');
+                const html = lines.map(line => {
+                    return `<div class="raw-code-line" style="display: block; width: 100%; height: 20px; line-height: 20px; margin: 0; padding: 0; box-sizing: border-box; white-space: pre;">${line || ' '}</div>`;
+                }).join('');
+                codeEl.innerHTML = html;
                 preEl.scrollTop = editArea.scrollTop;
                 preEl.scrollLeft = editArea.scrollLeft;
             };

@@ -571,7 +571,7 @@ body {
     color: var(--text-dark, #666);
     text-align: right;
     padding: 16px 10px 16px 0;
-    font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
+    font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
     font-size: 12px;
     line-height: 20px;
     user-select: none;
@@ -599,40 +599,58 @@ body {
     background: var(--bg-color);
 }
 
+#editor-raw-pre,
+#editor-raw-code,
+#editor-raw-code *,
+#editor-raw-textarea {
+    font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace !important;
+    font-size: 12.5px !important;
+    font-weight: 400 !important;
+    font-style: normal !important;
+    font-variant-ligatures: none !important;
+    font-feature-settings: "liga" 0, "calt" 0 !important;
+    letter-spacing: 0px !important;
+    word-spacing: 0px !important;
+    tab-size: 4 !important;
+    -moz-tab-size: 4 !important;
+    text-rendering: geometricPrecision !important;
+    -webkit-font-smoothing: antialiased !important;
+    white-space: pre !important;
+    box-sizing: border-box !important;
+}
+
 #editor-raw-pre {
     position: absolute;
     inset: 0;
-    margin: 0;
-    padding: 16px 20px;
-    font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
-    font-size: 12.5px;
-    line-height: 20px;
-    tab-size: 4;
-    white-space: pre;
+    margin: 0 !important;
+    padding: 16px 20px !important;
+    line-height: 20px !important;
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
     overflow: hidden;
     pointer-events: none;
-    box-sizing: border-box;
-    background: transparent;
     z-index: 1;
-    font-variant-ligatures: none;
-    font-feature-settings: "liga" 0, "calt" 0;
-    letter-spacing: 0px;
-    word-spacing: normal;
 }
 
 #editor-raw-code {
-    background: transparent;
-    padding: 0;
-    margin: 0;
-    font-family: inherit;
-    font-size: inherit;
-    line-height: 20px;
-    white-space: pre;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 20px !important;
     display: block;
-    font-variant-ligatures: none;
-    font-feature-settings: "liga" 0, "calt" 0;
-    letter-spacing: 0px;
-    word-spacing: normal;
+    width: max-content;
+    min-width: 100%;
+}
+
+#editor-raw-code .raw-code-line {
+    height: 20px !important;
+    line-height: 20px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block;
+    width: max-content;
+    min-width: 100%;
 }
 
 #editor-raw-textarea {
@@ -640,26 +658,18 @@ body {
     inset: 0;
     width: 100%;
     height: 100%;
-    background: transparent;
-    color: #38bdf8;
-    -webkit-text-fill-color: transparent;
-    caret-color: #38bdf8 !important;
-    font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace !important;
-    font-size: 12.5px !important;
-    line-height: 20px !important;
+    margin: 0 !important;
     padding: 16px 20px !important;
+    line-height: 20px !important;
     border: none !important;
     outline: none !important;
     resize: none !important;
-    box-sizing: border-box !important;
-    tab-size: 4 !important;
-    white-space: pre !important;
+    background: transparent;
+    color: #ffffff;
+    -webkit-text-fill-color: transparent;
+    caret-color: #ffffff !important;
     overflow: auto !important;
     z-index: 2;
-    font-variant-ligatures: none !important;
-    font-feature-settings: "liga" 0, "calt" 0 !important;
-    letter-spacing: 0px !important;
-    word-spacing: normal !important;
 }
 
 #editor-raw-textarea::selection {

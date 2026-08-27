@@ -1312,11 +1312,19 @@
             </div>
 
             <!-- Unified Single Footer -->
-            <div class="modal-footer" style="padding: 14px 24px 18px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; align-items: center;">
-                <button id="close-mcp-modal-btn" style="background:#353537; color:var(--text-main, #fff); border:none; padding:8px 18px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Close</button>
-                <button id="mcp-form-cancel-btn" style="display: none; background:#353537; color:var(--text-main, #fff); border:none; padding:8px 18px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Cancel</button>
-                <button id="mcp-form-save-btn" style="display: none; background:#468CF6; color:#fff; border:none; padding:8px 20px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.2s;">Save Server</button>
-                <button id="mcp-json-save-btn" style="display: none; background:#468CF6; color:#fff; border:none; padding:8px 20px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.2s;">Save JSON</button>
+            <div class="modal-footer" style="padding: 14px 24px 18px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <!-- Left: Bring from Antigravity (visible on Servers tab) -->
+                <div>
+                    <span id="mcp-bring-antigravity-btn" style="font-size: 11px; color: var(--text-muted); cursor: pointer; user-select: none; transition: color 0.2s;" onmouseenter="this.style.color='#fff';" onmouseleave="this.style.color='var(--text-muted)';" title="Auto-detect & import MCP servers registered in Antigravity (~/.gemini/config/mcp_config.json)">Bring from Antigravity</span>
+                </div>
+
+                <!-- Right: Action Buttons -->
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="close-mcp-modal-btn" style="background:#353537; color:var(--text-main, #fff); border:none; padding:8px 18px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Close</button>
+                    <button id="mcp-form-cancel-btn" style="display: none; background:#353537; color:var(--text-main, #fff); border:none; padding:8px 18px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Cancel</button>
+                    <button id="mcp-form-save-btn" style="display: none; background:#468CF6; color:#fff; border:none; padding:8px 20px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.2s;">Save Server</button>
+                    <button id="mcp-json-save-btn" style="display: none; background:#468CF6; color:#fff; border:none; padding:8px 20px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.2s;">Save JSON</button>
+                </div>
             </div>
         </div>
     </div>

@@ -2,6 +2,7 @@
  * MCP Server Manager (Model Context Protocol)
  * Supports both SSE (URL/Port) and stdio (Command line) server configurations.
  * Saves to Settings.json (Claude Desktop & Standard MCP compatible).
+ * Supports automatic 1-click import from Antigravity (~/.gemini/config/mcp_config.json).
  */
 
 (function() {
@@ -43,6 +44,67 @@
                 window.showUserScreenToast(`Save error: ${e.message}`, 3000, true);
             }
             return false;
+        }
+    }
+
+    function importFromAntigravity() {
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+
+        const home = os.homedir();
+        const candidatePaths = [
+            path.join(home, '.gemini', 'config', 'mcp_config.json'),
+            path.join(home, '.gemini', 'antigravity-ide', 'mcp_config.json'),
+            path.join(home, '.gemini', 'antigravity', 'mcp_config.json'),
+            path.join(home, '.gemini', 'antigravity-backup', 'mcp_config.json'),
+            path.join(process.env.APPDATA || '', 'Claude', 'claude_desktop_config.json'),
+            path.join(home, '.cursor', 'mcp.json')
+        ];
+
+        let foundServers = null;
+
+        for (const p of candidatePaths) {
+            if (fs.existsSync(p)) {
+                try {
+                    const raw = JSON.parse(fs.readFileSync(p, 'utf-8'));
+                    const s = raw.mcpServers || raw;
+                    if (s && typeof s === 'object' && Object.keys(s).length > 0) {
+                        foundServers = s;
+                        break;
+                    }
+                } catch(e) {}
+            }
+        }
+
+        if (!foundServers || Object.keys(foundServers).length === 0) {
+            if (typeof window.showUserScreenToast === 'function') {
+                window.showUserScreenToast('No Antigravity MCP configuration found.', 3000, true);
+            }
+            return;
+        }
+
+        const currentServers = loadMcpServers();
+        let importedCount = 0;
+
+        Object.keys(foundServers).forEach(key => {
+            const entry = foundServers[key];
+            if (entry && typeof entry === 'object') {
+                const normalized = { ...entry };
+                if (normalized.serverUrl && !normalized.url) {
+                    normalized.url = normalized.serverUrl;
+                    delete normalized.serverUrl;
+                }
+                currentServers[key] = normalized;
+                importedCount++;
+            }
+        });
+
+        saveMcpServers(currentServers);
+        renderServerCards();
+
+        if (typeof window.showUserScreenToast === 'function') {
+            window.showUserScreenToast(`Imported ${importedCount} MCP servers from Antigravity!`, 2500);
         }
     }
 
@@ -179,6 +241,7 @@
         const backBtn = document.getElementById('mcp-form-back-btn');
 
         // Footer buttons
+        const bringAntigravityBtn = document.getElementById('mcp-bring-antigravity-btn');
         const closeBtn = document.getElementById('close-mcp-modal-btn');
         const formCancelBtn = document.getElementById('mcp-form-cancel-btn');
         const formSaveBtn = document.getElementById('mcp-form-save-btn');
@@ -213,6 +276,7 @@
         }
 
         // Unified footer control based on view
+        if (bringAntigravityBtn) bringAntigravityBtn.style.display = (viewName === 'list') ? 'inline-block' : 'none';
         if (closeBtn) closeBtn.style.display = (viewName === 'list' || viewName === 'json') ? 'inline-block' : 'none';
         if (formCancelBtn) formCancelBtn.style.display = (viewName === 'form') ? 'inline-block' : 'none';
         if (formSaveBtn) formSaveBtn.style.display = (viewName === 'form') ? 'inline-block' : 'none';
@@ -439,6 +503,7 @@
     window.closeMcpManager = closeMcpManager;
     window.loadMcpServers = loadMcpServers;
     window.saveMcpServers = saveMcpServers;
+    window.importFromAntigravity = importFromAntigravity;
 
     function initMcpUI() {
         const mcpBtn = document.getElementById('win-mcp-btn');
@@ -448,6 +513,9 @@
         const closeBtn = document.getElementById('close-mcp-modal-btn');
         if (closeX) closeX.onclick = () => closeMcpManager();
         if (closeBtn) closeBtn.onclick = () => closeMcpManager();
+
+        const bringAntigravityBtn = document.getElementById('mcp-bring-antigravity-btn');
+        if (bringAntigravityBtn) bringAntigravityBtn.onclick = () => importFromAntigravity();
 
         const backBtn = document.getElementById('mcp-form-back-btn');
         if (backBtn) backBtn.onclick = () => switchView('list');

@@ -1153,6 +1153,14 @@ function setupUI() {
                                 <span class="slider-toggle"></span>
                             </label>
                         </div>
+                        <!-- Auto Send -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;" title="Automatically drop requested file payloads into AI chat and send immediately">Auto Send</span>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="chk-auto-send" ${window.autoSend !== false ? 'checked' : ''}>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
                         <!-- Auto Refresh Session -->
                         <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
                             <span style="font-weight:600; color:#eee; font-size:11.5px;">Auto Refresh Session</span>
@@ -1203,6 +1211,7 @@ function setupUI() {
                 `;
                 
                 const chkDebug = document.getElementById('chk-debug-mode');
+                const chkAutoSend = document.getElementById('chk-auto-send');
                 const chkAutoRefresh = document.getElementById('chk-auto-refresh-session');
                 const txtRefreshCount = document.getElementById('txt-refresh-turn-count');
                 const containerRefresh = document.getElementById('refresh-turn-container');
@@ -1224,6 +1233,7 @@ function setupUI() {
                         hideUIOverlay: window.hideUIOverlay,
                         debugMode: !!chkDebug.checked,
                         dragDropMode: true,
+                        autoSend: chkAutoSend ? !!chkAutoSend.checked : true,
                         autoDragging: false,
                         autoRefreshSession: !!chkAutoRefresh.checked,
                         refreshTurnCount: parseInt(txtRefreshCount.value) || 35,

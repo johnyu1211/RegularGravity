@@ -206,10 +206,27 @@ window.updateDragDropQueueUI = function() {
 
     
     if (window.dragDropMode && window.requestedFilesQueue.filter(item => item.status === 'PENDING').length > 0) {
-        if (!window.autoClickingQueue) {
-            setTimeout(() => {
-                window.autoClickPendingQueueItems();
-            }, 600);
+        if (window.autoSend !== false && !isBrowserMode) {
+            if (!window.autoSendingInProgress) {
+                window.autoSendingInProgress = true;
+                setTimeout(async () => {
+                    const pendingFiles = window.requestedFilesQueue.filter(f => f.status === 'PENDING').map(f => f.absolutePath);
+                    if (pendingFiles.length > 0) {
+                        await window.performCdpDrop(pendingFiles, async () => {
+                            window.requestedFilesQueue.forEach(f => f.status = 'COMPLETED');
+                            setTimeout(() => {
+                                handleCloseQueue();
+                                if (typeof window.triggerGuestSend === 'function') {
+                                    window.triggerGuestSend();
+                                }
+                                window.autoSendingInProgress = false;
+                            }, 300);
+                        });
+                    } else {
+                        window.autoSendingInProgress = false;
+                    }
+                }, 400);
+            }
         }
     }
 };

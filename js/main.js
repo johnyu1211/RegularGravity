@@ -746,14 +746,42 @@ ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, 
 
         const dbg = targetWc.debugger;
         if (!dbg.isAttached()) {
-            dbg.attach('1.3');
+            try {
+                dbg.attach('1.3');
+            } catch(e) {
+                console.warn("[CDP] Attach warning:", e.message);
+            }
         }
 
+        const fileList = Array.isArray(files) ? files : [files];
+
+        // 1. Try DOM.setFileInputFiles (Playwright / Puppeteer native upload method)
+        try {
+            await dbg.sendCommand('DOM.enable');
+            const doc = await dbg.sendCommand('DOM.getDocument', { depth: -1 });
+            const inputNode = await dbg.sendCommand('DOM.querySelector', {
+                nodeId: doc.root.nodeId,
+                selector: 'input[type="file"]'
+            });
+
+            if (inputNode && inputNode.nodeId > 0) {
+                console.log("[CDP] Found input[type=file], injecting via DOM.setFileInputFiles:", fileList);
+                await dbg.sendCommand('DOM.setFileInputFiles', {
+                    files: fileList,
+                    nodeId: inputNode.nodeId
+                });
+                return { success: true, method: 'setFileInputFiles' };
+            }
+        } catch(domErr) {
+            console.warn("[CDP DOM.setFileInputFiles]", domErr.message);
+        }
+
+        // 2. Fallback: Input.dispatchDragEvent (OS-level drag drop)
         const targetX = (typeof x === 'number' && x > 0) ? Math.round(x) : 300;
         const targetY = (typeof y === 'number' && y > 0) ? Math.round(y) : 500;
 
         const dataPayload = {
-            files: Array.isArray(files) ? files : [files],
+            files: fileList,
             dragOperationsMask: 1
         };
 
@@ -785,7 +813,7 @@ ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, 
             data: dataPayload
         });
 
-        return { success: true };
+        return { success: true, method: 'dispatchDragEvent' };
     } catch (err) {
         console.error("[CDP Drop Error]", err);
         return { success: false, error: err.message };

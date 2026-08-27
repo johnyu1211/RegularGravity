@@ -292,8 +292,20 @@ window.performCdpDrop = async function(filePaths = [], onComplete = null) {
         });
 
         if (res && res.success) {
+            try {
+                await wv.executeJavaScript(`
+                    (() => {
+                        const fi = document.querySelector('input[type="file"]');
+                        if (fi) {
+                            fi.dispatchEvent(new Event('change', { bubbles: true }));
+                            fi.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    })()
+                `);
+            } catch(e){}
+
             if (typeof window.showUserScreenToast === 'function') {
-                window.showUserScreenToast(`Successfully dropped ${filePaths.length} file(s) into AI!`, 2500);
+                window.showUserScreenToast(`Successfully injected ${filePaths.length} file(s) into AI!`, 2500);
             }
             if (typeof onComplete === 'function') onComplete();
             return true;

@@ -48,6 +48,7 @@
 
     let currentEditingKey = null;
     let currentView = 'list'; // 'list' | 'form' | 'json'
+    let currentFormType = 'sse'; // 'sse' | 'stdio'
 
     function renderServerCards() {
         const listEl = document.getElementById('mcp-cards-container');
@@ -177,6 +178,12 @@
         const titleText = document.getElementById('mcp-modal-main-title');
         const backBtn = document.getElementById('mcp-form-back-btn');
 
+        // Footer buttons
+        const closeBtn = document.getElementById('close-mcp-modal-btn');
+        const formCancelBtn = document.getElementById('mcp-form-cancel-btn');
+        const formSaveBtn = document.getElementById('mcp-form-save-btn');
+        const jsonSaveBtn = document.getElementById('mcp-json-save-btn');
+
         if (listView) listView.style.display = (viewName === 'list') ? 'flex' : 'none';
         if (formView) formView.style.display = (viewName === 'form') ? 'flex' : 'none';
         if (jsonView) jsonView.style.display = (viewName === 'json') ? 'flex' : 'none';
@@ -205,6 +212,12 @@
             addTopBtn.style.display = (viewName === 'list') ? 'inline-flex' : 'none';
         }
 
+        // Unified footer control based on view
+        if (closeBtn) closeBtn.style.display = (viewName === 'list' || viewName === 'json') ? 'inline-block' : 'none';
+        if (formCancelBtn) formCancelBtn.style.display = (viewName === 'form') ? 'inline-block' : 'none';
+        if (formSaveBtn) formSaveBtn.style.display = (viewName === 'form') ? 'inline-block' : 'none';
+        if (jsonSaveBtn) jsonSaveBtn.style.display = (viewName === 'json') ? 'inline-block' : 'none';
+
         if (viewName === 'list') {
             renderServerCards();
         } else if (viewName === 'json') {
@@ -217,20 +230,41 @@
         }
     }
 
-    function updateFormTypeFields() {
-        const isSSE = document.getElementById('mcp-type-sse')?.checked;
+    function setFormType(type) {
+        currentFormType = type;
+        const btnSse = document.getElementById('mcp-type-btn-sse');
+        const btnStdio = document.getElementById('mcp-type-btn-stdio');
         const sseSection = document.getElementById('mcp-form-sse-section');
         const stdioSection = document.getElementById('mcp-form-stdio-section');
 
-        if (sseSection) sseSection.style.display = isSSE ? 'flex' : 'none';
-        if (stdioSection) stdioSection.style.display = isSSE ? 'none' : 'flex';
+        if (type === 'sse') {
+            if (btnSse) {
+                btnSse.style.background = 'rgba(255, 255, 255, 0.12)';
+                btnSse.style.color = '#fff';
+            }
+            if (btnStdio) {
+                btnStdio.style.background = 'transparent';
+                btnStdio.style.color = 'var(--text-muted)';
+            }
+            if (sseSection) sseSection.style.display = 'flex';
+            if (stdioSection) stdioSection.style.display = 'none';
+        } else {
+            if (btnSse) {
+                btnSse.style.background = 'transparent';
+                btnSse.style.color = 'var(--text-muted)';
+            }
+            if (btnStdio) {
+                btnStdio.style.background = 'rgba(255, 255, 255, 0.12)';
+                btnStdio.style.color = '#fff';
+            }
+            if (sseSection) sseSection.style.display = 'none';
+            if (stdioSection) stdioSection.style.display = 'flex';
+        }
     }
 
     function openRegisterForm(editingKey = null) {
         currentEditingKey = editingKey;
         const nameInput = document.getElementById('mcp-form-name');
-        const sseRadio = document.getElementById('mcp-type-sse');
-        const stdioRadio = document.getElementById('mcp-type-stdio');
         const urlInput = document.getElementById('mcp-form-url');
         const cmdInput = document.getElementById('mcp-form-command');
         const argsInput = document.getElementById('mcp-form-args');
@@ -242,8 +276,7 @@
             if (nameInput) { nameInput.value = editingKey; nameInput.disabled = true; }
 
             const isSSE = !!server.url;
-            if (sseRadio) sseRadio.checked = isSSE;
-            if (stdioRadio) stdioRadio.checked = !isSSE;
+            setFormType(isSSE ? 'sse' : 'stdio');
 
             if (urlInput) urlInput.value = server.url || '';
             if (cmdInput) cmdInput.value = server.command || '';
@@ -254,25 +287,22 @@
             }
         } else {
             if (nameInput) { nameInput.value = ''; nameInput.disabled = false; }
-            if (sseRadio) sseRadio.checked = true; // Default to SSE/Port
-            if (stdioRadio) stdioRadio.checked = false;
+            setFormType('sse');
             if (urlInput) urlInput.value = 'http://localhost:8000/sse';
             if (cmdInput) cmdInput.value = '';
             if (argsInput) argsInput.value = '';
             if (envInput) envInput.value = '';
         }
 
-        updateFormTypeFields();
         switchView('form');
         setTimeout(() => {
             if (!editingKey && nameInput) nameInput.focus();
-            else if (urlInput && document.getElementById('mcp-type-sse')?.checked) urlInput.focus();
+            else if (urlInput && currentFormType === 'sse') urlInput.focus();
         }, 100);
     }
 
     function saveRegisterForm() {
         const nameInput = document.getElementById('mcp-form-name');
-        const isSSE = document.getElementById('mcp-type-sse')?.checked;
         const urlInput = document.getElementById('mcp-form-url');
         const cmdInput = document.getElementById('mcp-form-command');
         const argsInput = document.getElementById('mcp-form-args');
@@ -289,7 +319,7 @@
 
         const servers = loadMcpServers();
 
-        if (isSSE) {
+        if (currentFormType === 'sse') {
             const url = (urlInput?.value || '').trim();
             if (!url) {
                 if (typeof window.showUserScreenToast === 'function') {
@@ -438,10 +468,10 @@
         if (formCancelBtn) formCancelBtn.onclick = () => switchView('list');
         if (formSaveBtn) formSaveBtn.onclick = () => saveRegisterForm();
 
-        const typeSse = document.getElementById('mcp-type-sse');
-        const typeStdio = document.getElementById('mcp-type-stdio');
-        if (typeSse) typeSse.onchange = () => updateFormTypeFields();
-        if (typeStdio) typeStdio.onchange = () => updateFormTypeFields();
+        const btnSse = document.getElementById('mcp-type-btn-sse');
+        const btnStdio = document.getElementById('mcp-type-btn-stdio');
+        if (btnSse) btnSse.onclick = () => setFormType('sse');
+        if (btnStdio) btnStdio.onclick = () => setFormType('stdio');
 
         const jsonSaveBtn = document.getElementById('mcp-json-save-btn');
         const formatBtn = document.getElementById('mcp-format-btn');

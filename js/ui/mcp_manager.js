@@ -139,8 +139,8 @@
             const card = document.createElement('div');
             card.className = 'mcp-card';
             card.style = `
-                background: rgba(255, 255, 255, 0.03);
-                border: 1px solid var(--border-color);
+                background: rgba(255, 255, 255, 0.05);
+                border: none;
                 border-radius: 8px;
                 padding: 10px 14px;
                 display: flex;
@@ -151,10 +151,10 @@
             `;
 
             card.onmouseenter = () => {
-                card.style.background = 'rgba(255, 255, 255, 0.06)';
+                card.style.background = 'rgba(255, 255, 255, 0.08)';
             };
             card.onmouseleave = () => {
-                card.style.background = 'rgba(255, 255, 255, 0.03)';
+                card.style.background = 'rgba(255, 255, 255, 0.05)';
             };
 
             card.innerHTML = `

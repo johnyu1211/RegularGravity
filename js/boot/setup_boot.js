@@ -472,9 +472,13 @@ async function setupBoot() {
 
                 if (confirmResult === 'send' || confirmResult === true) {
                     setTimeout(() => {
-                        const projBtn = document.getElementById('btn-send-project-info');
-                        if (projBtn) projBtn.click();
-                    }, 600);
+                        if (typeof window.executeProjectBriefing === 'function') {
+                            window.executeProjectBriefing();
+                        } else {
+                            const projBtn = document.getElementById('btn-send-project-info');
+                            if (projBtn) projBtn.click();
+                        }
+                    }, 500);
                 }
                 
                 const webToggle = document.getElementById('web-ai-mode-toggle'); if (webToggle) webToggle.checked = true;
@@ -887,115 +891,7 @@ async function setupBoot() {
                     }, 5000);
                     return;
                 }
-                if (window.sessionBriefed || window.briefingInProgress || window.skipRulesGeneration) return;
-                window.briefingInProgress = true;
-                
-                const projectTree = await ipcRenderer.invoke('vault-get-tree', window.currentPath || window.projectRoot);
-                if (projectTree) {
-                    setTimeout(async () => {
-                        try {
-                            const pLines = (projectTree || '').split('\n').map(l => l.trim()).filter(Boolean);
-                            const isEmpty = !projectTree || pLines.length <= 1 || projectTree.includes('[Empty folder]') || projectTree.includes('[WARNING: No files');
-                            const startPrompt = isEmpty
-                                ? `This folder is a completely empty new project. If you understand these instructions, ask the user what project to create.`
-                                : window.dragDropMode 
-                                    ? `If you understand these instructions, ask the user to drop the key entry file for analysis using [CMD: read-file "actual/file/path"]. Do not request non-existent files.` 
-                                    : `If you understand these instructions, request key entry files for analysis immediately using [CMD: read-file "actual/file/path"]. Do not request non-existent files.`;
-
-                            const briefPayload = isEmpty
-                                ? `${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim()
-                                : `The current project folder contains the following files:\n${projectTree}\n${window.getSystemRulesPrompt(true)}\n${startPrompt}`.trim();
-                             console.log("[BriefingPayload] Generated payload:\n", briefPayload);
-
-                            window.currentBatchFileCount = -1;
-                            
-                            if (!window.dragDropMode) {
-                                const briefPromise = runExperimentalEngine('/marktag', briefPayload, null);
-                                await injectWebPayload(briefPayload, -1);
-                                
-                                const briefResponse = await Promise.race([
-                                    briefPromise,
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('Briefing response timeout')), 120000))
-                                ]);
-                                window.sessionBriefed = true;
-                                window.briefingInProgress = false;
-                                window.hideInputLoading();
-                                document.getElementById('tab-local-agent').click();
-                                if (briefResponse) {
-                                    if (!window.autoContinueOnRead) {
-                                        if (typeof window.finalizeAiBubble === 'function') {
-                                            window.finalizeAiBubble(briefResponse);
-                                        }
-                                    }
-                                    if (typeof detectAndAskCommand === 'function') detectAndAskCommand(briefResponse);
-                                }
-                                window.currentBatchFileCount = 0;
-                            } else {
-                                // Disabled creating _project_rules_ file
-                                window.requestedFilesQueue = [];
-                                if (typeof window.injectGuestDropInterceptor === 'function') {
-                                    window.injectGuestDropInterceptor();
-                                }
-
-                                const cleanupDragDrop = () => {
-                                    if (window.activeDragDropCleanup === cleanupDragDrop) {
-                                        window.activeDragDropCleanup = null;
-                                        window.activeDragDropContinue = null;
-                                    }
-                                    const vLC = document.getElementById('inspector-local-chat');
-                                    const vBH = document.getElementById('inspector-browser-hub');
-                                    const arrowIndicator = document.getElementById('drag-drop-arrow-indicator');
-                                    if (arrowIndicator) arrowIndicator.remove();
-                                    
-                                    const inputContainer = document.getElementById('local-input-container');
-                                    if (inputContainer) {
-                                        inputContainer.style.background = '';
-                                        inputContainer.style.display = 'none';
-                                        inputContainer.style.height = '';
-                                    }
-                                    if (vLC) {
-                                        vLC.style.height = "100%";
-                                        vLC.style.zIndex = '100';
-                                    }
-                                    if (vBH) {
-                                        vBH.style.position = 'absolute';
-                                        vBH.style.top = '0';
-                                        vBH.style.height = '100%';
-                                        vBH.style.width = '100%';
-                                        vBH.style.zIndex = '150';
-                                        vBH.style.opacity = '1';
-                                        vBH.style.pointerEvents = 'auto';
-                                    }
-
-                                };
-
-                                window.activeDragDropCleanup = cleanupDragDrop;
-                                window.activeDragDropContinue = async () => {};
-
-                                window.sessionBriefed = true;
-                                window.briefingInProgress = false;
-                                window.currentBatchFileCount = 0;
-                                window.isBriefingResponsePending = true;
-
-                                window.hideInputLoading();
-
-                                setTimeout(() => {
-                                    if (typeof window.updateDragDropQueueUI === 'function') {
-                                        window.updateDragDropQueueUI();
-                                    }
-                                }, 600);
-                            }
-                        } catch (err) {
-                            window.sessionBriefed = true;
-                            window.briefingInProgress = false;
-                            window.hideInputLoading();
-                            document.getElementById('tab-local-agent').click();
-                            ChatUI.appendBubble('system', '[ERROR] INITIALIZATION FAILED.');
-                            window.currentBatchFileCount = 0;
-                        }
-                    }, 2500);
-                }
-            }, { once: true });
+            });
         }
 
         window.showInputLoading = (text = "Processing...") => {
@@ -1330,9 +1226,13 @@ async function setupBoot() {
 
         if (!isSilentBoot && (confirmResult === 'send' || confirmResult === true)) {
             setTimeout(() => {
-                const projBtn = document.getElementById('btn-send-project-info');
-                if (projBtn) projBtn.click();
-            }, 1000);
+                if (typeof window.executeProjectBriefing === 'function') {
+                    window.executeProjectBriefing();
+                } else {
+                    const projBtn = document.getElementById('btn-send-project-info');
+                    if (projBtn) projBtn.click();
+                }
+            }, 600);
         }
     };
 

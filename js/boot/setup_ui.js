@@ -1929,46 +1929,23 @@ function setupUI() {
     }
     const chatOverlay = document.getElementById('local-chat-overlay');
     
-    if (chatOverlay && !document.getElementById('btn-send-project-info')) {
-        const projBtn = document.createElement('button');
-        projBtn.id = 'btn-send-project-info';
-        projBtn.innerHTML = 'Send Project Info to Browser';
+    window.executeProjectBriefing = async function() {
+        if (window.briefingInProgress) return;
+        window.briefingInProgress = true;
+        
+        if (typeof window.updateSplitLayoutHeight === 'function') {
+            window.updateSplitLayoutHeight(window.pendingSplitHeight || 220);
+        }
+        
+        const projBtn = document.getElementById('btn-send-project-info');
+        if (projBtn) projBtn.style.display = 'none';
 
-        projBtn.style = `
-            width: 80%;
-            max-width: 280px;
-            height: 42px;
-            background: var(--primary);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-family: 'DM Sans', 'Outfit', sans-serif;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12.5px;
-            letter-spacing: -0.01em;
-            box-shadow: none;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        `;
-        projBtn.onmouseenter = () => { projBtn.style.filter = 'brightness(1.1)'; projBtn.style.boxShadow = 'none'; };
-        projBtn.onmouseleave = () => { projBtn.style.filter = 'none'; projBtn.style.boxShadow = 'none'; };
-
-        projBtn.onclick = async () => {
-            if (window.sessionBriefed || window.briefingInProgress) return;
-            window.briefingInProgress = true;
-            if (typeof window.updateSplitLayoutHeight === 'function') {
-                window.updateSplitLayoutHeight(window.pendingSplitHeight || 220);
-            }
-            projBtn.style.display = 'none';
-            
+        try {
             const fs = require('fs');
             const path = require('path');
             
-            let rawTree = await ipcRenderer.invoke('vault-get-tree', window.currentPath);
-            let tree = (typeof rawTree === 'string') ? rawTree : '';
+            let rawTree = await ipcRenderer.invoke('vault-get-tree', window.currentPath || window.projectRoot);
+            let tree = (typeof rawTree === 'string') ? rawTree : (rawTree && typeof rawTree.tree === 'string' ? rawTree.tree : '');
             if ((!tree || !tree.trim()) && window.activeWebDirHandle) {
                 const rootName = window.activeWebDirHandle.name || 'Project';
                 const fileKeys = Object.keys(window.webFileCache || {}).filter(k => 
@@ -1983,9 +1960,9 @@ function setupUI() {
                     ? window.generateBrowserTreeString(fileKeys, rootName)
                     : `${rootName}/\n` + fileKeys.slice(0, 100).map(f => `  ├── ${f}`).join('\n');
             }
-            const treeLines = tree.split('\n').map(l => l.trim()).filter(Boolean);
+            const treeLines = (tree || '').split('\n').map(l => l.trim()).filter(Boolean);
             window.totalFilesCount = treeLines.filter(l => !l.endsWith('/')).length;
-            window.readFilesSet.clear();
+            if (window.readFilesSet) window.readFilesSet.clear();
             window.userMessageCount = 0;
             
             const isEmpty = !tree || treeLines.length <= 1 || tree.includes('[Empty folder]') || tree.includes('[WARNING: No files');
@@ -2016,105 +1993,96 @@ function setupUI() {
                 }
             }
 
-            if (!window.dragDropMode) {
-                window.requestedFilesQueue = [];
-                window.activeDragDropCleanup = null;
-                window.activeDragDropContinue = async () => {};
+            const baseFileName = window.makeSendingMdRulesName();
+            const payload = await window.prepareFilePayload(baseFileName, webPayload);
 
-                chatOverlay.style.display = 'none';
-                if (chatIn) chatIn.focus();
-
-                window.sessionBriefed = true;
-                window.briefingInProgress = false;
-                window.currentBatchFileCount = -1;
-                window.isBriefingResponsePending = true;
-
-                if (typeof window.updateSplitLayoutHeight === 'function') {
-                    window.updateSplitLayoutHeight(window.pendingSplitHeight || 220);
-                }
-
-                console.log("[ProjectInfoPayload] Sending payload:\n", webPayload);
-                const briefPromise = runExperimentalEngine('/marktag', webPayload, null);
-                await injectWebPayload(webPayload, -1);
-                const briefResponse = await Promise.race([
-                    briefPromise,
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Briefing timeout')), 120000))
-                ]).catch(() => null);
-                window.currentBatchFileCount = 0;
-                if (briefResponse && typeof detectAndAskCommand === 'function') {
-                    detectAndAskCommand(briefResponse);
-                }
-            } else {
-                const baseFileName = window.makeSendingMdRulesName();
-                const payload = await window.prepareFilePayload(baseFileName, webPayload);
-
-                if (typeof window.refreshTree === 'function') {
-                    window.refreshTree();
-                }
-
-                window.requestedFilesQueue = [{
-                    absolutePath: payload.absolutePath,
-                    relativePath: payload.relativePath,
-                    status: 'PENDING'
-                }];
-
-                try {
-                    if (typeof window.injectGuestDropInterceptor === 'function') {
-                        window.injectGuestDropInterceptor();
-                    }
-                } catch(e) {}
-
-                const cleanupDragDrop = () => {
-                    if (window.activeDragDropCleanup === cleanupDragDrop) {
-                        window.activeDragDropCleanup = null;
-                        window.activeDragDropContinue = null;
-                    }
-
-                    const vLC = document.getElementById('inspector-local-chat');
-                    const vBH = document.getElementById('inspector-browser-hub');
-                    const arrowIndicator = document.getElementById('drag-drop-arrow-indicator');
-                    if (arrowIndicator) arrowIndicator.remove();
-                    
-                    const inputContainer = document.getElementById('local-input-container');
-                    if (inputContainer) {
-                        inputContainer.style.background = '';
-                        inputContainer.style.display = 'none';
-                        inputContainer.style.height = '';
-                    }
-                    
-                    if (vLC) {
-                        vLC.style.height = "100%";
-                        vLC.style.zIndex = '100';
-                    }
-                    if (vBH) {
-                        vBH.style.position = 'absolute';
-                        vBH.style.top = '0';
-                        vBH.style.height = '100%';
-                        vBH.style.width = '100%';
-                        vBH.style.zIndex = '150';
-                        vBH.style.opacity = '1';
-                        vBH.style.pointerEvents = 'auto';
-                    }
-                };
-
-                window.activeDragDropCleanup = cleanupDragDrop;
-                window.activeDragDropContinue = async () => {};
-                
-                chatOverlay.style.display = 'none';
-                projBtn.style.display = 'flex';
-                
-                window.sessionBriefed = true;
-                window.briefingInProgress = false;
-                window.currentBatchFileCount = 0;
-                window.isBriefingResponsePending = true;
-
-                setTimeout(() => {
-                    if (typeof window.updateDragDropQueueUI === 'function') {
-                        window.updateDragDropQueueUI();
-                    }
-                }, 600);
+            if (typeof window.refreshTree === 'function') {
+                window.refreshTree();
             }
-        };
+
+            window.requestedFilesQueue = [{
+                absolutePath: payload.absolutePath,
+                relativePath: payload.relativePath,
+                status: 'PENDING'
+            }];
+
+            try {
+                if (typeof window.injectGuestDropInterceptor === 'function') {
+                    window.injectGuestDropInterceptor();
+                }
+            } catch(e) {}
+
+            const cleanupDragDrop = () => {
+                if (window.activeDragDropCleanup === cleanupDragDrop) {
+                    window.activeDragDropCleanup = null;
+                    window.activeDragDropContinue = null;
+                }
+                window.dragDropMode = false;
+                window.requestedFilesQueue = [];
+                if (typeof window.updateDragDropQueueUI === 'function') {
+                    window.updateDragDropQueueUI();
+                }
+            };
+
+            window.activeDragDropCleanup = cleanupDragDrop;
+            window.activeDragDropContinue = async () => {};
+            window.dragDropMode = true;
+            window.sessionBriefed = true;
+            window.currentBatchFileCount = 0;
+            window.isBriefingResponsePending = true;
+
+            const chatOverlay = document.getElementById('local-chat-overlay');
+            if (chatOverlay) chatOverlay.style.display = 'none';
+            if (projBtn) projBtn.style.display = 'flex';
+
+            if (typeof window.updateDragDropQueueUI === 'function') {
+                window.updateDragDropQueueUI();
+            }
+
+            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                ChatUI.appendBubble('system', '[SYSTEM] Project Info & Rules queued for sending. Drag and drop the file from the bottom sheet into the AI chat.');
+            }
+            if (typeof window.showUserScreenToast === 'function') {
+                window.showUserScreenToast('Project Info queued in Drag & Drop Sheet', 3500);
+            }
+        } catch(err) {
+            console.error("Failed to executeProjectBriefing:", err);
+            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                ChatUI.appendBubble('system', `[ERROR] Failed to prepare project info: ${err.message}`);
+            }
+        } finally {
+            window.briefingInProgress = false;
+        }
+    };
+
+    if (chatOverlay && !document.getElementById('btn-send-project-info')) {
+        const projBtn = document.createElement('button');
+        projBtn.id = 'btn-send-project-info';
+        projBtn.innerHTML = 'Send Project Info to Browser';
+
+        projBtn.style = `
+            width: 80%;
+            max-width: 280px;
+            height: 42px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-family: 'DM Sans', 'Outfit', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12.5px;
+            letter-spacing: -0.01em;
+            box-shadow: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        `;
+        projBtn.onmouseenter = () => { projBtn.style.filter = 'brightness(1.1)'; projBtn.style.boxShadow = 'none'; };
+        projBtn.onmouseleave = () => { projBtn.style.filter = 'none'; projBtn.style.boxShadow = 'none'; };
+
+        projBtn.onclick = () => window.executeProjectBriefing();
 
         chatOverlay.appendChild(projBtn);
     }

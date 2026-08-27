@@ -737,6 +737,61 @@ ipcMain.on('ask-web-ai', (event, promptText) => {
         event.reply('web-ai-response', "[SYSTEM ERROR] " + err.message);
     });
 });
+ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, y }) => {
+    try {
+        const targetWc = webContents.fromId(webContentsId);
+        if (!targetWc) {
+            throw new Error(`WebContents not found for ID: ${webContentsId}`);
+        }
+
+        const dbg = targetWc.debugger;
+        if (!dbg.isAttached()) {
+            dbg.attach('1.3');
+        }
+
+        const targetX = (typeof x === 'number' && x > 0) ? Math.round(x) : 300;
+        const targetY = (typeof y === 'number' && y > 0) ? Math.round(y) : 500;
+
+        const dataPayload = {
+            files: Array.isArray(files) ? files : [files],
+            dragOperationsMask: 1
+        };
+
+        // 1. dragEnter
+        await dbg.sendCommand('Input.dispatchDragEvent', {
+            type: 'dragEnter',
+            x: targetX,
+            y: targetY,
+            data: dataPayload
+        });
+
+        await new Promise(r => setTimeout(r, 60));
+
+        // 2. dragOver
+        await dbg.sendCommand('Input.dispatchDragEvent', {
+            type: 'dragOver',
+            x: targetX,
+            y: targetY,
+            data: dataPayload
+        });
+
+        await new Promise(r => setTimeout(r, 60));
+
+        // 3. drop
+        await dbg.sendCommand('Input.dispatchDragEvent', {
+            type: 'drop',
+            x: targetX,
+            y: targetY,
+            data: dataPayload
+        });
+
+        return { success: true };
+    } catch (err) {
+        console.error("[CDP Drop Error]", err);
+        return { success: false, error: err.message };
+    }
+});
+
 ipcMain.on('sync-agent-view-bounds', (event, bounds) => {
     if (agentBrowserView) agentBrowserView.setBounds(bounds);
 });

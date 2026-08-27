@@ -167,6 +167,32 @@ window.updateDragDropQueueUI = function() {
             btnContainer.appendChild(copyBtn);
             itemEl.appendChild(btnContainer);
         } else {
+            const btnContainer = document.createElement('div');
+            btnContainer.style.cssText = 'display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;';
+
+            const dropBtn = document.createElement('button');
+            dropBtn.innerHTML = 'Drop to AI';
+            dropBtn.style.cssText = 'background: linear-gradient(135deg, #468CF6, #3b82f6); border: none; color: #fff; font-size: 11px; padding: 4px 12px; border-radius: 5px; cursor: pointer; font-weight: 700; transition: all 0.2s; font-family: "DM Sans", sans-serif;';
+            
+            const doDropAction = async (e) => {
+                if (e) e.stopPropagation();
+                dropBtn.innerText = 'Dropping...';
+                dropBtn.style.opacity = '0.7';
+                await window.performCdpDrop([item.absolutePath], () => {
+                    item.status = 'COMPLETED';
+                    const remainingPending = window.requestedFilesQueue.filter(f => f.status === 'PENDING');
+                    if (remainingPending.length === 0) {
+                        setTimeout(() => handleCloseQueue(), 400);
+                    } else {
+                        window.updateDragDropQueueUI();
+                    }
+                });
+            };
+
+            dropBtn.onclick = doDropAction;
+            btnContainer.appendChild(dropBtn);
+            itemEl.appendChild(btnContainer);
+
             itemEl.onclick = (e) => {
                 e.stopPropagation();
                 if (typeof window.openFileInEditor === 'function' && item.absolutePath) {
@@ -177,6 +203,21 @@ window.updateDragDropQueueUI = function() {
         
         listEl.appendChild(itemEl);
     });
+
+    const autoDropAllBtn = document.getElementById('btn-auto-drop-all');
+    if (autoDropAllBtn) {
+        autoDropAllBtn.style.display = isBrowserMode ? 'none' : 'inline-flex';
+        autoDropAllBtn.onclick = async () => {
+            const pendingFiles = window.requestedFilesQueue.filter(f => f.status === 'PENDING').map(f => f.absolutePath);
+            if (pendingFiles.length === 0) return;
+            autoDropAllBtn.innerText = 'Dropping...';
+            autoDropAllBtn.style.opacity = '0.7';
+            await window.performCdpDrop(pendingFiles, () => {
+                window.requestedFilesQueue.forEach(f => f.status = 'COMPLETED');
+                setTimeout(() => handleCloseQueue(), 400);
+            });
+        };
+    }
     
     if (window.dragDropMode && window.requestedFilesQueue.filter(item => item.status === 'PENDING').length > 0) {
         if (!window.autoClickingQueue) {
@@ -184,5 +225,86 @@ window.updateDragDropQueueUI = function() {
                 window.autoClickPendingQueueItems();
             }, 600);
         }
+    }
+};
+
+window.performCdpDrop = async function(filePaths = [], onComplete = null) {
+    if (!filePaths || filePaths.length === 0) return false;
+    const wv = document.getElementById('active-agent-webview');
+    if (!wv) {
+        if (typeof window.showUserScreenToast === 'function') {
+            window.showUserScreenToast('No active Web AI window found', 2500, true);
+        }
+        return false;
+    }
+
+    if (typeof window.showUserScreenToast === 'function') {
+        window.showUserScreenToast('Injecting file to AI chat...', 1500);
+    }
+
+    try {
+        const findInputCoordsScript = `
+            (() => {
+                const inKeywords = ["prompt", "chat", "message", "write", "ask", "question", "reply", "enter", "talk"];
+                const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                const inputs = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"], .ProseMirror, [contenteditable="plaintext-only"]')).filter(el => isVisible(el));
+                
+                let target = null;
+                for (let el of inputs) {
+                    const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.getAttribute('data-placeholder') || el.innerText || '').toLowerCase();
+                    if (inKeywords.some(k => text.includes(k))) {
+                        target = el;
+                        break;
+                    }
+                }
+                if (!target && inputs.length > 0) target = inputs[inputs.length - 1];
+                
+                if (!target) {
+                    const dropContainers = Array.from(document.querySelectorAll('form, [data-testid*="chat"], main')).filter(el => isVisible(el));
+                    if (dropContainers.length > 0) target = dropContainers[dropContainers.length - 1];
+                }
+
+                if (target) {
+                    try { target.focus(); } catch(e){}
+                    const rect = target.getBoundingClientRect();
+                    return {
+                        found: true,
+                        x: Math.round(rect.left + rect.width / 2),
+                        y: Math.round(rect.top + rect.height / 2)
+                    };
+                }
+                return {
+                    found: false,
+                    x: Math.round(window.innerWidth / 2),
+                    y: Math.round(window.innerHeight - 100)
+                };
+            })()
+        `;
+
+        const coords = await wv.executeJavaScript(findInputCoordsScript);
+        const wcId = wv.getWebContentsId();
+
+        const res = await ipcRenderer.invoke('cdp-native-file-drop', {
+            webContentsId: wcId,
+            files: filePaths,
+            x: coords.x,
+            y: coords.y
+        });
+
+        if (res && res.success) {
+            if (typeof window.showUserScreenToast === 'function') {
+                window.showUserScreenToast(`Successfully dropped ${filePaths.length} file(s) into AI!`, 2500);
+            }
+            if (typeof onComplete === 'function') onComplete();
+            return true;
+        } else {
+            throw new Error(res?.error || 'CDP drop failed');
+        }
+    } catch(err) {
+        console.error("[CDP Drop Execution Error]", err);
+        if (typeof window.showUserScreenToast === 'function') {
+            window.showUserScreenToast(`Auto-drop failed: ${err.message}`, 3000, true);
+        }
+        return false;
     }
 };

@@ -42,11 +42,65 @@ window.selectProject = async (folderPath) => {
         });
     } catch(e) {}
 
+    // 1. Reset Global Project Paths and Session State
     window.sessionTurnCount = 0;
     window.projectRoot = folderPath;
     window.currentPath = folderPath;
     
-    // Sync all terminal sessions cwd to selected project folder
+    // 2. Reset AI Undo / Redo Manager (prevent cross-project rollback)
+    if (window.UndoManager) {
+        window.UndoManager.undoStack = [];
+        window.UndoManager.redoStack = [];
+        window.UndoManager.currentTransaction = null;
+        window.UndoManager.updateButtonUI();
+    }
+
+    // 3. Reset Queues and Drag-Drop States
+    window.requestedFilesQueue = [];
+    window.activeDragDropContinue = null;
+    window.dragDropMode = false;
+    const queueContainer = document.getElementById('drag-drop-queue-container');
+    if (queueContainer) queueContainer.style.display = 'none';
+    const queueList = document.getElementById('drag-drop-queue-list');
+    if (queueList) queueList.innerHTML = '';
+
+    // 4. Clean temporary SendingMD files
+    if (typeof window.cleanSendingMdOldFiles === 'function') {
+        window.cleanSendingMdOldFiles();
+    }
+
+    // 5. Reset Editor & Active File Pointers
+    if (window.isEditingMode && typeof window.cancelEditorEdit === 'function') {
+        window.cancelEditorEdit();
+    }
+    window.currentEditingFile = null;
+    window.currentEditingPath = null;
+    const editorContent = document.getElementById('editor-content');
+    if (editorContent) {
+        editorContent.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px; font-family:\'DM Sans\', sans-serif;">Select a file to view</div>';
+    }
+    const pathDisplay = document.getElementById('current-file-path-display');
+    if (pathDisplay) pathDisplay.innerText = '';
+
+    // 6. Close Right-Side Web AI Browser and destroy existing webview instance
+    const dock = document.getElementById('agent-view-dock');
+    if (dock) {
+        dock.innerHTML = ''; // completely destroy existing webview
+    }
+    const agentHubWebview = document.getElementById('agent-hub-webview');
+    if (agentHubWebview) agentHubWebview.style.display = 'none';
+    const agentHubHome = document.getElementById('agent-hub-home');
+    if (agentHubHome) agentHubHome.style.display = 'flex';
+    if (typeof window.setInspectorBorderState === 'function') window.setInspectorBorderState(false);
+    if (typeof window.setTaskbarActionsVisible === 'function') window.setTaskbarActionsVisible(false);
+
+    // 7. Clear Agent Hub Grid before re-populating
+    const grid = document.getElementById('agent-hub-grid');
+    if (grid) {
+        grid.querySelectorAll('.agent-app:not(#add-agent-app-card)').forEach(c => c.remove());
+    }
+
+    // 8. Sync all terminal sessions cwd to selected project folder
     if (window.terminalSessions) {
         Object.keys(window.terminalSessions).forEach(tId => {
             if (window.terminalSessions[tId]) {
@@ -73,7 +127,7 @@ window.selectProject = async (folderPath) => {
         if (chatIn) chatIn.focus();
     }
 
-    // Reset briefing state and trigger boot briefing for the new project
+    // 9. Reset briefing state and trigger fresh boot briefing & browser reopen for new project
     window.sessionBriefed = false;
     window.briefingInProgress = false;
     if (typeof setupBoot === 'function') {

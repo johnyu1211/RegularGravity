@@ -13,7 +13,7 @@ function detectAndAskCommand(text) {
             // Clean up root leftovers
             const files = fs.readdirSync(dir);
             files.forEach(file => {
-                if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_') || file.startsWith('FollowThisORDER_') || file.startsWith('Files_') || file.startsWith('ListDir_')) && file.endsWith('.md')) {
+                if ((file.startsWith('_project_rules_') || file.startsWith('_project_read_bundle_') || file.startsWith('FollowThisORDER_') || file.startsWith('Files_') || file.startsWith('ListDir_') || file.startsWith('_mcp_')) && file.endsWith('.md')) {
                     try { fs.unlinkSync(path.join(dir, file)); } catch(e) {}
                 }
             });

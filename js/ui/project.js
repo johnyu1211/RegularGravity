@@ -36,7 +36,7 @@ window.selectProject = async (folderPath) => {
     try {
         const files = fs.readdirSync(folderPath);
         files.forEach(file => {
-            if (file.startsWith('_project_rules_') && file.endsWith('.md')) {
+            if ((file.startsWith('_project_rules_') || file.startsWith('_mcp_')) && file.endsWith('.md')) {
                 fs.unlinkSync(path.join(folderPath, file));
             }
         });

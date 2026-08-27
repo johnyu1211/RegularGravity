@@ -1258,40 +1258,39 @@
                 <!-- VIEW 2: Add / Edit Form -->
                 <div id="mcp-view-form" style="display: none; flex-direction: column; gap: 14px;">
                     <!-- Server Name -->
-                    <div style="display: flex; flex-direction: column; gap: 5px;">
-                        <label style="font-size: 10px; font-weight: 700; color: #777; letter-spacing: 1.5px; text-transform: uppercase;">SERVER NAME</label>
-                        <input type="text" id="mcp-form-name" placeholder="e.g. unity, premierePro, sqlite..." spellcheck="false" autocomplete="off" style="width:100%; background:rgba(255, 255, 255, 0.05); color:var(--text-main, #fff); border:1px solid var(--border-color); padding:9px 12px; border-radius:8px; font-size:12px; outline:none; box-sizing: border-box;">
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <label style="font-size: 11px; font-weight: 600; color: var(--text-muted);">SERVER NAME</label>
+                        <input type="text" id="mcp-form-name" placeholder="e.g. unity, premierePro, sqlite..." spellcheck="false" autocomplete="off" style="width:100%; background:rgba(255, 255, 255, 0.08); color:var(--text-main); border:none; padding:10px 12px; border-radius:8px; font-size:12px; outline:none; box-sizing: border-box;">
                     </div>
 
                     <!-- Segmented Switch: SSE vs stdio -->
-                    <div style="display: flex; flex-direction: column; gap: 5px;">
-                        <label style="font-size: 10px; font-weight: 700; color: #777; letter-spacing: 1.5px; text-transform: uppercase;">CONNECTION TYPE</label>
-                        <div style="display: flex; background: rgba(0,0,0,0.3); padding: 3px; border-radius: 8px; border: 1px solid var(--border-color); gap: 4px;">
-                            <button type="button" id="mcp-type-btn-sse" style="flex: 1; padding: 7px 12px; border-radius: 6px; border: none; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(255, 255, 255, 0.12); color: #fff;">SSE / HTTP (Port & URL)</button>
-                            <button type="button" id="mcp-type-btn-stdio" style="flex: 1; padding: 7px 12px; border-radius: 6px; border: none; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; background: transparent; color: var(--text-muted);">stdio (Command Line)</button>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <label style="font-size: 11px; font-weight: 600; color: var(--text-muted);">CONNECTION TYPE</label>
+                        <div style="display: flex; background: rgba(255, 255, 255, 0.05); padding: 3px; border-radius: 8px; gap: 4px;">
+                            <button type="button" id="mcp-type-btn-sse" style="flex: 1; padding: 8px 12px; border-radius: 6px; border: none; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(255, 255, 255, 0.12); color: #fff;">SSE / HTTP (Port & URL)</button>
+                            <button type="button" id="mcp-type-btn-stdio" style="flex: 1; padding: 8px 12px; border-radius: 6px; border: none; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; background: transparent; color: var(--text-muted);">stdio (Command Line)</button>
                         </div>
                     </div>
 
                     <!-- SSE Section (URL & Port) -->
-                    <div id="mcp-form-sse-section" style="display: flex; flex-direction: column; gap: 5px;">
-                        <label style="font-size: 10px; font-weight: 700; color: #777; letter-spacing: 1.5px; text-transform: uppercase;">SERVER URL & PORT</label>
-                        <input type="text" id="mcp-form-url" placeholder="http://localhost:8000/sse" spellcheck="false" autocomplete="off" style="width:100%; background:rgba(255, 255, 255, 0.05); color:var(--text-main, #fff); border:1px solid var(--border-color); padding:9px 12px; border-radius:8px; font-size:12px; font-family: 'JetBrains Mono', monospace; outline:none; box-sizing: border-box;">
-                        <span style="font-size: 10.5px; color: var(--text-muted);">URL of the already running SSE MCP server (e.g. localhost with port 8000, 3000).</span>
+                    <div id="mcp-form-sse-section" style="display: flex; flex-direction: column; gap: 6px;">
+                        <label style="font-size: 11px; font-weight: 600; color: var(--text-muted);">SERVER URL & PORT</label>
+                        <input type="text" id="mcp-form-url" placeholder="http://localhost:8000/sse" spellcheck="false" autocomplete="off" style="width:100%; background:rgba(255, 255, 255, 0.08); color:var(--text-main); border:none; padding:10px 12px; border-radius:8px; font-size:12px; font-family: 'JetBrains Mono', monospace; outline:none; box-sizing: border-box;">
                     </div>
 
                     <!-- stdio Section (Command & Args & Env) -->
-                    <div id="mcp-form-stdio-section" style="display: none; flex-direction: column; gap: 10px;">
-                        <div style="display: flex; flex-direction: column; gap: 5px;">
-                            <label style="font-size: 10px; font-weight: 700; color: #777; letter-spacing: 1.5px; text-transform: uppercase;">COMMAND</label>
-                            <input type="text" id="mcp-form-command" placeholder="e.g. uvx, npx, node, python" spellcheck="false" autocomplete="off" style="width:100%; background:rgba(255, 255, 255, 0.05); color:var(--text-main, #fff); border:1px solid var(--border-color); padding:9px 12px; border-radius:8px; font-size:12px; font-family: 'JetBrains Mono', monospace; outline:none; box-sizing: border-box;">
+                    <div id="mcp-form-stdio-section" style="display: none; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 11px; font-weight: 600; color: var(--text-muted);">COMMAND</label>
+                            <input type="text" id="mcp-form-command" placeholder="e.g. uvx, npx, node, python..." spellcheck="false" autocomplete="off" style="width:100%; background:rgba(255, 255, 255, 0.08); color:var(--text-main); border:none; padding:10px 12px; border-radius:8px; font-size:12px; font-family: 'JetBrains Mono', monospace; outline:none; box-sizing: border-box;">
                         </div>
-                        <div style="display: flex; flex-direction: column; gap: 5px;">
-                            <label style="font-size: 10px; font-weight: 700; color: #777; letter-spacing: 1.5px; text-transform: uppercase;">ARGUMENTS</label>
-                            <input type="text" id="mcp-form-args" placeholder="e.g. mcp-server-sqlite --db-path ./data.db" spellcheck="false" autocomplete="off" style="width:100%; background:rgba(255, 255, 255, 0.05); color:var(--text-main, #fff); border:1px solid var(--border-color); padding:9px 12px; border-radius:8px; font-size:12px; font-family: 'JetBrains Mono', monospace; outline:none; box-sizing: border-box;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 11px; font-weight: 600; color: var(--text-muted);">ARGUMENTS</label>
+                            <input type="text" id="mcp-form-args" placeholder="e.g. mcp-server-sqlite --db-path ./data.db" spellcheck="false" autocomplete="off" style="width:100%; background:rgba(255, 255, 255, 0.08); color:var(--text-main); border:none; padding:10px 12px; border-radius:8px; font-size:12px; font-family: 'JetBrains Mono', monospace; outline:none; box-sizing: border-box;">
                         </div>
-                        <div style="display: flex; flex-direction: column; gap: 5px;">
-                            <label style="font-size: 10px; font-weight: 700; color: #777; letter-spacing: 1.5px; text-transform: uppercase;">ENVIRONMENT VARIABLES (KEY=VALUE)</label>
-                            <textarea id="mcp-form-env" placeholder="API_KEY=your_token_here" spellcheck="false" style="width:100%; height: 50px; background:rgba(255, 255, 255, 0.05); color:var(--text-main, #fff); border:1px solid var(--border-color); padding:8px 12px; border-radius:8px; font-size:11px; font-family: 'JetBrains Mono', monospace; outline:none; resize:none; box-sizing: border-box;"></textarea>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 11px; font-weight: 600; color: var(--text-muted);">ENVIRONMENT VARIABLES (KEY=VALUE)</label>
+                            <textarea id="mcp-form-env" placeholder="API_KEY=your_token_here" spellcheck="false" style="width:100%; height: 56px; background:rgba(255, 255, 255, 0.08); color:var(--text-main); border:none; padding:10px 12px; border-radius:8px; font-size:11.5px; font-family: 'JetBrains Mono', monospace; outline:none; resize:none; box-sizing: border-box;"></textarea>
                         </div>
                     </div>
                 </div>
@@ -1299,7 +1298,7 @@
                 <!-- VIEW 3: Raw JSON Editor -->
                 <div id="mcp-view-json" style="display: none; flex-direction: column; gap: 8px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 10px; font-weight: 700; color: #777; letter-spacing: 1.5px; text-transform: uppercase;">CONFIGURATION (JSON)</span>
+                        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted);">CONFIGURATION (JSON)</span>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span id="mcp-json-status" style="font-size: 11px; font-family: 'JetBrains Mono', monospace;"></span>
                             <button type="button" id="mcp-format-btn" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 3px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;" onmouseenter="this.style.color='#fff';" onmouseleave="this.style.color='var(--text-muted)';" title="Format / Prettify JSON">
@@ -1307,7 +1306,7 @@
                             </button>
                         </div>
                     </div>
-                    <textarea id="mcp-raw-json-textarea" spellcheck="false" autocomplete="off" style="width: 100%; height: 230px; background: rgba(0, 0, 0, 0.35); color: #cbd5e1; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.5; outline: none; resize: none; box-sizing: border-box;"></textarea>
+                    <textarea id="mcp-raw-json-textarea" spellcheck="false" autocomplete="off" style="width: 100%; height: 230px; background: rgba(255, 255, 255, 0.08); color: var(--text-main); border: none; border-radius: 8px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.5; outline: none; resize: none; box-sizing: border-box;"></textarea>
                 </div>
 
             </div>

@@ -1,3 +1,10 @@
+window.openLocalSettingsModal = function() {
+    const localSettingsBtn = document.getElementById('btn-local-settings');
+    if (localSettingsBtn) {
+        localSettingsBtn.click();
+    }
+};
+
 window.updateSplitLayoutHeight = function(newHeight) {
     if (newHeight < 40 || newHeight > 500) return;
     window.pendingSplitHeight = newHeight;

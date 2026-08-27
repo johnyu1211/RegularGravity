@@ -1214,44 +1214,42 @@
     </div>
 
     <!-- MCP Server Settings Modal -->
-    <div id="mcp-manager-modal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 100000; align-items: center; justify-content: center; font-family: 'DM Sans', sans-serif;">
-        <div style="width: 88%; max-width: 480px; background: var(--surface-color); border: 1px solid var(--border-color); padding: 22px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; animation: scaleIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-            
-            <!-- Header -->
-            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                <span style="font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.5px;">MCP SERVERS</span>
-                <span id="close-mcp-modal-x" style="cursor: pointer; color: var(--text-muted); font-size: 18px; font-weight: bold; line-height: 1; transition: color 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">&times;</span>
+    <div id="mcp-manager-modal" class="modal-overlay">
+        <div class="modal-content confirm-box" style="width: 500px; max-width: 90vw;">
+            <div class="modal-header">
+                <div class="modal-title">MCP SERVERS</div>
+                <div class="modal-close" id="close-mcp-modal-x">&times;</div>
             </div>
-
-            <!-- Description & Status -->
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 11px; color: var(--text-muted);">Configure Model Context Protocol servers (JSON format)</span>
-                    <div id="mcp-json-status" style="font-size: 10.5px; font-family: 'JetBrains Mono', monospace;">
-                        <span style="color: #22c55e;">✔ Valid</span>
+            
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px; padding: 10px 24px 20px 24px;">
+                <!-- Description & Quick Templates -->
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 11px; color: var(--text-muted);">Quick Template Presets:</span>
+                    <div id="mcp-json-status" style="font-size: 11px; font-family: 'JetBrains Mono', monospace;">
+                        <span style="color: #22c55e;">✔ Valid JSON</span>
                     </div>
                 </div>
-                
-                <!-- Quick Templates Bar -->
-                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                    <span style="font-size: 10px; color: var(--text-muted); font-weight: 600;">+ Template:</span>
-                    <button class="mcp-quick-tpl-btn" data-tpl="sqlite" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #ccc; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; cursor: pointer; font-family: 'DM Sans', sans-serif;">SQLite</button>
-                    <button class="mcp-quick-tpl-btn" data-tpl="fetch" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #ccc; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; cursor: pointer; font-family: 'DM Sans', sans-serif;">Fetch</button>
-                    <button class="mcp-quick-tpl-btn" data-tpl="filesystem" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #ccc; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; cursor: pointer; font-family: 'DM Sans', sans-serif;">Filesystem</button>
-                    <button class="mcp-quick-tpl-btn" data-tpl="github" style="background: var(--surface-low); border: 1px solid var(--border-color); color: #ccc; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; cursor: pointer; font-family: 'DM Sans', sans-serif;">GitHub</button>
+
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button class="mcp-quick-tpl-btn modal-btn secondary" data-tpl="sqlite" style="padding: 5px 12px; font-size: 11px;">+ SQLite</button>
+                    <button class="mcp-quick-tpl-btn modal-btn secondary" data-tpl="fetch" style="padding: 5px 12px; font-size: 11px;">+ Fetch</button>
+                    <button class="mcp-quick-tpl-btn modal-btn secondary" data-tpl="filesystem" style="padding: 5px 12px; font-size: 11px;">+ Filesystem</button>
+                    <button class="mcp-quick-tpl-btn modal-btn secondary" data-tpl="github" style="padding: 5px 12px; font-size: 11px;">+ GitHub</button>
+                </div>
+
+                <!-- JSON Editor Area -->
+                <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">CONFIGURATION (JSON)</label>
+                        <span id="mcp-format-btn" style="font-size: 10.5px; color: var(--primary); cursor: pointer; user-select: none;">Prettify</span>
+                    </div>
+                    <textarea id="mcp-raw-json-textarea" spellcheck="false" autocomplete="off" style="width: 100%; height: 200px; background: rgba(0, 0, 0, 0.35); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.5; outline: none; resize: none; box-sizing: border-box;"></textarea>
                 </div>
             </div>
 
-            <!-- Direct JSON Config Editor -->
-            <textarea id="mcp-raw-json-textarea" style="width: 100%; height: 210px; background: var(--surface-lowest, #0a0a0c); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #cbd5e1; outline: none; resize: none; box-sizing: border-box; line-height: 1.45;" spellcheck="false" placeholder='{\n  "mcpServers": {\n    "sqlite": {\n      "command": "uvx",\n      "args": ["mcp-server-sqlite", "--db-path", "data.db"]\n    }\n  }\n}'></textarea>
-
-            <!-- Footer -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 2px;">
-                <button id="mcp-format-btn" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 4px 0; font-family: inherit;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">Prettify JSON</button>
-                <div style="display: flex; gap: 12px; align-items: center;">
-                    <button id="close-mcp-modal-btn" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 5px; font-weight: 700;">Cancel</button>
-                    <button id="save-mcp-modal-btn" style="background: var(--primary); border: none; color: #fff; cursor: pointer; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 22px; transition: all 0.2s; border-radius: 6px; font-weight: 700;">Save Changes</button>
-                </div>
+            <div class="modal-footer">
+                <button id="close-mcp-modal-btn" class="modal-btn secondary">Cancel</button>
+                <button id="save-mcp-modal-btn" class="modal-btn primary">Save</button>
             </div>
         </div>
     </div>

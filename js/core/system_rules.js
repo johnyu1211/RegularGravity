@@ -50,8 +50,12 @@ window.getSystemRulesPrompt = function(forceFull = false) {
             mcpRule = `\n7. MCP TOOLS (Model Context Protocol):
    Active MCP server(s) configured in this workspace:
 ${serverListStr}
-   To execute a tool provided by any active MCP server, output:
-   [CMD: mcp-call server="server_name" tool="tool_name" args='{"key": "value"}']`;
+   
+   RULES FOR USING MCP:
+   1) TOOL DISCOVERY (MANDATORY): You do NOT know exact tool names in advance. NEVER guess tool names. Before using an MCP server, you MUST inspect its full tool directory and parameter schemas first:
+      [CMD: mcp-list server="server_name"]
+   2) TOOL EXECUTION: After inspecting the tool directory, execute tools with exact names and parameters:
+      [CMD: mcp-call server="server_name" tool="tool_name" args='{"key": "value"}']`;
         }
     } catch(e) {}
 

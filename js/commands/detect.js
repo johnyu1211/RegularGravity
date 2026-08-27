@@ -200,13 +200,15 @@ function detectAndAskCommand(text) {
     const searchKeywordCmds = [];
     const moveFileCmds = [];
     const listDirCmds = [];
+    const mcpListCmds = [];
+    const mcpCallCmds = [];
     const otherCmds = [];
     let hasResetSession = false;
 
     foundCmds.forEach(cmd => {
         const rawCmd = cmd;
         if (isBriefing) {
-            if (!cmd.startsWith('read-file') && !cmd.startsWith('list-dir') && !cmd.startsWith('search-keyword')) {
+            if (!cmd.startsWith('read-file') && !cmd.startsWith('list-dir') && !cmd.startsWith('search-keyword') && !cmd.startsWith('mcp-list')) {
                 console.log(`[BriefingShield] Blocked non-read command during briefing: ${cmd}`);
                 return;
             }
@@ -224,6 +226,8 @@ function detectAndAskCommand(text) {
         const searchKeywordMatch = cmd.match(/^search-keyword\s+(.*)$/i);
         const moveFileMatch = cmd.match(/^move-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
         const listDirMatch = cmd.match(/^list-dir(?:\s+(.*))?$/i);
+        const mcpListMatch = cmd.match(/^mcp-list(?:\s+(?:server=)?["']?([^"'\s]+)["']?)?$/i);
+        const mcpCallMatch = cmd.match(/^mcp-call(?:\s+(?:server=)?["']?([^"'\s]+)["']?)?(?:\s+(?:tool=)?["']?([^"'\s]+)["']?)?(?:\s+(?:args=)?['"](\{[\s\S]*\}|.*)['"])?$/i);
         const resetSessionMatch = cmd.match(/^reset-session$/i);
 
         const fs = require('fs');
@@ -410,12 +414,31 @@ function detectAndAskCommand(text) {
             const dirPath = rawDir || '.';
             const res = resolvePathAndExists(dirPath);
             listDirCmds.push({ path: res.path, isDirectory: true, exists: res.exists });
+        } else if (mcpListMatch) {
+            const serverName = (mcpListMatch[1] || '').trim();
+            mcpListCmds.push({ server: serverName });
+        } else if (mcpCallMatch) {
+            const serverName = (mcpCallMatch[1] || '').trim();
+            const toolName = (mcpCallMatch[2] || '').trim();
+            let rawArgs = (mcpCallMatch[3] || '').trim();
+            let parsedArgs = {};
+            try { parsedArgs = rawArgs ? JSON.parse(rawArgs) : {}; } catch(e) { parsedArgs = { raw: rawArgs }; }
+            mcpCallCmds.push({ server: serverName, tool: toolName, args: parsedArgs });
         } else if (resetSessionMatch) {
             hasResetSession = true;
         } else {
             otherCmds.push(cmd);
         }
     });
+
+    // Handle MCP List Tool Discovery immediately
+    if (mcpListCmds.length > 0) {
+        const sName = mcpListCmds[0].server || 'premierePro';
+        if (typeof window.executeMcpList === 'function') {
+            window.executeMcpList(sName);
+        }
+        return;
+    }
 
     const hasWriteFile = (writeCmds.length > 0);
     const hasEditFile = (editCmds.length > 0);

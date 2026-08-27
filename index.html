@@ -447,12 +447,12 @@
             <img src="assets/icon.png" class="titlebar-icon">
             <span class="titlebar-logo-text">REGULAR GRAVITY</span>
             <span id="ui-zoom-pill" title="Reset UI Zoom (100% / Ctrl+Shift+0)" style="display: none; margin-left: -4px; font-family: 'DM Sans', 'Outfit', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; background: linear-gradient(to right, #8ba2f9, #b0c2fe); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; cursor: pointer; user-select: none; -webkit-app-region: no-drag;">(100%)</span>
+            <!-- MCP Server Manager Button (Top Left next to Logo) -->
+            <button id="win-mcp-btn" title="MCP Servers Configuration" style="background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; padding: 2px 7px; height: 19px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; -webkit-app-region: no-drag; transition: all 0.15s;" onmouseenter="this.style.background='rgba(255,255,255,0.12)'; this.style.borderColor='rgba(255,255,255,0.18)';" onmouseleave="this.style.background='rgba(255,255,255,0.06)'; this.style.borderColor='rgba(255,255,255,0.08)';">
+                <span style="font-size: 10px; font-weight: 700; color: #9aa0a6; letter-spacing: 0.5px; font-family: 'DM Sans', sans-serif;">MCP</span>
+            </button>
         </div>
         <div class="titlebar-controls">
-            <!-- MCP Server Manager Button -->
-            <button class="titlebar-btn" id="win-mcp-btn" title="MCP Servers Configuration" style="width: 38px;">
-                <span style="font-size: 10.5px; font-weight: 700; color: #9aa0a6; letter-spacing: 0.5px; font-family: 'DM Sans', sans-serif; transition: color 0.15s;">MCP</span>
-            </button>
             <button class="titlebar-btn" id="win-fixture" title="Toggle Window Fixture Mode" style="display: none;">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="win-fixture-icon">
                     <rect x="2" y="2" width="20" height="20" rx="5" stroke-dasharray="4 3" />

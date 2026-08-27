@@ -140,53 +140,49 @@
             card.className = 'mcp-card';
             card.style = `
                 background: rgba(255, 255, 255, 0.03);
-                border: 1px solid ${isDisabled ? 'var(--border-color)' : 'rgba(70, 140, 246, 0.35)'};
-                border-radius: 10px;
-                padding: 12px 14px;
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                padding: 10px 14px;
                 display: flex;
-                flex-direction: column;
-                gap: 8px;
-                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                transition: all 0.2s ease;
             `;
 
             card.onmouseenter = () => {
-                card.style.background = 'rgba(255, 255, 255, 0.05)';
+                card.style.background = 'rgba(255, 255, 255, 0.06)';
             };
             card.onmouseleave = () => {
                 card.style.background = 'rgba(255, 255, 255, 0.03)';
             };
 
             card.innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: ${isDisabled ? '#666' : '#22c55e'}; box-shadow: ${isDisabled ? 'none' : '0 0 6px rgba(34, 197, 94, 0.5)'};"></span>
-                        <span style="font-size: 13px; font-weight: 700; color: ${isDisabled ? 'var(--text-muted)' : '#fff'}; letter-spacing: 0.3px;">${key}</span>
-                        ${isSSE 
-                            ? '<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.3);">SSE / Port</span>' 
-                            : '<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; background: rgba(168, 85, 247, 0.15); color: #c084fc; border-radius: 4px; border: 1px solid rgba(168, 85, 247, 0.3);">stdio</span>'}
-                        ${isDisabled ? '<span style="font-size: 10px; padding: 1px 6px; background: rgba(255,255,255,0.06); border-radius: 4px; color: var(--text-muted);">Disabled</span>' : ''}
+                        <span style="font-size: 13px; font-weight: 700; color: ${isDisabled ? 'var(--text-muted)' : '#fff'}; letter-spacing: 0.2px;">${key}</span>
+                        <span style="font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); color: var(--text-muted);">${isSSE ? 'SSE' : 'stdio'}</span>
+                        ${isDisabled ? '<span style="font-size: 10px; color: var(--text-muted);">(Disabled)</span>' : ''}
                     </div>
-
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <!-- Switch Toggle using app native switch-toggle -->
-                        <label class="switch-toggle" style="transform: scale(0.85); margin: 0;" title="${isDisabled ? 'Enable server' : 'Disable server'}">
-                            <input type="checkbox" class="mcp-card-toggle" data-key="${key}" ${isDisabled ? '' : 'checked'}>
-                            <span class="slider-toggle"></span>
-                        </label>
-                        <!-- Edit Button -->
-                        <button class="mcp-card-edit-btn" data-key="${key}" title="Edit Server" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.15s;" onmouseenter="this.style.color='#fff'; this.style.background='rgba(255,255,255,0.1)';" onmouseleave="this.style.color='var(--text-muted)'; this.style.background='transparent';">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                        </button>
-                        <!-- Delete Button -->
-                        <button class="mcp-card-del-btn" data-key="${key}" title="Delete Server" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.15s;" onmouseenter="this.style.color='#ef4444'; this.style.background='rgba(239,68,68,0.15)';" onmouseleave="this.style.color='var(--text-muted)'; this.style.background='transparent';">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                        </button>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        ${targetInfo || '(not specified)'}
                     </div>
                 </div>
 
-                <!-- URL or Command preview -->
-                <div style="background: rgba(0, 0, 0, 0.35); padding: 7px 10px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: ${isDisabled ? 'var(--text-muted)' : '#cbd5e1'}; overflow-x: auto; white-space: nowrap;">
-                    <span style="color: ${isSSE ? '#60a5fa' : '#c084fc'}; user-select: none;">${isSSE ? 'URL: ' : '$ '}</span>${targetInfo || '(not specified)'}
+                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                    <!-- Switch Toggle -->
+                    <label class="switch-toggle" style="transform: scale(0.8); margin: 0;" title="${isDisabled ? 'Enable server' : 'Disable server'}">
+                        <input type="checkbox" class="mcp-card-toggle" data-key="${key}" ${isDisabled ? '' : 'checked'}>
+                        <span class="slider-toggle"></span>
+                    </label>
+                    <!-- Edit Button -->
+                    <button class="mcp-card-edit-btn" data-key="${key}" title="Edit Server" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;" onmouseenter="this.style.color='#fff';" onmouseleave="this.style.color='var(--text-muted)';">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </button>
+                    <!-- Delete Button -->
+                    <button class="mcp-card-del-btn" data-key="${key}" title="Delete Server" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;" onmouseenter="this.style.color='#ef4444';" onmouseleave="this.style.color='var(--text-muted)';">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
                 </div>
             `;
 

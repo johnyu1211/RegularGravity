@@ -12,6 +12,12 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
 
     const startDeleteOrchestration = () => {
         if (deleteCmds.length > 0) {
+            if (window.justRunCommands === true) {
+                isDeleteApproved = true;
+                startWriteEditOrchestration();
+                return;
+            }
+
             const displayDelete = deleteCmds.map(c => c.path).join(', ');
             const box = ChatUI.appendBubble('system', '');
             if (box) box.style.display = 'block';
@@ -72,6 +78,12 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
 
     const startWriteEditOrchestration = () => {
         if (writeCmds.length > 0 || editCmds.length > 0 || createDirCmds.length > 0 || moveCmds.length > 0 || searchKeywordCmds.length > 0) {
+            if (window.justRunCommands === true) {
+                isWriteEditApproved = true;
+                runDiskModifications();
+                return;
+            }
+
             const displayModify = [
                 ...writeCmds.map(c => `[NEW] ${c.path}`),
                 ...editCmds.map(c => `[MODIFY] ${c.path}`),
@@ -460,6 +472,21 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
 
     const startCommandOrchestration = () => {
         if (runCommandCmds.length > 0) {
+            if (window.justRunCommands === true) {
+                for (const c of runCommandCmds) {
+                    ChatUI.appendBubble('system', `[SYSTEM] Dispatched to internal terminal: ${c.command}\n`);
+                    if (typeof window.executeCommandInTerminal === 'function') {
+                        window.executeCommandInTerminal(c.command);
+                    }
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast(`Executed in Terminal: "${c.command}"`, 3500, true);
+                    }
+                    accumulatedFeedback += `[COMMAND DISPATCHED TO INTERNAL TERMINAL]: "${c.command}"\n(The command has been launched in the interactive terminal window.)\n\n`;
+                }
+                submitConsolidatedFeedback(accumulatedFeedback);
+                return;
+            }
+
             const displayCmd = runCommandCmds.map(c => `run-command "${c.command}"`).join(', ');
             const box = ChatUI.appendBubble('system', '');
             const content = box.querySelector('.bubble-content');

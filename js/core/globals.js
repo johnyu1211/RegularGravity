@@ -8,6 +8,7 @@ window.currentSplitHeight = 0;
 window.pendingSplitHeight = 120;
 window.requestedFilesQueue = [];
 window.autoSend = true;
+window.justRunCommands = false;
 
 // Hook ipcRenderer.send to capture currentlyDraggedFilePath on dragstart
 const originalSend = ipcRenderer.send.bind(ipcRenderer);

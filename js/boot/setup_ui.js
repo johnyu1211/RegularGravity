@@ -1211,6 +1211,14 @@ function setupUI() {
                                 <span class="slider-toggle"></span>
                             </label>
                         </div>
+                        <!-- Just Run commands -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
+                            <span style="font-weight:600; color:#eee; font-size:11.5px;" title="Automatically execute file edits, creation, deletions, and commands without confirmation popups">Just Run commands</span>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="chk-just-run-commands" ${window.justRunCommands === true ? 'checked' : ''}>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
                         <!-- Prefer Full File Replace -->
                         <div style="display:flex; justify-content:space-between; align-items:center; width:100%; box-sizing:border-box;">
                             <span style="font-weight:600; color:#eee; font-size:11.5px;" title="Force AI to output full updated file (write-file) instead of chunk snippet edits">Full File Overwrite (write-file)</span>
@@ -1232,6 +1240,7 @@ function setupUI() {
                 
                 const chkDebug = document.getElementById('chk-debug-mode');
                 const chkAutoSend = document.getElementById('chk-auto-send');
+                const chkJustRun = document.getElementById('chk-just-run-commands');
                 const chkAutoRefresh = document.getElementById('chk-auto-refresh-session');
                 const txtRefreshCount = document.getElementById('txt-refresh-turn-count');
                 const containerRefresh = document.getElementById('refresh-turn-container');
@@ -1254,6 +1263,7 @@ function setupUI() {
                         debugMode: !!chkDebug.checked,
                         dragDropMode: true,
                         autoSend: chkAutoSend ? !!chkAutoSend.checked : true,
+                        justRunCommands: chkJustRun ? !!chkJustRun.checked : false,
                         autoDragging: false,
                         autoRefreshSession: !!chkAutoRefresh.checked,
                         refreshTurnCount: parseInt(txtRefreshCount.value) || 35,

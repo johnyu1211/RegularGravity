@@ -451,6 +451,13 @@ function detectAndAskCommand(text) {
         const toolName = firstMcp.tool || 'tool';
         const argsStr = JSON.stringify(firstMcp.args, null, 2);
 
+        if (window.justRunCommands === true) {
+            if (typeof window.executeMcpCall === 'function') {
+                window.executeMcpCall(serverName, toolName, firstMcp.args);
+            }
+            return;
+        }
+
         const onContinue = async () => {
             if (box) box.remove();
             if (window.activeCommandCleanup) window.activeCommandCleanup();

@@ -204,20 +204,6 @@ window.updateDragDropQueueUI = function() {
         listEl.appendChild(itemEl);
     });
 
-    const autoDropAllBtn = document.getElementById('btn-auto-drop-all');
-    if (autoDropAllBtn) {
-        autoDropAllBtn.style.display = isBrowserMode ? 'none' : 'inline-flex';
-        autoDropAllBtn.onclick = async () => {
-            const pendingFiles = window.requestedFilesQueue.filter(f => f.status === 'PENDING').map(f => f.absolutePath);
-            if (pendingFiles.length === 0) return;
-            autoDropAllBtn.innerText = 'Dropping...';
-            autoDropAllBtn.style.opacity = '0.7';
-            await window.performCdpDrop(pendingFiles, () => {
-                window.requestedFilesQueue.forEach(f => f.status = 'COMPLETED');
-                setTimeout(() => handleCloseQueue(), 400);
-            });
-        };
-    }
     
     if (window.dragDropMode && window.requestedFilesQueue.filter(item => item.status === 'PENDING').length > 0) {
         if (!window.autoClickingQueue) {

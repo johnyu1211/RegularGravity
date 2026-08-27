@@ -210,22 +210,27 @@ window.updateDragDropQueueUI = function() {
             if (!window.autoSendingInProgress) {
                 window.autoSendingInProgress = true;
                 setTimeout(async () => {
-                    const pendingFiles = window.requestedFilesQueue.filter(f => f.status === 'PENDING').map(f => f.absolutePath);
-                    if (pendingFiles.length > 0) {
-                        await window.performCdpDrop(pendingFiles, async () => {
-                            window.requestedFilesQueue.forEach(f => f.status = 'COMPLETED');
-                            setTimeout(() => {
-                                handleCloseQueue();
-                                if (typeof window.triggerGuestSend === 'function') {
-                                    window.triggerGuestSend();
-                                }
-                                window.autoSendingInProgress = false;
-                            }, 300);
-                        });
-                    } else {
-                        window.autoSendingInProgress = false;
+                    try {
+                        const pendingFiles = window.requestedFilesQueue.filter(f => f.status === 'PENDING').map(f => f.absolutePath);
+                        if (pendingFiles.length > 0) {
+                            const dropped = await window.performCdpDrop(pendingFiles, () => {
+                                window.requestedFilesQueue.forEach(f => f.status = 'COMPLETED');
+                            });
+                            if (dropped) {
+                                setTimeout(() => {
+                                    handleCloseQueue();
+                                    if (typeof window.triggerGuestSend === 'function') {
+                                        window.triggerGuestSend();
+                                    }
+                                }, 300);
+                            }
+                        }
+                    } finally {
+                        setTimeout(() => {
+                            window.autoSendingInProgress = false;
+                        }, 500);
                     }
-                }, 400);
+                }, 300);
             }
         }
     }
@@ -242,78 +247,95 @@ window.performCdpDrop = async function(filePaths = [], onComplete = null) {
     }
 
     if (typeof window.showUserScreenToast === 'function') {
-        window.showUserScreenToast('Injecting file to AI chat...', 1500);
+        window.showUserScreenToast('Injecting file to AI chat...', 1200);
     }
 
-    try {
-        const findInputCoordsScript = `
-            (() => {
-                const inKeywords = ["prompt", "chat", "message", "write", "ask", "question", "reply", "enter", "talk"];
-                const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-                const inputs = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"], .ProseMirror, [contenteditable="plaintext-only"]')).filter(el => isVisible(el));
-                
-                let target = null;
-                for (let el of inputs) {
-                    const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.getAttribute('data-placeholder') || el.innerText || '').toLowerCase();
-                    if (inKeywords.some(k => text.includes(k))) {
-                        target = el;
-                        break;
-                    }
-                }
-                if (!target && inputs.length > 0) target = inputs[inputs.length - 1];
-                
-                if (!target) {
-                    const dropContainers = Array.from(document.querySelectorAll('form, [data-testid*="chat"], main')).filter(el => isVisible(el));
-                    if (dropContainers.length > 0) target = dropContainers[dropContainers.length - 1];
-                }
-
-                if (target) {
-                    try { target.focus(); } catch(e){}
-                    const rect = target.getBoundingClientRect();
-                    return {
-                        found: true,
-                        x: Math.round(rect.left + rect.width / 2),
-                        y: Math.round(rect.top + rect.height / 2)
-                    };
-                }
-                return {
-                    found: false,
-                    x: Math.round(window.innerWidth / 2),
-                    y: Math.round(window.innerHeight - 100)
-                };
-            })()
-        `;
-
-        const coords = await wv.executeJavaScript(findInputCoordsScript);
-        const wcId = wv.getWebContentsId();
-
-        const res = await ipcRenderer.invoke('cdp-native-file-drop', {
-            webContentsId: wcId,
-            files: filePaths,
-            x: coords.x,
-            y: coords.y
-        });
-
-        if (res && res.success) {
-            try {
-                await wv.executeJavaScript(`
-                    (() => {
-                        const fi = document.querySelector('input[type="file"]');
-                        if (fi) {
-                            fi.dispatchEvent(new Event('change', { bubbles: true }));
-                            fi.dispatchEvent(new Event('input', { bubbles: true }));
+    const tryDropOnce = async () => {
+        try {
+            const findInputCoordsScript = `
+                (() => {
+                    const inKeywords = ["prompt", "chat", "message", "write", "ask", "question", "reply", "enter", "talk"];
+                    const isVisible = (el) => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                    const inputs = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"], [role="textbox"], .ProseMirror, [contenteditable="plaintext-only"]')).filter(el => isVisible(el));
+                    
+                    let target = null;
+                    for (let el of inputs) {
+                        const text = (el.placeholder || el.getAttribute('aria-label') || el.title || el.getAttribute('data-placeholder') || el.innerText || '').toLowerCase();
+                        if (inKeywords.some(k => text.includes(k))) {
+                            target = el;
+                            break;
                         }
-                    })()
-                `);
-            } catch(e){}
+                    }
+                    if (!target && inputs.length > 0) target = inputs[inputs.length - 1];
+                    
+                    if (!target) {
+                        const dropContainers = Array.from(document.querySelectorAll('form, [data-testid*="chat"], main')).filter(el => isVisible(el));
+                        if (dropContainers.length > 0) target = dropContainers[dropContainers.length - 1];
+                    }
 
+                    if (target) {
+                        try { target.focus(); } catch(e){}
+                        const rect = target.getBoundingClientRect();
+                        return {
+                            found: true,
+                            x: Math.round(rect.left + rect.width / 2),
+                            y: Math.round(rect.top + rect.height / 2)
+                        };
+                    }
+                    return {
+                        found: false,
+                        x: Math.round(window.innerWidth / 2),
+                        y: Math.round(window.innerHeight - 100)
+                    };
+                })()
+            `;
+
+            const coords = await wv.executeJavaScript(findInputCoordsScript);
+            const wcId = wv.getWebContentsId();
+
+            const res = await ipcRenderer.invoke('cdp-native-file-drop', {
+                webContentsId: wcId,
+                files: filePaths,
+                x: coords.x,
+                y: coords.y
+            });
+
+            if (res && res.success) {
+                try {
+                    await wv.executeJavaScript(`
+                        (() => {
+                            const fi = document.querySelector('input[type="file"]');
+                            if (fi) {
+                                fi.dispatchEvent(new Event('change', { bubbles: true }));
+                                fi.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
+                        })()
+                    `);
+                } catch(e){}
+                return true;
+            }
+        } catch(e) {
+            console.warn("[tryDropOnce]", e.message);
+        }
+        return false;
+    };
+
+    try {
+        let success = false;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            success = await tryDropOnce();
+            if (success) break;
+            await new Promise(r => setTimeout(r, 400));
+        }
+
+        if (success) {
             if (typeof window.showUserScreenToast === 'function') {
-                window.showUserScreenToast(`Successfully injected ${filePaths.length} file(s) into AI!`, 2500);
+                window.showUserScreenToast(`Successfully injected file into AI!`, 2000);
             }
             if (typeof onComplete === 'function') onComplete();
             return true;
         } else {
-            throw new Error(res?.error || 'CDP drop failed');
+            throw new Error('Could not inject file to Web AI');
         }
     } catch(err) {
         console.error("[CDP Drop Execution Error]", err);

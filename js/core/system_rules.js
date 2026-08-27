@@ -22,8 +22,42 @@ window.getSystemRulesPrompt = function(forceFull = false) {
      (OR using [SEARCH] ... [REPLACE] ... [END] format).
    - New Files or Full Replacement: Use [CMD: write-file "path"] followed by \`\`\`lang\nfull_code\n\`\`\`.`;
 
+    // Dynamically retrieve active MCP servers from Settings.json or window.loadMcpServers()
+    let mcpRule = '';
+    try {
+        let servers = {};
+        if (typeof window.loadMcpServers === 'function') {
+            servers = window.loadMcpServers();
+        } else if (typeof window.require !== 'undefined') {
+            const fs = window.require('fs');
+            const path = window.require('path');
+            const root = window.appRootPath || (typeof process !== 'undefined' ? process.cwd() : '.');
+            const p = path.join(root, 'Settings.json');
+            if (fs.existsSync(p)) {
+                const data = JSON.parse(fs.readFileSync(p, 'utf-8'));
+                servers = data.mcpServers || {};
+            }
+        }
+
+        const activeKeys = Object.keys(servers).filter(k => servers[k] && servers[k].disabled !== true);
+        if (activeKeys.length > 0) {
+            const serverListStr = activeKeys.map(k => {
+                const s = servers[k];
+                const type = s.url ? `SSE: ${s.url}` : `stdio: ${s.command || ''}`;
+                return `   - "${k}" (${type})`;
+            }).join('\n');
+
+            mcpRule = `\n7. MCP TOOLS (Model Context Protocol):
+   Active MCP server(s) configured in this workspace:
+${serverListStr}
+   To execute a tool provided by any active MCP server, output:
+   [CMD: mcp-call server="server_name" tool="tool_name" args='{"key": "value"}']`;
+        }
+    } catch(e) {}
+
+    const emoteRuleNumber = mcpRule ? '8' : '7';
     const emoteRule = isEmoteEnabled ? 
-        `\n7. EMOTE RESPONSE RULE (MANDATORY): You MUST end your final response explanation with an emote tag (e.g. emote:trust, emote:joy, emote:def, emote:sad, emote:angr, emote:fear, emote:disgust, emote:surpr, emote:antici, emote:awe). NEVER omit the emote tag!` : ``;
+        `\n${emoteRuleNumber}. EMOTE RESPONSE RULE (MANDATORY): You MUST end your final response explanation with an emote tag (e.g. emote:trust, emote:joy, emote:def, emote:sad, emote:angr, emote:fear, emote:disgust, emote:surpr, emote:antici, emote:awe). NEVER omit the emote tag!` : ``;
 
     const emoteReminder = isEmoteEnabled ? 
         ` End response explanation text with an emote tag (e.g. emote:trust, emote:joy, emote:def). NEVER omit emote tag!` : ``;
@@ -39,7 +73,7 @@ ${editRule}
 3. RUN CMD: [CMD: run-command "command"] (build, test, shell).
 4. RESET: Use [CMD: reset-session] if lagging.
 5. WAIT: Explain current state, do not plan, wait for user.
-6. LEAN CODE: Prefer minimal, simple implementation (YAGNI). Avoid over-engineering, redundant wrappers, or unused features. Maintain strict error handling and security.${emoteRule}`;
+6. LEAN CODE: Prefer minimal, simple implementation (YAGNI). Avoid over-engineering, redundant wrappers, or unused features. Maintain strict error handling and security.${mcpRule}${emoteRule}`;
 
     if (forceFull) {
         return fullRules;

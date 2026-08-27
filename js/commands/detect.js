@@ -73,7 +73,7 @@ function detectAndAskCommand(text) {
             let trimmed = line.trim().replace(/^[`\s]+|[`\s]+$/g, '');
             // Strip leading comment markers like //, /*, <!--, #
             trimmed = trimmed.replace(/^(?:\/\/|\/\*+|<!--+|#)\s*/, '').replace(/(?:\*+\/|-->)$/, '').trim();
-            if (/^(read-file|write-file|edit-file|edit-file-range|read-file-full|read-file-range|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file|reset-session)\b/i.test(trimmed)) {
+            if (/^(read-file|write-file|edit-file|edit-file-range|read-file-full|read-file-range|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file|reset-session|mcp-call)\b/i.test(trimmed)) {
                 foundCmds.push(trimmed);
             }
         }
@@ -81,7 +81,7 @@ function detectAndAskCommand(text) {
 
     // Check if code block starts with a comment-style command
     if (foundCmds.length === 0 && text.includes('```')) {
-        const blockCommentCmdMatch = text.match(/```[a-zA-Z]*\r?\n\s*(?:\/\/|\/\*+|<!--+|#)\s*(?:\[?(?:CMD|REQUEST|COMMAND|EXEC):\s*)?(read-file|write-file|edit-file|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file)\s+(?:"([^"]+)"|'([^']+)'|([^\s\r\n\]]+))/i);
+        const blockCommentCmdMatch = text.match(/```[a-zA-Z]*\r?\n\s*(?:\/\/|\/\*+|<!--+|#)\s*(?:\[?(?:CMD|REQUEST|COMMAND|EXEC):\s*)?(read-file|write-file|edit-file|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file|mcp-call)\s+(?:"([^"]+)"|'([^']+)'|([^\s\r\n\]]+))/i);
         if (blockCommentCmdMatch) {
             const action = blockCommentCmdMatch[1].toLowerCase();
             const p = (blockCommentCmdMatch[2] || blockCommentCmdMatch[3] || blockCommentCmdMatch[4] || '').trim();
@@ -124,7 +124,7 @@ function detectAndAskCommand(text) {
                         break;
                     }
 
-                    const cmdFormatMatch = lineStr.match(/^[`\s]*(read-file|write-file|edit-file|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file)\b\s*(.*)/i);
+                    const cmdFormatMatch = lineStr.match(/^[`\s]*(read-file|write-file|edit-file|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file|mcp-call)\b\s*(.*)/i);
                     if (cmdFormatMatch) {
                         foundCmds.push(lineStr.replace(/^[`\s]+|[`\s]+$/g, ''));
                         break;

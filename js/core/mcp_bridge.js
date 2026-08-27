@@ -103,7 +103,8 @@
         }
 
         const mdContent = generateMcpToolsMarkdown(serverName);
-        const baseFileName = `_mcp_tools_${serverName}.md`;
+        const subDir = (typeof window.getSendingMdSubDir === 'function') ? window.getSendingMdSubDir() : 'gravity_vault/SendingMD';
+        const baseFileName = path ? path.join(subDir, `_mcp_tools_${serverName}.md`) : `_mcp_tools_${serverName}.md`;
 
         const payload = await window.prepareFilePayload(baseFileName, mdContent);
 

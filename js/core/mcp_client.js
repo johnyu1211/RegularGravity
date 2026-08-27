@@ -255,8 +255,9 @@
             ChatUI.appendBubble('system', `[MCP RESULT: ${serverName}.${toolName}]\n${cleanContent}`);
         }
 
-        // Prepare file payload for Drag & Drop
-        const baseFileName = `_mcp_result_${serverName}_${toolName}.md`;
+        // Prepare file payload for Drag & Drop in temp directory
+        const subDir = (typeof window.getSendingMdSubDir === 'function') ? window.getSendingMdSubDir() : 'gravity_vault/SendingMD';
+        const baseFileName = path ? path.join(subDir, `_mcp_result_${serverName}_${toolName}.md`) : `_mcp_result_${serverName}_${toolName}.md`;
         const payload = await window.prepareFilePayload(baseFileName, mdContent);
 
         if (typeof window.refreshTree === 'function') {

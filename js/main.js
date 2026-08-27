@@ -758,29 +758,32 @@ ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, 
         // 1. Try DOM.setFileInputFiles (Playwright / Puppeteer native upload method)
         try {
             await dbg.sendCommand('DOM.enable');
-            const doc = await dbg.sendCommand('DOM.getDocument', { depth: -1 });
-            const inputNode = await dbg.sendCommand('DOM.querySelector', {
-                nodeId: doc.root.nodeId,
-                selector: 'input[type="file"]'
-            });
-
-            if (inputNode && inputNode.nodeId > 0) {
-                console.log("[CDP] Found input[type=file], injecting via DOM.setFileInputFiles:", fileList);
-                await dbg.sendCommand('DOM.setFileInputFiles', {
-                    files: fileList,
-                    nodeId: inputNode.nodeId
+            const doc = await dbg.sendCommand('DOM.getDocument', {});
+            if (doc && doc.root && doc.root.nodeId) {
+                const inputNode = await dbg.sendCommand('DOM.querySelector', {
+                    nodeId: doc.root.nodeId,
+                    selector: 'input[type="file"]'
                 });
-                return { success: true, method: 'setFileInputFiles' };
+
+                if (inputNode && inputNode.nodeId && inputNode.nodeId > 0) {
+                    console.log("[CDP] Found input[type=file], injecting via DOM.setFileInputFiles:", fileList);
+                    await dbg.sendCommand('DOM.setFileInputFiles', {
+                        files: fileList,
+                        nodeId: inputNode.nodeId
+                    });
+                    return { success: true, method: 'setFileInputFiles' };
+                }
             }
         } catch(domErr) {
             console.warn("[CDP DOM.setFileInputFiles]", domErr.message);
         }
 
         // 2. Fallback: Input.dispatchDragEvent (OS-level drag drop)
-        const targetX = (typeof x === 'number' && x > 0) ? Math.round(x) : 300;
-        const targetY = (typeof y === 'number' && y > 0) ? Math.round(y) : 500;
+        const targetX = (typeof x === 'number' && Number.isFinite(x) && x > 0) ? Math.round(x) : 300;
+        const targetY = (typeof y === 'number' && Number.isFinite(y) && y > 0) ? Math.round(y) : 500;
 
         const dataPayload = {
+            items: [],
             files: fileList,
             dragOperationsMask: 1
         };
@@ -790,7 +793,8 @@ ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, 
             type: 'dragEnter',
             x: targetX,
             y: targetY,
-            data: dataPayload
+            data: dataPayload,
+            modifiers: 0
         });
 
         await new Promise(r => setTimeout(r, 60));
@@ -800,7 +804,8 @@ ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, 
             type: 'dragOver',
             x: targetX,
             y: targetY,
-            data: dataPayload
+            data: dataPayload,
+            modifiers: 0
         });
 
         await new Promise(r => setTimeout(r, 60));
@@ -810,7 +815,8 @@ ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, 
             type: 'drop',
             x: targetX,
             y: targetY,
-            data: dataPayload
+            data: dataPayload,
+            modifiers: 0
         });
 
         return { success: true, method: 'dispatchDragEvent' };

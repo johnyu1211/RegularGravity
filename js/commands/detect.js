@@ -54,11 +54,11 @@ function detectAndAskCommand(text) {
         console.log("[BriefingShield] Activated: Ignoring any non-read commands during briefing response.");
     }
 
-    const cmdRegex = /\[(CMD|REQUEST|COMMAND|EXEC):\s*([^\]\r\n]+)\]?/gi;
+    const cmdRegex = /\[(CMD|REQUEST|COMMAND|EXEC):\s*([\s\S]*?)\]/gi;
     let match;
     const foundCmds = [];
     while ((match = cmdRegex.exec(text)) !== null) {
-        let cleanCmd = match[2].trim();
+        let cleanCmd = match[2].trim().replace(/\s+/g, ' ');
         if (cleanCmd) {
             if (cleanCmd.endsWith(']')) cleanCmd = cleanCmd.slice(0, -1).trim();
             if (cleanCmd === '...' || cleanCmd.includes('...')) continue;
@@ -417,13 +417,17 @@ function detectAndAskCommand(text) {
         } else if (mcpListMatch) {
             const serverName = (mcpListMatch[1] || '').trim();
             mcpListCmds.push({ server: serverName });
-        } else if (mcpCallMatch) {
-            const serverName = (mcpCallMatch[1] || '').trim();
-            const toolName = (mcpCallMatch[2] || '').trim();
-            let rawArgs = (mcpCallMatch[3] || '').trim();
+        } else if (cmd.startsWith('mcp-call')) {
+            const sMatch = cmd.match(/server=["']?([^"'\s]+)["']?/i);
+            const tMatch = cmd.match(/tool=["']?([^"'\s]+)["']?/i);
+            const aMatch = cmd.match(/args=(?:'(\{[\s\S]*\}|.*?)'|"(\{[\s\S]*\}|.*?)"|(\{[\s\S]*\}))/i);
+
+            const server = sMatch ? sMatch[1] : '';
+            const tool = tMatch ? tMatch[1] : '';
+            let rawArgs = aMatch ? (aMatch[1] || aMatch[2] || aMatch[3] || '{}') : '{}';
             let parsedArgs = {};
             try { parsedArgs = rawArgs ? JSON.parse(rawArgs) : {}; } catch(e) { parsedArgs = { raw: rawArgs }; }
-            mcpCallCmds.push({ server: serverName, tool: toolName, args: parsedArgs });
+            mcpCallCmds.push({ server: server, tool: tool, args: parsedArgs });
         } else if (resetSessionMatch) {
             hasResetSession = true;
         } else {
@@ -436,6 +440,66 @@ function detectAndAskCommand(text) {
         const sName = mcpListCmds[0].server || 'premierePro';
         if (typeof window.executeMcpList === 'function') {
             window.executeMcpList(sName);
+        }
+        return;
+    }
+
+    // Handle MCP Call Tool Execution with Action Deck Confirmation
+    if (mcpCallCmds.length > 0) {
+        const firstMcp = mcpCallCmds[0];
+        const serverName = firstMcp.server || 'premierePro';
+        const toolName = firstMcp.tool || 'tool';
+        const argsStr = JSON.stringify(firstMcp.args, null, 2);
+
+        const onContinue = async () => {
+            if (box) box.remove();
+            if (window.activeCommandCleanup) window.activeCommandCleanup();
+            if (typeof window.executeMcpCall === 'function') {
+                await window.executeMcpCall(serverName, toolName, firstMcp.args);
+            }
+        };
+
+        const onCancel = () => {
+            if (box) box.remove();
+            if (window.activeCommandCleanup) window.activeCommandCleanup();
+            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                ChatUI.appendBubble('system', `[MCP] Execution of ${serverName}.${toolName} cancelled by user.`);
+            }
+        };
+
+        const box = (typeof ChatUI !== 'undefined') ? ChatUI.appendBubble('system', '') : null;
+        if (box) box.style.display = 'block';
+        const content = box ? box.querySelector('.bubble-content') : null;
+        const themeColor = "#a855f7";
+
+        if (content) {
+            content.innerHTML = `
+            <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', monospace; font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; word-break: break-all; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); margin-top: 4px;">
+                <div style="font-weight: bold; color: #a855f7; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+                    <span>MCP TOOL EXECUTION</span>
+                </div>
+                <span>Allow Web AI to execute <strong style="color: #c084fc; font-size: 11.5px; background: rgba(168,85,247,0.15); padding: 2px 6px; border-radius: 4px;">${serverName}.${toolName}</strong> with arguments:</span>
+                <pre style="margin: 6px 0 0; padding: 6px 8px; background: rgba(0,0,0,0.3); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-main);">${argsStr}</pre>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">ALLOW</button>
+                <button class="cmd-cancel-btn" style="flex: 1; background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s;">DENY</button>
+            </div>
+            `;
+            const runBtn = content.querySelector('.cmd-run-btn');
+            if (runBtn) runBtn.onclick = onContinue;
+            const cancelBtn = content.querySelector('.cmd-cancel-btn');
+            if (cancelBtn) cancelBtn.onclick = onCancel;
+        }
+
+        if (typeof window.showCommandExecutionPanel === 'function') {
+            window.showCommandExecutionPanel(
+                "MCP Tool Execution",
+                `Execute MCP tool: ${serverName}.${toolName}?`,
+                onContinue,
+                onCancel
+            );
         }
         return;
     }

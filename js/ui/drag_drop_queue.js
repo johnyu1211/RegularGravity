@@ -238,6 +238,18 @@ window.updateDragDropQueueUI = function() {
 
 window.performCdpDrop = async function(filePaths = [], onComplete = null) {
     if (!filePaths || filePaths.length === 0) return false;
+
+    // Prevent duplicate firing within 1200ms for identical files
+    const now = Date.now();
+    const dropKey = Array.isArray(filePaths) ? filePaths.slice().sort().join('|') : String(filePaths);
+    if (window._lastDropKey === dropKey && (now - (window._lastDropTimestamp || 0)) < 1200) {
+        console.warn("[performCdpDrop] Debounced duplicate drop request:", dropKey);
+        if (typeof onComplete === 'function') onComplete();
+        return true;
+    }
+    window._lastDropKey = dropKey;
+    window._lastDropTimestamp = now;
+
     const wv = document.getElementById('active-agent-webview');
     if (!wv) {
         if (typeof window.showUserScreenToast === 'function') {
@@ -301,17 +313,6 @@ window.performCdpDrop = async function(filePaths = [], onComplete = null) {
             });
 
             if (res && res.success) {
-                try {
-                    await wv.executeJavaScript(`
-                        (() => {
-                            const fi = document.querySelector('input[type="file"]');
-                            if (fi) {
-                                fi.dispatchEvent(new Event('change', { bubbles: true }));
-                                fi.dispatchEvent(new Event('input', { bubbles: true }));
-                            }
-                        })()
-                    `);
-                } catch(e){}
                 return true;
             }
         } catch(e) {

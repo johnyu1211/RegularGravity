@@ -2154,6 +2154,14 @@ button:focus, .btn:focus, [role="button"]:focus, input[type="button"]:focus, inp
     margin-left: 5px;
 }
 
+#taskbar-undo-btn:hover .btn-text,
+#taskbar-redo-btn:hover .btn-text {
+    max-width: 190px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
 #taskbar-undo-btn .undo-badge-full {
     display: none;
 }

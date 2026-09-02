@@ -284,12 +284,14 @@
             // UNDO Button
             const undoBtn = document.getElementById('taskbar-undo-btn');
             const undoBadge = document.getElementById('taskbar-undo-count-badge');
+            const undoText = undoBtn ? undoBtn.querySelector('.btn-text') : null;
+
             if (undoBtn) {
                 const count = this.undoStack.length;
                 if (count > 0) {
                     const topTrans = this.undoStack[this.undoStack.length - 1];
                     const hasLabel = topTrans && topTrans.description && topTrans.description !== 'AI File Changes' && topTrans.description !== 'AI File Operations';
-                    const labelInfo = hasLabel ? ` to [${topTrans.description}]` : '';
+                    const customLabel = hasLabel ? topTrans.description : 'UNDO';
 
                     undoBtn.disabled = false;
                     undoBtn.style.opacity = '1';
@@ -297,7 +299,13 @@
                     undoBtn.style.background = '';
                     undoBtn.style.color = '';
                     undoBtn.style.borderColor = '';
-                    undoBtn.title = `Undo${labelInfo} (${count}/${this.maxHistory} in history)`;
+                    undoBtn.title = `Undo to [${customLabel}] (${count}/${this.maxHistory} in history)`;
+                    
+                    if (undoText) {
+                        undoText.innerText = customLabel.toUpperCase();
+                        undoText.title = customLabel;
+                    }
+
                     if (undoBadge) {
                         undoBadge.innerHTML = `<span class="undo-badge-short">${count}</span><span class="undo-badge-full">${count}/${this.maxHistory}</span>`;
                         undoBadge.style.display = 'inline-block';
@@ -310,6 +318,12 @@
                     undoBtn.style.color = '';
                     undoBtn.style.borderColor = '';
                     undoBtn.title = 'No AI changes to undo';
+                    
+                    if (undoText) {
+                        undoText.innerText = 'UNDO';
+                        undoText.title = '';
+                    }
+
                     if (undoBadge) {
                         undoBadge.innerHTML = `<span class="undo-badge-short">0</span><span class="undo-badge-full">0/${this.maxHistory}</span>`;
                         undoBadge.style.display = 'none';
@@ -320,12 +334,14 @@
             // REDO Button
             const redoBtn = document.getElementById('taskbar-redo-btn');
             const redoBadge = document.getElementById('taskbar-redo-count-badge');
+            const redoText = redoBtn ? redoBtn.querySelector('.btn-text') : null;
+
             if (redoBtn) {
                 const count = this.redoStack.length;
                 if (count > 0) {
                     const topRedo = this.redoStack[this.redoStack.length - 1];
                     const hasLabel = topRedo && topRedo.description && topRedo.description !== 'AI File Changes' && topRedo.description !== 'AI File Operations';
-                    const labelInfo = hasLabel ? ` [${topRedo.description}]` : '';
+                    const customLabel = hasLabel ? topRedo.description : 'REDO';
 
                     redoBtn.disabled = false;
                     redoBtn.style.opacity = '1';
@@ -333,7 +349,13 @@
                     redoBtn.style.background = '';
                     redoBtn.style.color = '';
                     redoBtn.style.borderColor = '';
-                    redoBtn.title = `Redo${labelInfo} (${count}/${this.maxHistory} in history)`;
+                    redoBtn.title = `Redo [${customLabel}] (${count}/${this.maxHistory} in history)`;
+                    
+                    if (redoText) {
+                        redoText.innerText = customLabel.toUpperCase();
+                        redoText.title = customLabel;
+                    }
+
                     if (redoBadge) {
                         redoBadge.innerHTML = `<span class="redo-badge-short">${count}</span><span class="redo-badge-full">${count}/${this.maxHistory}</span>`;
                         redoBadge.style.display = 'inline-block';
@@ -346,6 +368,12 @@
                     redoBtn.style.color = '';
                     redoBtn.style.borderColor = '';
                     redoBtn.title = 'No undone AI changes to redo';
+                    
+                    if (redoText) {
+                        redoText.innerText = 'REDO';
+                        redoText.title = '';
+                    }
+
                     if (redoBadge) {
                         redoBadge.innerHTML = `<span class="redo-badge-short">0</span><span class="redo-badge-full">0/${this.maxHistory}</span>`;
                         redoBadge.style.display = 'none';

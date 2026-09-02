@@ -51,8 +51,11 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                         <span>DELETE CONFIRMATION</span>
                     </div>
                     <span>Allow Web AI to delete: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayDelete}</strong>?</span>
-                    <div style="margin-top: 8px;">
-                        <input type="text" class="cmd-checkpoint-input" placeholder="체크포인트 이름 (State Label, 선택 사항)..." style="width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 4px; outline: none; box-sizing: border-box; font-family: 'DM Sans', sans-serif;">
+                    <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 10.5px; font-weight: 700; color: #9aa0a6; font-family: 'DM Sans', sans-serif; letter-spacing: 0.03em;">
+                            Previous State Label :
+                        </label>
+                        <input type="text" class="cmd-checkpoint-input" placeholder="Save state name before applying changes below (Optional)" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 6px 10px; border-radius: 6px; outline: none; box-sizing: border-box; font-family: 'DM Sans', sans-serif;">
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
@@ -112,8 +115,11 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                         <span>ACTION / FILE CONFIRMATION</span>
                     </div>
                     <span>Allow Web AI to execute: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayModify}</strong>?</span>
-                    <div style="margin-top: 8px;">
-                        <input type="text" class="cmd-checkpoint-input" value="${inheritedCheckpointName || ''}" placeholder="체크포인트 이름 (State Label, 선택 사항)..." style="width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 4px; outline: none; box-sizing: border-box; font-family: 'DM Sans', sans-serif;">
+                    <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 10.5px; font-weight: 700; color: #9aa0a6; font-family: 'DM Sans', sans-serif; letter-spacing: 0.03em;">
+                            Previous State Label :
+                        </label>
+                        <input type="text" class="cmd-checkpoint-input" value="${inheritedCheckpointName || ''}" placeholder="Save state name before applying changes below (Optional)" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 6px 10px; border-radius: 6px; outline: none; box-sizing: border-box; font-family: 'DM Sans', sans-serif;">
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px;">

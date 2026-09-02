@@ -25,11 +25,11 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
             const themeColor = "#ef4444"; 
             const glowShadow = "none";
 
-            const onContinue = () => {
+            const onContinue = (checkpointName = '') => {
                 if (box) box.remove();
                 if (window.activeCommandCleanup) window.activeCommandCleanup();
                 isDeleteApproved = true;
-                startWriteEditOrchestration();
+                startWriteEditOrchestration(checkpointName);
             };
 
             const onCancel = () => {
@@ -51,6 +51,9 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                         <span>DELETE CONFIRMATION</span>
                     </div>
                     <span>Allow Web AI to delete: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayDelete}</strong>?</span>
+                    <div style="margin-top: 8px;">
+                        <input type="text" class="cmd-checkpoint-input" placeholder="체크포인트 이름 (State Label, 선택 사항)..." style="width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 4px; outline: none; box-sizing: border-box; font-family: 'DM Sans', sans-serif;">
+                    </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: none;">ALLOW</button>
@@ -58,7 +61,12 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 </div>
                 `;
                 const runBtn = content.querySelector('.cmd-run-btn');
-                if (runBtn) runBtn.onclick = onContinue;
+                if (runBtn) {
+                    runBtn.onclick = () => {
+                        const cpIn = content.querySelector('.cmd-checkpoint-input');
+                        onContinue(cpIn ? cpIn.value.trim() : '');
+                    };
+                }
                 const cancelBtn = content.querySelector('.cmd-cancel-btn');
                 if (cancelBtn) cancelBtn.onclick = onCancel;
             }
@@ -76,11 +84,11 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
         }
     };
 
-    const startWriteEditOrchestration = () => {
+    const startWriteEditOrchestration = (inheritedCheckpointName = '') => {
         if (writeCmds.length > 0 || editCmds.length > 0 || createDirCmds.length > 0 || moveCmds.length > 0 || searchKeywordCmds.length > 0) {
             if (window.justRunCommands === true) {
                 isWriteEditApproved = true;
-                runDiskModifications();
+                runDiskModifications(inheritedCheckpointName);
                 return;
             }
 
@@ -104,6 +112,9 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                         <span>ACTION / FILE CONFIRMATION</span>
                     </div>
                     <span>Allow Web AI to execute: <strong style="color: var(--text-main); font-size: 11px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${displayModify}</strong>?</span>
+                    <div style="margin-top: 8px;">
+                        <input type="text" class="cmd-checkpoint-input" value="${inheritedCheckpointName || ''}" placeholder="체크포인트 이름 (State Label, 선택 사항)..." style="width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 4px; outline: none; box-sizing: border-box; font-family: 'DM Sans', sans-serif;">
+                    </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="cmd-run-btn" style="flex: 1; background: linear-gradient(135deg, ${themeColor}, ${themeColor}dd); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: none;">ALLOW</button>
@@ -111,11 +122,11 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 </div>
             `;
 
-            const onContinue = () => {
+            const onContinue = (checkpointName = '') => {
                 box.remove();
                 if (window.activeCommandCleanup) window.activeCommandCleanup();
                 isWriteEditApproved = true;
-                runDiskModifications();
+                runDiskModifications(checkpointName || inheritedCheckpointName);
             };
 
             const onCancel = () => {
@@ -135,7 +146,13 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 runDiskModifications();
             };
 
-            content.querySelector('.cmd-run-btn').onclick = onContinue;
+            const runBtn = content.querySelector('.cmd-run-btn');
+            if (runBtn) {
+                runBtn.onclick = () => {
+                    const cpIn = content.querySelector('.cmd-checkpoint-input');
+                    onContinue(cpIn ? cpIn.value.trim() : '');
+                };
+            }
             content.querySelector('.cmd-cancel-btn').onclick = onCancel;
 
             if (typeof window.showCommandExecutionPanel === 'function') {
@@ -147,16 +164,16 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 );
             }
         } else {
-            runDiskModifications();
+            runDiskModifications(inheritedCheckpointName);
         }
     };
 
-    const runDiskModifications = async () => {
+    const runDiskModifications = async (checkpointName = '') => {
         const fs = require('fs');
         const path = require('path');
 
         if (window.UndoManager) {
-            window.UndoManager.beginTransaction("AI File Changes");
+            window.UndoManager.beginTransaction(checkpointName || "AI File Changes");
             
             if (deleteCmds.length > 0 && isDeleteApproved) {
                 deleteCmds.forEach(c => {

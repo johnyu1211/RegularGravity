@@ -44,11 +44,15 @@ window.showCommandExecutionPanel = function(title, text, onContinue, onCancel) {
         }
     };
 
-    window.activeCommandCleanup = hidePanel;
+    const checkpointIn = document.getElementById('command-checkpoint-name');
+    if (checkpointIn) {
+        checkpointIn.value = '';
+    }
 
     continueBtn.onclick = () => {
+        const cpName = checkpointIn ? checkpointIn.value.trim() : '';
         hidePanel();
-        if (typeof onContinue === 'function') onContinue();
+        if (typeof onContinue === 'function') onContinue(cpName);
     };
 
     cancelBtn.onclick = () => {

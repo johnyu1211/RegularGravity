@@ -179,11 +179,14 @@
                 this.updateButtonUI();
 
                 const summaryText = revertedFiles.length > 0 ? revertedFiles.join(', ') : 'files';
+                const hasLabel = transaction.description && transaction.description !== 'AI File Changes' && transaction.description !== 'AI File Operations';
+                const labelPrefix = hasLabel ? `[${transaction.description}] ` : '';
+
                 if (typeof window.showUserScreenToast === 'function') {
-                    window.showUserScreenToast(`↩ Reverted AI changes: ${summaryText}`, 3500, true);
+                    window.showUserScreenToast(`↩ Reverted to ${labelPrefix}state: ${summaryText}`, 4000, true);
                 }
                 if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    ChatUI.appendBubble('system', `[SYSTEM] ↩ Reverted AI changes for: ${summaryText}`);
+                    ChatUI.appendBubble('system', `[SYSTEM] ↩ Reverted to ${labelPrefix}state (${summaryText})`);
                 }
                 return true;
             } catch(err) {
@@ -230,7 +233,7 @@
                         // File was deleted by AI -> Delete it again
                         if (fs.existsSync(item.targetPath)) {
                             fs.unlinkSync(item.targetPath);
-                            reappliedFiles.push(path.basename(item.targetPath) + ' (deleted)');
+                            reappliedFiles.push(path.basename(item.targetPath) + ' (re-deleted)');
                         }
                     }
 
@@ -256,11 +259,14 @@
                 this.updateButtonUI();
 
                 const summaryText = reappliedFiles.length > 0 ? reappliedFiles.join(', ') : 'files';
+                const hasLabel = transaction.description && transaction.description !== 'AI File Changes' && transaction.description !== 'AI File Operations';
+                const labelPrefix = hasLabel ? `[${transaction.description}] ` : '';
+
                 if (typeof window.showUserScreenToast === 'function') {
-                    window.showUserScreenToast(`↪ Re-applied AI changes: ${summaryText}`, 3500, true);
+                    window.showUserScreenToast(`↪ Redid ${labelPrefix}changes: ${summaryText}`, 4000, true);
                 }
                 if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
-                    ChatUI.appendBubble('system', `[SYSTEM] ↪ Re-applied AI changes for: ${summaryText}`);
+                    ChatUI.appendBubble('system', `[SYSTEM] ↪ Redid ${labelPrefix}changes for: ${summaryText}`);
                 }
                 return true;
             } catch(err) {
@@ -281,13 +287,17 @@
             if (undoBtn) {
                 const count = this.undoStack.length;
                 if (count > 0) {
+                    const topTrans = this.undoStack[this.undoStack.length - 1];
+                    const hasLabel = topTrans && topTrans.description && topTrans.description !== 'AI File Changes' && topTrans.description !== 'AI File Operations';
+                    const labelInfo = hasLabel ? ` to [${topTrans.description}]` : '';
+
                     undoBtn.disabled = false;
                     undoBtn.style.opacity = '1';
                     undoBtn.style.cursor = 'pointer';
                     undoBtn.style.background = '';
                     undoBtn.style.color = '';
                     undoBtn.style.borderColor = '';
-                    undoBtn.title = `Undo Last AI Changes (${count}/${this.maxHistory} in history)`;
+                    undoBtn.title = `Undo${labelInfo} (${count}/${this.maxHistory} in history)`;
                     if (undoBadge) {
                         undoBadge.innerHTML = `<span class="undo-badge-short">${count}</span><span class="undo-badge-full">${count}/${this.maxHistory}</span>`;
                         undoBadge.style.display = 'inline-block';
@@ -313,13 +323,17 @@
             if (redoBtn) {
                 const count = this.redoStack.length;
                 if (count > 0) {
+                    const topRedo = this.redoStack[this.redoStack.length - 1];
+                    const hasLabel = topRedo && topRedo.description && topRedo.description !== 'AI File Changes' && topRedo.description !== 'AI File Operations';
+                    const labelInfo = hasLabel ? ` [${topRedo.description}]` : '';
+
                     redoBtn.disabled = false;
                     redoBtn.style.opacity = '1';
                     redoBtn.style.cursor = 'pointer';
                     redoBtn.style.background = '';
                     redoBtn.style.color = '';
                     redoBtn.style.borderColor = '';
-                    redoBtn.title = `Redo Last Undone Changes (${count}/${this.maxHistory} in history)`;
+                    redoBtn.title = `Redo${labelInfo} (${count}/${this.maxHistory} in history)`;
                     if (redoBadge) {
                         redoBadge.innerHTML = `<span class="redo-badge-short">${count}</span><span class="redo-badge-full">${count}/${this.maxHistory}</span>`;
                         redoBadge.style.display = 'inline-block';

@@ -788,7 +788,7 @@ ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, 
             dragOperationsMask: 1
         };
 
-        // 1. dragEnter
+        // 1. dragEnter (Enter target zone)
         await dbg.sendCommand('Input.dispatchDragEvent', {
             type: 'dragEnter',
             x: targetX,
@@ -797,9 +797,9 @@ ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, 
             modifiers: 0
         });
 
-        await new Promise(r => setTimeout(r, 60));
+        await new Promise(r => setTimeout(r, 200));
 
-        // 2. dragOver
+        // 2. dragOver (Hover and dwell on target zone to activate dropzone)
         await dbg.sendCommand('Input.dispatchDragEvent', {
             type: 'dragOver',
             x: targetX,
@@ -808,9 +808,9 @@ ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, 
             modifiers: 0
         });
 
-        await new Promise(r => setTimeout(r, 60));
+        await new Promise(r => setTimeout(r, 300));
 
-        // 3. drop
+        // 3. drop (Release file payload)
         await dbg.sendCommand('Input.dispatchDragEvent', {
             type: 'drop',
             x: targetX,
@@ -818,6 +818,8 @@ ipcMain.handle('cdp-native-file-drop', async (event, { webContentsId, files, x, 
             data: dataPayload,
             modifiers: 0
         });
+
+        await new Promise(r => setTimeout(r, 250));
 
         return { success: true, method: 'dispatchDragEvent' };
     } catch (err) {

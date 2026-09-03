@@ -182,7 +182,7 @@ window.updateDragDropQueueUI = function() {
                     item.status = 'COMPLETED';
                     const remainingPending = window.requestedFilesQueue.filter(f => f.status === 'PENDING');
                     if (remainingPending.length === 0) {
-                        setTimeout(() => handleCloseQueue(), 400);
+                        setTimeout(() => handleCloseQueue(), 800);
                     } else {
                         window.updateDragDropQueueUI();
                     }
@@ -218,17 +218,17 @@ window.updateDragDropQueueUI = function() {
                             });
                             if (dropped) {
                                 setTimeout(() => {
-                                    handleCloseQueue();
                                     if (typeof window.triggerGuestSend === 'function') {
                                         window.triggerGuestSend();
                                     }
-                                }, 300);
+                                    setTimeout(() => handleCloseQueue(), 500);
+                                }, 700);
                             }
                         }
                     } finally {
                         setTimeout(() => {
                             window.autoSendingInProgress = false;
-                        }, 500);
+                        }, 800);
                     }
                 }, 300);
             }

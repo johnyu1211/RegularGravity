@@ -2016,7 +2016,7 @@ function setupUI() {
             const isEmpty = !tree || treeLines.length <= 1 || tree.includes('[Empty folder]') || tree.includes('[WARNING: No files');
             const startPrompt = isEmpty
                 ? `This folder is a completely empty new project. If you understand these instructions, ask the user what project to create.`
-                : `If you understand these instructions, read key entry files for analysis in one line using [CMD: read-file "path1"] [CMD: read-file "path2"].`;
+                : `If you understand these instructions, do NOT read files yet. Acknowledge receipt of the project tree and ask the user what specific task or feature they want to work on, so you only read the files strictly necessary for that task.`;
 
             const webPayload = isEmpty
                 ? `${window.getSystemRulesPrompt(true)}\n\n${startPrompt}`.trim()

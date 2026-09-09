@@ -76,7 +76,7 @@ ${editRule}
    - Relative Paths: All file paths in commands MUST be relative to current project root. NEVER prefix paths with the root folder name itself (e.g. use "js/main.js", NOT "ProjectRoot/js/main.js").
 3. RUN CMD: [CMD: run-command "command"] (build, test, shell).
 4. RESET: Use [CMD: reset-session] if lagging.
-5. WAIT: Explain current state, do not plan, wait for user.
+5. WAIT & MINIMAL CONTEXT: Do NOT read files preemptively. Clarify the user's specific task first, and only read files strictly relevant to that task. Wait for user instructions.
 6. LEAN CODE: Prefer minimal, simple implementation (YAGNI). Avoid over-engineering, redundant wrappers, or unused features. Maintain strict error handling and security.${mcpRule}${emoteRule}`;
 
     if (forceFull) {

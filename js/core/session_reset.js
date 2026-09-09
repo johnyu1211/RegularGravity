@@ -54,7 +54,7 @@ ${treeStr}
 
 ${window.getSystemRulesPrompt(true)}
 
-Check previous session goals and specify next changes or tasks.`;
+Acknowledge the handover and ask the user what specific task or feature to proceed with before reading any files.`;
 
     window.carryOverPrompt = carryOverPrompt;
     window.sessionBriefed = false; // Reset session briefing state

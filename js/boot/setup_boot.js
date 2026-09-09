@@ -320,7 +320,7 @@ async function setupBoot() {
             }
 
             const treeFileName = window.makeSendingMdTreeName();
-            const treeContent = `The current project folder contains the following files:\n${projectTree || '(empty)'}\n\n${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge receipt of the updated project tree.`;
+            const treeContent = `The current project folder contains the following files:\n${projectTree || '(empty)'}\n\n${window.getSystemRulesPrompt(true)}\n\n[SYSTEM] Please acknowledge receipt of the updated project tree. Do not read files automatically; ask the user what specific task or feature they want to work on next.`;
             
             const payload = await window.prepareFilePayload(treeFileName, treeContent);
 

@@ -80,25 +80,110 @@ function addSubTerminal(isInitial = false) {
 }
 
 function switchSubTerminal(id) {
+    if (!id) id = window.activeSubTabId || 'sub-1';
     document.querySelectorAll('.sub-tab').forEach(t => { t.classList.remove('active'); });
     const at = document.getElementById(`tab-${id}`); if (at) { at.classList.add('active'); ensureTabVisible(id); }
     window.activeSubTabId = id; const lw = document.getElementById('terminal-logs-wrapper'), ti = document.getElementById('terminal-main-input');
     if (!lw) return; lw.innerHTML = '';
-    (window.terminalSessions[id].logs || []).forEach(log => {
-        const textContent = log.text.replace(/^(\r?\n)+/, '').replace(/(\r?\n){3,}/g, '\n\n');
-        if (!textContent.trim() && log.type === 'out') return;
-        const line = document.createElement('div');
-        line.innerText = textContent;
-        line.style.width = '100%';
-        line.style.boxSizing = 'border-box';
-        line.style.color = log.type === 'cmd' ? '#3b82f6' : '#cccccc';
-        line.style.fontWeight = log.type === 'cmd' ? '600' : 'normal';
-        line.style.marginTop = log.type === 'cmd' ? '6px' : '0px';
-        line.style.marginBottom = '0px';
-        line.style.whiteSpace = 'pre-wrap';
-        line.style.lineHeight = '1.35';
-        lw.appendChild(line);
-    });
+
+    if (!window.terminalSessions) window.terminalSessions = {};
+    if (!window.terminalSessions[id]) {
+        window.terminalSessions[id] = { logs: [], cwd: window.currentPath || process.cwd(), loading: false, history: [], historyIndex: -1 };
+    }
+    const logs = window.terminalSessions[id].logs || [];
+    let currentBlock = null;
+    let currentOutputContainer = null;
+
+    for (let i = 0; i < logs.length; i++) {
+        const log = logs[i];
+        if (!log) continue;
+        const rawText = (log.text != null) ? String(log.text) : '';
+        const textContent = rawText.replace(/^(\r?\n)+/, '').replace(/(\r?\n){3,}/g, '\n\n');
+        if (!textContent.trim() && log.type === 'out') continue;
+
+        if (log.type === 'cmd') {
+            currentBlock = document.createElement('div');
+            currentBlock.className = 'terminal-cmd-block';
+
+            // Aggregate all 'out' logs that belong to this command until the next 'cmd'
+            let cmdOutput = '';
+            for (let j = i + 1; j < logs.length; j++) {
+                if (logs[j].type === 'cmd') break;
+                if (logs[j].type === 'out') {
+                    cmdOutput += logs[j].text;
+                }
+            }
+            cmdOutput = cmdOutput.replace(/^(\r?\n)+/, '').replace(/(\r?\n)+$/, '');
+
+            const row = document.createElement('div');
+            row.className = 'terminal-cmd-row';
+
+            const cmdText = document.createElement('span');
+            cmdText.className = 'terminal-cmd-text';
+            cmdText.innerText = textContent;
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'terminal-copy-result-btn';
+            copyBtn.innerHTML = `
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg><span>Copy Result</span>
+            `;
+
+            copyBtn.onmousedown = (e) => {
+                e.stopPropagation();
+            };
+
+            copyBtn.onclick = (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const textToCopy = cmdOutput.trim() || '(No output)';
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    copyBtn.classList.add('copied');
+                    copyBtn.innerHTML = `
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg><span>Copied!</span>
+                    `;
+                    if (typeof window.showUserScreenToast === 'function') {
+                        window.showUserScreenToast('Command result copied to clipboard', 2500, true);
+                    }
+                    setTimeout(() => {
+                        copyBtn.classList.remove('copied');
+                        copyBtn.innerHTML = `
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg><span>Copy Result</span>
+                        `;
+                    }, 1500);
+                }).catch(err => {
+                    console.error('Clipboard copy failed:', err);
+                });
+            };
+
+            row.appendChild(cmdText);
+            row.appendChild(copyBtn);
+            currentBlock.appendChild(row);
+
+            currentOutputContainer = document.createElement('div');
+            currentOutputContainer.className = 'terminal-cmd-output';
+            currentBlock.appendChild(currentOutputContainer);
+
+            lw.appendChild(currentBlock);
+        } else {
+            const line = document.createElement('div');
+            line.className = 'terminal-out-line';
+            line.innerText = textContent;
+
+            if (currentOutputContainer) {
+                currentOutputContainer.appendChild(line);
+            } else {
+                lw.appendChild(line);
+            }
+        }
+    }
     
     const prefixEl = document.getElementById('terminal-prompt-prefix');
     if (ti) {

@@ -48,6 +48,14 @@ window.makeSendingMdListDirName = function(dirPath = '.') {
     return _path.join(window.getSendingMdSubDir(), `ListDir_${folderTag}_${timeTag}.${ext}`);
 };
 
+window.makeSendingMdSearchName = function(pattern = '') {
+    const ext = window.getSendingMdExt();
+    const timeTag = window.getSendingMdTimeTag();
+    let sanitizedPattern = (pattern || 'keyword').replace(/[^\w\u3131-\u318E\uAC00-\uD7A3\-]/gi, '_').replace(/_+/g, '_').slice(0, 25);
+    if (!sanitizedPattern) sanitizedPattern = 'search';
+    return _path.join(window.getSendingMdSubDir(), `Search_${sanitizedPattern}_${timeTag}.${ext}`);
+};
+
 window.makeSendingMdBundleName = function(filePaths = []) {
     const ext = window.getSendingMdExt();
     const timeTag = window.getSendingMdTimeTag();

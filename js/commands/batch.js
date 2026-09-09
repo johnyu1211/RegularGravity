@@ -179,6 +179,28 @@ async function executeSearchBatch(searchCmds) {
             }
         });
 
+        if (searchPayload.trim()) {
+            const path = require('path');
+            const firstQuery = searchCmds[0]?.query || 'search';
+            const baseFileName = (typeof window.makeSendingMdSearchName === 'function')
+                ? window.makeSendingMdSearchName(firstQuery)
+                : path.join('gravity_vault', 'SendingMD', `Search_${firstQuery.replace(/[^\w]/g, '_').slice(0, 15)}_${Date.now()}.md`);
+
+            if (typeof window.prepareFilePayload === 'function') {
+                const payload = await window.prepareFilePayload(baseFileName, searchPayload);
+                window.dragDropMode = true;
+                if (typeof window.addFileToRequestedQueue === 'function') {
+                    window.addFileToRequestedQueue(payload.relativePath);
+                }
+                if (typeof window.updateDragDropQueueUI === 'function') {
+                    window.updateDragDropQueueUI();
+                }
+                if (typeof window.showUserScreenToast === 'function') {
+                    window.showUserScreenToast(`Search payload ready in Drag & Drop queue`, 3500, true);
+                }
+            }
+        }
+
         console.log("[Batch] Search batch feedback collected (suppressed from Web AI injection):", searchPayload);
         window.currentBatchFileCount = 0;
         document.getElementById('tab-local-agent')?.click();

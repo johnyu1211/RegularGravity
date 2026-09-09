@@ -73,7 +73,7 @@ function detectAndAskCommand(text) {
             let trimmed = line.trim().replace(/^[`\s]+|[`\s]+$/g, '');
             // Strip leading comment markers like //, /*, <!--, #
             trimmed = trimmed.replace(/^(?:\/\/|\/\*+|<!--+|#)\s*/, '').replace(/(?:\*+\/|-->)$/, '').trim();
-            if (/^(read-file|write-file|edit-file|edit-file-range|read-file-full|read-file-range|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file|reset-session|mcp-call)\b/i.test(trimmed)) {
+            if (/^(read-file|write-file|edit-file|edit-file-range|read-file-full|read-file-range|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|search-file|search|find-keyword|move-file|reset-session|mcp-call)\b/i.test(trimmed)) {
                 foundCmds.push(trimmed);
             }
         }
@@ -81,7 +81,7 @@ function detectAndAskCommand(text) {
 
     // Check if code block starts with a comment-style command
     if (foundCmds.length === 0 && text.includes('```')) {
-        const blockCommentCmdMatch = text.match(/```[a-zA-Z]*\r?\n\s*(?:\/\/|\/\*+|<!--+|#)\s*(?:\[?(?:CMD|REQUEST|COMMAND|EXEC):\s*)?(read-file|write-file|edit-file|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file|mcp-call)\s+(?:"([^"]+)"|'([^']+)'|([^\s\r\n\]]+))/i);
+        const blockCommentCmdMatch = text.match(/```[a-zA-Z]*\r?\n\s*(?:\/\/|\/\*+|<!--+|#)\s*(?:\[?(?:CMD|REQUEST|COMMAND|EXEC):\s*)?(read-file|write-file|edit-file|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|search-file|search|find-keyword|move-file|mcp-call)\s+(?:"([^"]+)"|'([^']+)'|([^\s\r\n\]]+))/i);
         if (blockCommentCmdMatch) {
             const action = blockCommentCmdMatch[1].toLowerCase();
             const p = (blockCommentCmdMatch[2] || blockCommentCmdMatch[3] || blockCommentCmdMatch[4] || '').trim();
@@ -124,7 +124,7 @@ function detectAndAskCommand(text) {
                         break;
                     }
 
-                    const cmdFormatMatch = lineStr.match(/^[`\s]*(read-file|write-file|edit-file|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|move-file|mcp-call)\b\s*(.*)/i);
+                    const cmdFormatMatch = lineStr.match(/^[`\s]*(read-file|write-file|edit-file|delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir|create-dir|create-folder|create-directory|mkdir|run-command|list-dir|search-keyword|search-file|search|find-keyword|move-file|mcp-call)\b\s*(.*)/i);
                     if (cmdFormatMatch) {
                         foundCmds.push(lineStr.replace(/^[`\s]+|[`\s]+$/g, ''));
                         break;
@@ -207,8 +207,10 @@ function detectAndAskCommand(text) {
 
     foundCmds.forEach(cmd => {
         const rawCmd = cmd;
+        cmd = cmd.replace(/^[`\s]+|[`\s]+$/g, '');
+
         if (isBriefing) {
-            if (!cmd.startsWith('read-file') && !cmd.startsWith('list-dir') && !cmd.startsWith('search-keyword') && !cmd.startsWith('mcp-list')) {
+            if (!cmd.startsWith('read-file') && !cmd.startsWith('list-dir') && !cmd.startsWith('search') && !cmd.startsWith('find-keyword') && !cmd.startsWith('mcp-list')) {
                 console.log(`[BriefingShield] Blocked non-read command during briefing: ${cmd}`);
                 return;
             }
@@ -223,7 +225,7 @@ function detectAndAskCommand(text) {
         const deleteMatch = cmd.match(/^(?:delete-file|delete-dir|delete-folder|delete-directory|remove-file|remove-dir|remove-folder|rmdir)\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
         const createDirMatch = cmd.match(/^(?:create-dir|create-folder|create-directory|mkdir)\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
         const runCommandMatch = cmd.match(/^run-command\s+(.*)$/i);
-        const searchKeywordMatch = cmd.match(/^search-keyword\s+(.*)$/i);
+        const searchKeywordMatch = cmd.match(/^(?:search-keyword|search-file|search|find-keyword)\s+(.*)$/i);
         const moveFileMatch = cmd.match(/^move-file\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))$/i);
         const listDirMatch = cmd.match(/^list-dir(?:\s+(.*))?$/i);
         const mcpListMatch = cmd.match(/^mcp-list(?:\s+(?:server=)?["']?([^"'\s]+)["']?)?$/i);
@@ -404,7 +406,7 @@ function detectAndAskCommand(text) {
             if ((pattern.startsWith('"') && pattern.endsWith('"')) || (pattern.startsWith("'") && pattern.endsWith("'"))) {
                 pattern = pattern.slice(1, -1);
             }
-            searchKeywordCmds.push({ pattern: pattern });
+            searchKeywordCmds.push({ pattern: pattern, keyword: pattern });
         } else if (moveFileMatch) {
             const srcPath = (moveFileMatch[1] || moveFileMatch[2] || moveFileMatch[3]).trim();
             const destPath = (moveFileMatch[4] || moveFileMatch[5] || moveFileMatch[6]).trim();

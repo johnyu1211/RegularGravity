@@ -95,12 +95,20 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 return;
             }
 
+            // If only search commands are requested (pure read/search, no modifications), execute immediately without asking modal confirmation
+            const hasActualModifications = (writeCmds.length > 0 || editCmds.length > 0 || createDirCmds.length > 0 || moveCmds.length > 0);
+            if (!hasActualModifications && searchKeywordCmds.length > 0) {
+                isWriteEditApproved = true;
+                runDiskModifications(inheritedCheckpointName);
+                return;
+            }
+
             const displayModify = [
                 ...writeCmds.map(c => `[NEW] ${c.path}`),
                 ...editCmds.map(c => `[MODIFY] ${c.path}`),
                 ...createDirCmds.map(c => `[MKDIR] ${c.path}`),
                 ...moveCmds.map(c => `[MOVE] ${c.src} → ${c.dest}`),
-                ...searchKeywordCmds.map(c => `[SEARCH] ${c.keyword}`)
+                ...searchKeywordCmds.map(c => `[SEARCH] ${c.pattern || c.keyword || ''}`)
             ].join(', ');
 
             const box = ChatUI.appendBubble('system', '');
@@ -440,48 +448,201 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
         if (searchKeywordCmds.length > 0 && isWriteEditApproved) {
             const fs = require('fs');
             const path = require('path');
+            const escapeHtml = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
             for (const c of searchKeywordCmds) {
+                const searchPattern = c.pattern || c.keyword || '';
+                if (!searchPattern) continue;
+
                 const results = [];
+                const supportedExts = [
+                    '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx',
+                    '.json', '.html', '.htm', '.css', '.scss', '.sass', '.less',
+                    '.md', '.txt', '.py', '.java', '.c', '.cpp', '.h', '.hpp',
+                    '.cs', '.go', '.rs', '.vue', '.svelte', '.yaml', '.yml',
+                    '.xml', '.sql', '.sh', '.bat', '.ps1', '.toml', '.ini', '.env'
+                ];
+                const ignoredDirs = new Set([
+                    'node_modules', '.git', 'gravity_vault', 'dist', 'out',
+                    'build', '.next', '.nuxt', '.vscode', '.idea', '.gemini', 'tmp'
+                ]);
+
                 const walk = (dir) => {
-                    const list = fs.readdirSync(dir);
+                    let list = [];
+                    try { list = fs.readdirSync(dir); } catch(e) { return; }
                     for (const file of list) {
+                        if (file.startsWith('.') && file !== '.env') continue;
+                        if (ignoredDirs.has(file)) continue;
                         const fullPath = path.join(dir, file);
-                        if (file === 'node_modules' || file === '.git' || file === '.gemini') continue;
                         try {
                             const stat = fs.statSync(fullPath);
                             if (stat && stat.isDirectory()) {
                                 walk(fullPath);
-                            } else {
+                            } else if (stat && stat.isFile()) {
                                 const ext = path.extname(file).toLowerCase();
-                                if (['.js', '.json', '.html', '.css', '.md', '.txt', '.cs', '.py', '.ts'].includes(ext)) {
+                                if (supportedExts.includes(ext)) {
                                     const content = fs.readFileSync(fullPath, 'utf-8');
-                                    const lines = content.split('\n');
+                                    const lines = content.replace(/\r/g, '').split('\n');
                                     lines.forEach((line, idx) => {
-                                        if (line.toLowerCase().includes(c.pattern.toLowerCase())) {
+                                        if (line.toLowerCase().includes(searchPattern.toLowerCase())) {
                                             const rel = path.relative(window.currentPath || process.cwd(), fullPath);
-                                            results.push({ file: rel, line: idx + 1, text: line.trim() });
+                                            results.push({ file: rel, fullPath: fullPath, line: idx + 1, text: line.trim() });
                                         }
                                     });
                                 }
                             }
                         } catch(e) {}
-                        if (results.length > 50) break;
+                        if (results.length >= 200) break;
                     }
                 };
+
                 try {
                     walk(window.currentPath || process.cwd());
-                    accumulatedFeedback += `[SEARCH RESULTS FOR "${c.pattern}"]: \n`;
+
+                    // Group results by file
+                    const fileGroups = {};
+                    results.forEach(r => {
+                        if (!fileGroups[r.file]) fileGroups[r.file] = [];
+                        fileGroups[r.file].push(r);
+                    });
+                    const matchedFiles = Object.keys(fileGroups);
+
+                    const d = new Date();
+                    const pad = (n) => String(n).padStart(2, '0');
+                    const timeStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+                    // Build markdown payload for SendingMD
+                    let mdContent = `# Search Results: "${searchPattern}" (${timeStr})\n\n`;
+                    mdContent += `Total Matches: ${results.length} across ${matchedFiles.length} file(s)\n\n`;
+
                     if (results.length === 0) {
-                        accumulatedFeedback += `No matches found.\n\n`;
+                        mdContent += `No matches found for "${searchPattern}" in the project workspace.\n\n`;
                     } else {
-                        results.forEach(r => {
-                            accumulatedFeedback += `${r.file}:${r.line}: ${r.text}\n`;
+                        mdContent += `## Summary by File:\n`;
+                        matchedFiles.forEach(f => {
+                            mdContent += `- \`${f}\` (${fileGroups[f].length} match${fileGroups[f].length > 1 ? 'es' : ''})\n`;
                         });
-                        accumulatedFeedback += `\n`;
+                        mdContent += `\n## Matching Lines:\n`;
+                        matchedFiles.forEach(f => {
+                            mdContent += `### \`${f}\` (${fileGroups[f].length} match${fileGroups[f].length > 1 ? 'es' : ''})\n`;
+                            fileGroups[f].forEach(m => {
+                                const sanitizedLine = m.text.replace(/`/g, "'");
+                                mdContent += `- Line ${m.line}: \`${sanitizedLine}\`\n`;
+                            });
+                            mdContent += `\n`;
+                        });
+                        mdContent += `[SYSTEM] Proceed to inspect or analyze the search matches above.\n`;
                     }
-                    ChatUI.appendBubble('system', `[SUCCESS] Searched keyword: ${c.pattern}`);
+
+                    // Prepare file payload in gravity_vault/SendingMD/
+                    const baseFileName = (typeof window.makeSendingMdSearchName === 'function')
+                        ? window.makeSendingMdSearchName(searchPattern)
+                        : path.join('gravity_vault', 'SendingMD', `Search_${searchPattern.replace(/[^\w]/g, '_').slice(0, 15)}_${Date.now()}.md`);
+
+                    const payload = await window.prepareFilePayload(baseFileName, mdContent);
+
+                    // Register to Drag & Drop Queue
+                    window.dragDropMode = true;
+                    if (!window.activeDragDropContinue) {
+                        window.activeDragDropContinue = async () => {};
+                    }
+                    const cleanup = () => {
+                        if (window.activeDragDropCleanup === cleanup) {
+                            window.activeDragDropCleanup = null;
+                            window.activeDragDropContinue = null;
+                        }
+                        window.dragDropMode = false;
+                        window.requestedFilesQueue = [];
+                        if (typeof window.updateDragDropQueueUI === 'function') {
+                            window.updateDragDropQueueUI();
+                        }
+                    };
+                    window.activeDragDropCleanup = cleanup;
+
+                    if (typeof window.refreshTree === 'function') window.refreshTree();
+
+                    if (typeof window.addFileToRequestedQueue === 'function') {
+                        window.addFileToRequestedQueue(payload.relativePath);
+                    }
+
+                    if (typeof window.updateDragDropQueueUI === 'function') {
+                        window.updateDragDropQueueUI();
+                    }
+
+                    accumulatedFeedback += `[SEARCH RESULTS FILE CREATED: ${payload.relativePath}]\n${mdContent}\n\n`;
+
+                    // Render rich UI Card in ChatUI so the user can immediately see where matches occurred!
+                    const box = ChatUI.appendBubble('system', '');
+                    if (box) {
+                        box.style.display = 'block';
+                        const content = box.querySelector('.bubble-content');
+                        if (content) {
+                            if (results.length === 0) {
+                                content.innerHTML = `
+                                    <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text-main); margin-top: 4px;">
+                                        <div style="display: flex; align-items: center; gap: 8px; font-weight: bold; color: #f59e0b; margin-bottom: 4px;">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                            <span>SEARCH RESULTS: "${escapeHtml(searchPattern)}"</span>
+                                        </div>
+                                        <span style="color: var(--text-muted); font-size: 11.5px;">No matches found in the project.</span>
+                                    </div>
+                                `;
+                            } else {
+                                const filesCardsHtml = matchedFiles.map(f => {
+                                    const items = fileGroups[f];
+                                    const linesPreview = items.slice(0, 15).map(m => `
+                                        <div style="display: flex; gap: 8px; margin-bottom: 3px; line-height: 1.35;">
+                                            <span style="color: #eab308; min-width: 42px; flex-shrink: 0; user-select: none;">L${m.line}:</span>
+                                            <span style="color: #e2e8f0; white-space: pre-wrap; word-break: break-all;">${escapeHtml(m.text)}</span>
+                                        </div>
+                                    `).join('');
+                                    const moreNotice = items.length > 15 ? `<div style="color: var(--text-muted); font-size: 10px; margin-top: 4px;">... and ${items.length - 15} more matches in this file</div>` : '';
+
+                                    return `
+                                        <details style="background: rgba(0,0,0,0.22); border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 6px;" open>
+                                            <summary style="padding: 6px 10px; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 600; color: #60a5fa; display: flex; align-items: center; justify-content: space-between; user-select: none; background: rgba(255,255,255,0.02);">
+                                                <span style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+                                                    ${escapeHtml(f)}
+                                                </span>
+                                                <span style="font-size: 10.5px; color: #94a3b8; font-weight: 500; background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 4px; flex-shrink: 0; margin-left: 8px;">
+                                                    ${items.length} match${items.length > 1 ? 'es' : ''}
+                                                </span>
+                                            </summary>
+                                            <div style="padding: 8px 10px; background: rgba(0,0,0,0.18); border-top: 1px solid rgba(255,255,255,0.04); font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+                                                ${linesPreview}
+                                                ${moreNotice}
+                                            </div>
+                                        </details>
+                                    `;
+                                }).join('');
+
+                                content.innerHTML = `
+                                    <div style="background: var(--surface-low); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text-main); margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+                                            <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #38bdf8;">
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                                <span>SEARCH RESULTS: "${escapeHtml(searchPattern)}"</span>
+                                            </div>
+                                            <span style="font-size: 11px; color: #38bdf8; background: rgba(56,189,248,0.12); padding: 2px 8px; border-radius: 4px; font-weight: 600;">
+                                                ${results.length} matches in ${matchedFiles.length} file${matchedFiles.length > 1 ? 's' : ''}
+                                            </span>
+                                        </div>
+                                        <div style="max-height: 260px; overflow-y: auto; padding-right: 4px;">
+                                            ${filesCardsHtml}
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 11px; color: #10b981; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            <span>Payload ready: <strong style="color: #34d399; font-family: 'JetBrains Mono', monospace; font-size: 11px;">${escapeHtml(payload.relativePath)}</strong> (Available in Drag &amp; Drop Queue)</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        }
+                    }
+
                     if (typeof window.showUserScreenToast === 'function') {
-                        window.showUserScreenToast(`Search completed: "${c.pattern}" (${results.length} matches)`, 3500);
+                        window.showUserScreenToast(`Search: "${searchPattern}" (${results.length} matches) - Payload in Queue`, 3500, results.length > 0);
                     }
                 } catch(e) {
                     accumulatedFeedback += `[SEARCH ERROR: ${e.message}]\n`;

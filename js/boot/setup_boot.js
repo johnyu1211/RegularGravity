@@ -1301,6 +1301,48 @@ async function setupBoot() {
     if (typeof window.loadDirectory === 'function' && window.currentPath) {
         window.loadDirectory(window.currentPath);
     }
+
+    // ── Sidebar collapse / expand toggle ──────────────────────────────────
+    const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+    if (sidebarToggleBtn) {
+        const sidebarEl    = document.getElementById('sidebar-left');
+        const resizerEl    = document.getElementById('resizer-left');
+        const toggleIcon   = document.getElementById('sidebar-toggle-icon');
+        let   prevWidth    = sidebarEl ? (sidebarEl.style.width || '320px') : '320px';
+        let   isCollapsed  = false;
+
+        // SVG: collapsed state (panel hidden – left column removed)
+        const svgExpanded = `<rect x="1.5" y="1.5" width="17" height="17" rx="2.5" stroke="currentColor" stroke-width="1.6" fill="none"/><line x1="6.5" y1="1.5" x2="6.5" y2="18.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`;
+        const svgCollapsed = `<rect x="1.5" y="1.5" width="17" height="17" rx="2.5" stroke="currentColor" stroke-width="1.6" fill="none"/><line x1="6.5" y1="1.5" x2="6.5" y2="18.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 2"/>`;
+
+        sidebarToggleBtn.addEventListener('click', () => {
+            if (!sidebarEl) return;
+            if (!isCollapsed) {
+                // Collapse
+                prevWidth = sidebarEl.style.width || '320px';
+                sidebarEl.style.transition = 'width 0.2s ease';
+                sidebarEl.style.width = '0px';
+                sidebarEl.style.overflow = 'hidden';
+                sidebarEl.style.minWidth = '0';
+                if (resizerEl) resizerEl.style.display = 'none';
+                if (toggleIcon) toggleIcon.innerHTML = svgCollapsed;
+                sidebarToggleBtn.style.color = 'var(--primary, #7c9cf5)';
+                isCollapsed = true;
+            } else {
+                // Expand
+                sidebarEl.style.transition = 'width 0.2s ease';
+                sidebarEl.style.width = prevWidth;
+                sidebarEl.style.overflow = '';
+                sidebarEl.style.minWidth = '';
+                if (resizerEl) resizerEl.style.display = '';
+                if (toggleIcon) toggleIcon.innerHTML = svgExpanded;
+                sidebarToggleBtn.style.color = '';
+                isCollapsed = false;
+            }
+            if (typeof syncBrowserView === 'function') syncBrowserView();
+            window.dispatchEvent(new Event('resize'));
+        });
+    }
 }
 
 window.setupBoot = setupBoot;

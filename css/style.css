@@ -2406,3 +2406,20 @@ webview::-webkit-scrollbar-corner {
     -webkit-user-select: text !important;
 }
 
+/* ── Sidebar collapsed state ─────────────────────────────────────── */
+#sidebar-left {
+    transition: width 0.2s ease;
+}
+#sidebar-left.sidebar-collapsed {
+    width: 48px !important;
+    min-width: 48px !important;
+    overflow: hidden !important;
+}
+/* Hide everything inside the sidebar except the top-bar when collapsed */
+#sidebar-left.sidebar-collapsed > *:not(#sidebar-top-bar) {
+    display: none !important;
+}
+/* Also hide the select-project-btn inside top-bar (it sticks out past 48px) */
+#sidebar-left.sidebar-collapsed #select-project-btn {
+    display: none !important;
+}

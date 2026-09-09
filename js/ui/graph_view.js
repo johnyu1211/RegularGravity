@@ -65,40 +65,42 @@
     const fileTree = document.getElementById('file-tree');
     const fileTreeActionBar = document.getElementById('file-tree-action-bar');
 
-    // Open Graph View
-    openBtn.onclick = () => {
-        if (!window.currentPath) {
-            alert("Please select a project folder first!");
-            return;
-        }
-        
-        // Save original width before expanding
-        if (sidebarLeft.style.width && sidebarLeft.style.width !== '35vw') {
-            originalSidebarWidth = sidebarLeft.style.width;
-        }
-        
-        // Modify UI
-        sidebarLeft.style.width = '35vw';
-        if (fileTree) fileTree.style.display = 'none';
-        if (fileTreeActionBar) fileTreeActionBar.style.display = 'none';
+    // Open Graph View (button may not exist if removed from UI)
+    if (openBtn) {
+        openBtn.onclick = () => {
+            if (!window.currentPath) {
+                alert("Please select a project folder first!");
+                return;
+            }
+            
+            // Save original width before expanding
+            if (sidebarLeft.style.width && sidebarLeft.style.width !== '35vw') {
+                originalSidebarWidth = sidebarLeft.style.width;
+            }
+            
+            // Modify UI
+            sidebarLeft.style.width = '35vw';
+            if (fileTree) fileTree.style.display = 'none';
+            if (fileTreeActionBar) fileTreeActionBar.style.display = 'none';
 
-        projectRoot = norm(window.currentPath);
-        currentGraphPath = norm(window.currentPath);
-        
-        // Scan all dependencies once on load
-        scanAllProjectDependencies();
+            projectRoot = norm(window.currentPath);
+            currentGraphPath = norm(window.currentPath);
+            
+            // Scan all dependencies once on load
+            scanAllProjectDependencies();
 
-        modal.style.display = 'flex';
-        resizeCanvas();
-        buildGraph(currentGraphPath);
-        startSimulation();
-
-        setTimeout(() => {
+            modal.style.display = 'flex';
             resizeCanvas();
             buildGraph(currentGraphPath);
-            alpha = 1.0;
-        }, 280);
-    };
+            startSimulation();
+
+            setTimeout(() => {
+                resizeCanvas();
+                buildGraph(currentGraphPath);
+                alpha = 1.0;
+            }, 280);
+        };
+    }
 
     // Close Graph View
     const closeModal = () => {

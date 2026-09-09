@@ -183,6 +183,104 @@ const extractScript = `(function(){
     return toMarkdown(clone).replace(/\\n{3,}/g, "\\n\\n").trim();
 })()`;
 
+// ── DeepSeek-specific extract script ─────────────────────────────────────
+// DeepSeek renders assistant messages in .ds-markdown blocks inside
+// message containers identifiable by [class*="assistant"] or role attributes.
+const extractScriptDeepSeek = `(function(){
+    // DeepSeek selectors - ordered by specificity/reliability
+    const selectors = [
+        '.ds-markdown',
+        '[class*="ds-markdown"]',
+        'div[class*="message-content"]',
+        '[class*="messageContent"]',
+        '[class*="assistant"] .markdown',
+        '[class*="chat-message"]:last-child .markdown',
+        '.markdown'
+    ];
+
+    // Collect all matching elements, pick last one (most recent response)
+    let targetNode = null;
+    for (const sel of selectors) {
+        const nodes = Array.from(document.querySelectorAll(sel));
+        if (nodes.length > 0) {
+            // Filter to last top-level node (not nested inside another match)
+            const tops = nodes.filter(el => !nodes.some(o => o !== el && o.contains(el)));
+            if (tops.length > 0) {
+                targetNode = tops[tops.length - 1];
+                break;
+            }
+        }
+    }
+    if (!targetNode) return "[EXTRACT_FAIL]";
+
+    const clone = targetNode.cloneNode(true);
+    // Remove noise
+    clone.querySelectorAll('button, svg, [class*="copy"], [class*="action"], [class*="toolbar"], [class*="think"], details').forEach(el => el.remove());
+
+    // Simple recursive text→markdown
+    const toMd = (node) => {
+        if (node.nodeType === 3) return node.nodeValue;
+        if (node.nodeType !== 1) return "";
+        const tag = node.tagName.toLowerCase();
+        let ch = ""; node.childNodes.forEach(c => { ch += toMd(c); });
+        switch(tag) {
+            case 'h1': return "\\n# " + ch.trim() + "\\n";
+            case 'h2': return "\\n## " + ch.trim() + "\\n";
+            case 'h3': return "\\n### " + ch.trim() + "\\n";
+            case 'h4': return "\\n#### " + ch.trim() + "\\n";
+            case 'p': return "\\n" + ch.trim() + "\\n";
+            case 'br': return "\\n";
+            case 'strong': case 'b': return "**" + ch.trim() + "**";
+            case 'em': case 'i': return "*" + ch.trim() + "*";
+            case 'li': return "\\n- " + ch.trim();
+            case 'ul': case 'ol': return "\\n" + ch + "\\n";
+            case 'code': {
+                const isBlock = (node.parentNode && node.parentNode.tagName && node.parentNode.tagName.toLowerCase() === 'pre') || ch.includes('\\n');
+                return isBlock ? "\\n\`\`\`\\n" + ch.trim() + "\\n\`\`\`\\n" : "\`" + ch.trim() + "\`";
+            }
+            case 'pre': return "\\n" + ch.trim() + "\\n";
+            case 'blockquote': return "\\n> " + ch.trim().split("\\n").join("\\n> ") + "\\n";
+            case 'th': case 'td': return ch.replace(/\\n/g," ").trim() + " | ";
+            case 'tr': {
+                const isHdr = Array.from(node.children||[]).every(c=>c.tagName.toLowerCase()==='th');
+                const cells = ch.trim();
+                if (isHdr) { const n=node.children.length; return "\\n| "+cells+"\\n| "+Array(n).fill("---").join(" | ")+" |"; }
+                return "\\n| " + cells;
+            }
+            case 'table': return "\\n\\n" + ch.trim() + "\\n\\n";
+            default: return ch;
+        }
+    };
+    return toMd(clone).replace(/\\n{3,}/g,"\\n\\n").trim();
+})()`;
+
+// DeepSeek: detect if AI is still generating (stop button visible)
+const isRespondingScriptDeepSeek = `(() => {
+    const isVisible = el => {
+        if (!el) return false;
+        const s = window.getComputedStyle(el);
+        return el.offsetWidth > 0 && el.offsetHeight > 0 && s.visibility !== 'hidden' && s.opacity !== '0' && s.display !== 'none';
+    };
+    // DeepSeek shows a stop/pause button while generating
+    const stopCandidates = Array.from(document.querySelectorAll('button, [role="button"]')).filter(b => {
+        const label = (b.getAttribute('aria-label') || b.title || b.textContent || '').toLowerCase();
+        return label.includes('stop') || label.includes('pause') || label.includes('중지');
+    });
+    if (stopCandidates.some(b => isVisible(b))) return true;
+    // Also check for any streaming/loading indicator
+    const streamingSelectors = [
+        '[class*="loading"]',
+        '[class*="streaming"]',
+        '[class*="generating"]',
+        '[class*="thinking"]'
+    ];
+    for (const sel of streamingSelectors) {
+        const el = document.querySelector(sel);
+        if (isVisible(el)) return true;
+    }
+    return false;
+})()`;
+
 const cleanGarbage = (t) => {
     if (!t) return "";
     let cleaned = t;
@@ -237,6 +335,27 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
         }
         return null;
     }
+
+    // ── Site detection: pick the right extraction strategy ────────────────
+    const siteUrl = wv.src || '';
+    const isDeepSeek = siteUrl.includes('deepseek.com');
+    const activeExtractScript   = isDeepSeek ? extractScriptDeepSeek   : extractScript;
+    const activeRespondingScript = isDeepSeek ? isRespondingScriptDeepSeek : `(() => {
+        const isVisible = (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            return el.offsetWidth > 0 && el.offsetHeight > 0 && style.visibility !== 'hidden' && style.opacity !== '0' && style.display !== 'none';
+        };
+        const stopBtn = Array.from(document.querySelectorAll('button')).find(b => b.querySelector('svg rect') || (b.getAttribute('aria-label') && (b.getAttribute('aria-label').includes('Stop') || b.getAttribute('aria-label').includes('중지') || b.getAttribute('aria-label').includes('중단'))));
+        if (isVisible(stopBtn)) return true;
+        const typingSelectors = ['impl-loading-indicator', '.result-streaming', 'div[class*="streaming"]'];
+        for (const sel of typingSelectors) {
+            const el = document.querySelector(sel);
+            if (isVisible(el)) return true;
+        }
+        return false;
+    })()`;
+    if (isDeepSeek) console.log('[Monitor] DeepSeek detected — using DeepSeek extraction mode.');
 
     if (webBarCont) {
         webBarCont.style.display = 'block'; webBarCont.style.cursor = 'pointer'; 
@@ -321,7 +440,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
     };
 
     window.activeAiResponding = true;
-    const initialText = cleanGarbage(await safeExecJS(wv, extractScript, ""));
+    const initialText = cleanGarbage(await safeExecJS(wv, activeExtractScript, ""));
     let isGenerating = false;
     let lastText = "";
     let stableCount = 0;
@@ -417,7 +536,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
 
         if (manualAbort) { hideGlobalUI(); return await manualPromise; }
 
-        delta = await safeExecJS(wv, extractScript, "");
+        delta = await safeExecJS(wv, activeExtractScript, "");
         
         if (delta === "[EXTRACT_FAIL]") {
             delta = ""; 
@@ -442,23 +561,7 @@ async function runExperimentalEngine(cmd, msg, statusBub) {
             if (typeof window.updateAiStreamBubble === 'function' && delta.length > 0) {
                 window.updateAiStreamBubble(delta);
             }
-            const isStillResponding = await safeExecJS(wv, `(() => {
-                const isVisible = (el) => {
-                    if (!el) return false;
-                    const style = window.getComputedStyle(el);
-                    return el.offsetWidth > 0 && el.offsetHeight > 0 && style.visibility !== 'hidden' && style.opacity !== '0' && style.display !== 'none';
-                };
-
-                const stopBtn = Array.from(document.querySelectorAll('button')).find(b => b.querySelector('svg rect') || (b.getAttribute('aria-label') && (b.getAttribute('aria-label').includes('Stop') || b.getAttribute('aria-label').includes('중지') || b.getAttribute('aria-label').includes('중단'))));
-                if (isVisible(stopBtn)) return true;
-                
-                const typingSelectors = ['impl-loading-indicator', '.result-streaming', 'div[class*="streaming"]'];
-                for (const sel of typingSelectors) {
-                    const el = document.querySelector(sel);
-                    if (isVisible(el)) return true;
-                }
-                return false;
-            })()`, false);
+            const isStillResponding = await safeExecJS(wv, activeRespondingScript, false);
 
             if (isStillResponding) {
                 stableCount = 0;

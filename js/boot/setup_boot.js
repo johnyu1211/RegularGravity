@@ -1308,10 +1308,12 @@ async function setupBoot() {
         const sidebarEl  = document.getElementById('sidebar-left');
         const resizerEl  = document.getElementById('resizer-left');
         const toggleIcon = document.getElementById('sidebar-toggle-icon');
+        const topBarEl   = document.getElementById('sidebar-top-bar');
 
         const COLLAPSED_W = '48px';
         let prevWidth   = '320px';
         let isCollapsed = false;
+        let hiddenChildren = []; // tracks [{el, prevDisplay}]
 
         const svgExpanded  = `<rect x="1.5" y="1.5" width="17" height="17" rx="2.5" stroke="currentColor" stroke-width="1.6" fill="none"/><line x1="6.5" y1="1.5" x2="6.5" y2="18.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`;
         const svgCollapsed = `<rect x="1.5" y="1.5" width="17" height="17" rx="2.5" stroke="currentColor" stroke-width="1.6" fill="none"/><line x1="13.5" y1="1.5" x2="13.5" y2="18.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`;
@@ -1319,26 +1321,36 @@ async function setupBoot() {
         sidebarToggleBtn.addEventListener('click', () => {
             if (!sidebarEl) return;
             if (!isCollapsed) {
-                // ── COLLAPSE: capture current computed width before shrinking ──
+                // ── COLLAPSE ──
+                // 1. Save exact rendered width
                 prevWidth = sidebarEl.offsetWidth + 'px';
+                // 2. Hide all direct children except the top bar
+                hiddenChildren = [];
+                Array.from(sidebarEl.children).forEach(child => {
+                    if (child === topBarEl) return;
+                    hiddenChildren.push({ el: child, prevDisplay: child.style.display });
+                    child.style.display = 'none';
+                });
+                // 3. Shrink sidebar
                 sidebarEl.style.transition = 'width 0.2s ease';
-                sidebarEl.style.width      = COLLAPSED_W;
-                sidebarEl.style.minWidth   = COLLAPSED_W;
-                sidebarEl.style.maxWidth   = COLLAPSED_W;
-                sidebarEl.style.overflow   = 'hidden';
-                if (resizerEl) resizerEl.style.pointerEvents = 'none';
+                sidebarEl.style.width = COLLAPSED_W;
+                sidebarEl.style.overflow = 'hidden';
+                if (resizerEl) resizerEl.style.display = 'none';
                 if (toggleIcon) toggleIcon.innerHTML = svgCollapsed;
                 sidebarToggleBtn.style.color = 'var(--primary, #7c9cf5)';
                 isCollapsed = true;
             } else {
-                // ── EXPAND: restore to exact pre-collapse width ──
+                // ── EXPAND ──
+                // 1. Restore sidebar width first
                 sidebarEl.style.transition = 'width 0.2s ease';
-                sidebarEl.style.width      = prevWidth;
-                sidebarEl.style.minWidth   = '';
-                sidebarEl.style.maxWidth   = '';
-                // Clear overflow after animation finishes
-                setTimeout(() => { sidebarEl.style.overflow = ''; }, 220);
-                if (resizerEl) resizerEl.style.pointerEvents = '';
+                sidebarEl.style.width = prevWidth;
+                sidebarEl.style.overflow = '';
+                // 2. Restore hidden children
+                hiddenChildren.forEach(({ el, prevDisplay }) => {
+                    el.style.display = prevDisplay;
+                });
+                hiddenChildren = [];
+                if (resizerEl) resizerEl.style.display = '';
                 if (toggleIcon) toggleIcon.innerHTML = svgExpanded;
                 sidebarToggleBtn.style.color = '';
                 isCollapsed = false;

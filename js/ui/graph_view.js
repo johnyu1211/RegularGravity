@@ -52,7 +52,7 @@
     const openBtn = document.getElementById('graph-view-btn');
     const breadcrumbs = document.getElementById('graph-breadcrumbs');
 
-    if (!modal || !canvas || !openBtn) return;
+    if (!modal || !canvas) return;
 
     // Path normalizer helper (Forces absolute paths with forward slashes)
     function norm(p) {

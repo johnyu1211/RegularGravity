@@ -1305,62 +1305,40 @@ async function setupBoot() {
     // ── Sidebar collapse / expand toggle ──────────────────────────────────
     const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
     if (sidebarToggleBtn) {
-        const sidebarEl    = document.getElementById('sidebar-left');
-        const resizerEl    = document.getElementById('resizer-left');
-        const toggleIcon   = document.getElementById('sidebar-toggle-icon');
-        // Elements to hide when collapsed (everything except the top button row)
-        const innerEls = [
-            'path-display-container',
-            'graph-view-btn',
-            'reveal-btn',
-            'path-copy-btn',
-            'file-tree-action-bar',
-            'file-tree',
-            'graph-view-modal',
-            'select-project-btn',
-        ].map(id => document.getElementById(id)).filter(Boolean);
-        // Also hide the section-header path bar row itself
-        const pathBarRow = sidebarEl ? sidebarEl.querySelector('.section-header') : null;
+        const sidebarEl  = document.getElementById('sidebar-left');
+        const resizerEl  = document.getElementById('resizer-left');
+        const toggleIcon = document.getElementById('sidebar-toggle-icon');
 
-        let   prevWidth    = sidebarEl ? (sidebarEl.style.width || '320px') : '320px';
-        let   isCollapsed  = false;
-        const COLLAPSED_W  = '48px';
+        const COLLAPSED_W = '48px';
+        let prevWidth   = '320px';
+        let isCollapsed = false;
 
-        // SVG icons for the two states
         const svgExpanded  = `<rect x="1.5" y="1.5" width="17" height="17" rx="2.5" stroke="currentColor" stroke-width="1.6" fill="none"/><line x1="6.5" y1="1.5" x2="6.5" y2="18.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`;
         const svgCollapsed = `<rect x="1.5" y="1.5" width="17" height="17" rx="2.5" stroke="currentColor" stroke-width="1.6" fill="none"/><line x1="13.5" y1="1.5" x2="13.5" y2="18.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`;
 
         sidebarToggleBtn.addEventListener('click', () => {
             if (!sidebarEl) return;
-            const topBar = document.getElementById('sidebar-top-bar');
             if (!isCollapsed) {
-                // ── COLLAPSE ──
-                prevWidth = sidebarEl.style.width || '320px';
+                // ── COLLAPSE: capture current computed width before shrinking ──
+                prevWidth = sidebarEl.offsetWidth + 'px';
                 sidebarEl.style.transition = 'width 0.2s ease';
-                sidebarEl.style.width = COLLAPSED_W;
-                sidebarEl.style.minWidth = COLLAPSED_W;
-                sidebarEl.style.overflow = 'hidden';
-                // Center toggle btn in the strip
-                if (topBar) { topBar.style.justifyContent = 'center'; topBar.style.padding = '12px 8px 4px 8px'; }
-                // Hide inner content
-                innerEls.forEach(el => { el.dataset.sbHidden = el.style.display || ''; el.style.display = 'none'; });
-                if (pathBarRow) { pathBarRow.dataset.sbHidden = pathBarRow.style.display || ''; pathBarRow.style.display = 'none'; }
-                if (resizerEl) resizerEl.style.display = 'none';
+                sidebarEl.style.width      = COLLAPSED_W;
+                sidebarEl.style.minWidth   = COLLAPSED_W;
+                sidebarEl.style.maxWidth   = COLLAPSED_W;
+                sidebarEl.style.overflow   = 'hidden';
+                if (resizerEl) resizerEl.style.pointerEvents = 'none';
                 if (toggleIcon) toggleIcon.innerHTML = svgCollapsed;
                 sidebarToggleBtn.style.color = 'var(--primary, #7c9cf5)';
                 isCollapsed = true;
             } else {
-                // ── EXPAND ──
+                // ── EXPAND: restore to exact pre-collapse width ──
                 sidebarEl.style.transition = 'width 0.2s ease';
-                sidebarEl.style.width = prevWidth;
-                sidebarEl.style.minWidth = '';
-                sidebarEl.style.overflow = '';
-                // Restore top bar layout
-                if (topBar) { topBar.style.justifyContent = ''; topBar.style.padding = '12px 8px 4px 8px'; }
-                // Restore inner content
-                innerEls.forEach(el => { el.style.display = el.dataset.sbHidden || ''; delete el.dataset.sbHidden; });
-                if (pathBarRow) { pathBarRow.style.display = pathBarRow.dataset.sbHidden || ''; delete pathBarRow.dataset.sbHidden; }
-                if (resizerEl) resizerEl.style.display = '';
+                sidebarEl.style.width      = prevWidth;
+                sidebarEl.style.minWidth   = '';
+                sidebarEl.style.maxWidth   = '';
+                // Clear overflow after animation finishes
+                setTimeout(() => { sidebarEl.style.overflow = ''; }, 220);
+                if (resizerEl) resizerEl.style.pointerEvents = '';
                 if (toggleIcon) toggleIcon.innerHTML = svgExpanded;
                 sidebarToggleBtn.style.color = '';
                 isCollapsed = false;

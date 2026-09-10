@@ -877,7 +877,60 @@
                         </div>
                     </div>
 
-                    <!-- AI Shortcut Bar is now the bottom taskbar of inspector-browser-hub (below) -->
+                    <!-- AI Shortcut Bar (full-width, settings inside) -->
+                    <div id="ai-shortcut-bar" style="
+                        position: absolute; bottom: 16px; left: 16px; right: 16px;
+                        display: flex; align-items: center;
+                        background: rgba(255,255,255,0.05);
+                        border-radius: 40px;
+                        padding: 5px 8px;
+                        backdrop-filter: blur(12px);
+                        -webkit-backdrop-filter: blur(12px);
+                        box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+                        z-index: 10;
+                        box-sizing: border-box;
+                    ">
+                        <!-- Favicon buttons (left side) -->
+                        <div style="display:flex; align-items:center; gap:4px; flex:1;">
+                            <!-- Gemini -->
+                            <button id="shortcut-gemini" title="Open Gemini" style="
+                                display:flex; align-items:center; justify-content:center;
+                                width:32px; height:32px; background:none; border:none;
+                                border-radius:50%; padding:3px; cursor:pointer;
+                                transition:background 0.15s; outline:none;
+                            "
+                            onmouseover="this.style.background='rgba(255,255,255,0.12)';"
+                            onmouseout="this.style.background='none';">
+                                <img src="https://www.google.com/s2/favicons?domain=gemini.google.com&sz=32" width="22" height="22" style="border-radius:4px; pointer-events:none;" alt="Gemini"/>
+                            </button>
+                            <!-- DeepSeek -->
+                            <button id="shortcut-deepseek" title="Open DeepSeek" style="
+                                display:flex; align-items:center; justify-content:center;
+                                width:32px; height:32px; background:none; border:none;
+                                border-radius:50%; padding:3px; cursor:pointer;
+                                transition:background 0.15s; outline:none;
+                            "
+                            onmouseover="this.style.background='rgba(255,255,255,0.12)';"
+                            onmouseout="this.style.background='none';">
+                                <img src="https://www.google.com/s2/favicons?domain=chat.deepseek.com&sz=32" width="22" height="22" style="border-radius:4px; pointer-events:none;" alt="DeepSeek"/>
+                            </button>
+                        </div>
+
+                        <!-- Settings icon (right side, inside the bar) -->
+                        <div id="open-discovery-settings" title="Discovery Keywords Setting" style="
+                            display:flex; align-items:center; justify-content:center;
+                            width:32px; height:32px; border-radius:50%; cursor:pointer;
+                            color:var(--text-muted); transition:background 0.15s, color 0.15s;
+                            flex-shrink:0;
+                        "
+                        onmouseover="this.style.background='rgba(255,255,255,0.12)'; this.style.color='#fff';"
+                        onmouseout="this.style.background='none'; this.style.color='var(--text-muted)';">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06-.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Discovery Settings Modal -->
@@ -953,55 +1006,7 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- AI Shortcut Taskbar (hub home only — hidden when webview is active) -->
-                <div id="ai-shortcut-bar" style="
-                    position: absolute; bottom: 0; left: 0; right: 0;
-                    height: 48px;
-                    display: flex; align-items: center;
-                    padding: 0 10px;
-                    background: var(--surface-lowest);
-                    border-top: 1px solid var(--border-color);
-                    box-sizing: border-box;
-                    gap: 2px;
-                    z-index: 5;
-                ">
-                    <!-- Favicon buttons (left) -->
-                    <div style="display:flex; align-items:center; gap:2px; flex:1;">
-                        <button id="shortcut-gemini" title="Open Gemini" style="
-                            display:flex; align-items:center; justify-content:center;
-                            width:36px; height:36px; background:none; border:none;
-                            border-radius:8px; cursor:pointer; transition:background 0.15s; outline:none;
-                        "
-                        onmouseover="this.style.background='rgba(255,255,255,0.1)';"
-                        onmouseout="this.style.background='none';">
-                            <img src="https://www.google.com/s2/favicons?domain=gemini.google.com&sz=32" width="20" height="20" style="border-radius:4px; pointer-events:none;" alt="Gemini"/>
-                        </button>
-                        <button id="shortcut-deepseek" title="Open DeepSeek" style="
-                            display:flex; align-items:center; justify-content:center;
-                            width:36px; height:36px; background:none; border:none;
-                            border-radius:8px; cursor:pointer; transition:background 0.15s; outline:none;
-                        "
-                        onmouseover="this.style.background='rgba(255,255,255,0.1)';"
-                        onmouseout="this.style.background='none';">
-                            <img src="https://www.google.com/s2/favicons?domain=chat.deepseek.com&sz=32" width="20" height="20" style="border-radius:4px; pointer-events:none;" alt="DeepSeek"/>
-                        </button>
-                    </div>
-                    <!-- Settings icon (right) -->
-                    <div id="open-discovery-settings" title="Discovery Keywords Setting" style="
-                        display:flex; align-items:center; justify-content:center;
-                        width:36px; height:36px; border-radius:8px; cursor:pointer;
-                        color:var(--text-muted); transition:background 0.15s, color 0.15s; flex-shrink:0;
-                    "
-                    onmouseover="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff';"
-                    onmouseout="this.style.background='none'; this.style.color='var(--text-muted)';">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06-.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                        </svg>
-                    </div>
-                </div>
-
+                
                 <div id="agent-hub-webview" style="display: none; height: calc(100% - 44px); flex-direction: column; overflow: hidden;">
                     <div id="agent-hub-nav" style="display: flex; height: 44px; min-height: 44px; background: var(--surface-lowest); align-items: center; padding: 0 10px; gap: 10px; box-sizing: border-box;">
                         <span id="back-agent" style="display:flex; align-items:center; cursor:pointer; color:var(--text-muted); transition: color 0.2s;" title="Back" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='var(--text-muted)'">

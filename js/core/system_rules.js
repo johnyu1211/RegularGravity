@@ -71,9 +71,10 @@ ${serverListStr}
 1. SEARCH: Never guess names/roles. Use [CMD: search-keyword "query"] or [CMD: list-dir "path"] first. Read multiple files in one turn: [CMD: read-file "path1"] [CMD: read-file "path2"].
 2. FILE OPS: Always read-file before editing. Use [CMD: read-file "path"] directly to read files. Never read and write/edit in the same turn. After write/edit, wait for system feedback, and only request read-file/verify in the next turn to check correctness.
 ${editRule}
-   - Delete/CreateDir/Move: [CMD: delete-file "path"] (files & folders), [CMD: delete-dir "path"], [CMD: create-dir "path"], [CMD: move-file "src" "dest"].
+- Delete/CreateDir/Move: [CMD: delete-file "path"] (files & folders), [CMD: delete-dir "path"], [CMD: create-dir "path"], [CMD: move-file "src" "dest"].
    - Sequential Output: When outputting or generating multiple files sequentially across turns, state the progress status below the code block (\`\`\`) at the end of your explanation text: Current: "path/fileA.ext", Next: "path/fileB.ext" (1/12).
    - Relative Paths: All file paths in commands MUST be relative to current project root. NEVER prefix paths with the root folder name itself (e.g. use "js/main.js", NOT "ProjectRoot/js/main.js").
+   - Syntax Check: Whenever possible and if the relevant toolchain/runtime is available in the environment (e.g., \`node -c "path"\`, \`python -m py_compile "path"\`, linter, or compiler dry-run), run a quick syntax verification command via [CMD: run-command "command"] right after modifying or creating code files to catch syntax errors early.
 3. RUN CMD: [CMD: run-command "command"] (build, test, shell).
 4. RESET: Use [CMD: reset-session] if lagging.
 5. WAIT & MINIMAL CONTEXT: Do NOT read files preemptively. Clarify the user's specific task first, and only read files strictly relevant to that task. Wait for user instructions.

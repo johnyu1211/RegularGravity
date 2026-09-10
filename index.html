@@ -866,7 +866,7 @@
 
             <!-- Agent Hub -->
             <div id="inspector-browser-hub" class="agent-hub-view" style="display: flex; height: 100%; width: 100%; flex-direction: column; background: var(--bg-color); position: relative; z-index: 1;">
-                <div id="agent-hub-home" style="display: flex; flex-direction: column; flex: 1; min-height: 0; position: relative;">
+                <div id="agent-hub-home" style="display: flex; flex-direction: column; height: calc(100% - 48px); position: relative;">
                     <div id="agent-hub-grid" style="padding: 30px; display: flex; flex-wrap: wrap; gap: 25px; justify-content: center; align-content: flex-start; overflow-y: auto; flex: 1;">
                         <!-- Agent Cards will be injected here -->
                         <div class="agent-app" id="add-agent-app-card">
@@ -956,13 +956,15 @@
 
                 <!-- AI Shortcut Taskbar (hub home only — hidden when webview is active) -->
                 <div id="ai-shortcut-bar" style="
-                    height: 48px; min-height: 48px;
+                    position: absolute; bottom: 0; left: 0; right: 0;
+                    height: 48px;
                     display: flex; align-items: center;
                     padding: 0 10px;
                     background: var(--surface-lowest);
                     border-top: 1px solid var(--border-color);
                     box-sizing: border-box;
                     gap: 2px;
+                    z-index: 5;
                 ">
                     <!-- Favicon buttons (left) -->
                     <div style="display:flex; align-items:center; gap:2px; flex:1;">

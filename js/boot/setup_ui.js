@@ -1730,7 +1730,7 @@ function setupUI() {
         };
 
         const switchAgentBtn = document.getElementById('menu-switch-agent');
-        if (switchAgentBtn) { switchAgentBtn.onclick = () => { document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex'; if (typeof window.setInspectorBorderState === 'function') window.setInspectorBorderState(false); if (typeof window.setTaskbarActionsVisible === 'function') window.setTaskbarActionsVisible(false); }; }
+        if (switchAgentBtn) { switchAgentBtn.onclick = () => { document.getElementById('agent-hub-webview').style.display = 'none'; document.getElementById('agent-hub-home').style.display = 'flex'; const sb = document.getElementById('ai-shortcut-bar'); if (sb) sb.style.display = 'flex'; if (typeof window.setInspectorBorderState === 'function') window.setInspectorBorderState(false); if (typeof window.setTaskbarActionsVisible === 'function') window.setTaskbarActionsVisible(false); }; }
 
         const taskbarHomeBtn = document.getElementById('taskbar-home-btn');
         if (taskbarHomeBtn) {
@@ -1740,6 +1740,7 @@ function setupUI() {
                 e.stopPropagation();
                 document.getElementById('agent-hub-webview').style.display = 'none';
                 document.getElementById('agent-hub-home').style.display = 'flex';
+                const sb = document.getElementById('ai-shortcut-bar'); if (sb) sb.style.display = 'flex';
                 if (typeof window.setInspectorBorderState === 'function') window.setInspectorBorderState(false);
                 if (typeof window.setTaskbarActionsVisible === 'function') window.setTaskbarActionsVisible(false);
                 if (typeof syncBrowserView === 'function') syncBrowserView();

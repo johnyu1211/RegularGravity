@@ -466,6 +466,7 @@ async function setupBoot() {
         if (existingWv && existingWv.src === u) {
             if (!isSilentBoot) {
                 document.getElementById('agent-hub-home').style.display = 'none';
+                const _sb = document.getElementById('ai-shortcut-bar'); if (_sb) _sb.style.display = 'none';
                 document.getElementById('agent-hub-webview').style.display = 'flex';
                 if (typeof window.setInspectorBorderState === 'function') window.setInspectorBorderState(true);
                 window.setTaskbarActionsVisible(true);
@@ -490,6 +491,7 @@ async function setupBoot() {
 
         if (!isSilentBoot) {
             document.getElementById('agent-hub-home').style.display = 'none';
+            document.getElementById('ai-shortcut-bar').style.display = 'none';
             document.getElementById('agent-hub-webview').style.display = 'flex';
             if (typeof window.setInspectorBorderState === 'function') window.setInspectorBorderState(true);
             window.setTaskbarActionsVisible(true);

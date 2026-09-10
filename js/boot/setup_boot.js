@@ -1342,3 +1342,34 @@ async function setupBoot() {
 }
 
 window.setupBoot = setupBoot;
+
+// ── AI Shortcut Bar handlers ───────────────────────────────────────────────
+(function initAiShortcutBar() {
+    const geminiBtn   = document.getElementById('shortcut-gemini');
+    const deepseekBtn = document.getElementById('shortcut-deepseek');
+
+    const launchUrl = (url) => {
+        if (typeof window.launchWebAgent !== 'function') return;
+        // Find existing agent card for this URL, or create a temp appData
+        const grid = document.getElementById('agent-hub-grid');
+        if (grid) {
+            const existing = Array.from(grid.querySelectorAll('.agent-app:not(#add-agent-app-card)')).find(card => {
+                return card.dataset && card.dataset.url && card.dataset.url.includes(new URL(url).hostname);
+            });
+            if (existing && existing._appData) {
+                window.launchWebAgent(existing._appData, false);
+                return;
+            }
+        }
+        // Fallback: launch with minimal appData
+        window.launchWebAgent({ url }, false);
+    };
+
+    if (geminiBtn) {
+        geminiBtn.addEventListener('click', () => launchUrl('https://gemini.google.com/app'));
+    }
+    if (deepseekBtn) {
+        deepseekBtn.addEventListener('click', () => launchUrl('https://chat.deepseek.com'));
+    }
+})();
+

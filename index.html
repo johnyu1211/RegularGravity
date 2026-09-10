@@ -866,7 +866,7 @@
 
             <!-- Agent Hub -->
             <div id="inspector-browser-hub" class="agent-hub-view" style="display: flex; height: 100%; width: 100%; flex-direction: column; background: var(--bg-color); position: relative; z-index: 1;">
-                <div id="agent-hub-home" style="display: flex; flex-direction: column; height: calc(100% - 48px); position: relative;">
+                <div id="agent-hub-home" style="display: flex; flex-direction: column; flex: 1; min-height: 0; position: relative;">
                     <div id="agent-hub-grid" style="padding: 30px; display: flex; flex-wrap: wrap; gap: 25px; justify-content: center; align-content: flex-start; overflow-y: auto; flex: 1;">
                         <!-- Agent Cards will be injected here -->
                         <div class="agent-app" id="add-agent-app-card">
@@ -881,7 +881,6 @@
                 </div>
 
                 <!-- Discovery Settings Modal -->
-                <div id="discovery-settings-modal" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 100; align-items: center; justify-content: center;">
                 <div id="discovery-settings-modal" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 100; align-items: center; justify-content: center;">
                     <div style="width: 85%; max-width: 380px; background: var(--surface-color); border: 1px solid var(--border-color); padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; display: flex; flex-direction: column; gap: 15px; font-family: 'DM Sans', sans-serif; box-sizing: border-box;">
                         

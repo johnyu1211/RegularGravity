@@ -319,3 +319,126 @@ window.executeCommandInTerminal = function(cmdStr) {
         setTimeout(() => { tI.focus(); }, 150);
     }
 };
+
+// ── Ctrl+C: interrupt active terminal process ─────────────────────────────
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'c') {
+        const terminalPopover = document.getElementById('terminal-popover');
+        if (!terminalPopover || terminalPopover.style.display === 'none') return;
+        // Only fire if the terminal area is focused (not a text editor)
+        const active = document.activeElement;
+        const isInTerminal = terminalPopover.contains(active) || active === document.body;
+        if (!isInTerminal) return;
+        const tabId = window.activeSubTabId;
+        if (!tabId) return;
+        e.stopPropagation();
+        try { ipcRenderer.send('interrupt-terminal', tabId); } catch(err) {}
+        // Append visual feedback in the terminal log
+        if (window.terminalSessions && window.terminalSessions[tabId]) {
+            window.terminalSessions[tabId].logs.push({ type: 'out', text: '^C\n' });
+            if (typeof switchSubTerminal === 'function') switchSubTerminal(tabId);
+        }
+    }
+}, true);
+
+// ── Tab right-click: rename ───────────────────────────────────────────────
+function attachTabContextMenu(tabEl, id) {
+    tabEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Remove existing context menu
+        document.querySelectorAll('.terminal-tab-ctx-menu').forEach(m => m.remove());
+
+        const menu = document.createElement('div');
+        menu.className = 'terminal-tab-ctx-menu';
+        menu.style.cssText = `
+            position: fixed; z-index: 99999;
+            left: ${e.clientX}px; top: ${e.clientY}px;
+            background: #1e1e1e; border: 1px solid #3a3a3a;
+            border-radius: 6px; padding: 4px 0;
+            min-width: 120px; box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+            font-family: 'DM Sans', sans-serif; font-size: 12px;
+        `;
+        const renameItem = document.createElement('div');
+        renameItem.textContent = '탭 이름 변경';
+        renameItem.style.cssText = 'padding: 7px 14px; cursor: pointer; color: #ddd;';
+        renameItem.onmouseenter = () => { renameItem.style.background = 'rgba(255,255,255,0.08)'; };
+        renameItem.onmouseleave = () => { renameItem.style.background = ''; };
+        renameItem.onclick = () => {
+            menu.remove();
+            startTabRename(tabEl, id);
+        };
+        menu.appendChild(renameItem);
+        document.body.appendChild(menu);
+
+        // Close on outside click
+        const closeMenu = () => { menu.remove(); document.removeEventListener('click', closeMenu); };
+        setTimeout(() => document.addEventListener('click', closeMenu), 0);
+    });
+}
+
+function startTabRename(tabEl, id) {
+    // Extract current label (strip close button)
+    const currentLabel = tabEl.childNodes[0]?.textContent?.trim() || `tab ${id}`;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentLabel;
+    input.style.cssText = `
+        background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25);
+        color: #fff; font-size: 11px; font-family: inherit;
+        padding: 1px 4px; border-radius: 3px; outline: none;
+        width: 80px; max-width: 120px;
+    `;
+    // Replace tab content temporarily
+    const closeSpan = tabEl.querySelector('.sub-close');
+    tabEl.innerHTML = '';
+    tabEl.appendChild(input);
+    if (closeSpan) tabEl.appendChild(closeSpan);
+    input.focus();
+    input.select();
+
+    const commit = () => {
+        const newName = input.value.trim() || currentLabel;
+        // Rebuild tab label + close button
+        const closeBtn = document.createElement('span');
+        closeBtn.className = 'sub-close';
+        closeBtn.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+        tabEl.innerHTML = newName + ' ';
+        tabEl.appendChild(closeBtn);
+        tabEl.onclick = (ev) => {
+            if (ev.target.classList.contains('sub-close')) closeSubTerminal(id);
+            else switchSubTerminal(id);
+        };
+        attachTabContextMenu(tabEl, id);
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = currentLabel; input.blur(); }
+    });
+}
+
+// Patch addSubTerminal to attach context menu on new tabs
+const _origAddSubTerminal = addSubTerminal;
+window._patchedTabContextMenu = true;
+// Observe new tabs being added and attach context menu
+const _tabObserver = new MutationObserver((mutations) => {
+    mutations.forEach(m => {
+        m.addedNodes.forEach(node => {
+            if (node.nodeType === 1 && node.classList?.contains('sub-tab')) {
+                const id = node.id?.replace('tab-', '');
+                if (id) attachTabContextMenu(node, id);
+            }
+        });
+    });
+});
+const _tabsContainer = document.getElementById('terminal-sub-tabs');
+if (_tabsContainer) {
+    _tabObserver.observe(_tabsContainer, { childList: true });
+    // Also attach to existing tabs
+    _tabsContainer.querySelectorAll('.sub-tab').forEach(tab => {
+        const id = tab.id?.replace('tab-', '');
+        if (id) attachTabContextMenu(tab, id);
+    });
+}

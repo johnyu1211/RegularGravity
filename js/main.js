@@ -635,6 +635,16 @@ ipcMain.on('close-terminal-tab', (event, tabId) => {
     killTerminalProcess(tabId);
 });
 
+// Send Ctrl+C interrupt to a running process without killing the shell
+ipcMain.on('interrupt-terminal', (event, tabId) => {
+    const proc = terminalProcesses[tabId];
+    if (proc && proc.stdin && proc.stdin.writable) {
+        try {
+            proc.stdin.write('\x03'); // ETX = Ctrl+C
+        } catch(e) {}
+    }
+});
+
 function killAllTerminalProcesses() {
     Object.keys(terminalProcesses).forEach(tabId => {
         killTerminalProcess(tabId);

@@ -1514,6 +1514,10 @@ function setupUI() {
             if (tId === window.activeSubTabId && typeof switchSubTerminal === 'function') {
                 switchSubTerminal(window.activeSubTabId);
             }
+            // ── AI output callback: notify waiting run-command promises ──
+            if (window._terminalOutputCallbacks && window._terminalOutputCallbacks[tId]) {
+                window._terminalOutputCallbacks[tId](cleanTxt);
+            }
         }
     });
 

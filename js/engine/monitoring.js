@@ -184,40 +184,81 @@ const extractScript = `(function(){
 })()`;
 
 // ── DeepSeek-specific extract script ─────────────────────────────────────
-// DeepSeek renders assistant messages in .ds-markdown blocks inside
-// message containers identifiable by [class*="assistant"] or role attributes.
+// Robust multi-strategy approach: class → role/data-attr → innerText fallback
 const extractScriptDeepSeek = `(function(){
-    // DeepSeek selectors - ordered by specificity/reliability
-    const selectors = [
-        '.ds-markdown',
+    const isVisible = el => {
+        if (!el) return false;
+        const s = window.getComputedStyle(el);
+        return el.offsetWidth > 0 && el.offsetHeight > 0 && s.display !== 'none' && s.visibility !== 'hidden';
+    };
+
+    // Strategy 1: Semantic role/data attribute selectors (most stable)
+    const roleSelectors = [
+        '[data-message-author-role="assistant"]',
+        '[data-role="assistant"]',
+        '[aria-label*="assistant"]',
         '[class*="ds-markdown"]',
-        'div[class*="message-content"]',
-        '[class*="messageContent"]',
-        '[class*="assistant"] .markdown',
-        '[class*="chat-message"]:last-child .markdown',
-        '.markdown'
+        '.ds-markdown',
+        '[class*="markdown-body"]',
+        '[class*="message"][class*="assistant"]'
     ];
 
-    // Collect all matching elements, pick last one (most recent response)
     let targetNode = null;
-    for (const sel of selectors) {
-        const nodes = Array.from(document.querySelectorAll(sel));
-        if (nodes.length > 0) {
-            // Filter to last top-level node (not nested inside another match)
-            const tops = nodes.filter(el => !nodes.some(o => o !== el && o.contains(el)));
-            if (tops.length > 0) {
-                targetNode = tops[tops.length - 1];
+    for (const sel of roleSelectors) {
+        try {
+            const nodes = Array.from(document.querySelectorAll(sel)).filter(isVisible);
+            if (nodes.length > 0) {
+                targetNode = nodes[nodes.length - 1];
                 break;
             }
+        } catch(e) {}
+    }
+
+    // Strategy 2: Find last message block that looks like AI response
+    // DeepSeek alternates user/assistant rows in a chat container
+    if (!targetNode) {
+        const chatContainers = [
+            '#chat-container',
+            '[class*="chat-content"]',
+            '[class*="messages"]',
+            '[class*="conversation"]',
+            'main'
+        ];
+        for (const sel of chatContainers) {
+            const container = document.querySelector(sel);
+            if (!container) continue;
+            // Get all direct message children, pick last visible substantial one
+            const children = Array.from(container.querySelectorAll(':scope > div, :scope > article'));
+            for (let i = children.length - 1; i >= 0; i--) {
+                const el = children[i];
+                const txt = el.innerText || '';
+                // Heuristic: AI response is usually longer and contains code/markdown patterns
+                if (txt.length > 50 && isVisible(el)) {
+                    // Skip if it looks like user input (short, no code)
+                    const looksLikeAssistant = txt.includes('\\n') || txt.length > 200 || /\`\`\`|#{1,3} |\\*\\*/.test(txt);
+                    if (looksLikeAssistant) {
+                        targetNode = el;
+                        break;
+                    }
+                }
+            }
+            if (targetNode) break;
         }
     }
+
     if (!targetNode) return "[EXTRACT_FAIL]";
 
     const clone = targetNode.cloneNode(true);
-    // Remove noise
-    clone.querySelectorAll('button, svg, [class*="copy"], [class*="action"], [class*="toolbar"], [class*="think"], details').forEach(el => el.remove());
+    // Remove UI noise: buttons, icons, thinking blocks, copy buttons
+    clone.querySelectorAll([
+        'button', 'svg', '[role="button"]',
+        '[class*="copy"]', '[class*="action"]', '[class*="toolbar"]',
+        '[class*="think"]', '[class*="reasoning"]',
+        'details', 'summary',
+        '[class*="footer"]', '[class*="vote"]', '[class*="feedback"]'
+    ].join(', ')).forEach(el => el.remove());
 
-    // Simple recursive text→markdown
+    // Recursive HTML→Markdown converter
     const toMd = (node) => {
         if (node.nodeType === 3) return node.nodeValue;
         if (node.nodeType !== 1) return "";
@@ -248,10 +289,12 @@ const extractScriptDeepSeek = `(function(){
                 return "\\n| " + cells;
             }
             case 'table': return "\\n\\n" + ch.trim() + "\\n\\n";
+            case 'script': case 'style': case 'noscript': return "";
             default: return ch;
         }
     };
-    return toMd(clone).replace(/\\n{3,}/g,"\\n\\n").trim();
+    const result = toMd(clone).replace(/\\n{3,}/g,"\\n\\n").trim();
+    return result.length > 0 ? result : "[EXTRACT_FAIL]";
 })()`;
 
 // DeepSeek: detect if AI is still generating (stop button visible)

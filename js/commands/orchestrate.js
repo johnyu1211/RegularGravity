@@ -696,16 +696,21 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                 if (window.activeCommandCleanup) window.activeCommandCleanup();
                 
                 for (const c of runCommandCmds) {
-                    ChatUI.appendBubble('system', `[SYSTEM] Dispatched to internal terminal: ${c.command}\n`);
+                    ChatUI.appendBubble('system', `[SYSTEM] Running: ${c.command}\n`);
                     
-                    if (typeof window.executeCommandInTerminal === 'function') {
+                    let output = '';
+                    if (typeof window.executeCommandAndCapture === 'function') {
+                        output = await window.executeCommandAndCapture(c.command);
+                    } else if (typeof window.executeCommandInTerminal === 'function') {
                         window.executeCommandInTerminal(c.command);
                     }
                     
                     if (typeof window.showUserScreenToast === 'function') {
-                        window.showUserScreenToast(`Executed in Terminal: "${c.command}"`, 3500, true);
+                        window.showUserScreenToast(`Executed: "${c.command}"`, 3500, true);
                     }
-                    accumulatedFeedback += `[COMMAND DISPATCHED TO INTERNAL TERMINAL]: "${c.command}"\n(The command has been launched in the interactive terminal window.)\n\n`;
+
+                    const truncated = output.length > 3000 ? output.substring(0, 3000) + '\n...(truncated)' : output;
+                    accumulatedFeedback += `[CMD RESULT] "${c.command}":\n\`\`\`\n${truncated || '(no output)'}\n\`\`\`\n\n`;
                 }
                 await submitConsolidatedFeedback(accumulatedFeedback);
             };
@@ -738,10 +743,74 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
 
 async function submitConsolidatedFeedback(feedback) {
     if (!feedback.trim()) return;
-    console.log("[Orchestrate] Command feedback collected (suppressed from Web AI injection):", feedback);
     window.currentBatchFileCount = 0;
+
+    // Inject CMD result as system context into local AI chat
+    const hasCmdResult = feedback.includes('[CMD RESULT]');
+    if (hasCmdResult) {
+        try {
+            if (typeof ChatUI !== 'undefined' && typeof ChatUI.appendBubble === 'function') {
+                ChatUI.appendBubble('system-info', feedback.trim());
+            }
+            // Auto-feed into local agent input for AI to process
+            const localInput = document.getElementById('local-agent-input');
+            if (localInput) {
+                const msg = `[SYSTEM FEEDBACK - CMD Results]\n${feedback.trim()}\n\n(위 명령어 실행 결과를 확인하고 필요한 경우 다음 작업을 진행하세요.)`;
+                localInput.value = msg;
+                localInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        } catch(e) {
+            console.error('[submitConsolidatedFeedback] error:', e);
+        }
+    }
+
     document.getElementById('tab-local-agent')?.click();
 }
+
+/**
+ * Executes a terminal command and captures its output for AI feedback.
+ * Returns the captured stdout/stderr as a string (max 8 seconds wait).
+ */
+window.executeCommandAndCapture = function(cmdStr) {
+    return new Promise((resolve) => {
+        if (typeof window.executeCommandInTerminal !== 'function') {
+            resolve('(터미널 실행 함수 없음)');
+            return;
+        }
+
+        const tabId = window.activeSubTabId || 'sub-1';
+        window._terminalOutputCallbacks = window._terminalOutputCallbacks || {};
+
+        let captured = '';
+        let settled = false;
+        let idleTimer = null;
+
+        const settle = () => {
+            if (settled) return;
+            settled = true;
+            delete window._terminalOutputCallbacks[tabId];
+            clearTimeout(idleTimer);
+            resolve(captured.trim());
+        };
+
+        // Collect output chunks; settle after 1.5s of no new output (idle)
+        const resetIdle = () => {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(settle, 1500);
+        };
+
+        window._terminalOutputCallbacks[tabId] = (chunk) => {
+            captured += chunk;
+            resetIdle();
+        };
+
+        // Hard timeout: 8 seconds max
+        setTimeout(settle, 8000);
+
+        window.executeCommandInTerminal(cmdStr);
+        resetIdle(); // start idle timer immediately
+    });
+};
 
 window.orchestrateCommands = orchestrateCommands;
 window.submitConsolidatedFeedback = submitConsolidatedFeedback;

@@ -126,6 +126,12 @@ window.parseSearchReplaceBlocks = (text, filePath = null) => {
             fullMatchStr = text.substring(sIdx - fenceBeforeMatch[0].length, rIdx + rLen + fenceAfterMatch[0].length);
         }
 
+        // Guard: skip blocks with empty search — avoids inserting diff markers at file top
+        if (!stripFences(searchVal)) {
+            pos = rIdx + rLen;
+            continue;
+        }
+
         blocks.push({
             fullMatch: fullMatchStr,
             search: stripFences(searchVal),

@@ -709,8 +709,12 @@ async function orchestrateCommands(writeCmds, editCmds, deleteCmds, moveCmds, li
                         window.showUserScreenToast(`Executed: "${c.command}"`, 3500, true);
                     }
 
-                    const truncated = output.length > 3000 ? output.substring(0, 3000) + '\n...(truncated)' : output;
-                    accumulatedFeedback += `[CMD RESULT] "${c.command}":\n\`\`\`\n${truncated || '(no output)'}\n\`\`\`\n\n`;
+                    const MAX_LINES = 50; // 마지막 50줄만 전달 (서버 로그 등 대응)
+                    const lines = output.split('\n');
+                    const tail = lines.length > MAX_LINES
+                        ? `...(앞 ${lines.length - MAX_LINES}줄 생략)\n` + lines.slice(-MAX_LINES).join('\n')
+                        : output;
+                    accumulatedFeedback += `[CMD RESULT] "${c.command}":\n\`\`\`\n${tail || '(no output)'}\n\`\`\`\n\n`;
                 }
                 await submitConsolidatedFeedback(accumulatedFeedback);
             };
